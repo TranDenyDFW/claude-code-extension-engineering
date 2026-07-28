@@ -1,0 +1,107 @@
+# MCP servers
+
+> Claude Code 2.1.219, verified 2026-07-26.
+
+
+A governed connection to an external system: tools, resources and prompts served over a defined protocol with its own authentication and permission boundary. Choose it over a shell command when the connection needs credentials, a schema, or an audit boundary.
+
+**Layer:** Tools &middot; **Classification:** primitive &middot; **Status:** stable
+
+## Selection and ownership
+
+- Use MCP for external data or actions; use a Skill for reusable knowledge and workflow [OFFICIAL]
+- Name the server owner, data owner, operator, and credential owner [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Prefer built-in tools when they already satisfy the requirement [ANTHROPIC RECOMMENDATION]  [ANTHROPIC]
+
+## Trust boundary
+
+- Treat server descriptions, tool output, resources, and remote prompts as untrusted input [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Separate read, write, destructive, and administrative capabilities [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- A cloned repository cannot approve its own project MCP servers in current trust behavior [OFFICIAL]
+
+## Transports
+
+- stdio for local child-process servers [OFFICIAL]
+- HTTP for remote request/response servers and OAuth [OFFICIAL]
+- WebSocket for persistent bidirectional push; lacks the HTTP CLI/OAuth path [OFFICIAL]
+- SSE is deprecated; prefer HTTP where available [OFFICIAL] [DEPRECATED]
+
+## Protocol primitives
+
+- Tools expose model-invoked actions with schemas [OFFICIAL]
+- Resources expose addressable data [OFFICIAL]
+- Prompts expose reusable server-provided prompt templates [OFFICIAL]
+- Capability discovery and list-changed notifications keep catalogs synchronized [OFFICIAL]
+
+## Schema and naming
+
+- Use stable, specific names and bounded descriptions [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Validate every input; return structured, size-bounded output [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Expose pagination, filters, dry-run, idempotency, and stable identifiers where the domain requires them [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- No anyOf, oneOf, or allOf at the ROOT of a tool input schema: from v2.1.195 it is flattened and branch requirements become description prose, earlier versions skip the tool entirely - validate the combination server-side. Tool descriptions and server instructions truncate at 2KB each [OFFICIAL]  [v2.1.195]
+
+## Authentication and secrets
+
+- Use OAuth or scoped credentials appropriate to the transport [OFFICIAL]
+- Never embed secrets in map examples, committed config, prompts, or tool output [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Constrain redirect URIs, token audience, scopes, storage, rotation, and revocation [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- .mcp.json expands ${VAR} and ${VAR:-default} in command, args, env, url, and headers; an unset variable with no default does not fail the load, it passes the literal through with only a warning in claude mcp list [OFFICIAL]
+
+## Permissions and destructive actions
+
+- Project servers require trust and approval according to scope [OFFICIAL]
+- Classify tools by read/write/destructive consequence [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Require explicit confirmation and recoverable design for destructive operations [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- _meta anthropic/requiresUserInteraction: true forces a prompt on every call, overriding acceptEdits, auto, bypassPermissions and allow rules (v2.1.199+); in dontAsk mode the call is denied and under a permission-prompt tool an allow converts to a deny, so a flagged tool cannot run headless [OFFICIAL]  [v2.1.199]
+
+## Context and cost
+
+- Tool names load first; schemas can be deferred through tool search [OFFICIAL]
+- Bound output and avoid returning data the task did not request [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Use resources or files for large data rather than flooding the conversation [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Output warns at 10,000 tokens and is capped at 25,000 by default (MAX_MCP_OUTPUT_TOKENS); a server can raise one tool via _meta anthropic/maxResultSizeChars up to 500,000 chars, with no effect on image content. alwaysLoad exempts a server from tool-search deferral but then BLOCKS startup on its connect, up to 5 s [OFFICIAL]
+
+## Reliability
+
+- Define startup, connection, request, idle, and wall-clock timeouts [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Retry only transient and idempotent operations with bounded backoff [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Preserve last-known catalogs when refresh fails in current behavior [OFFICIAL]
+- Expose degraded status and recovery actions [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- A main-conversation MCP call still running at two minutes moves to a background task and returns as a notification (v2.1.212+); subagent, IDE, and non-interactive calls are never backgrounded [OFFICIAL]  [v2.1.212]
+
+## Packaging
+
+- Plugins may bundle MCP server definitions [OFFICIAL]
+- Keep secrets outside the plugin and use portable root placeholders [OFFICIAL]
+- Test clean install, trust prompt, authentication, upgrade, and rollback [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- After testing a project-scoped trust prompt, re-arm it with claude mcp reset-project-choices [OFFICIAL]
+
+## Anti-patterns
+
+- One giant server with broad ambient authority
+- Unbounded output or vague schemas
+- Secrets in arguments, logs, map notes, or committed files
+- Retries on destructive non-idempotent actions
+- Assuming transport errors can enforce a policy decision
+- Using draft MCP features as released behavior
+
+## Model Context Protocol (MCP)
+
+- Contract-test schemas and error shapes
+- Transport-test startup, reconnect, timeout, and shutdown
+- Permission-test allow, ask, deny, and destructive boundaries
+- Security-test prompt injection, confused deputy, token scope, and data exfiltration
+- Integration-test Skills, Hooks, Subagents, Agent Teams, and Plugins that consume the server
+- Definition of Done
+- Owner and trust boundary documented
+- Transport and authentication justified
+- Schemas bounded and validated
+- Permissions and destructive actions tested
+- Reliability and degraded operation tested
+- Context cost measured
+- Released-spec compatibility recorded
+- Clean install and removal proven
+
+## Detail
+
+- A governed integration boundary that connects Claude Code to external tools, resources, prompts, and services.
