@@ -41,9 +41,11 @@ destination. Every comparable repo with meaningful traction ships this manifest.
 leverage item on this list.
 
 **5. Zero GitHub topics, no homepage, no release.**
-`gh repo view --json topics` returns `[]`. Topic pages are how this category gets browsed.
-Candidates: `claude-code`, `claude-code-skills`, `agent-skills`, `anthropic`, `claude`,
-`hooks`, `mcp`, `developer-tools`.
+`gh repo view --json repositoryTopics` returns `null`. Topic pages are how this category gets
+browsed. Candidates: `claude-code`, `claude-code-skills`, `agent-skills`, `anthropic`,
+`claude`, `hooks`, `mcp`, `developer-tools`.
+Note for anyone reproducing this: the field is `repositoryTopics`, not `topics`. On gh 2.88.1
+`--json topics` fails with `Unknown JSON field: "topics"`.
 
 **6. The README leads with the index instead of the payoff.**
 `README.md` opens with the 21-row routing table. The material that justifies the repo is
@@ -68,7 +70,19 @@ Every reference uses `&middot;` in its `**Layer:** ... **Classification:** ...` 
 correctly on GitHub, but it is markup in a file whose main consumer is a model reading raw
 text. A plain separator would be simpler.
 
-**9. `references/compatibility.md` mixes two things.**
+**9. Two answer keys in question set v1 test half their question.**
+`F048` asks for the concurrent subagent limit and its environment variable, and keys only on
+`20 concurrent`. `F057` asks for the MCP output cap and its variable, and keys only on
+`MAX_MCP_OUTPUT_TOKENS`. Split each into two rows in v2. They were not retuned in place,
+because editing a key after the run would invalidate the published numbers.
+
+**10. Tier 1 matches file-wide, not line-wide.**
+An answer key is asserted to appear somewhere in its source file rather than in the passage it
+was written to guard. Where a phrase recurs, a row can survive deletion of the passage it
+protects. `F104` and `F078` are the known instances. Scoping each key to a section would close
+this.
+
+**11. `references/compatibility.md` mixes two things.**
 It holds both the profile-contract schema and the actual per-feature version gates. Readers
 almost always want the second. Splitting or reordering would put the version table first.
 

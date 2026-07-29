@@ -87,6 +87,17 @@ penalising the arm that could not know the source's exact phrasing.
 | `references/context-modes.md` | 5 | 100% | 100% |
 | `references/output-styles.md` | 4 | 50% | 100% |
 | `references/testing.md` | 4 | 25% | 100% |
+| `references/lsp.md` | 3 | 33% | 100% |
+| `references/compatibility.md` | 3 | 100% | 100% |
+| `references/claude-md-family.md` | 3 | 33% | 100% |
+| `references/selection.md` | 3 | 67% | 100% |
+| `references/themes.md` | 3 | 100% | 100% |
+| `references/agent-sdk.md` | 3 | 100% | 100% |
+| `references/composition-cards.md` | 2 | 100% | 100% |
+| `references/auto-memory.md` | 2 | 50% | 100% |
+| `references/sources.md` | 1 | 0% | 100% |
+
+All 21 source files, all 135 rows. Nothing is truncated out of this table.
 
 ---
 
@@ -111,9 +122,17 @@ Stated plainly, because a benchmark that only advertises its wins is not evidenc
   move the numbers. Tier 1 is the reproducible layer.
 - **The question set is written by the same author as the content.** It tests what the content
   covers. It cannot reveal a topic that was never written about.
-- **`references/context-modes.md` scored 100% in both arms.** On this evidence that file adds
-  nothing a model does not already know, and it is a candidate for cutting by the same standard
-  `references/composition-cards.md` sets.
+- **Five files scored 100% in BOTH arms**, covering 16 of the 135 rows:
+  `references/context-modes.md`, `references/compatibility.md`, `references/themes.md`,
+  `references/agent-sdk.md` and `references/composition-cards.md`. On this evidence those files
+  add nothing a model does not already know, and they are candidates for cutting by the same
+  standard `references/composition-cards.md` itself sets. This is the least flattering number
+  here and it is the one most worth acting on.
+- **Two answer keys test only half of a two-part question.** `F048` asks for the concurrent
+  subagent limit and its environment variable but keys only on the limit; `F057` asks for the
+  MCP output cap and its environment variable but keys only on the variable. Both were left
+  as-is rather than retuned after the run, because changing a key post-hoc would invalidate the
+  numbers above. They are logged in `IMPROVEMENTS.md` for question set v2.
 
 ---
 
