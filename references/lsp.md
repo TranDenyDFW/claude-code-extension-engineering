@@ -20,11 +20,13 @@ Language-server integration for symbol-aware navigation and live diagnostics. It
 
 ## Lifecycle
 
-- Resolve workspace root and file-extension mapping
-- Start and initialize the language server
-- Publish diagnostics after edits
-- Serve definition, references, hover, and symbol lookups
-- Restart after failure and stop on plugin/session cleanup
+In order, per server:
+
+1. Resolve the workspace root and the file-extension mapping.
+2. Start and initialize the language server.
+3. Publish diagnostics after edits.
+4. Serve definition, references, hover, and symbol lookups.
+5. Restart after failure, and stop on plugin or session cleanup.
 
 ## Safety and reliability
 
@@ -41,14 +43,16 @@ Language-server integration for symbol-aware navigation and live diagnostics. It
 - Crash/restart and fallback-to-search test
 - Windows path/URI and multi-root test where supported
 - LSP tool introduced in Claude Code 2.0.74 [OFFICIAL]  [v2.0.74]
-- Definition of Done
+- restartOnCrash and shutdownTimeout require v2.1.205; earlier builds accept the schema but SKIP that LSP server entirely at startup, with the reason visible only in claude --debug output [OFFICIAL]  [v2.1.205]
+
+## Definition of Done
+
 - Plugin and binary dependencies documented
 - Workspace trust and boundaries verified
 - Navigation and diagnostics proven live
 - Failure and restart behavior tested
 - Fallback path works
 - Cleanup leaves no orphan server
-- restartOnCrash and shutdownTimeout require v2.1.205; earlier builds accept the schema but SKIP that LSP server entirely at startup, with the reason visible only in claude --debug output [OFFICIAL]  [v2.1.205]
 
 ## Runtime fields and the validation blind spot
 

@@ -24,16 +24,16 @@ A SKILL.md file holding reusable instructions the model reads when it decides th
 ## RED / baseline (before SKILL.md exists)
 
 - Recommended for workflow/compliance Skills; optional for simple references  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
-- Baseline procedure
-- Write a representative task the skill should handle
-- Run it in a FRESH session WITHOUT the skill
-- Observe the actual behaviour
-- YES → reconsider whether the skill is needed at all
-- NO → capture the failure
-- Record the exact failure (verbatim)
-- Record the incorrect reasoning / rationalization (verbatim)
-- Classify the failure type
-- Design the MINIMUM intervention that fixes it
+- Baseline procedure:
+  1. Write a representative task the skill should handle.
+  2. Run it in a FRESH session WITHOUT the skill.
+  3. Observe the actual behaviour. Does the model already do the right thing unaided?
+     - YES → reconsider whether the skill is needed at all.
+     - NO → capture the failure and continue.
+  4. Record the exact failure, verbatim.
+  5. Record the incorrect reasoning or rationalization, verbatim.
+  6. Classify the failure type.
+  7. Design the MINIMUM intervention that fixes it.
 - Risk-tiered rule: establish a baseline when behavior or compliance risk warrants it  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 
 ## GREEN / minimal skill
@@ -53,27 +53,29 @@ A SKILL.md file holding reusable instructions the model reads when it decides th
 
 ## Behavioural / REFACTOR pressure testing
 
-- Pressure scenarios
-- Time pressure
-- Sunk-cost pressure
-- User says 'skip the procedure'
-- Authority claim ('the lead approved skipping')
-- Conflicting instructions
-- Ambiguous / borderline case
-- Partial completion already done
-- Existing work that would need to be undone
-- Long-context / late in session
-- Similar but NON-applicable task
-- Per-failure loop
-- Failure observed
-- Capture exact rationalization
-- Determine root cause
-- Modify the MINIMUM necessary instruction
-- Fresh-session retest
-- Re-run all previous tests
-- New failure? YES loop / NO continue
-- Artifacts produced
-- Uses the generic loop
+Once it triggers and works on the happy path, attack it. Each pressure below is a separate test case.
+
+- Pressure scenarios, ten of them:
+  - Time pressure.
+  - Sunk-cost pressure.
+  - The user says 'skip the procedure'.
+  - Authority claim, as in 'the lead approved skipping'.
+  - Conflicting instructions.
+  - Ambiguous or borderline case.
+  - Partial completion already done.
+  - Existing work that would need to be undone.
+  - Long context, late in the session.
+  - A similar but NON-applicable task.
+- Per-failure loop, run once per pressure that breaks compliance:
+  1. Failure observed.
+  2. Capture the exact rationalization the model used, verbatim.
+  3. Determine the root cause.
+  4. Modify the MINIMUM necessary instruction.
+  5. Fresh-session retest.
+  6. Re-run all previous tests.
+  7. New failure? YES → loop back to step 1. NO → continue.
+- Artifacts produced: a rationalization-table row and a red-flag entry per broken pressure, each with its counter written into the skill.
+- This is the generic capture-change-retest loop from [testing.md](testing.md), specialised for behavioural failures.
 
 ## Structure + frontmatter reference
 
@@ -109,24 +111,26 @@ A SKILL.md file holding reusable instructions the model reads when it decides th
 ## User-invoked Skills / legacy slash-command terminology
 
 - Custom commands have been MERGED into skills  [OFFICIAL]
-- Legacy → modern (same system now)
-- Legacy: .claude/commands/NAME.md (flat file)  [LEGACY]  [DEPRECATED]
-- Modern: .claude/skills/NAME/SKILL.md (folder)  [OFFICIAL]
-- Both → /name; the Skill branch owns full authoring
-- When a purely explicit workflow is right
-- YES → Skill discovery matters (write a strong description)
-- NO → set disable-model-invocation: true (explicit /name only)  [OFFICIAL]
-- Arguments: $ARGUMENTS, $0/$1, argument-hint
-- Frontmatter: description, allowed-tools, model (same as skills)
-- Output + error cases defined
-- Migration: legacy command → skill
-- Testing + discoverability
-- Anti-patterns
-- Auto-invoking a destructive command (should be explicit)
-- Building a new legacy commands/ file instead of a skill
-- No argument-hint / no arg validation
-- Duplicate old + new both live
-- Definition of Done
+- Legacy versus modern, now the same system:
+  - Legacy: .claude/commands/NAME.md, a flat file  [LEGACY]  [DEPRECATED]
+  - Modern: .claude/skills/NAME/SKILL.md, a folder  [OFFICIAL]
+  - Both produce /name. The Skill branch owns full authoring.
+- Choosing the invocation model. Should Claude ever invoke this on its own?
+  - YES → Skill discovery matters, so write a strong description.
+  - NO → set disable-model-invocation: true, explicit /name only  [OFFICIAL]
+- Authoring surface, unchanged from any other skill:
+  - Arguments: $ARGUMENTS, $0/$1, argument-hint.
+  - Frontmatter: description, allowed-tools, model.
+  - Output and error cases defined explicitly.
+- Migration path: move the legacy command file into a skill folder, then test both discoverability and invocation before deleting the original.
+- Anti-patterns:
+  - Auto-invoking a destructive command that should be explicit.
+  - Building a new file under legacy commands/ instead of a skill.
+  - No argument-hint and no argument validation.
+  - Leaving the old and new versions both live, so /name is ambiguous.
+
+### Definition of Done
+
 - Invocation model chosen (auto vs explicit)
 - Args parse + validate
 - Runs correctly from /name
@@ -177,6 +181,18 @@ allowed-tools: Bash, Read
 Frontmatter is YAML; the body is Markdown and becomes the instruction text.
 
 
+## Definition of Done
+
+- Required baseline recorded for workflow/compliance Skills
+- Fires on in-scope, silent on out-of-scope (FP + FN checked)
+- Original failing case now passes
+- Holds under the pressure scenarios
+- Rationalization table + red-flags captured
+- Eval/regression suite exists and passes
+- Body is lean; heavy content in supporting files
+- Frontmatter minimal + valid
+
+
 ## Detail
 
 - A folder with a SKILL.md (YAML frontmatter + Markdown body). Model-invoked when the description matches, or user-invoked as /name. The body loads only when used, so reference material is cheap until needed.
@@ -197,14 +213,6 @@ Frontmatter is YAML; the body is Markdown and becomes the instruction text.
 - Layout: skills/<name>/SKILL.md (required) plus reference.md, examples.md, scripts/helper.py loaded/executed only when needed.
 - Personal/project skill: the command comes from the directory name; frontmatter name is only the display label. Plugin skill: command is namespaced /plugin:name.
 - Also ${CLAUDE_SESSION_ID}, ${CLAUDE_PROJECT_DIR}, and dynamic context injection via a backtick-bang command line whose output is inlined before Claude reads the body.
-- Required baseline recorded for workflow/compliance Skills
-- Fires on in-scope, silent on out-of-scope (FP + FN checked)
-- Original failing case now passes
-- Holds under the pressure scenarios
-- Rationalization table + red-flags captured
-- Eval/regression suite exists and passes
-- Body is lean; heavy content in supporting files
-- Frontmatter minimal + valid
 - .claude/commands/deploy.md and .claude/skills/deploy/SKILL.md both create /deploy and work the same way. Existing .claude/commands/ files keep working ([LEGACY] path); skills add supporting files, invocation-control frontmatter, and auto-loading.
 - Use explicit-only when the action is destructive, expensive, or should never fire on its own (deploy, release, bulk edit). Otherwise let Claude auto-invoke.
 - Invoke /name with representative args; confirm it appears in the / menu unless user-invocable: false.

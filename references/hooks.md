@@ -30,22 +30,22 @@ Code the HARNESS runs on a lifecycle event, independent of the model's judgment.
 - False positive (blocks a safe action)
 - False negative (misses a bad action)
 - Repeated execution (idempotent, fast)
-- Shares the generic test loop
+- Shares the generic capture-change-retest loop in [testing.md](testing.md)
 - Evidence source: matches, exit codes, and full stdout/stderr go to the debug log (claude --debug-file PATH, or ~/.claude/debug/SESSION-ID.txt with --debug, which prints NOTHING to the terminal); CLAUDE_CODE_DEBUG_LOG_LEVEL=verbose adds matcher-level detail [OFFICIAL]
 
 ## Failure safety / guard-the-guard
 
 - A safety hook must not brick Claude Code  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - Pass-path AND block-path both tested (toggle-bad → confirm → fix)
-- Change flow for a hook
-- Hook modification
-- Unit / local test
-- Pass-path test
-- Block-path test
-- Boundary test
-- Failure-mode test (error + timeout)
-- Live Claude Code test
-- Regression suite
+- Change flow for a hook, run in order every time the handler is modified:
+  1. Hook modification.
+  2. Unit or local test, outside Claude Code, driving the handler with fixture JSON on stdin.
+  3. Pass-path test: a safe action still goes through.
+  4. Block-path test: the bad action is actually stopped.
+  5. Boundary test.
+  6. Failure-mode test, covering both a handler error and a timeout.
+  7. Live Claude Code test, in a real session.
+  8. Regression suite.
 - A hook is not tamper-proof: disableAllHooks: true switches every hook off and there is no per-hook disable; only managed-level settings can disable managed hooks, and allowManagedHooksOnly blocks user, project, and plugin hooks [OFFICIAL]
 
 ## Exit codes
@@ -167,6 +167,27 @@ non-zero, fails open, and blocks nothing while looking installed. Parse in your 
 
 - A guard that inspects what it is guarding reads tool_input (for example tool_input.command on Bash); a reaction to a result reads tool_response. tool_name, tool_input and tool_use_id are EVENT-SPECIFIC, so confirm them for the event you are wiring instead of assuming one shape.  [v2.1.219]
 
+## Common failure modes / anti-patterns
+
+- Wrong lifecycle event: the chosen event cannot block, so the guard is advisory without anyone noticing.
+- Overly broad matcher, so it fires everywhere and gets disabled out of annoyance.
+- Assuming every exit 2 blocks. The effect depends on the event.
+- Assuming exit-0 stdout must always be JSON.
+- Writing decisions to stdout versus stderr incorrectly.
+- No pass-path test, so nobody knows the hook lets safe work through.
+- No failure-mode or timeout test.
+- Treating a runtime failure as a reliable policy block. A crash and a deliberate block are indistinguishable from the outside.
+
+## Definition of Done
+
+- Event actually supports the intended control
+- Matcher scoped precisely
+- Exit-code + JSON contract correct for THIS event
+- PASS and BLOCK paths both proven live
+- FP + FN acceptable
+- Failure posture explicit; runtime errors and timeouts tested
+- Regression suite passes
+
 ## Detail
 
 - Deterministic (or delegated) code the HARNESS runs on a lifecycle event, independent of the model's judgment. Configured in settings.json, plugin hooks/hooks.json, or skill/agent frontmatter. Treat it like software.
@@ -180,22 +201,5 @@ non-zero, fails open, and blocks nothing while looking installed. Parse in your 
 - Timeout defaults: 600 s command/http/mcp_tool, 30 s prompt, 60 s agent; UserPromptSubmit lowers to 30 s, MessageDisplay to 10 s, SessionEnd to 1.5 s (raise per-hook, budget capped at 60 s, or CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS) [OFFICIAL]
 - Coverage hole: EndConversation tool calls skip both PreToolUse and PostToolUse [OFFICIAL]
 - It runs on EVERY matching event. Fail-open on internal error, keep the matcher precise, cap the timeout, and make it fast + idempotent. A malformed hook script can break every turn.  [ENGINEERING]
-- Common failure modes / anti-patterns
-- Wrong lifecycle event (chosen event cannot block)
-- Overly broad matcher (fires everywhere)
-- Assuming every exit 2 blocks
-- Assuming exit-0 stdout must always be JSON
-- Writing decisions to stdout vs stderr incorrectly
-- No pass-path test
-- No failure-mode / timeout test
-- Treating a runtime failure as a reliable policy block
-- Definition of Done
-- Event actually supports the intended control
-- Matcher scoped precisely
-- Exit-code + JSON contract correct for THIS event
-- PASS and BLOCK paths both proven live
-- FP + FN acceptable
-- Failure posture explicit; runtime errors and timeouts tested
-- Regression suite passes
 - Frontmatter hooks: a skill or subagent declares its own hooks under a hooks: key, scoped to that component's lifecycle; in a subagent a declared Stop hook is converted to SubagentStop (different exit-2 contract), and project subagent frontmatter hooks run only after workspace trust is accepted (v2.1.218+) [OFFICIAL] CAVEAT: a RELATIVE command in a frontmatter hook (command: ./x.py) did not fire in testing, because it resolves against the hook process cwd, not the skill directory, and ${CLAUDE_SKILL_DIR} is NOT substituted in hook commands (only in markdown content and allowed-tools). Prefer settings.json wiring with an absolute path until a run proves the frontmatter form fires.  [v2.1.218]
 - Proven wiring recipe: put the hook in settings.json (or a plugin hooks.json) with an ABSOLUTE path and a named interpreter, quoted, exactly like the working examples python "C:\path\x.py" and node "C:\path\x.mjs". Runtime contract: read stdin fd 0 as JSON (session_id, transcript_path which is JSONL, cwd, and agent_id inside a subagent); prefer exit 0 with a JSON decision over exit code 2. Both block on a blocking event, but exit 2 also blocks on events that cannot act on it, and a non-zero exit is indistinguishable from a crash. Reserve exit 2 for the case where you have no stdout channel; feed text back with additionalContext inside hookSpecificOutput on Stop, PostToolUse or UserPromptSubmit [ENGINEERING BEST PRACTICE]  [ENGINEERING]

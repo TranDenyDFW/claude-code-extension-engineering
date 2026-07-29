@@ -9,13 +9,13 @@ Which Claude Code build introduced each capability. Version gates only: this rec
 
 ## Compatibility / Platform Profiles
 
-- Profile contract
-- Stable concept ID
-- Platform and version/channel
-- Support state: Supported | Partial | Legacy | Absent | Unverified
-- Evidence source and verification date
-- Replacement, migration, or adapter note
-- Never infer support from current documentation alone
+- Profile contract. One profile per capability, carrying five fields:
+  - Stable concept ID, which never gets renamed or repurposed when a platform differs.
+  - Platform, plus version or channel.
+  - Support state: Supported | Partial | Legacy | Absent | Unverified.
+  - Evidence source and verification date.
+  - Replacement, migration, or adapter note.
+- Never infer support from current documentation alone. Current docs describe the current build, not the one the reader is running.
 - Claude Code - current documentation [OFFICIAL]
 - Skills: current frontmatter and user/model invocation model - Supported [OFFICIAL]
 - Hooks: 30-event capability matrix spanning five handler types - Supported [OFFICIAL]

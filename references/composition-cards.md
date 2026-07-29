@@ -3,7 +3,7 @@
 > Claude Code 2.1.219, verified 2026-07-26.
 
 
-One row per mechanism pairing. Ownership, failure-boundary and regression guidance is deliberately omitted: baseline testing showed a model produces that unaided. What it cannot produce is the version gates and config filenames below.
+One row per mechanism pairing, compressed to a single line so a combination can be checked without opening both references first. Owner, failure path and regression test stay as a terse per-pairing checklist rather than expanded prose, because baseline testing showed a model generates that guidance unaided; the reason this file exists at all is the part it cannot generate, which is the version gates and config filenames.
 
 
 | Pairing | Card |

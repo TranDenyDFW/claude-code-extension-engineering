@@ -92,7 +92,9 @@ A governed connection to an external system: tools, resources and prompts served
 - Permission-test allow, ask, deny, and destructive boundaries
 - Security-test prompt injection, confused deputy, token scope, and data exfiltration
 - Integration-test Skills, Hooks, Subagents, Agent Teams, and Plugins that consume the server
-- Definition of Done
+
+## Definition of Done
+
 - Owner and trust boundary documented
 - Transport and authentication justified
 - Schemas bounded and validated

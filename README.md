@@ -86,6 +86,62 @@ an older build is unsupported. Check your own build with `claude --version` and 
 Hook events, plugin components and MCP behaviour all move between releases. Re-read the
 changelog after upgrading rather than trusting a dated profile.
 
+## Measured results
+
+`references/testing.md` says to run the task without the extension first and record what
+happens, because a control run is what separates content worth shipping from content the model
+produces unaided. That measurement is applied to this repo, and the numbers are published
+whether or not they flatter it.
+
+**Tier 1, deterministic content coverage.** 160 questions, each with a regex answer key and a
+source file, run by [tests/run-tests.mjs](tests/run-tests.mjs).
+
+| Category | n | Pass | Rate |
+|---|---|---|---|
+| factual | 105 | 105 | 100% |
+| navigation | 15 | 15 | 100% |
+| routing-positive | 15 | 15 | 100% |
+| routing-negative | 10 | 10 | 100% |
+| anti-hallucination | 15 | 15 | 100% |
+| **TOTAL** | **160** | **160** | **100%** |
+
+That 100% is close to tautological on its own, because the keys were extracted from the
+content. It is meaningful for two reasons. `--prove-fail` gutted every source file and
+**150 of 150 positive assertions went red**, so the suite is not self-certifying. And it is a
+regression gate: when a future Claude Code build changes a fact, the affected rows break.
+
+**Tier 2, control versus treatment.** The same 135 non-routing questions asked twice, once by
+subagents with no access to the skill and once by subagents reading only the skill files.
+Identical model, prompts and grading on both sides.
+
+| Category | n | Control | Treatment | Delta |
+|---|---|---|---|---|
+| factual | 105 | 50 (48%) | 105 (100%) | +55 |
+| navigation | 15 | 1 (7%) | 15 (100%) | +14 |
+| anti-hallucination | 15 | 9 (60%) | 15 (100%) | +6 |
+| **TOTAL** | **135** | **60 (44%)** | **135 (100%)** | **+56 points** |
+
+Measured 2026-07-28 against Claude Code 2.1.219 with `claude-opus-5`, question set v1.
+
+**What this does not prove.** The treatment arm read the files the answer keys came from, so
+100% means the content is findable and unambiguous, not that it is *true* of Claude Code. The
+control arm had no web access, so 44% is unaided recall, not what a model with the official
+docs open would score. Tier 2 is model-graded and will not reproduce exactly.
+[references/context-modes.md](references/context-modes.md) scored 100% in **both** arms, which
+is evidence that one file is currently earning nothing.
+
+Full method, the blind adjudication pass, per-file breakdown and all 135 per-question rows are
+in [tests/results.md](tests/results.md). Open gaps are tracked in [IMPROVEMENTS.md](IMPROVEMENTS.md).
+
+### Re-running
+
+```bash
+node tests/run-tests.mjs
+node tests/run-tests.mjs --prove-fail
+```
+
+Tier 1 green and prove-fail red are the release gate.
+
 ## Sources and licensing
 
 [references/sources.md](references/sources.md) carries the full source table: every entry

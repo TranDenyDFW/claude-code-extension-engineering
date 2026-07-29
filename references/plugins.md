@@ -31,13 +31,15 @@ The packaging and distribution boundary. A plugin bundles any combination of ski
 
 ## Release flow
 
-- Components pass their own tests
-- Bundle into plugin
-- Install in a CLEAN environment
-- Integration test
-- Namespace test
-- Upgrade test
-- Rollback test
+Run in order. Each step gates the next.
+
+1. Every component passes its own tests, standalone.
+2. Bundle into the plugin.
+3. Install in a CLEAN environment, not the one you developed in.
+4. Integration test: the components working together.
+5. Namespace test: /plugin-name:skill resolves and collides with nothing.
+6. Upgrade test: install over the previous version.
+7. Rollback test: the previous pinned version is still installable.
 
 ## Distribution + versioning
 
@@ -191,7 +193,9 @@ Pin `ref` (or a `sha`) for reproducible installs; without it teammates track the
 - A distribution/package layer: bundles skills, agents, hooks, MCP + LSP servers, monitors, and settings, versioned and shareable via a marketplace. It is a product lifecycle, not another prompt mechanism.
 - Skill passes its tests, Hook passes its tests, Subagent passes its tests → only then bundle. Debugging a broken bundle is far harder than a proven part.  [ENGINEERING]
 - Only plugin.json goes inside .claude-plugin/.
-- Common failure modes / anti-patterns
+
+## Common failure modes / anti-patterns
+
 - Putting components inside .claude-plugin/ (must be at root)
 - Bundling unproven components
 - No version → every commit is a new version
@@ -200,7 +204,9 @@ Pin `ref` (or a `sha`) for reproducible installs; without it teammates track the
 - Namespace collisions unhandled
 - Shipping instructions in a plugin-root CLAUDE.md - it is NOT loaded as context; ship them as a Skill [OFFICIAL]
 - Adding a custom path key and silently losing the default folder's components  [ENGINEERING]
-- Definition of Done
+
+## Definition of Done
+
 - Manifest valid; components at root
 - Each component passed its own tests first
 - Clean-install integration test passes

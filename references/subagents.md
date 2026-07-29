@@ -79,6 +79,25 @@ The BODY is the system prompt. There is no `prompt` frontmatter field for file-b
 
 - MEASURED on 2.1.219: a subagent CAN spawn its own subagent. A general-purpose subagent had the Agent tool available, spawned an inner agent synchronously, and got a result back with no error. The changelog (depth 3 default) matches; the subagents reference page saying nesting is off does not match this build. Verify on yours: the two official sources still disagree, and the ceiling above depth 2 is unmeasured.  [ENGINEERING] [v2.1.219]
 
+## Common failure modes / anti-patterns
+
+- Reducing the whole mechanism to 'create .claude/agents/name.md' and skipping the routing work.
+- Vague description, which produces either no delegation or over-delegation.
+- Putting the system prompt in a 'prompt' frontmatter field. That is wrong for file-based agents; the body IS the prompt.
+- No tool restriction on a risky agent.
+- Summary too thin to be actionable, so the caller has to redo the work.
+- Duplicating the main agent's work instead of offloading it.
+- Not testing routing separately from behaviour.
+
+## Definition of Done
+
+- Right task routes in; wrong tasks do not
+- System prompt produces correct behaviour
+- Tool limits enforced
+- Context isolation verified
+- Summary quality verified
+- Regression cases pass
+
 ## Detail
 
 - Name collisions resolve managed > --agents CLI > project > user > plugin, so a PROJECT agent beats a same-named USER agent. The winning entry is used whole, with no field merge.  [v2.1.219]
@@ -87,19 +106,4 @@ The BODY is the system prompt. There is no `prompt` frontmatter field for file-b
 - Plugin subagents IGNORE hooks / mcpServers / permissionMode. Project + user .claude/agents/ definitions override same-named plugin agents.
 - Two different problems, tested separately. DESCRIPTION governs ROUTING (does the right task reach this agent?). SYSTEM PROMPT (the body) governs BEHAVIOUR (does it do the job well once it runs?). A great prompt behind a vague description never runs.
 - The nesting default is the one point where two official sources disagree and the documentation cannot settle it: verify on the installed build before relying on either.
-- Common failure modes / anti-patterns
-- Reducing it to 'create .claude/agents/name.md'
-- Vague description (no delegation, or over-delegation)
-- Putting the system prompt in a 'prompt' frontmatter field (wrong for files)
-- No tool restriction on a risky agent
-- Summary too thin to be actionable
-- Duplicating the main agent's work
-- Not testing routing separately from behaviour
-- Definition of Done
-- Right task routes in; wrong tasks do not
-- System prompt produces correct behaviour
-- Tool limits enforced
-- Context isolation verified
-- Summary quality verified
-- Regression cases pass
 - Built-in subagents ship by default: Explore and Plan (read-only, Write/Edit denied), general-purpose, statusline-setup, claude-code-guide. A same-named user or project agent overrides the built-in and keeps its own model field; remove via permissions.deny or CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS=1 [OFFICIAL]

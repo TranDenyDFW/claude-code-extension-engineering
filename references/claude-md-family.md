@@ -36,17 +36,19 @@ Instruction files loaded into context automatically, every session. CLAUDE.md at
 - Use for concise, durable project facts and conventions [OFFICIAL]
 - Do not use as a guaranteed enforcement boundary [OFFICIAL]
 - Repository owners maintain project instructions; users maintain personal instructions [ENGINEERING BEST PRACTICE]  [ENGINEERING]
-- Definition of Done
+- Path scoping is declared with a paths: YAML frontmatter glob list; a rule without paths loads at launch with .claude/CLAUDE.md priority, and a path-scoped rule triggers when Claude READS a matching file, not on every tool use [OFFICIAL]
+- Claude Code reads CLAUDE.md, never AGENTS.md: bridge with an @AGENTS.md import (a symlink needs Administrator or Developer Mode on Windows) [OFFICIAL]
+- @path imports resolve relative to the IMPORTING file, recurse at most four hops, and are skipped inside backticks or code fences; a project import resolving outside the working directory prompts once and a decline disables it permanently [OFFICIAL]
+- Verify with /context and read the Memory files list; browse and edit with /memory; bootstrap with /init [OFFICIAL]
+
+## Definition of Done
+
 - Scope and owner are explicit
 - Instructions are concise, specific, and non-duplicative
 - Path rules load only where intended
 - Imports resolve
 - No claim of deterministic enforcement
 - Fresh-session and conflict tests pass
-- Path scoping is declared with a paths: YAML frontmatter glob list; a rule without paths loads at launch with .claude/CLAUDE.md priority, and a path-scoped rule triggers when Claude READS a matching file, not on every tool use [OFFICIAL]
-- Claude Code reads CLAUDE.md, never AGENTS.md: bridge with an @AGENTS.md import (a symlink needs Administrator or Developer Mode on Windows) [OFFICIAL]
-- @path imports resolve relative to the IMPORTING file, recurse at most four hops, and are skipped inside backticks or code fences; a project import resolving outside the working directory prompts once and a decline disables it permanently [OFFICIAL]
-- Verify with /context and read the Memory files list; browse and edit with /memory; bootstrap with /init [OFFICIAL]
 
 ## Detail
 
