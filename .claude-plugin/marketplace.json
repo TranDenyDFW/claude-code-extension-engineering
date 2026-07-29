@@ -1,0 +1,37 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-code-extension-engineering",
+  "description": "Reference skill for building and debugging Claude Code extensions. Measured: a model scores 44 percent on this material unaided and 100 percent with the skill.",
+  "owner": {
+    "name": "TranDenyDFW",
+    "url": "https://github.com/TranDenyDFW"
+  },
+  "plugins": [
+    {
+      "name": "claude-code-extension-engineering",
+      "source": "./",
+      "description": "Pick the right Claude Code extension mechanism before you build it: CLAUDE.md, rules, skills, hooks, subagents, dynamic workflows, agent teams, MCP servers, output styles, plugins, or the Agent SDK. Includes a selection guide, composition cards for combining two mechanisms, a 30-event hook contract table, and dated version gates.",
+      "version": "1.0.0",
+      "author": {
+        "name": "TranDenyDFW",
+        "url": "https://github.com/TranDenyDFW"
+      },
+      "homepage": "https://github.com/TranDenyDFW/claude-code-extension-engineering",
+      "repository": "https://github.com/TranDenyDFW/claude-code-extension-engineering",
+      "license": "MIT",
+      "category": "developer-tools",
+      "keywords": [
+        "claude-code",
+        "claude-code-skills",
+        "agent-skills",
+        "anthropic",
+        "hooks",
+        "subagents",
+        "mcp",
+        "plugins",
+        "developer-tools"
+      ],
+      "tags": ["skills", "hooks", "mcp", "subagents", "plugins", "reference"]
+    }
+  ]
+}

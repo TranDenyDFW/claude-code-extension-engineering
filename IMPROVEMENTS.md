@@ -34,11 +34,15 @@ kind of thing a reader comes here to have settled. Each needs one measurement on
 
 ## Blocks discovery
 
-**4. No `.claude-plugin/marketplace.json`.**
-The repo cannot be installed with `/plugin marketplace add TranDenyDFW/claude-code-extension-engineering`.
-Install currently requires knowing where `~/.claude/skills` lives and cloning to an exact
-destination. Every comparable repo with meaningful traction ships this manifest. Highest
-leverage item on this list.
+**4. ~~No `.claude-plugin/marketplace.json`.~~ RESOLVED 2026-07-29.**
+The repo now ships `.claude-plugin/marketplace.json` and `.claude-plugin/plugin.json`, and
+installs with `/plugin marketplace add TranDenyDFW/claude-code-extension-engineering`.
+`claude plugin validate --strict` passes. The skill moved from the repo root into
+`skills/claude-code-extension-engineering/` because plugin component auto-discovery requires
+that layout, so the plain-skill install is now clone-then-copy rather than clone-to-destination.
+
+Still open: this repo is its own single-plugin marketplace. It is not listed in
+`claude-plugins-official` or `claude-community`, which is a separate submission.
 
 **5. Zero GitHub topics, no homepage, no release.**
 `gh repo view --json repositoryTopics` returns `null`. Topic pages are how this category gets

@@ -1,0 +1,23 @@
+{
+  "name": "claude-code-extension-engineering",
+  "version": "1.0.0",
+  "description": "Pick the right Claude Code extension mechanism before you build it. Ten mechanisms across seven layers plus the programmatic tier, with a selection guide, composition cards, hook event contracts and dated version gates.",
+  "author": {
+    "name": "TranDenyDFW",
+    "url": "https://github.com/TranDenyDFW"
+  },
+  "homepage": "https://github.com/TranDenyDFW/claude-code-extension-engineering",
+  "repository": "https://github.com/TranDenyDFW/claude-code-extension-engineering",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "claude-code-skills",
+    "agent-skills",
+    "anthropic",
+    "hooks",
+    "subagents",
+    "mcp",
+    "plugins",
+    "developer-tools"
+  ]
+}

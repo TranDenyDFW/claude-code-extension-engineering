@@ -11,56 +11,73 @@ isolated one?
 
 ## Install
 
-**Personal (all projects):**
+**As a plugin (recommended).** In Claude Code:
 
-```bash
-git clone https://github.com/TranDenyDFW/claude-code-extension-engineering.git ~/.claude/skills/claude-code-extension-engineering
+```
+/plugin marketplace add TranDenyDFW/claude-code-extension-engineering
 ```
 
-**Project-scoped (this repo only):**
+then install it:
 
-```bash
-git clone https://github.com/TranDenyDFW/claude-code-extension-engineering.git .claude/skills/claude-code-extension-engineering
+```
+/plugin install claude-code-extension-engineering
 ```
 
-**Without git:** download the source zip from the GitHub UI and unpack it into either
-location. The directory name must be `claude-code-extension-engineering`.
+**As a plain skill.** Clone anywhere, then copy the skill directory into a skills folder:
 
-Verify with `/skills` in Claude Code, or just describe an extension problem and let the
-model route to it.
+```bash
+git clone https://github.com/TranDenyDFW/claude-code-extension-engineering.git
+cp -r claude-code-extension-engineering/skills/claude-code-extension-engineering ~/.claude/skills/
+```
+
+Use `.claude/skills/` instead of `~/.claude/skills/` to scope it to one project. The
+destination directory name must stay `claude-code-extension-engineering`, because a personal
+or project skill takes its command name from the directory.
+
+**Without git:** download the source zip from the GitHub UI and copy
+`skills/claude-code-extension-engineering/` out of it into either location.
+
+Verify with `/skills` in Claude Code, or just describe an extension problem and let the model
+route to it.
 
 > Note: Cowork and cloud sessions do not read `~/.claude/skills`, so a personally installed
 > skill reports "not found" on a scheduled run. See
-> [references/compatibility.md](references/compatibility.md) for the details.
+> [compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md) for
+> the details.
 
 ## What is inside
 
 | Need | Open |
 |---|---|
-| Auto memory | [auto-memory.md](references/auto-memory.md) |
-| CLAUDE.md family | [claude-md-family.md](references/claude-md-family.md) |
-| Compatibility | [compatibility.md](references/compatibility.md) |
-| Custom Output Styles | [output-styles.md](references/output-styles.md) |
-| Custom Themes | [themes.md](references/themes.md) |
-| Skills | [skills.md](references/skills.md) |
-| Testing and iteration | [testing.md](references/testing.md) |
-| Hooks | [hooks.md](references/hooks.md) |
-| Context modes | [context-modes.md](references/context-modes.md) |
-| Subagents | [subagents.md](references/subagents.md) |
-| Agent Teams [EXPERIMENTAL] | [agent-teams.md](references/agent-teams.md) |
-| Dynamic Workflows | [workflows.md](references/workflows.md) |
-| MCP servers | [mcp.md](references/mcp.md) |
-| LSP / code intelligence | [lsp.md](references/lsp.md) |
-| Plugins | [plugins.md](references/plugins.md) |
-| Agent SDK | [agent-sdk.md](references/agent-sdk.md) |
-| Claude Code GitHub Action | [github-action.md](references/github-action.md) |
-| Choosing between them | [selection.md](references/selection.md) |
-| Combining two mechanisms | [composition-cards.md](references/composition-cards.md) |
-| Hook event contracts | [hook-events.md](references/hook-events.md) |
-| Evidence sources | [sources.md](references/sources.md) |
+All paths below are under `skills/claude-code-extension-engineering/`.
 
-Start at [SKILL.md](SKILL.md) or, if you already know you are choosing between mechanisms,
-go straight to [selection.md](references/selection.md).
+| Need | Open |
+|---|---|
+| Auto memory | [auto-memory.md](skills/claude-code-extension-engineering/references/auto-memory.md) |
+| CLAUDE.md family | [claude-md-family.md](skills/claude-code-extension-engineering/references/claude-md-family.md) |
+| Compatibility | [compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md) |
+| Custom Output Styles | [output-styles.md](skills/claude-code-extension-engineering/references/output-styles.md) |
+| Custom Themes | [themes.md](skills/claude-code-extension-engineering/references/themes.md) |
+| Skills | [skills.md](skills/claude-code-extension-engineering/references/skills.md) |
+| Testing and iteration | [testing.md](skills/claude-code-extension-engineering/references/testing.md) |
+| Hooks | [hooks.md](skills/claude-code-extension-engineering/references/hooks.md) |
+| Context modes | [context-modes.md](skills/claude-code-extension-engineering/references/context-modes.md) |
+| Subagents | [subagents.md](skills/claude-code-extension-engineering/references/subagents.md) |
+| Agent Teams [EXPERIMENTAL] | [agent-teams.md](skills/claude-code-extension-engineering/references/agent-teams.md) |
+| Dynamic Workflows | [workflows.md](skills/claude-code-extension-engineering/references/workflows.md) |
+| MCP servers | [mcp.md](skills/claude-code-extension-engineering/references/mcp.md) |
+| LSP / code intelligence | [lsp.md](skills/claude-code-extension-engineering/references/lsp.md) |
+| Plugins | [plugins.md](skills/claude-code-extension-engineering/references/plugins.md) |
+| Agent SDK | [agent-sdk.md](skills/claude-code-extension-engineering/references/agent-sdk.md) |
+| Claude Code GitHub Action | [github-action.md](skills/claude-code-extension-engineering/references/github-action.md) |
+| Choosing between them | [selection.md](skills/claude-code-extension-engineering/references/selection.md) |
+| Combining two mechanisms | [composition-cards.md](skills/claude-code-extension-engineering/references/composition-cards.md) |
+| Hook event contracts | [hook-events.md](skills/claude-code-extension-engineering/references/hook-events.md) |
+| Evidence sources | [sources.md](skills/claude-code-extension-engineering/references/sources.md) |
+
+Start at [SKILL.md](skills/claude-code-extension-engineering/SKILL.md) or, if you already know
+you are choosing between mechanisms, go straight to
+[selection.md](skills/claude-code-extension-engineering/references/selection.md).
 
 ## Evidence tags
 
@@ -79,7 +96,7 @@ Every claim is tagged by how well it is backed:
 
 Claude Code **2.1.219**, verified **2026-07-26**.
 
-[references/compatibility.md](references/compatibility.md) records which build introduced
+[compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md) records which build introduced
 each capability. Those are version gates only: they say when a feature appeared, never that
 an older build is unsupported. Check your own build with `claude --version` and compare.
 
@@ -127,7 +144,7 @@ Measured 2026-07-28 against Claude Code 2.1.219 with `claude-opus-5`, question s
 100% means the content is findable and unambiguous, not that it is *true* of Claude Code. The
 control arm had no web access, so 44% is unaided recall, not what a model with the official
 docs open would score. Tier 2 is model-graded and will not reproduce exactly.
-[references/context-modes.md](references/context-modes.md) scored 100% in **both** arms, which
+[context-modes.md](skills/claude-code-extension-engineering/references/context-modes.md) scored 100% in **both** arms, which
 is evidence that one file is currently earning nothing.
 
 Full method, the blind adjudication pass, per-file breakdown and all 135 per-question rows are
@@ -144,7 +161,7 @@ Tier 1 green and prove-fail red are the release gate.
 
 ## Sources and licensing
 
-[references/sources.md](references/sources.md) carries the full source table: every entry
+[sources.md](skills/claude-code-extension-engineering/references/sources.md) carries the full source table: every entry
 with its verification date, redistributability and licence.
 
 The prose in this repository is original work, derived from public documentation and from
