@@ -98,7 +98,12 @@ Stated plainly, because a benchmark that only advertises its wins is not evidenc
   read the same files the answer keys were derived from. It shows the content is findable and
   unambiguous. It says nothing about whether the content is *true* of Claude Code. Accuracy
   against the product is a separate problem, and `references/sources.md` still carries
-  `not recorded` in the Verified column on eleven rows.
+  `not recorded` in the Verified column on 15 of its 19 rows.
+- **Tier 1 matches file-wide, not line-wide.** A key is asserted to appear somewhere in its
+  source file, not on the line that answers the question. Where a phrase recurs, a row can stay
+  green even if the specific passage it was written to guard is deleted. `F104` and `F078` are
+  known examples. Both are sound today, and narrowing the match to a section is an open
+  improvement.
 - **Control at 44% is a floor, not a ceiling.** These agents had no web access and one pass.
   A model that could search the official documentation would score higher, so the honest claim
   is that the skill beats unaided recall, not that it beats looking things up.

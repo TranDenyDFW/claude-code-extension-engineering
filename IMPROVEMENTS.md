@@ -9,7 +9,7 @@ Last reviewed 2026-07-28 against Claude Code 2.1.219.
 
 ## Blocks use
 
-**1. Eleven of nineteen source rows are unverified.**
+**1. Fifteen of nineteen source rows are unverified.**
 `references/sources.md` carries `not recorded` in the Verified column for `SRC_AGENT_TEAMS`,
 `SRC_CHANGELOG`, `SRC_FEATURES`, `SRC_HOOKS`, `SRC_HOOK_GUIDE`, `SRC_MCP`, `SRC_MCP_SECURITY`,
 `SRC_MCP_SPEC`, `SRC_MEMORY`, `SRC_PLUGINS`, `SRC_PLUGIN_REF`, `SRC_SKILLS`,
