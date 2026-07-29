@@ -43,7 +43,7 @@ Run in order. Each step gates the next.
 
 ## Distribution + versioning
 
-- Marketplaces: claude-plugins-official (curated) + claude-community  [OFFICIAL]
+- Marketplaces: anthropics/claude-plugins-official (Anthropic-curated) and anthropics/claude-plugins-community (community, a READ-ONLY mirror). Neither takes a pull request: both direct submissions to the form at clau.de/plugin-directory-submission, and external plugins must pass quality and security review. Any repo with a .claude-plugin/marketplace.json is also its own marketplace, addable by owner/repo with no listing required  [OFFICIAL]  [v2.1.219]
 - Versioning: explicit version bump, or pinned git commit SHA  [OFFICIAL]
 - Compatibility + rollback: keep the previous pinned version installable
 
