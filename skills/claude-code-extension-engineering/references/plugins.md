@@ -43,7 +43,11 @@ Run in order. Each step gates the next.
 
 ## Distribution + versioning
 
-- Marketplaces: anthropics/claude-plugins-official (Anthropic-curated) and anthropics/claude-plugins-community (community, a READ-ONLY mirror). Neither takes a pull request: both direct submissions to the form at clau.de/plugin-directory-submission, and external plugins must pass quality and security review. Any repo with a .claude-plugin/marketplace.json is also its own marketplace, addable by owner/repo with no listing required  [OFFICIAL]  [v2.1.219]
+- Two public marketplaces, and they are NOT reached the same way. claude-plugins-official is curated by Anthropic and registers itself on the first interactive start (a non-interactive script running before that first launch must add anthropics/claude-plugins-official explicitly). claude-community is where third-party submissions land after review; users add anthropics/claude-plugins-community and install from it as @claude-community  [OFFICIAL]  [v2.1.219]
+- There is NO application process for the official marketplace. Anthropic decides what to include at its discretion, and the submission form does not add anything to it. Submitting only ever targets the community marketplace  [OFFICIAL]  [v2.1.219]
+- Community submission is an authenticated IN-APP form, not a pull request, and which form depends on the account: claude.ai/admin-settings/directory/submissions/plugins/new needs a Team or Enterprise organization with directory management access (Owners have it by default), while individual authors outside such an org use platform.claude.com/plugins/submit  [OFFICIAL]  [v2.1.219]
+- Run claude plugin validate ./your-plugin before submitting: the review pipeline runs the same check plus automated safety screening. Approved plugins are pinned to a specific commit SHA in the community catalog and CI bumps the pin as you push, but the public catalog syncs nightly, so approval and installability are not simultaneous  [OFFICIAL]  [v2.1.219]
+- Neither listing is required to ship. Any repository carrying .claude-plugin/marketplace.json is its own marketplace: /plugin marketplace add owner/repo then /plugin install name@marketplace works with no review and no catalog entry  [ENGINEERING]  [v2.1.219]
 - Versioning: explicit version bump, or pinned git commit SHA  [OFFICIAL]
 - Compatibility + rollback: keep the previous pinned version installable
 
