@@ -113,19 +113,17 @@ verification issue when Claude Code moves ahead; the badge above is that status.
 
 ## Install
 
-**As a plugin (recommended).** In Claude Code:
+**Marketplace listing pending.** This plugin has been submitted to the Claude Code
+community marketplace and is under review. Once approved it will install with
+`/plugin install claude-code-extension-engineering@claude-community`. Until then, two
+paths work today:
 
-```
-/plugin marketplace add TranDenyDFW/claude-code-extension-engineering
-```
+**As a plugin, loaded from a clone:**
 
-then:
-
+```bash
+git clone https://github.com/TranDenyDFW/claude-code-extension-engineering.git
+claude --plugin-dir ./claude-code-extension-engineering
 ```
-/plugin install claude-code-extension-engineering
-```
-
-Updates follow git commits automatically (commit-SHA versioning).
 
 **As a plain skill.** Clone anywhere, then copy the skill directory into a skills folder:
 

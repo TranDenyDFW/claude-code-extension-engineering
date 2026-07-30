@@ -63,12 +63,13 @@ not `topics`, on gh 2.88.1.
 Restructured: value proposition, five concrete traps, the plugin-dev comparison, the
 30-second decision guide, measured results, then install and index.
 
-**9. Not listed in a public marketplace.**
-The repo is its own single-plugin marketplace, installable by name, but appears in
-neither `claude-plugins-official` (no application process; Anthropic's discretion) nor
-`anthropics/claude-plugins-community` (submission via the authenticated in-app form;
-individual authors use platform.claude.com/plugins/submit). Paste-ready submission text:
-`docs/SUBMISSION.md`. This is a user action; it cannot be automated from here.
+**9. Community-marketplace listing pending review.**
+Submitted 2026-07-30 via the in-app form. The self-hosted `.claude-plugin/marketplace.json`
+was removed the same day, deliberately, until the review lands, so the interim install
+paths are `--plugin-dir` or the plain-skill copy (both in the README). Approval shows up
+as the plugin name appearing in the `anthropics/claude-plugins-community` catalog, which
+syncs nightly, so approval and installability are not the same moment. Restoring the
+self-marketplace later is a one-commit revert if ever wanted.
 
 ---
 
