@@ -85,8 +85,20 @@ with claude-opus-5. The treatment score is a retrieval result, not a truth resul
 the control had no web access; both caveats are spelled out in
 [tests/results.md](tests/results.md) along with per-question detail.
 
-**Tier 3, architecture decisions, and the trigger benchmark are in progress**; their
-question sets ship in [tests/](tests/) and results land here when the runs complete.
+**Tier 3, architecture decisions: 60 scenarios, three arms, and the skill loses one of
+them.** Docs-independent scenarios, blind-graded on a seven-field rubric. Unaided model:
+71% (37/60 correct primary choices). Model with the full official docs: 82% (52/60). Model
+with this skill: 79% (46/60). The skill beats unaided recall and loses to docs-in-hand
+overall, while leading BOTH other arms on the two dimensions it exists for:
+rejected-alternative reasoning (78%) and context boundary (93%). The expected keys were
+docs-authored, which structurally favors the docs arm; that bias and the rest of the method
+are in [tests/results-tier3.md](tests/results-tier3.md).
+
+**Trigger benchmark, live: precision 100%, recall 16%.** Fifty real headless sessions on a
+machine carrying 1,786 competing skills. The description never fired on 25 near-miss
+negatives, and passively fired on 4 of 25 in-scope prompts, in an environment where only a
+handful of sessions invoke ANY skill unprompted. Method, the invalidated first run, and the
+marketplace-install bug it uncovered: [tests/results-trigger.md](tests/results-trigger.md).
 
 ## Evidence, not just tags
 

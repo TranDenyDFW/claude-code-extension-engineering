@@ -1,0 +1,10 @@
+{
+  "id": "OBS-marketplace-install-skill-invisible",
+  "claim": "A marketplace-installed plugin can be enabled, report its skill in claude plugin details, and still contribute NO skill to any session: the session init skill listing (1786 entries including other plugins' namespaced skills) never contained the plugin's skill, across 50 headless sessions and a fresh probe, both before and after a plugin update. Loading the identical plugin directory via --plugin-dir listed the skill immediately (1787 entries, claude-code-extension-engineering:claude-code-extension-engineering present).",
+  "build": "2.1.219",
+  "observed": "2026-07-30",
+  "method": "50 claude -p sessions with --output-format stream-json --verbose; parsed the system init line's skills and plugins arrays. Plugin present and enabled in the plugins array (cached at version 1.0.0, later updated to commit SHA 5fc3205dee42 with the same absence). Differential: one probe with --plugin-dir pointing at the same repo showed the namespaced skill in the listing.",
+  "reproduction": "claude -p \"hi\" --output-format stream-json --verbose --max-turns 1, parse the init line, grep skills for the plugin's skill name; repeat with --plugin-dir <repo>. Compare.",
+  "caveat": "Environment-specific factors uneliminated: 1786 competing skills, 19 plugins, and the plugin name, marketplace name, and skill name being identical strings. Not yet reproduced in a clean profile. Possibly related to a listing cap or a triple-name collision. The version-cache half of the story (1.0.0 pinned cache surviving pushes until the update) is the documented behaviour working exactly as warned.",
+  "cited_by": ["tests/results-trigger.md"]
+}

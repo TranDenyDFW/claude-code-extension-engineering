@@ -97,7 +97,26 @@ A key is asserted to appear somewhere in its file rather than in the passage it 
 Profile-contract schema plus the per-feature version gates. Readers want the second;
 reorder to put the version table first.
 
-**15. Evidence attribution is one model's judgment.**
+**15. Tier 3 exposed two content weaknesses.**
+Arm C trailed the docs arm most on failure_mode (61% vs 75%) and version_caveat (72% vs
+80%). Failure paths live mostly in composition cards rather than beside each mechanism,
+and version gates live in one compatibility file rather than at each decision point.
+Both are content moves, not test changes. See `tests/results-tier3.md`.
+
+**16. Trigger recall is 16% in a crowded environment.**
+Precision is 100%, but passive discovery fired on only 4 of 25 in-scope prompts against
+1,786 competing skills. The Skill Creator description-optimization loop (train/test eval
+split, iterate the description) is the documented fix. A clean-profile re-run would
+separate description pull from environment noise. See `tests/results-trigger.md`.
+
+**17. The marketplace-installed skill was invisible to sessions on this machine.**
+Enabled plugin, skill reported by `claude plugin details`, absent from every session's
+init listing; the same directory via `--plugin-dir` lists fine. Not yet reproduced in a
+clean profile; identical plugin/marketplace/skill names and the 1,786-skill environment
+are uneliminated factors. Worth a minimal repro and an upstream issue if it holds.
+See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
+
+**18. Evidence attribution is one model's judgment.**
 The 254 source assignments in `claims.jsonl` were made by subagents with stated rules,
 not independently double-checked. The integrity gate catches structural drift, not a
 wrong-but-plausible source id. A second blind attribution pass with disagreement
