@@ -1,6 +1,8 @@
 # Test results
 
-Run 2026-07-28 against Claude Code 2.1.219, question set v1 (160 questions).
+Run 2026-07-28 against Claude Code 2.1.219, question set v1 (160 questions at that run;
+the suite has since grown to 173 with rows covering content added 2026-07-29, so the Tier 1
+tables below describe the original run and the current count is the one CI enforces).
 Answering and grading model: `claude-opus-5`.
 
 ---
