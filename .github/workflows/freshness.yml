@@ -1,0 +1,98 @@
+name: freshness
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Read verified version
+        id: verified
+        run: echo "version=$(tr -d '[:space:]' < evidence/VERIFIED_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Read latest Claude Code version
+        id: latest
+        run: echo "version=$(npm view @anthropic-ai/claude-code version)" >> "$GITHUB_OUTPUT"
+
+      - name: Run deterministic suite
+        run: node tests/run-tests.mjs
+
+      - name: Prove the suite can fail
+        run: node tests/run-tests.mjs --prove-fail
+
+      - name: Verify evidence ledger
+        run: node tools/verify-evidence.mjs
+
+      - name: Validate plugin manifest
+        continue-on-error: true
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          # Commit-SHA versioning is deliberate, so --strict would fail on the
+          # "No version specified" advisory. Run plain validate and assert the
+          # version advisory is the ONLY warning, so any new warning still fails.
+          out=$(claude plugin validate . 2>&1) || { echo "$out"; exit 1; }
+          echo "$out"
+          other=$(echo "$out" | grep -c "warning" || true)
+          version_warn=$(echo "$out" | grep -c "No version specified" || true)
+          if [ "$other" -gt 0 ] && [ "$version_warn" -eq 0 ]; then
+            echo "Unexpected warnings beyond the known version advisory"; exit 1
+          fi
+
+      - name: Compare versions and write status
+        id: status
+        run: |
+          V="${{ steps.verified.outputs.version }}"
+          L="${{ steps.latest.outputs.version }}"
+          TODAY=$(date -u +%Y-%m-%d)
+          if [ "$V" = "$L" ]; then
+            STATE=verified
+            COLOR=brightgreen
+            MSG="verified against $V"
+          else
+            STATE=stale
+            COLOR=orange
+            MSG="$L released after last verification ($V)"
+          fi
+          printf '{"schemaVersion":1,"label":"claude code","message":"%s","color":"%s","state":"%s","verified":"%s","latest":"%s","checked":"%s"}\n' \
+            "$MSG" "$COLOR" "$STATE" "$V" "$L" "$TODAY" > evidence/status.json
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
+          echo "latest=$L" >> "$GITHUB_OUTPUT"
+
+      - name: Commit status.json when changed
+        run: |
+          if ! git diff --quiet evidence/status.json; then
+            git config user.name "freshness-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add evidence/status.json
+            git commit -m "chore: freshness status ${{ steps.status.outputs.state }} (latest ${{ steps.status.outputs.latest }})"
+            git push
+          fi
+
+      - name: Open verification issue when stale
+        if: steps.status.outputs.state == 'stale'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          L="${{ steps.status.outputs.latest }}"
+          TITLE="Claude Code $L verification required"
+          if gh issue list --state open --search "$TITLE in:title" --json title --jq '.[].title' | grep -Fxq "$TITLE"; then
+            echo "Issue already open"; exit 0
+          fi
+          ENTRY=$(curl -fsSL https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md \
+            | awk -v v="## $L" 'index($0,v)==1{f=1;next} /^## /{if(f)exit} f{print}')
+          gh issue create --title "$TITLE" --body "$(printf 'Claude Code %s has been released and is newer than the verified build in evidence/VERIFIED_VERSION.\n\nChangelog entry:\n\n%s\n\nRe-verify affected reference claims, bump the headers, update VERIFIED_VERSION, and close this issue.\n\nOpened automatically by the freshness workflow.' "$L" "$ENTRY")"

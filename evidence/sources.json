@@ -1,0 +1,366 @@
+[
+  {
+    "id": "SRC_HOOKS",
+    "title": "Claude Code Hooks reference",
+    "url": "https://code.claude.com/docs/en/hooks",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Live page titled 'Hooks reference' covering hook events, configuration schema, JSON I/O, exit codes, and the five handler types; one repo nuance: the repo says over-cap hook output is 'truncated' while the live page says output beyond 10,000 characters is saved to a file and replaced with a preview and file path.",
+    "spot_checks": [
+      {
+        "claim": "Exit code 2 is a blocking error whose stderr is fed back to Claude, while other non-zero exit codes are non-blocking (hooks.md exit-code table)",
+        "supported": true
+      },
+      {
+        "claim": "disableAllHooks: true switches every hook off, and only managed-policy settings survive it, so user/project/local settings cannot disable managed hooks (hooks.md tamper-boundary bullet)",
+        "supported": true
+      },
+      {
+        "claim": "Five handler types exist: command, http, mcp_tool, prompt, agent (hooks.md '5 types' table)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_HOOK_GUIDE",
+    "title": "Claude Code Hooks guide",
+    "url": "https://code.claude.com/docs/en/hooks-guide",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Live page is the hooks getting-started guide, now titled 'Automate actions with hooks' rather than 'Hooks guide', with walkthrough examples (notifications, Prettier formatting, PreToolUse blocking) and a debug section using claude --debug-file.",
+    "spot_checks": [
+      {
+        "claim": "The published guide examples pipe hook stdin through jq (basis for the repo warning that jq-based handlers fail open on Windows installs without jq)",
+        "supported": true
+      },
+      {
+        "claim": "Hooks are configured in ~/.claude/settings.json (user, all projects) and .claude/settings.json (project, committable), as stated in the hooks.md worked example",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_MCP",
+    "title": "Claude Code MCP",
+    "url": "https://code.claude.com/docs/en/mcp",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Live page titled 'Connect Claude Code to tools via MCP' is the full MCP reference (transports including deprecated SSE and WebSocket, .mcp.json env expansion, approval flow, output limits); it confirms the repo claims verbatim including the fixed 10,000-token warning threshold.",
+    "spot_checks": [
+      {
+        "claim": "MCP tool output warns at 10,000 tokens and is capped at 25,000 tokens by default, configurable via MAX_MCP_OUTPUT_TOKENS (mcp.md Context and cost)",
+        "supported": true
+      },
+      {
+        "claim": "claude mcp reset-project-choices re-arms the project-scoped server approval prompt (mcp.md Packaging)",
+        "supported": true
+      },
+      {
+        "claim": ".mcp.json expands ${VAR} and ${VAR:-default}, and an unset variable with no default still loads, passing the literal through with only a warning in claude mcp list (mcp.md Authentication and secrets)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_PLUGINS",
+    "title": "Create Claude Code Plugins",
+    "url": "https://code.claude.com/docs/en/plugins",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Guide page titled 'Create plugins' covering plugin creation, quickstart, structure, local testing and marketplace submission; ledger title 'Create Claude Code Plugins' is a close paraphrase of the on-page H1, and the page now also documents --plugin-url and single-SKILL.md-at-root plugins.",
+    "spot_checks": [
+      {
+        "claim": "claude --plugin-dir ./my-plugin (or --plugin-url zip) loads a local plugin for development; zip loading requires v2.1.128+ (plugins.md, Local development + testing)",
+        "supported": true
+      },
+      {
+        "claim": "Components live at the plugin root, not inside .claude-plugin/; only plugin.json goes inside .claude-plugin/ (plugins.md, Components section and anti-patterns)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_PLUGIN_REF",
+    "title": "Claude Code Plugins reference",
+    "url": "https://code.claude.com/docs/en/plugins-reference",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Complete technical reference for the plugin system (schemas, CLI commands, component specs, environment variables); title matches, and it explicitly states that a manifest, when present, requires only the name field.",
+    "spot_checks": [
+      {
+        "claim": "In .claude-plugin/plugin.json, name is the only required field once the manifest exists (plugins.md manifest table)",
+        "supported": true
+      },
+      {
+        "claim": "Persistent state belongs under ${CLAUDE_PLUGIN_DATA}, a directory that survives plugin updates, while ${CLAUDE_PLUGIN_ROOT} resolves to the plugin's installation directory (plugins.md, Structure bullet on marketplace installs)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_SKILLS",
+    "title": "Claude Code Skills",
+    "url": "https://code.claude.com/docs/en/skills",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Claude Code skills guide whose on-page H1 is 'Extend Claude with skills' rather than the ledger's generic 'Claude Code Skills'; it confirms the commands-merged-into-skills model and the full frontmatter and substitution reference, and notes skills follow the agentskills.io open standard.",
+    "spot_checks": [
+      {
+        "claim": "disable-model-invocation: true makes a skill user-invoked only via /name and also blocks preloading into subagents (skills.md frontmatter table)",
+        "supported": true
+      },
+      {
+        "claim": "The combined description plus when_to_use text is truncated near 1,536 characters in the skill listing (skills.md frontmatter table and Levers detail)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_AGENT_TEAMS",
+    "title": "Claude Code Agent Teams",
+    "url": "https://code.claude.com/docs/en/agent-teams",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Official Claude Code docs page 'Orchestrate teams of Claude Code sessions' covering experimental agent teams (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS, lifecycle, display modes, permissions, limitations); it explicitly documents the v2.1.178 removal of TeamCreate/TeamDelete and the v2.1.179 in-process default, matching the repo's version-split treatment.",
+    "spot_checks": [
+      {
+        "claim": "agent-teams.md line 48: hard limits are one team per session, no nested teams, the lead is fixed, /resume and /rewind do not restore teammates, and split panes need tmux or iTerm2 and are unsupported in Windows Terminal, VS Code, and Ghostty.",
+        "supported": true
+      },
+      {
+        "claim": "agent-teams.md line 46: reusing a subagent definition as a teammate honors tools and model, appends the body to the teammate system prompt instead of replacing it, keeps SendMessage and task tools available despite a tools allowlist, and does not apply the skills and mcpServers frontmatter fields.",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_CHANGELOG",
+    "title": "Claude Code changelog",
+    "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Raw official Claude Code CHANGELOG on GitHub, newest entry 2.1.220 reading 'Bug fixes and reliability improvements', which matches the repo-wide header 'Delta from 2.1.219: none'; note the file is long enough that the fetch summary could not confirm or deny the old 2.1.32 agent-teams introduction entry cited in agent-teams.md.",
+    "spot_checks": [
+      {
+        "claim": "hook-events.md line 23: DirectoryAdded was introduced by changelog v2.1.219 and fires after /add-dir or the SDK register_repo_root control request registers a new working directory mid-session.",
+        "supported": true
+      },
+      {
+        "claim": "subagents.md lines 40 and 81: changelog 2.1.219 says subagents can spawn nested subagents up to depth 3 by default (was 1), configurable via CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH.",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_FEATURES",
+    "title": "Claude Code extension architecture overview",
+    "url": "https://code.claude.com/docs/en/features-overview",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Official docs page titled 'Extend Claude Code', the extension-architecture overview enumerating CLAUDE.md, skills, code intelligence, MCP, subagents, agent teams, hooks, and plugins with a 'Compare similar features' section and layering/precedence rules; the hinted URL worked directly even though the page title differs from the ledger title.",
+    "spot_checks": [
+      {
+        "claim": "selection.md line 11: a rule that must fire on every matching event belongs in a hook because the harness runs it, while judgment that varies by context belongs in a skill; the live page states hooks 'always fire on their event' and that guardrails belong in hooks because prompt instructions are requests, not guarantees.",
+        "supported": true
+      },
+      {
+        "claim": "selection.md line 35: a subagent provides context isolation, a fresh context window that returns only a summary; the live page states subagents run their own loops in isolated context and return summaries, with work happening separately and only the summary returning.",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_MCP_SECURITY",
+    "title": "MCP security best practices",
+    "url": "https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "MCP Security Best Practices document for spec revision 2025-11-25; broader than earlier revisions, it now also covers SSRF, OAuth authorization URL validation, stdio proxy escalation, and scope minimization alongside confused deputy, token passthrough, and session hijacking.",
+    "spot_checks": [
+      {
+        "claim": "mcp.md line 93: security testing should cover prompt injection, confused deputy, token scope, and data exfiltration",
+        "supported": true
+      },
+      {
+        "claim": "mcp.md line 47: constrain redirect URIs, token audience, and scopes (page requires exact redirect_uri matching, forbids accepting tokens not issued to the MCP server, and prescribes least-privilege scope minimization)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_MCP_SPEC",
+    "title": "MCP released specification 2025-11-25",
+    "url": "https://modelcontextprotocol.io/specification/2025-11-25",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Landing page of the released Model Context Protocol specification, revision 2025-11-25, defining the JSON-RPC base protocol, server features (resources, prompts, tools), client features (sampling, roots, elicitation), and security principles; the transports subpage under the same revision confirms stdio and Streamable HTTP with the 2024-11-05 HTTP+SSE transport explicitly deprecated.",
+    "spot_checks": [
+      {
+        "claim": "mcp.md lines 31-33: tools expose model-invoked actions, resources expose data, prompts expose server-provided templates (page: 'Tools: Functions for the AI model to execute', 'Resources: Context and data', 'Prompts: Templated messages and workflows')",
+        "supported": true
+      },
+      {
+        "claim": "mcp.md lines 24-27: stdio for local child-process servers, HTTP for remote servers, SSE deprecated (transports subpage: client launches the server as a subprocess over stdin/stdout; Streamable HTTP 'replaces the deprecated HTTP+SSE transport' from 2024-11-05)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_MEMORY",
+    "title": "Claude Code CLAUDE.md and memory",
+    "url": "https://code.claude.com/docs/en/memory",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Claude Code docs page now titled 'How Claude remembers your project', covering CLAUDE.md scopes (managed, user, project, local), @path imports, .claude/rules with paths frontmatter, and auto memory; it explicitly states the four-hop import depth the repo cites, so the repo's four-hops figure matches current docs.",
+    "spot_checks": [
+      {
+        "claim": "claude-md-family.md line 41: @path imports resolve relative to the importing file, recurse at most four hops, are skipped inside code spans/fences, and declining an external project import disables it permanently",
+        "supported": true
+      },
+      {
+        "claim": "claude-md-family.md line 13: files from the working directory upward load at launch; nested subdirectory files load on demand when Claude reads files there",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_SKILL_CREATOR",
+    "title": "Anthropic official Skill Creator",
+    "url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/skill-creator/SKILL.md",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Anthropic's official skill-creator SKILL.md in the anthropics/skills repo (canonical blob path skills/skill-creator/SKILL.md); frontmatter name skill-creator, description covers creating, improving, and measuring skills, and it includes a full 'Running and evaluating test cases' evaluation workflow, which is more operational (parallel runs, graded assertions, browser reviewer) than the ledger title suggests.",
+    "spot_checks": [
+      {
+        "claim": "skills.md: 'Anthropic Skill Creator supplies official evaluation guidance'",
+        "supported": true
+      },
+      {
+        "claim": "skills.md: supporting files load only when needed (progressive disclosure); heavy content lives beside SKILL.md",
+        "supported": true
+      },
+      {
+        "claim": "skills.md: 'description = WHAT the Skill does + WHEN to use it'",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_SUBAGENTS",
+    "title": "Claude Code Subagents",
+    "url": "https://code.claude.com/docs/en/sub-agents",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Official Claude Code subagents documentation, titled 'Create custom subagents'; surprising: the repo's recorded source disagreement (subagents.md says this page claims nesting is off) is now stale, since the live page states subagents can spawn their own by default up to three layers, matching the changelog's depth 3, with the default-1 behavior documented as historical for v2.1.217 through v2.1.218 only.",
+    "spot_checks": [
+      {
+        "claim": "subagents.md: only name and description are required frontmatter fields, and the Markdown body is the system prompt",
+        "supported": true
+      },
+      {
+        "claim": "subagents.md: built-in subagents (Explore, Plan, general-purpose) ship by default and can be removed via permissions.deny or CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS=1",
+        "supported": true
+      },
+      {
+        "claim": "subagents.md: 'Sources DISAGREE on the nesting default: the subagents page says off' (the live page now says default is three layers, so the disagreement no longer exists)",
+        "supported": false
+      }
+    ]
+  },
+  {
+    "id": "SRC_SUPERPOWERS",
+    "title": "Superpowers writing-skills",
+    "url": "https://raw.githubusercontent.com/obra/superpowers/main/skills/writing-skills/SKILL.md",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "The writing-skills skill in Jesse Vincent's obra/superpowers repo (canonical blob path skills/writing-skills/SKILL.md), prescribing a strict RED-GREEN-REFACTOR TDD method for authoring skills including baseline-without-skill runs, pressure scenarios, and rationalization-table bulletproofing, and explicitly mandating trigger-only descriptions ('Do NOT summarize the skill's process or workflow in the description').",
+    "spot_checks": [
+      {
+        "claim": "skills.md: 'Trigger-only descriptions are an optional Superpowers method' (workflow summaries invite acting on the summary and skipping the body)",
+        "supported": true
+      },
+      {
+        "claim": "skills.md: 'Superpowers supplies a stricter community TDD method' including running the task in a fresh session WITHOUT the skill to capture the baseline failure",
+        "supported": true
+      },
+      {
+        "claim": "skills.md: pressure scenarios and rationalization-table capture come from the superpowers writing-skills discipline",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "CCX_RESEARCH",
+    "title": "CCX architecture research, inventory and findings",
+    "url": "internal",
+    "type": "internal",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Own work; not an external fetchable source.",
+    "spot_checks": []
+  },
+  {
+    "id": "DERIVED",
+    "title": "Derived reasoning, no upstream citation",
+    "url": "internal",
+    "type": "internal",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Own work; not an external fetchable source.",
+    "spot_checks": []
+  },
+  {
+    "id": "HARNESS_TOOL",
+    "title": "Claude Code built-in tool descriptions (shipped in-product)",
+    "url": "internal",
+    "type": "internal",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Own work; not an external fetchable source.",
+    "spot_checks": []
+  },
+  {
+    "id": "LOCAL_ENV",
+    "title": "Direct observation of the installed Claude Code environment",
+    "url": "internal",
+    "type": "internal",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Own work; not an external fetchable source.",
+    "spot_checks": []
+  }
+]

@@ -1,13 +1,103 @@
 # claude-code-extension-engineering
 
-A Claude Code skill for building and debugging Claude Code extensions.
+![freshness](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FTranDenyDFW%2Fclaude-code-extension-engineering%2Fmain%2Fevidence%2Fstatus.json&query=%24.message&label=claude%20code&color=brightgreen)
 
-Ten authored extension mechanisms across seven layers, plus a cross-referenced programmatic
-tier (Agent SDK, GitHub Action). The skill's job is to make you pick the mechanism *before*
-you write it: most of these look interchangeable until you need one to guarantee something,
-and choosing wrong is the expensive mistake. Two questions decide most cases. Who must
-guarantee the outcome, the harness or the model? And where must it run, this context or an
-isolated one?
+Decide which Claude Code extension mechanism should own a behavior BEFORE you build it,
+and know exactly what that choice does and does not guarantee.
+
+An architecture decision and debugging reference covering CLAUDE.md and rules, skills,
+hooks, subagents, context modes, dynamic workflows, agent teams, MCP servers, output
+styles, plugins, LSP, and the programmatic tier (Agent SDK, GitHub Action). Every claim
+is evidence-tagged, version-gated, and backed by a machine-checked provenance ledger.
+
+## Five things this catches that are easy to get wrong
+
+1. **The Windows hook variable trap.** A bare `$CLAUDE_PROJECT_DIR` in a hook command
+   parses as an undefined PowerShell variable and resolves to `$null`, so the hook
+   silently does nothing. You need `${CLAUDE_PROJECT_DIR}` or `$env:`. And
+   `claude --debug` prints nothing to the terminal; the evidence is in
+   `~/.claude/debug/SESSION-ID.txt`.
+2. **The plugin version cache trap.** A pinned `"version"` in plugin.json means pushed
+   commits NEVER reach installed users until the string changes, and plugin.json silently
+   wins over a marketplace-entry version. This repo uses commit-SHA versioning for exactly
+   that reason, and documents the catch that the commit-SHA model cannot pass
+   `claude plugin validate --strict`.
+3. **The manifest path replacement trap.** A custom path field in plugin.json REPLACES
+   the default folder for that component type instead of adding to it; `skills` is the
+   one exception that adds. `${CLAUDE_PLUGIN_ROOT}` changes on every update, so
+   persistent state belongs under `${CLAUDE_PLUGIN_DATA}`.
+4. **Workflow versus team.** Dynamic Workflows are stable (since 2.1.154) and give
+   deterministic fan-out with script-owned control flow. Agent Teams are experimental,
+   env-gated, one per session, and cost multiplies per teammate. Most fan-out needs are
+   workflows; most "team" instincts are wrong.
+5. **The documented event set is not the shipped event set.** The `DirectoryAdded` hook
+   landed in the 2.1.219 changelog and is still absent from the hooks reference page, so
+   its contract is unverifiable from the docs alone. This reference tracks
+   changelog-only deltas as a named section, re-checked per release.
+
+## Why this exists next to plugin-dev
+
+Anthropic's official `plugin-dev` plugin is a comprehensive toolkit for BUILDING plugin
+components. This project answers the question that comes before it, and the two compose:
+
+| Need | plugin-dev | This project |
+|---|---|---|
+| Generate and scaffold plugin components | Primary purpose | No |
+| Learn hook, skill, plugin syntax | Strong | Strong |
+| Decide WHICH mechanism should own a behavior | Supporting | Primary purpose |
+| Compare the nearest rejected alternative | Limited | Primary purpose |
+| Cross-mechanism composition semantics | Component-oriented | 18 composition cards |
+| Version gates and changelog-only deltas | Not its pitch | Primary purpose |
+| Enforcement ownership, failure policy, tamper boundary | Per-component | Cross-component model |
+| Published control-vs-treatment benchmark | No | Yes, with limitations stated |
+
+Use `plugin-dev` to build it. Use this to decide what should be built, how it composes,
+what it actually guarantees, and which builds support it.
+
+## The 30-second decision guide
+
+Two questions decide most cases. **Who owns enforcement**, the model or the harness?
+**Where must it run**, this context or an isolated one? Then pin down the three
+properties the word "guarantee" hides: authority (model- vs harness-owned), failure
+policy (fail-open, fail-closed, advisory), and tamper boundary (user-, project-, or
+managed-policy-configurable). The full axis walk with caveats is
+[selection.md](skills/claude-code-extension-engineering/references/selection.md); the
+mechanism pairings are
+[composition-cards.md](skills/claude-code-extension-engineering/references/composition-cards.md).
+
+## Measured results
+
+`testing.md` in this reference demands a control run before shipping any extension. That
+standard is applied to this repo itself, and the numbers are published whether or not
+they flatter it.
+
+**Tier 1, deterministic regression: 173 questions, 100% pass.** Each question carries a
+regex answer key and a source file, run by [tests/run-tests.mjs](tests/run-tests.mjs).
+Near-tautological on the first run since the keys derive from the content; it earns its
+keep as a regression gate and through `--prove-fail`, which guts every source file and
+confirms all 163 positive assertions go red. A suite that stays green against deleted
+content proves nothing; this one cannot.
+
+**Tier 2, control versus treatment: 135 questions, 44% unaided versus 100% with the
+skill.** Identical model, prompts, and blind adjudicated grading on both arms; the only
+difference was access to the skill files. Measured 2026-07-28 on Claude Code 2.1.219
+with claude-opus-5. The treatment score is a retrieval result, not a truth result, and
+the control had no web access; both caveats are spelled out in
+[tests/results.md](tests/results.md) along with per-question detail.
+
+**Tier 3, architecture decisions, and the trigger benchmark are in progress**; their
+question sets ship in [tests/](tests/) and results land here when the runs complete.
+
+## Evidence, not just tags
+
+Every tagged claim in the references maps to a record in
+[evidence/claims.jsonl](evidence/claims.jsonl); every source carries a URL, retrieval
+date, and status in [evidence/sources.json](evidence/sources.json); measured behaviours
+have reproduction commands under [evidence/observations/](evidence/observations/).
+[tools/verify-evidence.mjs](tools/verify-evidence.mjs) checks the ledger's integrity,
+including drift detection when a tagged line moves, and CI runs it on every push. A
+daily workflow compares the verified build against the latest npm release and opens a
+verification issue when Claude Code moves ahead; the badge above is that status.
 
 ## Install
 
@@ -17,11 +107,13 @@ isolated one?
 /plugin marketplace add TranDenyDFW/claude-code-extension-engineering
 ```
 
-then install it:
+then:
 
 ```
 /plugin install claude-code-extension-engineering
 ```
+
+Updates follow git commits automatically (commit-SHA versioning).
 
 **As a plain skill.** Clone anywhere, then copy the skill directory into a skills folder:
 
@@ -30,58 +122,44 @@ git clone https://github.com/TranDenyDFW/claude-code-extension-engineering.git
 cp -r claude-code-extension-engineering/skills/claude-code-extension-engineering ~/.claude/skills/
 ```
 
-Use `.claude/skills/` instead of `~/.claude/skills/` to scope it to one project. The
-destination directory name must stay `claude-code-extension-engineering`, because a personal
-or project skill takes its command name from the directory.
+Use `.claude/skills/` instead to scope it to one project. The destination directory name
+must stay `claude-code-extension-engineering`.
 
-**Without git:** download the source zip from the GitHub UI and copy
-`skills/claude-code-extension-engineering/` out of it into either location.
-
-Verify with `/skills` in Claude Code, or just describe an extension problem and let the model
-route to it.
-
-> Note: Cowork and cloud sessions do not read `~/.claude/skills`, so a personally installed
-> skill reports "not found" on a scheduled run. See
-> [compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md) for
-> the details.
+> Note: Cowork and cloud sessions do not read `~/.claude/skills`; see
+> [compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md).
 
 ## What is inside
 
-| Need | Open |
-|---|---|
-All paths below are under `skills/claude-code-extension-engineering/`.
+All paths under `skills/claude-code-extension-engineering/`. Start at
+[SKILL.md](skills/claude-code-extension-engineering/SKILL.md), or go straight to
+[selection.md](skills/claude-code-extension-engineering/references/selection.md) if you
+are choosing between mechanisms.
 
 | Need | Open |
 |---|---|
-| Auto memory | [auto-memory.md](skills/claude-code-extension-engineering/references/auto-memory.md) |
+| Choosing between mechanisms | [selection.md](skills/claude-code-extension-engineering/references/selection.md) |
+| Combining mechanisms (18 cards) | [composition-cards.md](skills/claude-code-extension-engineering/references/composition-cards.md) |
+| Hooks | [hooks.md](skills/claude-code-extension-engineering/references/hooks.md) |
+| Hook event contracts (30 events + deltas) | [hook-events.md](skills/claude-code-extension-engineering/references/hook-events.md) |
+| Skills | [skills.md](skills/claude-code-extension-engineering/references/skills.md) |
+| Subagents | [subagents.md](skills/claude-code-extension-engineering/references/subagents.md) |
+| Context modes | [context-modes.md](skills/claude-code-extension-engineering/references/context-modes.md) |
+| Dynamic Workflows | [workflows.md](skills/claude-code-extension-engineering/references/workflows.md) |
+| Agent Teams [EXPERIMENTAL] | [agent-teams.md](skills/claude-code-extension-engineering/references/agent-teams.md) |
+| MCP servers | [mcp.md](skills/claude-code-extension-engineering/references/mcp.md) |
+| Plugins | [plugins.md](skills/claude-code-extension-engineering/references/plugins.md) |
+| LSP / code intelligence | [lsp.md](skills/claude-code-extension-engineering/references/lsp.md) |
 | CLAUDE.md family | [claude-md-family.md](skills/claude-code-extension-engineering/references/claude-md-family.md) |
-| Compatibility | [compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md) |
+| Auto memory | [auto-memory.md](skills/claude-code-extension-engineering/references/auto-memory.md) |
 | Custom Output Styles | [output-styles.md](skills/claude-code-extension-engineering/references/output-styles.md) |
 | Custom Themes | [themes.md](skills/claude-code-extension-engineering/references/themes.md) |
-| Skills | [skills.md](skills/claude-code-extension-engineering/references/skills.md) |
-| Testing and iteration | [testing.md](skills/claude-code-extension-engineering/references/testing.md) |
-| Hooks | [hooks.md](skills/claude-code-extension-engineering/references/hooks.md) |
-| Context modes | [context-modes.md](skills/claude-code-extension-engineering/references/context-modes.md) |
-| Subagents | [subagents.md](skills/claude-code-extension-engineering/references/subagents.md) |
-| Agent Teams [EXPERIMENTAL] | [agent-teams.md](skills/claude-code-extension-engineering/references/agent-teams.md) |
-| Dynamic Workflows | [workflows.md](skills/claude-code-extension-engineering/references/workflows.md) |
-| MCP servers | [mcp.md](skills/claude-code-extension-engineering/references/mcp.md) |
-| LSP / code intelligence | [lsp.md](skills/claude-code-extension-engineering/references/lsp.md) |
-| Plugins | [plugins.md](skills/claude-code-extension-engineering/references/plugins.md) |
 | Agent SDK | [agent-sdk.md](skills/claude-code-extension-engineering/references/agent-sdk.md) |
 | Claude Code GitHub Action | [github-action.md](skills/claude-code-extension-engineering/references/github-action.md) |
-| Choosing between them | [selection.md](skills/claude-code-extension-engineering/references/selection.md) |
-| Combining two mechanisms | [composition-cards.md](skills/claude-code-extension-engineering/references/composition-cards.md) |
-| Hook event contracts | [hook-events.md](skills/claude-code-extension-engineering/references/hook-events.md) |
+| Testing and iteration | [testing.md](skills/claude-code-extension-engineering/references/testing.md) |
+| Compatibility and version gates | [compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md) |
 | Evidence sources | [sources.md](skills/claude-code-extension-engineering/references/sources.md) |
 
-Start at [SKILL.md](skills/claude-code-extension-engineering/SKILL.md) or, if you already know
-you are choosing between mechanisms, go straight to
-[selection.md](skills/claude-code-extension-engineering/references/selection.md).
-
 ## Evidence tags
-
-Every claim is tagged by how well it is backed:
 
 | Tag | Meaning |
 |---|---|
@@ -89,90 +167,32 @@ Every claim is tagged by how well it is backed:
 | `[ANTHROPIC]` | An Anthropic recommendation |
 | `[ENGINEERING]` | Engineering judgment |
 | `[COMMUNITY]` | Community practice |
-| `[vX.Y.Z]` | The build a behaviour was verified against |
+| `[vX.Y.Z]` | The build a behaviour was introduced in or verified against |
 | `[EXPERIMENTAL]` | Off by default, may change |
 
-## Verified against
+Verified against Claude Code **2.1.220** on **2026-07-29**. Version gates record when a
+feature appeared, never that an older build is unsupported; check your own build with
+`claude --version`.
 
-Claude Code **2.1.219**, verified **2026-07-26**.
-
-[compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md) records which build introduced
-each capability. Those are version gates only: they say when a feature appeared, never that
-an older build is unsupported. Check your own build with `claude --version` and compare.
-
-Hook events, plugin components and MCP behaviour all move between releases. Re-read the
-changelog after upgrading rather than trusting a dated profile.
-
-## Measured results
-
-`references/testing.md` says to run the task without the extension first and record what
-happens, because a control run is what separates content worth shipping from content the model
-produces unaided. That measurement is applied to this repo, and the numbers are published
-whether or not they flatter it.
-
-**Tier 1, deterministic content coverage.** 160 questions, each with a regex answer key and a
-source file, run by [tests/run-tests.mjs](tests/run-tests.mjs).
-
-| Category | n | Pass | Rate |
-|---|---|---|---|
-| factual | 105 | 105 | 100% |
-| navigation | 15 | 15 | 100% |
-| routing-positive | 15 | 15 | 100% |
-| routing-negative | 10 | 10 | 100% |
-| anti-hallucination | 15 | 15 | 100% |
-| **TOTAL** | **160** | **160** | **100%** |
-
-That 100% is close to tautological on its own, because the keys were extracted from the
-content. It is meaningful for two reasons. `--prove-fail` gutted every source file and
-**150 of 150 positive assertions went red**, so the suite is not self-certifying. And it is a
-regression gate: when a future Claude Code build changes a fact, the affected rows break.
-
-**Tier 2, control versus treatment.** The same 135 non-routing questions asked twice, once by
-subagents with no access to the skill and once by subagents reading only the skill files.
-Identical model, prompts and grading on both sides.
-
-| Category | n | Control | Treatment | Delta |
-|---|---|---|---|---|
-| factual | 105 | 50 (48%) | 105 (100%) | +55 |
-| navigation | 15 | 1 (7%) | 15 (100%) | +14 |
-| anti-hallucination | 15 | 9 (60%) | 15 (100%) | +6 |
-| **TOTAL** | **135** | **60 (44%)** | **135 (100%)** | **+56 points** |
-
-Measured 2026-07-28 against Claude Code 2.1.219 with `claude-opus-5`, question set v1.
-
-**What this does not prove.** The treatment arm read the files the answer keys came from, so
-100% means the content is findable and unambiguous, not that it is *true* of Claude Code. The
-control arm had no web access, so 44% is unaided recall, not what a model with the official
-docs open would score. Tier 2 is model-graded and will not reproduce exactly.
-[context-modes.md](skills/claude-code-extension-engineering/references/context-modes.md) scored 100% in **both** arms, which
-is evidence that one file is currently earning nothing.
-
-Full method, the blind adjudication pass, per-file breakdown and all 135 per-question rows are
-in [tests/results.md](tests/results.md). Open gaps are tracked in [IMPROVEMENTS.md](IMPROVEMENTS.md).
-
-### Re-running
+## Methodology and re-running
 
 ```bash
 node tests/run-tests.mjs
 node tests/run-tests.mjs --prove-fail
+node tools/verify-evidence.mjs
 ```
 
-Tier 1 green and prove-fail red are the release gate.
+Tier 1 green, prove-fail red, and the evidence gate green are the release bar. Full
+grading method, adjudication protocol, and per-question tables:
+[tests/results.md](tests/results.md). Known gaps: [IMPROVEMENTS.md](IMPROVEMENTS.md).
 
 ## Sources and licensing
 
-[sources.md](skills/claude-code-extension-engineering/references/sources.md) carries the full source table: every entry
-with its verification date, redistributability and licence.
-
-The prose in this repository is original work, derived from public documentation and from
-direct observation of an installed Claude Code environment. No upstream proprietary text is
-redistributed verbatim in bulk. Rows in the source table marked "Redistributable: no" refer
-to those upstream documentation pages, not to the text here.
-
-Two third-party sources carry licences worth naming directly:
-
-- Superpowers `writing-skills`, MIT, Copyright (c) 2025 Jesse Vincent
-- Anthropic official Skill Creator, Apache-2.0
+[sources.md](skills/claude-code-extension-engineering/references/sources.md) carries the
+source ledger. The prose here is original work derived from public documentation and
+direct observation of an installed environment; no upstream proprietary text is
+redistributed verbatim in bulk. Third-party licences worth naming: Superpowers
+writing-skills (MIT, Jesse Vincent) and the Anthropic Skill Creator (Apache-2.0).
 
 ## Licence
 

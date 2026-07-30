@@ -1,0 +1,10 @@
+{
+  "id": "OBS-delta-2.1.220",
+  "claim": "The changelog delta from 2.1.219 to 2.1.220 contains no extension-semantics change; the complete 2.1.220 entry is 'Bug fixes and reliability improvements'",
+  "build": "2.1.220",
+  "observed": "2026-07-29",
+  "method": "Fetched https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md; the 2.1.220 entry is the first heading and contains the single bullet quoted above; no newer version exists in the file.",
+  "reproduction": "Fetch the changelog and read the 2.1.220 section.",
+  "caveat": "This observation justified bumping the reference headers from 2.1.219 to 2.1.220 without per-claim re-verification. A future delta with real content requires the full re-verification pass instead.",
+  "cited_by": ["all reference file headers"]
+}

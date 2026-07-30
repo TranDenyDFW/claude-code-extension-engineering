@@ -1,6 +1,6 @@
 {
   "name": "claude-code-extension-engineering",
-  "description": "Pick the right Claude Code extension mechanism before you build it. Ten mechanisms across seven layers plus the programmatic tier, with a selection guide, composition cards, hook event contracts and dated version gates.",
+  "description": "Architecture decision reference for Claude Code extensions: which mechanism should own a behavior, why the nearest alternative is wrong, and what the choice actually guarantees. Selection guide, 18 composition cards, 30 hook-event contracts plus changelog-only deltas, dated version gates, and a machine-checked evidence ledger. Benchmarked: 44 percent unaided versus 100 percent with the reference, methodology published.",
   "author": {
     "name": "TranDenyDFW",
     "url": "https://github.com/TranDenyDFW"

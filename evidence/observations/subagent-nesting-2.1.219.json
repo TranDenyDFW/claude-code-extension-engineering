@@ -1,0 +1,10 @@
+{
+  "id": "OBS-subagent-nesting",
+  "claim": "A subagent CAN spawn its own subagent on 2.1.219; the changelog's depth-3 default matches observed behaviour, the subagents reference page saying nesting is off does not",
+  "build": "2.1.219",
+  "observed": "2026-07-26",
+  "method": "A general-purpose subagent was dispatched with instructions to spawn an inner agent synchronously via the Agent tool and report the result. The inner agent ran and returned with no error.",
+  "reproduction": "In a Claude Code session, dispatch a general-purpose subagent whose prompt instructs it to use the Agent tool to spawn an inner general-purpose agent with a trivial task, then report whether the inner result arrived. Success means nesting is on for depth 2.",
+  "caveat": "The ceiling above depth 2 is unmeasured. Two official sources still disagree; re-verify per build.",
+  "cited_by": ["skills/claude-code-extension-engineering/references/subagents.md"]
+}

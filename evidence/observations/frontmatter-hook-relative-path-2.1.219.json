@@ -1,0 +1,10 @@
+{
+  "id": "OBS-frontmatter-hook-relative-path",
+  "claim": "A RELATIVE command path in a skill frontmatter hook (command: ./x.py) did not fire in testing; it resolves against the hook process cwd, not the skill directory, and ${CLAUDE_SKILL_DIR} is NOT substituted in hook commands",
+  "build": "2.1.219",
+  "observed": "2026-07-26",
+  "method": "A skill was authored with a frontmatter hooks: block whose command used a relative path to a script beside SKILL.md. The hook never executed in live sessions. The same handler wired through settings.json with an absolute path fired correctly.",
+  "reproduction": "Author a skill with frontmatter hooks using command: ./probe.py where probe.py writes a marker file. Invoke the skill; check the marker is absent. Move the same hook into settings.json with an absolute quoted path; check the marker appears.",
+  "caveat": "Negative result on one build; re-test after upgrades before relying on it.",
+  "cited_by": ["skills/claude-code-extension-engineering/references/hooks.md"]
+}

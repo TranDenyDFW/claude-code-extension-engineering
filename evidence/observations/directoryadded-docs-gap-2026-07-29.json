@@ -1,0 +1,10 @@
+{
+  "id": "OBS-directoryadded-docs-gap",
+  "claim": "The Hooks reference page contains zero occurrences of DirectoryAdded even though changelog v2.1.219 introduced the event",
+  "build": "2.1.220",
+  "observed": "2026-07-29",
+  "method": "Fetched https://code.claude.com/docs/en/hooks in full (242,078 bytes) and searched for DirectoryAdded, add-dir, and register_repo_root: zero matches. Fetched https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md: the 2.1.219 entry lists the DirectoryAdded hook.",
+  "reproduction": "Fetch both URLs; grep the hooks page for DirectoryAdded (expect 0) and the changelog 2.1.219 section for DirectoryAdded (expect 1). The observation expires the day the reference page catches up.",
+  "caveat": "Time-sensitive by nature. The freshness CI does not re-check this; re-verify manually when the hooks page changes.",
+  "cited_by": ["skills/claude-code-extension-engineering/references/hook-events.md"]
+}

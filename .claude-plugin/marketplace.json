@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "claude-code-extension-engineering",
-  "description": "Reference skill for building and debugging Claude Code extensions. Measured: a model scores 44 percent on this material unaided and 100 percent with the skill.",
+  "description": "Architecture decision and verification layer for Claude Code extensions. Measured: a model scores 44 percent on this material unaided and 100 percent with the reference; methodology and limitations published in the repo.",
   "owner": {
     "name": "TranDenyDFW",
     "url": "https://github.com/TranDenyDFW"
@@ -10,7 +10,7 @@
     {
       "name": "claude-code-extension-engineering",
       "source": "./",
-      "description": "Pick the right Claude Code extension mechanism before you build it: CLAUDE.md, rules, skills, hooks, subagents, dynamic workflows, agent teams, MCP servers, output styles, plugins, or the Agent SDK. Includes a selection guide, composition cards for combining two mechanisms, a 30-event hook contract table, and dated version gates.",
+      "description": "Choose the right Claude Code extension mechanism before you build it: CLAUDE.md and rules, skills, hooks, subagents, dynamic workflows, agent teams, MCP servers, output styles, plugins, LSP, or the Agent SDK. Not a generator or a linter: it answers which mechanism should own a behavior and why the nearest alternative is wrong, distinguishing model-owned behavior from harness-owned enforcement with explicit failure policy and tamper boundary. Includes a selection guide, 18 composition cards, 30 documented hook-event contracts plus changelog-only deltas, dated version gates, and an evidence ledger with drift detection. Use plugin-dev to build components; use this to decide what should be built.",
       "author": {
         "name": "TranDenyDFW",
         "url": "https://github.com/TranDenyDFW"

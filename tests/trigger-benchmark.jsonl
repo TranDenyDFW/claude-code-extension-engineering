@@ -1,0 +1,50 @@
+{"id":"T01","should_trigger":true,"prompt":"Should this be a skill or a hook? I need Claude to always run our linter before committing."}
+{"id":"T02","should_trigger":true,"prompt":"My PreToolUse hook isn't firing at all. Where do I start debugging?"}
+{"id":"T03","should_trigger":true,"prompt":"why doesn't my skill load?"}
+{"id":"T04","should_trigger":true,"prompt":"I want to package our team's skills and hooks so everyone installs the same set. What's the right way?"}
+{"id":"T05","should_trigger":true,"prompt":"What's the difference between putting instructions in CLAUDE.md versus making a skill?"}
+{"id":"T06","should_trigger":true,"prompt":"How do I write a subagent definition that can only read files, never write?"}
+{"id":"T07","should_trigger":true,"prompt":"I need to fan out the same analysis over 300 files deterministically. Agent teams or something else?"}
+{"id":"T08","should_trigger":true,"prompt":"Which hook event fires when a session ends, and can it block anything?"}
+{"id":"T09","should_trigger":true,"prompt":"My plugin installs but none of its skills show up. What did I get wrong?"}
+{"id":"T10","should_trigger":true,"prompt":"How do I make a skill that only the user can invoke, never Claude on its own?"}
+{"id":"T11","should_trigger":true,"prompt":"What version of Claude Code introduced workflows, and are they stable?"}
+{"id":"T12","should_trigger":true,"prompt":"I wrote a hook in settings.json on Windows and it silently does nothing. Ideas?"}
+{"id":"T13","should_trigger":true,"prompt":"Can a skill declare its own hooks in frontmatter?"}
+{"id":"T14","should_trigger":true,"prompt":"When should I reach for an MCP server versus just giving Claude a CLI tool to run?"}
+{"id":"T15","should_trigger":true,"prompt":"How do I stop my CLAUDE.md rules from applying in a subdirectory?"}
+{"id":"T16","should_trigger":true,"prompt":"What's the cleanest way to distribute an LSP server config for our language to the whole team?"}
+{"id":"T17","should_trigger":true,"prompt":"Is there a way to guarantee a check runs after every file edit, even if the model doesn't want to?"}
+{"id":"T18","should_trigger":true,"prompt":"How do output styles differ from skills for changing how Claude responds?"}
+{"id":"T19","should_trigger":true,"prompt":"My subagent isn't getting delegated to automatically. The definition looks fine to me."}
+{"id":"T20","should_trigger":true,"prompt":"What are composition patterns for combining a skill with a hook in one plugin?"}
+{"id":"T21","should_trigger":true,"prompt":"Do agent teams need a feature flag? Mine says nothing happens."}
+{"id":"T22","should_trigger":true,"prompt":"I need my extension to keep working after Claude Code updates. How do I track version compatibility?"}
+{"id":"T23","should_trigger":true,"prompt":"What's the marketplace.json format for publishing my plugin?"}
+{"id":"T24","should_trigger":true,"prompt":"Explain when a conversation fork beats a subagent."}
+{"id":"T25","should_trigger":true,"prompt":"How do I test that my skill actually triggers on the right prompts?"}
+{"id":"T26","should_trigger":false,"prompt":"write a hook for my React component to fetch data on mount"}
+{"id":"T27","should_trigger":false,"prompt":"build an MCP server? no wait, first explain what model context protocol actually is, conceptually"}
+{"id":"T28","should_trigger":false,"prompt":"debug this random Node script for me, it throws ECONNREFUSED"}
+{"id":"T29","should_trigger":false,"prompt":"create a GitHub Action that deploys our Terraform on merge to main"}
+{"id":"T30","should_trigger":false,"prompt":"add a git pre-commit hook that runs prettier"}
+{"id":"T31","should_trigger":false,"prompt":"how do I use the Anthropic Messages API with tool use from Python?"}
+{"id":"T32","should_trigger":false,"prompt":"what skills should I put on my resume for a DevOps role?"}
+{"id":"T33","should_trigger":false,"prompt":"our Kubernetes admission webhook rejects pods, help me debug it"}
+{"id":"T34","should_trigger":false,"prompt":"write a VS Code extension that highlights TODO comments"}
+{"id":"T35","should_trigger":false,"prompt":"explain WordPress plugin development basics"}
+{"id":"T36","should_trigger":false,"prompt":"my Django signal handler fires twice, why?"}
+{"id":"T37","should_trigger":false,"prompt":"set up a webhook from Stripe to our billing service"}
+{"id":"T38","should_trigger":false,"prompt":"how do Chrome extension content scripts talk to the background worker?"}
+{"id":"T39","should_trigger":false,"prompt":"what's the difference between an agent and an environment in reinforcement learning?"}
+{"id":"T40","should_trigger":false,"prompt":"install the AWS CLI and configure a profile for me"}
+{"id":"T41","should_trigger":false,"prompt":"write a Slack bot that responds to /standup"}
+{"id":"T42","should_trigger":false,"prompt":"my ESLint plugin crashes on optional chaining, fix the rule"}
+{"id":"T43","should_trigger":false,"prompt":"compare LangChain agents with plain function calling"}
+{"id":"T44","should_trigger":false,"prompt":"how do I version a REST API without breaking clients?"}
+{"id":"T45","should_trigger":false,"prompt":"add a Makefile target that runs our integration tests in Docker"}
+{"id":"T46","should_trigger":false,"prompt":"what team structure works best for platform engineering orgs?"}
+{"id":"T47","should_trigger":false,"prompt":"my Jenkins pipeline hook never triggers on tag push"}
+{"id":"T48","should_trigger":false,"prompt":"explain the plugin architecture of Neovim with lazy.nvim"}
+{"id":"T49","should_trigger":false,"prompt":"how do browser extensions get past content security policy?"}
+{"id":"T50","should_trigger":false,"prompt":"schedule a cron job that rotates our API keys monthly"}
