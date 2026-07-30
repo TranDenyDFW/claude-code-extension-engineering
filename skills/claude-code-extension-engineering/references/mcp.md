@@ -1,6 +1,6 @@
 # MCP servers
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 A governed connection to an external system: tools, resources and prompts served over a defined protocol with its own authentication and permission boundary. Choose it over a shell command when the connection needs credentials, a schema, or an audit boundary.

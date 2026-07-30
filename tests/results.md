@@ -124,10 +124,17 @@ Stated plainly, because a benchmark that only advertises its wins is not evidenc
   covers. It cannot reveal a topic that was never written about.
 - **Five files scored 100% in BOTH arms**, covering 16 of the 135 rows:
   `references/context-modes.md`, `references/compatibility.md`, `references/themes.md`,
-  `references/agent-sdk.md` and `references/composition-cards.md`. On this evidence those files
-  add nothing a model does not already know, and they are candidates for cutting by the same
-  standard `references/composition-cards.md` itself sets. This is the least flattering number
-  here and it is the one most worth acting on.
+  `references/agent-sdk.md` and `references/composition-cards.md`. Per-file n is 2 to 5, so
+  this is a signal, not a verdict. Each was put through a four-question retention test on
+  2026-07-29 (improves decisions? facts not reliably known unaided? prevents a specific
+  failure? version-sensitive fact?): `compatibility` passes on version gates,
+  `composition-cards` on composition semantics (and gained five Dynamic Workflow cards the
+  same day), `agent-sdk` and `themes` earn their keep as three-bullet router stubs that
+  redirect wrong-tool choices, and `context-modes` carries the non-derivable
+  starting-context inclusion list plus the fork-overload warning, which was additionally
+  copied into `subagents.md`. Nothing failed all four questions, so nothing was cut. The
+  control arm's 100% here reflects lenient blind adjudication at small n; the next Tier 2
+  run should oversample these files to settle it.
 - **Two answer keys test only half of a two-part question.** `F048` asks for the concurrent
   subagent limit and its environment variable but keys only on the limit; `F057` asks for the
   MCP output cap and its environment variable but keys only on the variable. Both were left

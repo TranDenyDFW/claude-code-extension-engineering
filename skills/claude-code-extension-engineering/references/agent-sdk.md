@@ -1,6 +1,6 @@
 # Agent SDK
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 The programmatic authoring tier. Cross-referenced beside the interactive surface, never mixed into it: these are library APIs, not files the CLI discovers.

@@ -1,6 +1,6 @@
 # Claude Code hook events
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 30 events. The fields below are identical across every event and are stated here once rather than repeated in each row.
@@ -12,16 +12,21 @@
   - see the per-handler defaults on the Contract branch; synchronous by default. Bound latency explicitly.
 - **Compatibility:** current documentation. Verify this event and handler type on your installed Claude Code build before relying on it.
 
-> Freshness: this table is the documented event set as of the map's verification date. Claude Code ships frequently, so re-check the changelog before relying on the count. Known delta at the 2026-07-25 verification: changelog v2.1.219 adds DirectoryAdded, which fires after /add-dir or the SDK register_repo_root control request registers a new working directory mid-session; it is not yet on the hooks reference page and is therefore not in this table.
-
 - 30 documented events; matcher, output, and blocking are event-specific [OFFICIAL]
 - The event list and capability contracts below were verified against the current Hooks reference.
 - Never infer one event's behavior from another event.
 
+## Changelog-only event deltas
+
+The documented event set and the shipped event set are not the same thing: events can land in the changelog before the Hooks reference records them, so the table below tracks the reference and this section tracks the gap.
+
+- DirectoryAdded: introduced by changelog v2.1.219, fires after /add-dir or the SDK register_repo_root control request registers a new working directory mid-session. Re-checked 2026-07-29: the full Hooks reference page still contains zero occurrences of DirectoryAdded, so its matcher, handler set, and blocking contract remain undocumented. Treat every property of this event as unverified until the reference catches up or a live test pins it down.  [OFFICIAL]  [v2.1.219]
+- Re-check the changelog after every release; this section is where the next delta lands.
+
 
 | Event | Matcher | Handlers | Input focus | JSON control | Exit 2 / block |
 |---|---|---|---|---|---|
-| SessionStart | startup\|resume\|clear\|compact\|fork | command, mcp_tool | Session start mode, model, optional agent type | context only | No; stderr notice |
+| SessionStart | startup\|resume\|clear\|compact\|fork | command, mcp_tool | Session start mode, model, optional agent type; source reports "resume" for forks before v2.1.214 | context, plus 5 special outputs (see below) | No; stderr notice |
 | Setup | init\|maintenance | command, mcp_tool | One-time CLI setup mode | context only | No; stderr notice |
 | InstructionsLoaded | load reason | command, http, mcp_tool | Instruction file, path, memory type, load reason | none | No; ignored |
 | UserPromptSubmit | none | command, http, mcp_tool, prompt, agent | Submitted prompt | top-level block/context | Yes; rejects prompt |
@@ -51,3 +56,15 @@
 | ElicitationResult | MCP server name | command, http, mcp_tool | User elicitation response | response override | Yes; changes action to decline |
 | Notification | notification type | command, http, mcp_tool | Notification title, message, and type | none | No |
 | SessionEnd | end reason | command, http, mcp_tool | Session termination reason | none | No |
+
+## SessionStart special outputs
+
+SessionStart is not "context only": its hookSpecificOutput accepts five fields, and two of them carry easy-to-miss scoping.  [OFFICIAL]  [v2.1.220]
+
+| Field | Effect | Scoping caveat |
+|---|---|---|
+| additionalContext | String added to Claude's context before the first prompt | Attaches to an existing turn |
+| initialUserMessage | String used as the FIRST USER MESSAGE of the session | Applies in non-interactive -p mode; it CREATES the turn, unlike additionalContext. A provided prompt follows as the next turn |
+| sessionTitle | Sets the session title, same effect as /rename | Applies on startup, resume, and fork sources; IGNORED on clear and compact |
+| watchPaths | Array of paths to watch, generating FileChanged events for this session | Paths must be ABSOLUTE |
+| reloadSkills | Boolean; re-scans skill and command directories after SessionStart hooks complete | Skills the hook just installed become available in the SAME session, from the first prompt |

@@ -1,6 +1,6 @@
 # Custom Output Styles
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 The only authored surface that modifies Claude's SYSTEM PROMPT rather than adding context to it. A markdown file with frontmatter whose instructions are appended to the system prompt while the style is active.

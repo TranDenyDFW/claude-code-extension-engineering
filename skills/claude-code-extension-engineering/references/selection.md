@@ -1,17 +1,20 @@
 # Choosing a mechanism
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 Answer the axis questions in order, then open the matching mechanism reference. Many real needs combine two or more mechanisms; the composition cards cover the pairings that actually work.
 
 ## Decision axes (ask in order)
 
-- **Model judgment or deterministic enforcement?**
-  - Judgment that varies by context → Skill (guidance the model reads). A rule that must always fire the same way → Hook (harness runs it, model cannot talk it out of it). Caveat below: hooks are no longer strictly mechanical.
+- **Who owns enforcement: the model or the harness?**
+  - Judgment that varies by context → Skill (guidance the model reads; the model owns the outcome). A rule that must fire on every matching event → Hook (the harness runs it; the model cannot talk it out of firing). Caveat below: hooks are no longer strictly mechanical, and ownership is not a guarantee.
   - go to: [Skills](skills.md)
   - go to: [Hooks](hooks.md)
-  - Caveat: Too simple on current builds; see the nuance note. Hooks now carry judgment via prompt and agent handlers, and a skill can be forced into a subagent with context: fork. Choose by WHO must guarantee the outcome and WHERE it runs.
+  - Caveat: Too simple on current builds. Hooks now carry judgment via prompt and agent handlers, and a skill can be forced into a subagent with context: fork. Choose by WHO owns enforcement and WHERE it runs, then pin down the three properties the word "guarantee" hides:
+    - Authority: model-owned (skill guidance, CLAUDE.md, description routing) vs harness-owned (hook firing, tool filters, permission rules).
+    - Failure policy: fail-open (an HTTP handler on connection failure, a command handler whose interpreter is missing), fail-closed (exit 2 on a blocking event), or advisory (PostToolUse feedback, additionalContext). Harness-owned with a fail-open handler is weaker than it looks; decide the posture explicitly per hook.
+    - Tamper boundary: user-configurable (disableAllHooks switches every hook off, and there is no per-hook disable), project-configurable (checked-in .claude/ hooks and skills), or managed-policy enforced (only managed settings can disable managed hooks; allowManagedHooksOnly blocks user, project, and plugin hooks). Enforcement that must survive the user requires the managed tier.
 - **Automatic invocation or explicit user trigger?**
   - Auto when-relevant → Skill discovery (description) or a Hook (event). Only on demand → a user-invoked Skill with disable-model-invocation: true.
   - go to: [Skills](skills.md)

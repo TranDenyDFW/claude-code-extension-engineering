@@ -11,7 +11,6 @@
       "name": "claude-code-extension-engineering",
       "source": "./",
       "description": "Pick the right Claude Code extension mechanism before you build it: CLAUDE.md, rules, skills, hooks, subagents, dynamic workflows, agent teams, MCP servers, output styles, plugins, or the Agent SDK. Includes a selection guide, composition cards for combining two mechanisms, a 30-event hook contract table, and dated version gates.",
-      "version": "1.0.0",
       "author": {
         "name": "TranDenyDFW",
         "url": "https://github.com/TranDenyDFW"

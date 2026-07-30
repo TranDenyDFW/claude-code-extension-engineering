@@ -1,6 +1,6 @@
 # Subagents
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 A delegated worker with its own context window and its own tool set. Use it to keep a bounded job out of the main context and to hard-limit what that job can touch. Since v2.1.198 subagents run in the background by default, which changes which tools resolve, so one definition can behave differently foreground and background.
@@ -11,6 +11,7 @@ A delegated worker with its own context window and its own tool set. Use it to k
 
 - A bounded, repeated task whose search/logs would flood the main chat?
 - Would isolating context or restricting tools improve control?
+- The term fork is overloaded across mechanisms: a skill's context: fork does not receive conversation history, while a conversation fork receives the full parent conversation. Never infer context inheritance from the word fork; check [context-modes.md](context-modes.md) for what each delegation shape actually starts with [OFFICIAL]
 
 ## Configuration (frontmatter)
 

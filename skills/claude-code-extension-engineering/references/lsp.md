@@ -1,6 +1,6 @@
 # LSP / code intelligence
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 Language-server integration for symbol-aware navigation and live diagnostics. It has no standalone authoring path: it is configured only through .lsp.json in a plugin root or lspServers in plugin.json, so shipping an LSP means shipping a plugin.

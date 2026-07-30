@@ -1,6 +1,6 @@
 # Dynamic Workflows
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 An orchestration script saved to .claude/workflows/ and invoked as /<name>. A background runtime executes it to fan out subagents at scale, so the plan, the loop and the intermediate results stay in script variables and only the final answer returns to the caller's context. Write one when the CONTROL FLOW itself must be deterministic.

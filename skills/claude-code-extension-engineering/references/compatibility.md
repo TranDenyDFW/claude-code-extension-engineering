@@ -1,6 +1,6 @@
 # Compatibility
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 Which Claude Code build introduced each capability. Version gates only: this records when a feature appeared, never that an older build is unsupported. Verify against your own installed build before relying on any of it.

@@ -1,6 +1,6 @@
 # Plugins
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 The packaging and distribution boundary. A plugin bundles any combination of skills, agents, hooks, MCP servers, commands, workflows, output styles, themes, monitors and LSP configuration, and ships them as one installable, versioned unit. Several component types, LSP among them, exist ONLY inside a plugin.
@@ -49,6 +49,8 @@ Run in order. Each step gates the next.
 - Run claude plugin validate ./your-plugin before submitting: the review pipeline runs the same check plus automated safety screening. Approved plugins are pinned to a specific commit SHA in the community catalog and CI bumps the pin as you push, but the public catalog syncs nightly, so approval and installability are not simultaneous  [OFFICIAL]  [v2.1.219]
 - Neither listing is required to ship. Any repository carrying .claude-plugin/marketplace.json is its own marketplace: /plugin marketplace add owner/repo then /plugin install name@marketplace works with no review and no catalog entry  [ENGINEERING]  [v2.1.219]
 - Versioning: explicit version bump, or pinned git commit SHA  [OFFICIAL]
+- Version resolution order: plugin.json version, then the marketplace entry version, then the git commit SHA, then "unknown" for npm sources or non-git local directories. A pinned plugin.json version means pushed commits NEVER reach installed users until the string changes, and plugin.json silently wins over a marketplace-entry version, so never set both  [OFFICIAL]  [v2.1.220]
+- The two official recommendations conflict at --strict: the docs say omit version to get commit-SHA updates, but claude plugin validate warns "No version specified" on an omitted version, and --strict promotes that advisory to a failure. A commit-SHA plugin therefore cannot pass validate --strict; gate CI on plain validate plus an assertion that the version advisory is the ONLY warning, so new warnings still fail  [ENGINEERING]  [v2.1.220]
 - Compatibility + rollback: keep the previous pinned version installable
 
 ## Component inventory (current)

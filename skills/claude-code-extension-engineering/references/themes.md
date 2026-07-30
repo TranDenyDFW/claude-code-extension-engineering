@@ -1,6 +1,6 @@
 # Custom Themes
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 User-authored named colour themes as JSON. Cosmetic, not a behaviour primitive, but authored and plugin-distributable, so it belongs on the map.

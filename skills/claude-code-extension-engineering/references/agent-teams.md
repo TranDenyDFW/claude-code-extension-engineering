@@ -1,6 +1,6 @@
 # Agent Teams
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 Independent Claude Code sessions that talk to each other as peers rather than returning a result to a caller. EXPERIMENTAL and disabled by default. Reach for it only when subagent result-return genuinely cannot express the coordination, because cost scales with team size.

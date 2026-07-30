@@ -1,6 +1,6 @@
 # Context modes
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 How a piece of work gets its context: the main thread, a forked context, or a fully isolated subagent window. Choose by starting context, tool boundary, communication path and lifecycle, not by how big the task feels.

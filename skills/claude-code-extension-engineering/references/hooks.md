@@ -1,9 +1,9 @@
 # Hooks
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
-Code the HARNESS runs on a lifecycle event, independent of the model's judgment. This is the only mechanism that can guarantee something happens: the model cannot talk its way out of a hook. Five handler types (command, http, mcp_tool, prompt, agent), and the last two carry judgment, so hooks are no longer purely mechanical.
+Code the HARNESS runs on a lifecycle event, independent of the model's judgment. This is the only mechanism whose FIRING the harness owns: the model cannot talk its way out of a hook running. Firing is not outcome, though. What happens after depends on the handler's failure policy (an HTTP handler fails OPEN on connection failure) and on the tamper boundary (disableAllHooks switches every hook off; only managed policy survives that), both covered below. Five handler types (command, http, mcp_tool, prompt, agent), and the last two carry judgment, so hooks are no longer purely mechanical.
 
 **Layer:** Automation &middot; **Classification:** primitive &middot; **Status:** stable
 
@@ -123,6 +123,7 @@ A handler object is `{type, command}` plus optional `if`, `args`, `timeout`, `as
 - additionalContext is returned INSIDE hookSpecificOutput alongside the event name, and several hooks returning it for the same event all reach Claude. INFERENCE, not documented: the source names Stop, PostToolUse and UserPromptSubmit but never PostToolUseFailure, so whether it is honoured there is unverified. Test before relying on it. Same for continueOnBlock, documented only on PostToolUse.  [ENGINEERING] [v2.1.219]
 - Hook output is capped at 10,000 characters, counting additionalContext, systemMessage and plain stdout together. Longer output is truncated.  [v2.1.219]
 - Do not copy the published examples that pipe stdin through jq: jq is absent on many Windows installs, so the handler exits non-zero, fails open, and silently blocks nothing while looking installed. Parse the JSON in your interpreter instead.  [ENGINEERING] [v2.1.219]
+- SessionStart is not context-only: hookSpecificOutput accepts additionalContext, initialUserMessage (non-interactive -p mode; CREATES the first turn rather than attaching to one), sessionTitle (ignored on clear and compact sources), watchPaths (ABSOLUTE paths, feeds FileChanged), and reloadSkills (a hook-installed skill becomes available in the same session). Full table in [hook-events.md](hook-events.md).  [OFFICIAL]  [v2.1.220]
 
 ## What the handler receives on stdin
 

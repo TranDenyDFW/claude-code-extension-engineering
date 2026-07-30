@@ -1,6 +1,6 @@
 # CLAUDE.md family
 
-> Claude Code 2.1.219, verified 2026-07-26.
+> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
 Instruction files loaded into context automatically, every session. CLAUDE.md at four scopes (managed, user, project, directory), CLAUDE.local.md, @path imports that recurse up to four hops, and .claude/rules for modular or path-scoped sets. This is the only mechanism that costs context whether or not it is used, so it is the wrong home for anything procedural or long.

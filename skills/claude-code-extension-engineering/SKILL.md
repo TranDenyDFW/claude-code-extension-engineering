@@ -10,10 +10,12 @@ programmatic tier (Agent SDK, GitHub Action). Pick the mechanism first, then ope
 reference: choosing wrong is the expensive mistake, and most of these look
 interchangeable until you need one to guarantee something.
 
-Two questions decide most cases. **Who must guarantee the outcome**, the harness or the
-model? And **where must it run**, this context or an isolated one? Neither is a clean
-split any more (hooks can carry judgment, skills can be forced into a subagent), so
-check `selection.md` before committing to one.
+Two questions decide most cases. **Who owns enforcement**, the model or the harness? And
+**where must it run**, this context or an isolated one? Ownership is not a guarantee:
+even harness-owned enforcement has a failure policy (fail-open, fail-closed, advisory)
+and a tamper boundary (user-, project-, or managed-policy-configurable), and neither
+axis is a clean split any more (hooks can carry judgment, skills can be forced into a
+subagent), so check `selection.md` before committing to one.
 
 ## Where to look
 
