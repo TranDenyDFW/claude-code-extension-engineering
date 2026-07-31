@@ -362,5 +362,45 @@
     "status": "verified",
     "notes": "Own work; not an external fetchable source.",
     "spot_checks": []
+  },
+  {
+    "id": "SRC_AGENT_SDK",
+    "title": "Claude Agent SDK documentation",
+    "url": "https://code.claude.com/docs/en/agent-sdk/overview",
+    "type": "external",
+    "retrieved": "2026-07-31",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Agent SDK overview plus subpages; code.claude.com/docs/en/sdk 301-redirects here via docs.claude.com and platform.claude.com. Capabilities table covers hooks, sessions, MCP, permissions; the MCP subpage documents SDK MCP servers defining custom tools in application code instead of a separate server process.",
+    "spot_checks": [
+      {
+        "claim": "agent-sdk.md: SDK custom tools run in the host process rather than as a separate MCP server",
+        "supported": true
+      },
+      {
+        "claim": "agent-sdk.md: the SDK is a separate programmatic surface with sessions, hooks and structured options, not discovered from .claude/",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_OUTPUT_STYLES",
+    "title": "Claude Code Output styles documentation",
+    "url": "https://code.claude.com/docs/en/output-styles",
+    "type": "external",
+    "retrieved": "2026-07-31",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Documents custom style files with frontmatter, keep-coding-instructions (default false), built-in Default/Proactive/Explanatory/Learning, /output-style deprecated 2.1.73 and removed 2.1.91, and the v2.1.178 nested-directories closest-wins rule.",
+    "spot_checks": [
+      {
+        "claim": "output-styles.md: keep-coding-instructions preserves the default software-engineering system prompt",
+        "supported": true
+      },
+      {
+        "claim": "plugins.md: with nested .claude/ directories the output style closest to the working directory wins",
+        "supported": true
+      }
+    ]
   }
 ]

@@ -42,11 +42,12 @@ the kind of thing a reader comes here to have settled. Each needs one measuremen
 real build. (The nesting depth-2 case has an observation record; the ceiling and the
 PostToolUseFailure case remain unmeasured.)
 
-**4. Nine claims are explicitly unattributed in the evidence ledger.**
-`evidence/claims.jsonl` carries `status: "unattributed"` on 9 of 254 records, mostly
-Agent SDK details whose true upstream (the SDK documentation) is not yet a ledger source,
-plus a few structural claims. Honest gaps rather than guessed provenance. Fix: add an
-`SRC_AGENT_SDK` source row and re-attribute.
+**4. ~~Nine claims are explicitly unattributed in the evidence ledger.~~ RESOLVED 2026-07-31.**
+Added `SRC_AGENT_SDK` (the Agent SDK docs, reached through a three-hop redirect chain from
+the old /docs/en/sdk URL) and `SRC_OUTPUT_STYLES` (which also verified the nested
+closest-wins plugin claim), both fetched live with spot checks recorded in
+`evidence/sources.json`. All 255 claims now carry an attributed source. Unattributed
+remains a legal status in the ledger for honest future gaps; it is simply empty today.
 
 ---
 

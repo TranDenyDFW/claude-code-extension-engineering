@@ -9,6 +9,7 @@
 | HARNESS_TOOL | Claude Code built-in tool descriptions (shipped in-product) | internal | 2026-07-29 | 2.1.220 | verified | no | Anthropic PBC product text; transcribed as reference, not redistributed verbatim in bulk |
 | LOCAL_ENV | Direct observation of the installed Claude Code environment | internal | 2026-07-29 | 2.1.220 | verified | yes | Own work |
 | SRC_AGENT_TEAMS | Claude Code Agent Teams | https://code.claude.com/docs/en/agent-teams | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_AGENT_SDK | Claude Agent SDK documentation | https://code.claude.com/docs/en/agent-sdk/overview | 2026-07-31 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_CHANGELOG | Claude Code changelog | https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_FEATURES | Claude Code extension architecture overview | https://code.claude.com/docs/en/features-overview | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_HOOK_GUIDE | Claude Code Hooks guide | https://code.claude.com/docs/en/hooks-guide | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
@@ -18,6 +19,7 @@
 | SRC_MCP_SPEC | MCP released specification 2025-11-25 | https://modelcontextprotocol.io/specification/2025-11-25 | 2026-07-29 | 2.1.220 | verified | yes | Apache-2.0 (specification contributions) |
 | SRC_MEMORY | Claude Code CLAUDE.md and memory | https://code.claude.com/docs/en/memory | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_PLUGIN_REF | Claude Code Plugins reference | https://code.claude.com/docs/en/plugins-reference | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_OUTPUT_STYLES | Claude Code Output styles documentation | https://code.claude.com/docs/en/output-styles | 2026-07-31 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_PLUGINS | Create Claude Code Plugins | https://code.claude.com/docs/en/plugins | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_SKILL_CREATOR | Anthropic official Skill Creator | https://raw.githubusercontent.com/anthropics/skills/main/skills/skill-creator/SKILL.md | 2026-07-29 | 2.1.220 | verified | yes | Apache-2.0 |
 | SRC_SKILLS | Claude Code Skills | https://code.claude.com/docs/en/skills | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
