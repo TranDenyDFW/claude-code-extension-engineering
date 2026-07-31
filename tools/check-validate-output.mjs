@@ -21,7 +21,10 @@
  */
 import { readFileSync } from 'fs';
 
-const KNOWN_ADVISORY = /No version specified/;
+// Anchored to the version field's own detail line, not a substring match, so
+// an unrelated future warning that merely QUOTES the advisory phrase cannot
+// slip the gate (independent-review finding, 2026-07-31).
+const KNOWN_ADVISORY = /^\s*[>❯]\s*(plugin\.json\s*(→|->)\s*)?version:\s*No version specified/;
 
 export function judge(text) {
   const lines = text.split(/\r?\n/);
@@ -88,6 +91,11 @@ const FIXTURES = [
   {
     name: 'Linux glyphs: advisory plus unexpected warning still fails',
     text: 'Validating plugin manifest: x\n\n⚠ Found 2 warnings:\n\n  ❯ version: No version specified. Consider adding a version following semver (e.g., "1.0.0")\n  ❯ unknownField: Unrecognized field will be ignored\n\n✔ Validation passed with warnings\n',
+    expect: false,
+  },
+  {
+    name: 'unrelated warning QUOTING the advisory phrase does not slip the gate',
+    text: 'Validating plugin manifest: x\n\n‼ Found 1 warning:\n\n  > docs: description says "No version specified" which may confuse readers\n\n√ Validation passed with warnings\n',
     expect: false,
   },
 ];
