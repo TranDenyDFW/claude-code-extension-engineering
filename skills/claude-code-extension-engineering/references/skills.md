@@ -91,6 +91,7 @@ Once it triggers and works on the happy path, attack it. Each pressure below is 
 
 ## Common failure modes / anti-patterns
 
+- An unquoted colon-space inside the description makes the YAML frontmatter unparseable, and the failure is SILENT at runtime: the skill loads with empty metadata, every frontmatter field dropped, so discovery runs on the directory name alone and the skill almost never auto-fires. claude plugin validate catches it ("YAML frontmatter failed to parse"); the live symptom is a skill that looks installed but never triggers. Quote any description containing ": ". Found live in this very skill, which shipped with the defect from birth  [ENGINEERING]  [v2.1.220]
 - Skipping a needed baseline for a workflow/compliance Skill
 - Vague discovery description (never fires)
 - Putting the whole procedure in the description (Claude follows it, skips the body)

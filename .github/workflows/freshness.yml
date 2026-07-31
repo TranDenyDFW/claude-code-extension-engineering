@@ -38,20 +38,20 @@ jobs:
       - name: Verify evidence ledger
         run: node tools/verify-evidence.mjs
 
+      - name: Validate-output checker self-test
+        run: node tools/check-validate-output.mjs --self-test
+
       - name: Validate plugin manifest
-        continue-on-error: true
         run: |
           npm install -g @anthropic-ai/claude-code
           # Commit-SHA versioning is deliberate, so --strict would fail on the
-          # "No version specified" advisory. Run plain validate and assert the
-          # version advisory is the ONLY warning, so any new warning still fails.
-          out=$(claude plugin validate . 2>&1) || { echo "$out"; exit 1; }
-          echo "$out"
-          other=$(echo "$out" | grep -c "warning" || true)
-          version_warn=$(echo "$out" | grep -c "No version specified" || true)
-          if [ "$other" -gt 0 ] && [ "$version_warn" -eq 0 ]; then
-            echo "Unexpected warnings beyond the known version advisory"; exit 1
-          fi
+          # "No version specified" advisory. The checker enforces, by set
+          # subtraction, that the advisory is the ONLY warning; its ability to
+          # fail is proven by the self-test step above. No continue-on-error:
+          # this is a release gate, and it already caught a real frontmatter
+          # defect the moment it was armed.
+          claude plugin validate . 2>&1 | tee /tmp/validate-out.txt
+          node tools/check-validate-output.mjs /tmp/validate-out.txt
 
       - name: Compare versions and write status
         id: status

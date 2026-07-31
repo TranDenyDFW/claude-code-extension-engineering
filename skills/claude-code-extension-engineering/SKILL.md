@@ -1,6 +1,6 @@
 ---
 name: claude-code-extension-engineering
-description: Building or debugging a Claude Code extension: CLAUDE.md, rules, skills, hooks, subagents, dynamic workflows, agent teams, MCP servers, output styles, plugins, or the Agent SDK. Use when choosing between these mechanisms, writing one, or diagnosing one that will not load, fire, or behave.
+description: "Building or debugging a Claude Code extension: CLAUDE.md, rules, skills, hooks, subagents, dynamic workflows, agent teams, MCP servers, output styles, plugins, or the Agent SDK. Use when choosing between these mechanisms, writing one, or diagnosing one that will not load, fire, or behave."
 ---
 
 # Claude Code extension engineering

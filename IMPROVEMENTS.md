@@ -18,13 +18,21 @@ without their URLs changing (the memory page, the hooks guide); recorded in the 
 The verification pass also caught and fixed a wrong claim in `hooks.md` (over-cap hook
 output is file-saved with a preview, not truncated).
 
-**2. ~~No staleness signal and no CI.~~ RESOLVED 2026-07-29.**
+**2. ~~No staleness signal and no CI.~~ RESOLVED 2026-07-29; validation gate hardened 2026-07-30.**
 `.github/workflows/freshness.yml` runs daily, on push, and on demand: compares
 `evidence/VERIFIED_VERSION` against the latest npm release, runs the deterministic suite,
 the prove-fail inversion, and the evidence-ledger gate, and opens an idempotent
 "verification required" issue with the changelog entry when Claude Code moves ahead. The
-README badge reads `evidence/status.json`. Caveat until the first green run on GitHub:
-the workflow is untested in CI itself.
+README badge reads `evidence/status.json`.
+An external audit found the original plugin-validation step was not a gate: it carried
+`continue-on-error: true`, and its warning check was a backwards boolean that accepted an
+unexpected warning arriving alongside the known version advisory. Both fixed 2026-07-30:
+the logic moved to `tools/check-validate-output.mjs` (set subtraction, fail-closed on
+unclassifiable output) with a `--self-test` of six fixtures including the must-fail
+counterexample, run in CI before use, and `continue-on-error` removed. The armed gate
+immediately caught a real defect: the skill's own frontmatter had been unparseable since
+authoring (unquoted colon in the description), meaning the skill ran with empty metadata;
+see item 19.
 
 **3. Two claims are self-declared as unverified and stay that way.**
 `references/hooks.md` marks the `additionalContext` behaviour on `PostToolUseFailure` as
@@ -44,9 +52,12 @@ plus a few structural claims. Honest gaps rather than guessed provenance. Fix: a
 
 ## Blocks discovery
 
-**5. ~~No `.claude-plugin/marketplace.json`.~~ RESOLVED 2026-07-29.**
-Ships both manifests; installs via `/plugin marketplace add`. The skill lives under
-`skills/claude-code-extension-engineering/` for component auto-discovery.
+**5. ~~No `.claude-plugin/marketplace.json`.~~ SUPERSEDED by item 9.**
+Resolved 2026-07-29 (both manifests shipped, installable via `/plugin marketplace add`),
+then deliberately reverted 2026-07-30: `marketplace.json` was removed while the community
+submission is in review, so this entry's resolved state no longer describes the repo. The
+skill still lives under `skills/claude-code-extension-engineering/` for component
+auto-discovery; current install paths are in item 9 and the README.
 
 **6. ~~Pinned 1.0.0 version blocking updates.~~ RESOLVED 2026-07-29.**
 Version removed from both manifests; the commit SHA is now the effective version, so
@@ -112,9 +123,13 @@ separate description pull from environment noise. See `tests/results-trigger.md`
 
 **17. The marketplace-installed skill was invisible to sessions on this machine.**
 Enabled plugin, skill reported by `claude plugin details`, absent from every session's
-init listing; the same directory via `--plugin-dir` lists fine. Not yet reproduced in a
-clean profile; identical plugin/marketplace/skill names and the 1,786-skill environment
-are uneliminated factors. Worth a minimal repro and an upstream issue if it holds.
+init listing; the same directory via `--plugin-dir` listed it. Updated 2026-07-30 with a
+probable root cause: the skill's frontmatter was unparseable the whole time (item 19), so
+the two load paths differed in failure handling, with the marketplace path dropping the
+skill entirely and the plugin-dir path listing it by directory name. Cannot be re-tested
+against the marketplace path until the self-marketplace returns or the community listing
+lands; if the fixed frontmatter also fixes marketplace visibility, this item closes as a
+duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
@@ -122,6 +137,16 @@ The 254 source assignments in `claims.jsonl` were made by subagents with stated 
 not independently double-checked. The integrity gate catches structural drift, not a
 wrong-but-plausible source id. A second blind attribution pass with disagreement
 reporting would harden it.
+
+**19. ~~The skill's own frontmatter was unparseable from birth.~~ RESOLVED 2026-07-30.**
+The description contained an unquoted colon-space, so the YAML frontmatter failed to
+parse and the skill loaded with EMPTY metadata at runtime, discovery running on the
+directory name alone. Found the moment the CI validation gate was armed; confirmed live
+(the fixed skill immediately appeared in the session listing with its description, where
+it had been absent). Consequence for published numbers: the 16 percent trigger recall was
+measured with an empty description, so it is a floor for name-only discovery, not a
+measurement of the description. Fixed by quoting the description; the gotcha is now
+documented in `references/skills.md` and re-measurement is part of the trigger re-run.
 
 ---
 
