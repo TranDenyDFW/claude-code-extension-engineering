@@ -94,11 +94,13 @@ rejected-alternative reasoning (78%) and context boundary (93%). The expected ke
 docs-authored, which structurally favors the docs arm; that bias and the rest of the method
 are in [tests/results-tier3.md](tests/results-tier3.md).
 
-**Trigger benchmark, live: precision 100%, recall 16%.** Fifty real headless sessions on a
-machine carrying 1,786 competing skills. The description never fired on 25 near-miss
-negatives, and passively fired on 4 of 25 in-scope prompts, in an environment where only a
-handful of sessions invoke ANY skill unprompted. Method, the invalidated first run, and the
-marketplace-install bug it uncovered: [tests/results-trigger.md](tests/results-trigger.md).
+**Trigger benchmark, live: precision 100%, recall 96%.** One hundred fifty real headless
+sessions, three passes per prompt, majority scoring, in a clean profile. The description
+never fired on any of the 25 near-miss negatives and fired on 24 of 25 in-scope prompts.
+The earlier 16% run turned out to have measured an EMPTY description: the skill's own
+frontmatter had been unparseable YAML since authoring, caught the moment the CI validation
+gate was armed. The full three-run history, the frontmatter gotcha, and what did and did
+not move the number: [tests/results-trigger.md](tests/results-trigger.md).
 
 ## Evidence, not just tags
 

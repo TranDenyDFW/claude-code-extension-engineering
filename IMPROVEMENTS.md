@@ -119,11 +119,15 @@ Arm C trailed the docs arm most on failure_mode (61% vs 75%) and version_caveat 
 and version gates live in one compatibility file rather than at each decision point.
 Both are content moves, not test changes. See `tests/results-tier3.md`.
 
-**16. Trigger recall is 16% in a crowded environment.**
-Precision is 100%, but passive discovery fired on only 4 of 25 in-scope prompts against
-1,786 competing skills. The Skill Creator description-optimization loop (train/test eval
-split, iterate the description) is the documented fix. A clean-profile re-run would
-separate description pull from environment noise. See `tests/results-trigger.md`.
+**16. ~~Trigger recall is 16% in a crowded environment.~~ RESOLVED 2026-07-31, recall 96%.**
+The 16% run had measured an EMPTY description (the frontmatter defect, item 19). With the
+frontmatter fixed, a clean-profile run of 150 sessions (3 passes per prompt, majority
+scoring) scored recall 96% and precision 100%, the single miss being a version question
+the model answers directly. The Skill Creator description loop ran as specified and all
+three candidates scored perfect on the simulated eval, so per the pre-registered rule the
+wording did not change. Still open: the fixed-description recall in the CROWDED
+environment (1,786 skills) is unmeasured; run 2's 16% bounds it from below only for the
+empty-description case. See `tests/results-trigger.md`.
 
 **17. The marketplace-installed skill was invisible to sessions on this machine.**
 Enabled plugin, skill reported by `claude plugin details`, absent from every session's
