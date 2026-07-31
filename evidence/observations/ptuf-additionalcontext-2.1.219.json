@@ -1,0 +1,10 @@
+{
+  "id": "OBS-ptuf-additionalcontext",
+  "claim": "additionalContext returned in hookSpecificOutput on PostToolUseFailure IS delivered to the model on 2.1.219, arriving as a system-reminder attached to the failed tool result; and a permission denial does NOT fire PostToolUseFailure",
+  "build": "2.1.219",
+  "observed": "2026-07-31",
+  "method": "A disposable hook wired via a temporary settings file (--settings, user settings untouched) returned a distinctive marker in additionalContext on PostToolUseFailure and appended a proof-of-fire log line per invocation. Three headless runs read a nonexistent file with the Read tool pre-allowed (--allowedTools Read): the hook fired 3 of 3 and the model quoted the marker verbatim 3 of 3. A first trial WITHOUT --allowedTools produced zero hook fires: the headless default-deny blocked the tool at the permission layer, which is the PermissionDenied path, not PostToolUseFailure.",
+  "reproduction": "Hook script printing {hookSpecificOutput:{hookEventName:'PostToolUseFailure',additionalContext:'<marker>'}} on that event plus a proof-of-fire append; settings file with a PostToolUseFailure matcher for Read; then: claude -p 'Read C:/does/not/exist.txt, then report any system-provided marker verbatim' --settings <file> --allowedTools Read --max-turns 4 --output-format stream-json --verbose. Check the proof-of-fire log AND grep the transcript for the marker.",
+  "caveat": "One build, one tool (Read), three runs. continueOnBlock on this event remains unmeasured.",
+  "cited_by": ["skills/claude-code-extension-engineering/references/hooks.md"]
+}

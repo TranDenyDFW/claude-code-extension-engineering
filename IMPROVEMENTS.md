@@ -34,13 +34,16 @@ immediately caught a real defect: the skill's own frontmatter had been unparseab
 authoring (unquoted colon in the description), meaning the skill ran with empty metadata;
 see item 19.
 
-**3. Two claims are self-declared as unverified and stay that way.**
-`references/hooks.md` marks the `additionalContext` behaviour on `PostToolUseFailure` as
-`INFERENCE, not documented`, and `references/subagents.md` records that the two official
-sources disagree on the subagent nesting default. Both are honest, and both are exactly
-the kind of thing a reader comes here to have settled. Each needs one measurement on a
-real build. (The nesting depth-2 case has an observation record; the ceiling and the
-PostToolUseFailure case remain unmeasured.)
+**3. ~~Two claims are self-declared as unverified and stay that way.~~ RESOLVED 2026-07-31.**
+Both measured on 2.1.219 with observation records carrying reproductions.
+`additionalContext` on `PostToolUseFailure`: honoured, 3 of 3 headless runs delivered the
+marker as a system-reminder attached to the failed tool result, with the bonus finding
+that a permission denial does not fire the event at all
+(`evidence/observations/ptuf-additionalcontext-2.1.219.json`). Nesting ceiling: depth 3,
+enforced structurally, the third-level agent simply has no Agent tool
+(`evidence/observations/subagent-nesting-ceiling-2.1.219.json`). Both reference files now
+state the measured behaviour; suite rows A002 and A004 updated to match. Still open from
+the same family: `continueOnBlock` outside PostToolUse remains unmeasured.
 
 **4. ~~Nine claims are explicitly unattributed in the evidence ledger.~~ RESOLVED 2026-07-31.**
 Added `SRC_AGENT_SDK` (the Agent SDK docs, reached through a three-hop redirect chain from

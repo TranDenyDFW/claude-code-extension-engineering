@@ -1,0 +1,10 @@
+{
+  "id": "OBS-subagent-nesting-ceiling",
+  "claim": "Subagent nesting on 2.1.219 defaults to depth 3, enforced structurally: L1 spawns L2, L2 spawns L3, and L3 has no Agent tool in its tool list, so a depth-4 spawn cannot even be attempted",
+  "build": "2.1.219",
+  "observed": "2026-07-31",
+  "method": "A general-purpose L1 agent was dispatched with instructions to spawn L2, which spawned L3, each level reporting Agent-tool availability and spawn outcomes verbatim. Result chain: 'L1: spawn of L2 SUCCEEDED', 'L2: spawn of L3 SUCCEEDED', 'L3: Agent tool NOT available'.",
+  "reproduction": "Dispatch a general-purpose agent whose prompt instructs it to spawn a child that spawns a grandchild, each level reporting whether the Agent tool appears in its own tool list and, at the deepest level, attempting one more spawn. The enforcement point is tool availability, not a runtime refusal.",
+  "caveat": "Default configuration only; CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH was not varied. The subagents reference page still says nesting is off, which contradicts this measurement and the changelog.",
+  "cited_by": ["skills/claude-code-extension-engineering/references/subagents.md"]
+}

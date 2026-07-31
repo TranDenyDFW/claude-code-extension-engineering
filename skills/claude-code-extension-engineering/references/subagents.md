@@ -37,7 +37,7 @@ A delegated worker with its own context window and its own tool set. Use it to k
 - Tool restrictions enforced (no tool-access violations)
 - Returns a useful summary (not too little, not a dump)
 - No duplicated work vs the main agent
-- Runtime limits: 20 concurrent (CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS), 200 per session (CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION, reset by /clear), nesting depth via CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH. Sources DISAGREE on the nesting default: the subagents page says off, changelog 2.1.219 says depth 3 - verify on your build. The Task mode parameter was deprecated at 2.1.212, so a subagent inherits the PARENT permission mode [OFFICIAL]  [v2.1.219]
+- Runtime limits: 20 concurrent (CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS), 200 per session (CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION, reset by /clear), nesting depth via CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH. The nesting default was measured on 2.1.219 at depth 3: three levels run, and the third level has no Agent tool to spawn a fourth (see Nesting, measured). The subagents reference page still says nesting is off, which does not match the measured build. The Task mode parameter was deprecated at 2.1.212, so a subagent inherits the PARENT permission mode [OFFICIAL]  [v2.1.219]
 - A subagent's returned report is untrusted content: v2.1.210+ scans it and marks instruction-shaped text, but the scan never removes anything - tool restriction is the real control [OFFICIAL]  [v2.1.210]
 
 ## Supported fields
@@ -78,7 +78,7 @@ The BODY is the system prompt. There is no `prompt` frontmatter field for file-b
 
 ## Nesting, measured
 
-- MEASURED on 2.1.219: a subagent CAN spawn its own subagent. A general-purpose subagent had the Agent tool available, spawned an inner agent synchronously, and got a result back with no error. The changelog (depth 3 default) matches; the subagents reference page saying nesting is off does not match this build. Verify on yours: the two official sources still disagree, and the ceiling above depth 2 is unmeasured.  [ENGINEERING] [v2.1.219]
+- MEASURED on 2.1.219, ceiling included: three levels of subagents run, and the enforcement is structural. An L1 subagent spawned L2, L2 spawned L3, and L3 reported the Agent tool ABSENT from its tool list, so a depth-4 spawn is not refused at call time, it is impossible to attempt. This matches the changelog's depth-3 default and settles the disagreement: the subagents reference page saying nesting is off does not match this build. The deepest agent that can itself spawn is L2.  [ENGINEERING] [v2.1.219]
 
 ## Common failure modes / anti-patterns
 
@@ -106,5 +106,5 @@ The BODY is the system prompt. There is no `prompt` frontmatter field for file-b
 - There is NO prompt frontmatter field for file-based subagents; the Markdown body IS the system prompt. (prompt exists only in the --agents JSON form.) A subagent gets its own prompt plus basic env, NOT the full Claude Code prompt.
 - Plugin subagents IGNORE hooks / mcpServers / permissionMode. Project + user .claude/agents/ definitions override same-named plugin agents.
 - Two different problems, tested separately. DESCRIPTION governs ROUTING (does the right task reach this agent?). SYSTEM PROMPT (the body) governs BEHAVIOUR (does it do the job well once it runs?). A great prompt behind a vague description never runs.
-- The nesting default is the one point where two official sources disagree and the documentation cannot settle it: verify on the installed build before relying on either.
+- The nesting default was the one point where two official sources disagreed; a live measurement settled it at depth 3 on 2.1.219, with the reference page still carrying the stale "off". When documentation cannot settle a question, one measurement on the installed build can.
 - Built-in subagents ship by default: Explore and Plan (read-only, Write/Edit denied), general-purpose, statusline-setup, claude-code-guide. A same-named user or project agent overrides the built-in and keeps its own model field; remove via permissions.deny or CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS=1 [OFFICIAL]
