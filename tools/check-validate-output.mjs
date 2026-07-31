@@ -32,7 +32,8 @@ export function judge(text) {
   // "Found N warning" banner, plus any line that itself says "warning" outside
   // the banner and the pass line. Collect conservatively: every line mentioning
   // "warning" (banner included) and every "  > " detail line.
-  const details = lines.filter(l => /^\s*>\s+/.test(l));
+  // Detail-line marker differs by platform: ">" on Windows, "❯" on Linux.
+  const details = lines.filter(l => /^\s*[>❯]\s+/.test(l));
   const banners = lines.filter(l => /warning/i.test(l) && !/Validation passed/.test(l));
   if (banners.length === 0 && details.length === 0) {
     return { pass: true, reason: 'clean pass, no warnings' };
@@ -77,6 +78,16 @@ const FIXTURES = [
   {
     name: 'banner with no classifiable detail lines fails closed',
     text: 'Validating plugin manifest: x\n\nwarning: something unstructured\n√ Validation passed with warnings\n',
+    expect: false,
+  },
+  {
+    name: 'Linux glyphs: ❯ detail marker with only the advisory',
+    text: 'Validating plugin manifest: x\n\n⚠ Found 1 warning:\n\n  ❯ version: No version specified. Consider adding a version following semver (e.g., "1.0.0")\n\n✔ Validation passed with warnings\n',
+    expect: true,
+  },
+  {
+    name: 'Linux glyphs: advisory plus unexpected warning still fails',
+    text: 'Validating plugin manifest: x\n\n⚠ Found 2 warnings:\n\n  ❯ version: No version specified. Consider adding a version following semver (e.g., "1.0.0")\n  ❯ unknownField: Unrecognized field will be ignored\n\n✔ Validation passed with warnings\n',
     expect: false,
   },
 ];
