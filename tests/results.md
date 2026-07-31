@@ -7,6 +7,33 @@ Answering and grading model: `claude-opus-5`.
 
 ---
 
+## Question set v2 changelog, 2026-07-31
+
+The repo changed substantially across the 2026-07-29/31 rounds, and a claim-ledger sweep
+showed the new content had no suite coverage. Changes, none affecting historical numbers:
+
+- **Added 13 rows.** F172 to F175 replace the retired two-facts-one-key rows (below).
+  F176 to F179 cover the marketplace-submission facts in `plugins.md` (no application
+  process, in-app form, nightly catalog sync, self-hosting without a listing). F180
+  covers the corrected over-cap hook-output behavior. F181 covers the structural nesting
+  ceiling. F182 covers the failure-policy triple. A017 covers the frontmatter gotcha.
+  A018 covers permission denials not firing PostToolUseFailure. Three of the new rows
+  (A017, F180, F179) were individually proven non-hollow by gutting only their guarded
+  passage and observing exactly that one row go red, with byte-exact restore after.
+- **Retired F048 and F057** (each asked two facts and keyed one, IMPROVEMENTS item 12);
+  ids retired rather than renumbered so historical tables stay accurate.
+- **Rekeyed F104 and F078** to phrases unique to the passage each guards (item 13),
+  uniqueness verified by per-file count before committing each key; the file-wide
+  matching limitation remains for the rest of the set by design.
+- **Set totals: 184 rows, 174 positive assertions.** All historical tables below were run
+  on v1 at their stated dates and are not restated.
+- `tools/coverage-report.mjs` answers "did the suite keep up with the content?"
+  mechanically: `node tools/coverage-report.mjs --summary`. Advisory, not a gate; the
+  bulk of its uncovered tail is engineering-practice bullets never meant for
+  one-question-per-line coverage.
+
+---
+
 ## Tier 1: deterministic content coverage
 
 `node tests/run-tests.mjs`. Each question carries a regex answer key and a source file. The

@@ -100,14 +100,18 @@ guidance and belongs under a heading that says so.
 Every reference uses `&middot;` in its `**Layer:** ...` line. Renders fine on GitHub, but
 a plain separator would be simpler for the model-reading case.
 
-**12. Two answer keys in question set v1 test half their question.**
-`F048` keys only on `20 concurrent`; `F057` keys only on `MAX_MCP_OUTPUT_TOKENS`. Split
-each into two rows in v2; not retuned in place because editing a key after the run would
-invalidate the published numbers.
+**12. ~~Two answer keys in question set v1 test half their question.~~ RESOLVED 2026-07-31 in set v2.**
+`F048` keyed only on `20 concurrent`; `F057` only on `MAX_MCP_OUTPUT_TOKENS`. In v2 both
+ids were retired (not renumbered, so historical tables stay accurate) and F172 to F175
+carry the four facts as separate rows. Keys were never retuned in place, preserving the
+published v1 numbers.
 
-**13. Tier 1 matches file-wide, not line-wide.**
+**13. Tier 1 matches file-wide, not line-wide. PARTIALLY ADDRESSED 2026-07-31.**
 A key is asserted to appear somewhere in its file rather than in the passage it guards.
-`F104` and `F078` are the known instances. Scoping keys to a section would close this.
+`F104` and `F078`, the known instances, were rekeyed in v2 to phrases unique to the
+passage each guards (uniqueness verified by per-file count before committing the key). The
+rest of the set still matches file-wide; `tools/coverage-report.mjs` now makes the gap
+visible mechanically after any content edit.
 
 **14. `references/compatibility.md` mixes two things.**
 Profile-contract schema plus the per-feature version gates. Readers want the second;

@@ -71,12 +71,15 @@ mechanism pairings are
 standard is applied to this repo itself, and the numbers are published whether or not
 they flatter it.
 
-**Tier 1, deterministic regression: 173 questions, 100% pass.** Each question carries a
-regex answer key and a source file, run by [tests/run-tests.mjs](tests/run-tests.mjs).
-Near-tautological on the first run since the keys derive from the content; it earns its
-keep as a regression gate and through `--prove-fail`, which guts every source file and
-confirms all 163 positive assertions go red. A suite that stays green against deleted
-content proves nothing; this one cannot.
+**Tier 1, deterministic regression: 184 questions (set v2), 100% pass.** Each question
+carries a regex answer key and a source file, run by
+[tests/run-tests.mjs](tests/run-tests.mjs). Near-tautological on the first run since the
+keys derive from the content; it earns its keep as a regression gate and through
+`--prove-fail`, which guts every source file and confirms all 174 positive assertions go
+red. A suite that stays green against deleted content proves nothing; this one cannot.
+Set v2 (2026-07-31) added coverage for the marketplace-submission facts, the frontmatter
+gotcha, and the measured behaviors, and retired the two known-deficient v1 keys; the
+changelog is in [tests/results.md](tests/results.md).
 
 **Tier 2, control versus treatment: 135 questions, 44% unaided versus 100% with the
 skill.** Identical model, prompts, and blind adjudicated grading on both arms; the only
