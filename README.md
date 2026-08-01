@@ -89,7 +89,8 @@ the control had no web access; both caveats are spelled out in
 [tests/results.md](tests/results.md) along with per-question detail.
 
 **Tier 3, architecture decisions: 60 scenarios, three arms, and the skill loses one of
-them.** Docs-independent scenarios, blind-graded on a seven-field rubric. Unaided model:
+them.** Scenarios authored from the official documentation, independently of this
+reference, then blind-graded on a seven-field rubric. Unaided model:
 71% (37/60 correct primary choices). Model with the full official docs: 82% (52/60). Model
 with this skill: 79% (46/60). The skill beats unaided recall and loses to docs-in-hand
 overall, while leading BOTH other arms on the two dimensions it exists for:

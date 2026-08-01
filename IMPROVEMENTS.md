@@ -4,7 +4,7 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-07-29 against Claude Code 2.1.220.
+Last reviewed 2026-07-31 against Claude Code 2.1.220.
 
 ---
 
@@ -28,8 +28,10 @@ An external audit found the original plugin-validation step was not a gate: it c
 `continue-on-error: true`, and its warning check was a backwards boolean that accepted an
 unexpected warning arriving alongside the known version advisory. Both fixed 2026-07-30:
 the logic moved to `tools/check-validate-output.mjs` (set subtraction, fail-closed on
-unclassifiable output) with a `--self-test` of six fixtures including the must-fail
-counterexample, run in CI before use, and `continue-on-error` removed. The armed gate
+unclassifiable output) with a `--self-test` of nine fixtures, grown from six as the gate met
+real failures (the must-fail counterexample, then Linux glyph rendering, then the
+substring-match hole an independent review found), run in CI before use, and
+`continue-on-error` removed. The armed gate
 immediately caught a real defect: the skill's own frontmatter had been unparseable since
 authoring (unquoted colon in the description), meaning the skill ran with empty metadata;
 see item 19.
@@ -145,7 +147,7 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 254 source assignments in `claims.jsonl` were made by subagents with stated rules,
+The 255 source assignments in `claims.jsonl` were made by subagents with stated rules,
 not independently double-checked. The integrity gate catches structural drift, not a
 wrong-but-plausible source id. A second blind attribution pass with disagreement
 reporting would harden it.
