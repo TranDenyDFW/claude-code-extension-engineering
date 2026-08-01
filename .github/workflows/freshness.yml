@@ -38,6 +38,9 @@ jobs:
       - name: Verify evidence ledger
         run: node tools/verify-evidence.mjs
 
+      - name: Documentation numbers match the artifacts
+        run: node tools/coverage-report.mjs --doc-numbers
+
       - name: Validate-output checker self-test
         run: node tools/check-validate-output.mjs --self-test
 

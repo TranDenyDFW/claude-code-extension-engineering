@@ -31,6 +31,14 @@ showed the new content had no suite coverage. Changes, none affecting historical
   mechanically: `node tools/coverage-report.mjs --summary`. Advisory, not a gate; the
   bulk of its uncovered tail is engineering-practice bullets never meant for
   one-question-per-line coverage.
+- `node tools/coverage-report.mjs --doc-numbers` IS a gate and CI runs it. It re-derives
+  the live fixture and claim counts from the artifacts and fails on any documentation
+  sentence asserting a different one, plus a stale or missing `Last reviewed` header. It
+  exists because three stale numbers survived two audit rounds and a human reader, not a
+  test, caught them. Deliberately narrow: an early version matched generic shapes like
+  "N questions" and produced ten hits, every one a legitimate historical quote, so those
+  patterns were dropped rather than ship a gate that cries wolf. To quote a superseded
+  count on purpose, phrase it away from the canonical wording and say it is historical.
 
 ---
 

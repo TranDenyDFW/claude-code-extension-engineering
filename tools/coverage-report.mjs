@@ -8,12 +8,18 @@
  *   node tools/coverage-report.mjs             per-file summary + uncovered list
  *   node tools/coverage-report.mjs --summary   per-file summary only
  *   node tools/coverage-report.mjs --doc-numbers
- *       Re-derives the live counts and prints every documentation sentence that
+ *       Re-derives the live counts and fails on any documentation sentence that
  *       states a DIFFERENT number for the same thing. Three stale-count reports
  *       across two audit rounds is why this exists: prose drifts from the
  *       artifacts it describes, and only re-derivation catches it.
- *       Advisory, always exit 0. Historical tables legitimately quote old
- *       numbers, so a hit is a prompt to look, not proof of an error.
+ *       This IS a gate (exit 1 on any hit) and CI runs it. That is affordable
+ *       only because the fact list is deliberately narrow: each pattern is
+ *       phrased so that a match can only be a claim about current state. A
+ *       first version matched generic shapes like "N questions" and produced
+ *       ten hits, all legitimate historical quotes; those were dropped rather
+ *       than ship a gate that cries wolf. If a future document needs to quote a
+ *       superseded count, rephrase it away from the canonical wording, and say
+ *       in the text that it is historical.
  *
  * Ignore-list: claim classes never meant for one-question-per-line coverage.
  */
@@ -37,8 +43,6 @@ const claims = readFileSync(join(ROOT, 'evidence', 'claims.jsonl'), 'utf8')
   .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
 
 if (DOC_NUMBERS) {
-  const qRows = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
-    .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
   const checker = readFileSync(join(ROOT, 'tools', 'check-validate-output.mjs'), 'utf8');
 
   // Only facts whose PHRASING is unique enough that a match is unambiguously a
@@ -81,14 +85,19 @@ if (DOC_NUMBERS) {
   const header = impText.match(/^Last reviewed (\d{4}-\d{2}-\d{2})/m);
   const allDates = [...impText.matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g)].map(m => m[1]).sort();
   const newest = allDates[allDates.length - 1];
-  if (header && newest && header[1] < newest) {
+  if (!header) {
+    // Fail closed: a missing header is indistinguishable from a moved one, and
+    // silently passing is how the stale header survived three rounds.
+    hits++;
+    console.log('  IMPROVEMENTS.md  header date: no "Last reviewed YYYY-MM-DD" line found; the check cannot run, so it fails');
+  } else if (newest && header[1] < newest) {
     hits++;
     console.log(`  IMPROVEMENTS.md  header date: says ${header[1]}, but the file carries content dated ${newest}`);
   }
 
   if (!hits) console.log('  none');
-  console.log('\nAdvisory: historical tables may legitimately quote superseded numbers. A hit means read the line, not that it is wrong.');
-  process.exit(0);
+  else console.log(`\n${hits} disagreement(s). Update the prose to the live value, or rephrase a deliberately historical quote away from the canonical wording.`);
+  process.exit(hits ? 1 : 0);
 }
 const questions = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
   .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l))
