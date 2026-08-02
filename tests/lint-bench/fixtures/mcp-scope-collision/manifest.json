@@ -1,0 +1,7 @@
+{
+  "id": "mcp-scope-collision",
+  "kind": "failure-mode",
+  "defect": "the same MCP server name is configured at user scope and project scope with different commands; one silently wins and the loser looks configured",
+  "citation": "mcp.md scopes [OFFICIAL]",
+  "signal": "duplicate|collision|conflict|both scopes|same (server|name)|shadow"
+}

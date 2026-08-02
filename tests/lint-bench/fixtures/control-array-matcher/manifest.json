@@ -1,0 +1,7 @@
+{
+  "id": "control-array-matcher",
+  "kind": "control",
+  "defect": "POSITIVE CONTROL: hook matcher is a JSON array, a schema error that rejects the whole settings file; the incumbent documents catching this, so a runner that reports it missed is broken",
+  "citation": "debug-your-config [OFFICIAL]: array matcher rejects the whole file",
+  "signal": "matcher|array|schema|invalid|string"
+}

@@ -3,12 +3,47 @@
 ![freshness](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FTranDenyDFW%2Fclaude-code-extension-engineering%2Fmain%2Fevidence%2Fstatus.json&query=%24.message&label=claude%20code&color=brightgreen)
 
 Decide which Claude Code extension mechanism should own a behavior BEFORE you build it,
-and know exactly what that choice does and does not guarantee.
+and know exactly what that choice does and does not guarantee. Then run `/extension-doctor`
+and find out which of your existing extensions are silently broken right now.
 
 An architecture decision and debugging reference covering CLAUDE.md and rules, skills,
 hooks, subagents, context modes, dynamic workflows, agent teams, MCP servers, output
 styles, plugins, LSP, and the programmatic tier (Agent SDK, GitHub Action). Every claim
 is evidence-tagged, version-gated, and backed by a machine-checked provenance ledger.
+
+## The extension doctor
+
+The reference documents how extensions fail silently. The doctor finds those failures in
+your actual setup: a read-only, zero-dependency checker that walks the managed policy file,
+`~/.claude`, and your project's `.claude/`, and reports what can never fire and why, every
+finding citing the reference section and evidence tag behind it.
+
+```
+node tools/extension-doctor.mjs
+```
+
+or, with the plugin installed, `/extension-doctor`. It covers the cross-scope and semantic
+checks measured as covered by NOTHING else (see the benchmark below): a dead skill whose
+frontmatter does not parse, a hook under a nonexistent event, a matcher that cannot compile,
+a handler file that does not exist, `disableAllHooks` silently switching everything off, the
+same key shadowed across settings scopes, an unresolvable subagent tools list, the MEMORY.md
+index cap, MCP server-name collisions across scopes, and pinned plugin versions blocking
+updates. If the `agnix` linter is installed, its error-level per-file findings are ingested
+too, so the two compose instead of competing.
+
+The origin story is this repo's own: its skill shipped with an unparseable description and
+was dead for weeks with zero symptoms (see item 19 and the trigger benchmark). The doctor's
+first calibrated run on the machine it was built on found the SAME defect class live in two
+more installed skills, adjudicated against a real YAML parser, with zero false positives.
+
+**Benchmarked, not asserted.** Four ecosystem linters plus the official validator were
+installed sandboxed and run against fifteen committed fixtures encoding the documented
+failure modes. Best competitor: 4 of 12, with a false positive on the clean tree. Nothing
+else caught cross-scope duplicates, settings shadowing, `disableAllHooks`, the memory cap,
+MCP scope collisions, or version pinning. Full matrix, three rounds of scoring hardening
+that each deflated fake catches, and the limitations (including why our own 12 of 12 is by
+construction and NOT the headline) are in
+[tests/results-lint-bench.md](tests/results-lint-bench.md).
 
 ## Five things this catches that are easy to get wrong
 

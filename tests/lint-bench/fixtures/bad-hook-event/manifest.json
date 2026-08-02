@@ -1,0 +1,7 @@
+{
+  "id": "bad-hook-event",
+  "kind": "failure-mode",
+  "defect": "settings.json registers a hook under a nonexistent event name (a one-letter typo), so the hook never fires and nothing says so",
+  "citation": "hook-events.md event table [OFFICIAL]; hooks.md fail-open",
+  "signal": "event|PreToolUsed|unknown|invalid|unrecognized"
+}

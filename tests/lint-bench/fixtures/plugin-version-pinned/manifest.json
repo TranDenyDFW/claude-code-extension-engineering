@@ -1,0 +1,7 @@
+{
+  "id": "plugin-version-pinned",
+  "kind": "failure-mode",
+  "defect": "plugin.json pins a version string; the marketplace treats it as the cache key, so updates stop arriving until the string changes, while commit-SHA flow expects it omitted",
+  "citation": "plugins.md versioning [OFFICIAL]; IMPROVEMENTS.md item 6 (measured on this repo)",
+  "signal": "version.{0,50}(pin|block|stale|update|cache)|pinned"
+}

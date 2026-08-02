@@ -1,0 +1,5 @@
+{
+  "name": "my-plugin",
+  "description": "Adds the /deploy-verify command for the staging pipeline.",
+  "version": "1.0.0"
+}

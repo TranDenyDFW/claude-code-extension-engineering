@@ -1,0 +1,7 @@
+{
+  "id": "missing-hook-handler",
+  "kind": "failure-mode",
+  "defect": "a command hook points at a handler file that does not exist; command hooks fail open, so the rule silently never enforces",
+  "citation": "hooks.md failure policy [OFFICIAL]",
+  "signal": "not found|missing|does not exist|no such file|handler|script"
+}

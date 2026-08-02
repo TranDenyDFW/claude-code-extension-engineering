@@ -237,6 +237,26 @@ scenarios instead of assigning whole batches, is the real answer and costs propo
 more grading. Until then this benchmark cannot resolve differences of a few points, which is
 exactly the size of the differences it was built to detect.
 
+**24. The extension doctor ships; the bench that justified it has known limits.**
+Added 2026-08-02 after a survey-install-and-test pass over the ecosystem's validators
+(directive: wrap an incumbent rather than build from reasoning). The measured gap was real:
+of twelve documented silent-failure modes, the best installed competitor (agnix 0.45.0)
+caught four, and six were caught by nothing. `tools/extension-doctor.mjs` covers all twelve
+with evidence-cited findings, delegates per-file linting to agnix (error-level only) when
+present, and shipped per the pre-committed rule in `tests/results-lint-bench.md`.
+
+Still open from that work:
+- The doctor's 12 of 12 is by construction (we authored both fixtures and checks); the
+  meaningful measurement is the competitor columns and the zero-false-positive discipline,
+  and the results doc says so. A third-party fixture set would be the real test.
+- KNOWN_TOOLS and HOOK_EVENTS are embedded snapshots of current builds; both will rot as
+  Claude Code adds tools and events. The freshness workflow's version-drift issue is the
+  tripwire; the doctor needs a row in that update checklist.
+- `claude plugin validate` was the only benched tool that WROTE during a run (state under
+  the redirected home). Unexplained, recorded in results.json, worth an upstream report.
+- cct's health checker validates hook events against a four-event allowlist and its clean
+  tree column is machine-sensitive; both were measured, neither reported upstream yet.
+
 **23. The Tier 3 citation rate measures format, not verification.** It reports the share of
 factual fields carrying a well-formed URL, and both staged arms hit 100 percent. Cross-checked
 against the run's own fetch-failure reports, 27 percent of B+ citations and 20 percent of D

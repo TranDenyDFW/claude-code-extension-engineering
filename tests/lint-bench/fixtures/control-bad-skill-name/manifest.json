@@ -1,0 +1,7 @@
+{
+  "id": "control-bad-skill-name",
+  "kind": "control",
+  "defect": "POSITIVE CONTROL: skill name violates the documented kebab-case format; the incumbent documents catching this",
+  "citation": "skills.md name format [OFFICIAL]",
+  "signal": "name.{0,40}(format|invalid|kebab|case)|kebab"
+}

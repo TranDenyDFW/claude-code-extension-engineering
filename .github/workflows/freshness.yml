@@ -55,6 +55,20 @@ jobs:
           node tools/tier3-pack.mjs --self-test
           node tools/tier3-score.mjs --self-test
 
+      - name: Extension-doctor self-test
+        # Runs the doctor against the committed lint-bench fixtures: every
+        # documented failure mode must be detected, the clean tree must yield
+        # ZERO findings, and the three false-positive shapes the live
+        # calibration run exposed (multi-line quoted scalar, zero-indent block
+        # sequence, the "*" matcher wildcard) must stay green. Gutting any
+        # check turns exactly its fixture row red.
+        run: node tools/extension-doctor.mjs --self-test
+
+      - name: Lint-bench runner self-test
+        # Scoring logic incl. the boilerplate-immunity rule (a run-level
+        # diagnostic must never fake a catch), plus fixture-generator drift.
+        run: node tests/lint-bench/run-bench.mjs --self-test
+
       - name: Tier 3 artifacts match their sources
         # Drift gates, not self-tests. The committed batches must still derive
         # from the scenario set, the blinding map must still match the answers,

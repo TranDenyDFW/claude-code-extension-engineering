@@ -1,0 +1,7 @@
+{
+  "id": "bad-matcher-regex",
+  "kind": "failure-mode",
+  "defect": "a hook matcher is a regex that does not compile, so the hook can never match and fails open silently",
+  "citation": "hooks.md matcher semantics [OFFICIAL]; debug-your-config prose",
+  "signal": "matcher|regex|invalid|compile|pattern"
+}

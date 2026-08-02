@@ -1,0 +1,7 @@
+{
+  "id": "over-cap-description",
+  "kind": "failure-mode",
+  "defect": "description plus when_to_use exceeds the ~1536-character cap Claude Code truncates at, so the trigger surface silently loses its tail",
+  "citation": "skills.md description cap [OFFICIAL]; suite row F021",
+  "signal": "description.{0,40}(long|length|exceed|cap|limit|truncat)|1536|1024"
+}

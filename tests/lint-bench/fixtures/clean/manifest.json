@@ -1,0 +1,7 @@
+{
+  "id": "clean",
+  "kind": "clean",
+  "defect": "NONE. Valid settings with one working hook whose handler exists, one valid skill under every cap, one valid agent with resolvable tools, one MCP server at one scope. Any finding from any tool on this tree is a false positive",
+  "citation": "n/a",
+  "signal": null
+}

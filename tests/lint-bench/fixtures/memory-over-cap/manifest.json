@@ -1,0 +1,7 @@
+{
+  "id": "memory-over-cap",
+  "kind": "failure-mode",
+  "defect": "MEMORY.md index exceeds the 200-line cap; over-limit content errors rather than loading (v2.1.210+)",
+  "citation": "official memory docs [OFFICIAL] [v2.1.210]; absent from every surveyed tool",
+  "signal": "MEMORY\\.md.{0,60}(line|limit|cap|exceed|large)|200.{0,20}line|memory.{0,30}(limit|cap|exceed)"
+}

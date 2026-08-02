@@ -1,0 +1,7 @@
+{
+  "id": "dead-skill-frontmatter",
+  "kind": "failure-mode",
+  "defect": "SKILL.md description contains an unquoted colon-space, so the YAML frontmatter fails to parse and the skill loads with empty metadata; discovery degrades to the directory name alone",
+  "citation": "skills.md \"Frontmatter\" [LOCAL_ENV]; IMPROVEMENTS.md item 19; tests/results-trigger.md (0%/16% recall until fixed)",
+  "signal": "frontmatter|yaml|parse"
+}

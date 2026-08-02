@@ -1,0 +1,7 @@
+{
+  "id": "disable-all-hooks",
+  "kind": "failure-mode",
+  "defect": "disableAllHooks is set while hooks are configured: every hook in every file is off, there is no per-hook disable, and nothing warns",
+  "citation": "selection.md tamper boundary [OFFICIAL]",
+  "signal": "disableAllHooks|all hooks.{0,30}(off|disabled)|hooks.{0,20}disabled"
+}

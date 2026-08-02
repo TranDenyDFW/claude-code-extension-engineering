@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": [
+          "Bash",
+          "Edit"
+        ],
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/audit.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

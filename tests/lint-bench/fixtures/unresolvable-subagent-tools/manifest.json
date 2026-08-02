@@ -1,0 +1,7 @@
+{
+  "id": "unresolvable-subagent-tools",
+  "kind": "failure-mode",
+  "defect": "an agent frontmatter tools list names a tool that does not exist; since v2.1.208 an unresolvable list refuses to spawn",
+  "citation": "subagents.md tools resolution [OFFICIAL] [v2.1.208]",
+  "signal": "tool|FrobnicateTool|unresolv|unknown|invalid"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "dup-skill-across-scopes",
+  "kind": "failure-mode",
+  "defect": "the same skill name exists at user scope and project scope; one shadows the other and nothing reports which won",
+  "citation": "skills.md scope shadowing [OFFICIAL]; /doctor only checks duplicates within one directory",
+  "signal": "duplicate|shadow|collision|same name|both scopes"
+}

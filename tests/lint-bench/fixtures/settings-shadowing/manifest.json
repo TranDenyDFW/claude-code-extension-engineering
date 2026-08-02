@@ -1,0 +1,7 @@
+{
+  "id": "settings-shadowing",
+  "kind": "failure-mode",
+  "defect": "the same key is set at user, project, and local scope with different values; precedence resolves it silently and no tool reports which file won",
+  "citation": "settings precedence [OFFICIAL]; scope ladder gap measured in the ecosystem survey",
+  "signal": "shadow|preceden|overrid|multiple (scopes|files)|conflict"
+}
