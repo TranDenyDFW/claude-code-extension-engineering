@@ -44,6 +44,28 @@ jobs:
       - name: Validate-output checker self-test
         run: node tools/check-validate-output.mjs --self-test
 
+      - name: Tier 3 harness self-tests
+        # Each of these three feeds its own gate a known-bad input and passes
+        # only if the gate rejects it: a planted key leak, an arm label left on
+        # a blinded sheet, a grader returning one record short. A gate that has
+        # never been shown failing is not evidence, and the S055 gap is what
+        # that costs.
+        run: |
+          node tools/tier3-strip.mjs --self-test
+          node tools/tier3-pack.mjs --self-test
+          node tools/tier3-score.mjs --self-test
+
+      - name: Tier 3 artifacts match their sources
+        # Drift gates, not self-tests. The committed batches must still derive
+        # from the scenario set, the blinding map must still match the answers,
+        # and the published percentages must still be what the raw grades say.
+        # Prose drifting from the artifacts it describes is the defect this repo
+        # has now been bitten by three times.
+        run: |
+          node tools/tier3-strip.mjs --check
+          node tools/tier3-pack.mjs --check
+          node tools/tier3-score.mjs --check
+
       - name: Validate plugin manifest
         run: |
           npm install -g @anthropic-ai/claude-code
