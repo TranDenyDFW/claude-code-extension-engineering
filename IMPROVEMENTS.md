@@ -118,13 +118,29 @@ rescoped to phrases verified unique in their file before committing, joining `F1
 `F078` from v2. Five were gut-tested by deleting only the guarded passage: each turned
 exactly its own row red and nothing else.
 
-The residue is 11 rows, and they are intentional, not unfixed. `A015` keys on
-`Proprietary` (13 hits in `sources.md`) and `A001` on `experimental` (7 hits in
-`agent-teams.md`): in both, the plurality IS the answer to the question asked, so
-narrowing them would make the test wrong. The nine `R` routing rows key on terms in the
-SKILL.md frontmatter description, which is exactly the surface they are meant to test, and
-those terms also appear in the router table. Narrowing those would test the wrong thing.
-`tools/coverage-report.mjs` continues to make any new drift visible mechanically.
+The residue is **2 rows**, and the path to that number is worth recording because the first
+answer was wrong. It was initially claimed as 11 "intentional" rows. An independent review
+rejected that on two counts, correctly:
+
+- The count was stale. Item 15's own content additions in the same commit added a second
+  occurrence of `PURE LITERAL` to `workflows.md`, silently reopening `F063` and making the
+  true count 12. One fix quietly broke another, and only a human reader caught it.
+- Nine of the eleven were a scoping defect wearing an intention's clothes. The `R` routing
+  rows were said to test the SKILL.md frontmatter description, but because matching is
+  file-wide they also hit the body router table, so **all nine would have passed against
+  an empty description**, the exact failure this repo already suffered in items 16 and 19.
+
+All ten were rescoped. The `R` rows now key on comma-sequences that exist only in the
+description, verified by emptying the description in a temp copy: all 15 routing rows go
+red, where nine previously survived. Genuinely intentional and remaining: `A015`
+(`Proprietary`, 13 hits) and `A001` (`experimental`, 7 hits), where the plurality IS the
+answer to the question asked, so narrowing them would make the test wrong.
+
+Closed by CONSTRUCTION, not assertion: `tools/coverage-report.mjs --doc-numbers` now fails
+on any answer key matching more than once in its source file, with `A001` and `A015` as a
+named exempt list. Proven by re-introducing the exact `F063` regression, which the gate
+catches and exits 1 on. The reviewer's sharpest point was that item 13 had been closed by
+assertion with nothing able to detect the drift class; that is what this gate answers.
 
 **14. ~~`references/compatibility.md` mixes two things.~~ RESOLVED 2026-08-02.**
 Reordered into three sections: feature introduction versions first (what readers actually

@@ -33,7 +33,11 @@ showed the new content had no suite coverage. Changes, none affecting historical
   one-question-per-line coverage.
 - `node tools/coverage-report.mjs --doc-numbers` IS a gate and CI runs it. It re-derives
   the live fixture and claim counts from the artifacts and fails on any documentation
-  sentence asserting a different one, plus a stale or missing `Last reviewed` header. It
+  sentence asserting a different one, plus a stale or missing `Last reviewed` header, plus
+  any answer key that matches more than once in its own source file (such a row can survive
+  deletion of the passage it guards; `A001` and `A015` are named exemptions because their
+  plurality is the answer). That last check exists because item 13 was closed by rescoping
+  and then silently reopened by an unrelated content edit in the same commit. It
   exists because three stale numbers survived two audit rounds and a human reader, not a
   test, caught them. Deliberately narrow: an early version matched generic shapes like
   "N questions" and produced ten hits, every one a legitimate historical quote, so those

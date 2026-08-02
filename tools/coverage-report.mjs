@@ -80,6 +80,32 @@ if (DOC_NUMBERS) {
       }
     });
   }
+  // Key ambiguity: an answer key that matches more than once in its own source
+  // file can survive deletion of the passage it guards. Item 13 was closed by
+  // rescoping, then silently REOPENED when unrelated content added a second
+  // occurrence of one key, and only a human reviewer noticed. Closing it by
+  // construction instead: the ledger of intentional exceptions is explicit, and
+  // anything else is a failure.
+  //
+  // A001 and A015 are exempt because the plurality IS the answer to the
+  // question asked ("are all sources redistributable" against 13 rows reading
+  // Proprietary). Narrowing those would make the test wrong, not stricter.
+  const AMBIGUITY_EXEMPT = new Set(['A001', 'A015']);
+  const qAll = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
+    .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
+  for (const q of qAll) {
+    if (!q.answer_key || AMBIGUITY_EXEMPT.has(q.id)) continue;
+    let src;
+    try { src = readFileSync(join(ROOT, q.source_file), 'utf8'); } catch { continue; }
+    let re;
+    try { re = new RegExp(q.answer_key, 'gi'); } catch { continue; }
+    const n = (src.match(re) || []).length;
+    if (n > 1) {
+      hits++;
+      console.log(`  ${q.source_file}  ${q.id}: answer key matches ${n} times, so the row can survive deletion of the passage it guards. Rescope it, or add it to AMBIGUITY_EXEMPT with a reason.`);
+    }
+  }
+
   // Stale "Last reviewed" header: the specific defect that prompted this mode.
   const impText = readFileSync(join(ROOT, 'IMPROVEMENTS.md'), 'utf8');
   const header = impText.match(/^Last reviewed (\d{4}-\d{2}-\d{2})/m);
