@@ -87,9 +87,22 @@ if (DOC_NUMBERS) {
   // construction instead: the ledger of intentional exceptions is explicit, and
   // anything else is a failure.
   //
-  // A001 and A015 are exempt because the plurality IS the answer to the
-  // question asked ("are all sources redistributable" against 13 rows reading
-  // Proprietary). Narrowing those would make the test wrong, not stricter.
+  // Two exemptions, and they hold for DIFFERENT reasons. Keep them distinct:
+  // an independent review caught this comment justifying both on A015's
+  // grounds, which are wrong for A001.
+  //
+  // A015 ("are all upstream sources redistributable?"): each of the 13
+  // Proprietary rows in sources.md is a separate falsifier, so the plurality
+  // genuinely IS the answer, and the row degrades to red if they all go.
+  //
+  // A001 ("is Agent Teams stable and on by default?"): its 7 hits are
+  // restatements of ONE fact, not joint evidence. It is exempt on a narrower
+  // ground: every occurrence concerns the same feature's experimental status,
+  // so no unrelated passage can prop the row up if the real answer changes.
+  //
+  // Adding to this list is not a fix. Rescope first; exempt only when
+  // narrowing would make the test assert something false, and write down
+  // which of the two grounds applies.
   const AMBIGUITY_EXEMPT = new Set(['A001', 'A015']);
   const qAll = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
     .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
