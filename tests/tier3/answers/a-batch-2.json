@@ -1,0 +1,106 @@
+{
+  "arm": "a",
+  "batch": 2,
+  "answers": [
+    {
+      "id": "S011",
+      "primary": "A project-level CLAUDE.md at the repo root, committed to version control. It holds a short list of durable facts (build command, Postgres prerequisite, handler directory) that the harness injects into every session automatically, so no one has to restate them.",
+      "rejected_alternative": "A skill. Skills load only when the model judges their description relevant, which is wrong for baseline orientation facts that should be present before the model decides anything.",
+      "enforcement_owner": "The harness owns the loading (the file is read and injected unconditionally); the model owns whether it actually follows the content. The content itself is advisory guidance, not a constraint.",
+      "context_boundary": "Runs in the main session context window. The full file text crosses into that window at session start and stays resident, so it consumes tokens on every request for the life of the session.",
+      "lifecycle": "Loaded at session start when Claude Code discovers CLAUDE.md by walking up from the working directory. It applies for the whole session and stops applying only if the file is deleted or the session ends.",
+      "failure_mode": "Fails open. As the file grows the model starts skimming it and adherence decays, and stale facts (a renamed script, a moved directory) are followed confidently because nothing validates them against the repo. Keeping it short is the only real mitigation.",
+      "version_caveat": "CLAUDE.md is a long-stable core feature and I am not aware of any version gate or plan restriction on it. I do not know with confidence the current status of the older CLAUDE.local.md file or the exact syntax and limits of the @path import mechanism, so I will not assert them."
+    },
+    {
+      "id": "S012",
+      "primary": "A project skill at .claude/skills/release-notes/SKILL.md, committed to the repo. The frontmatter description names the release-notes task, the body carries the 30 steps, and the template plus the changelog query script live as bundled files the body points at by relative path.",
+      "rejected_alternative": "A custom slash command. A command is a single prompt expansion with no bundled resources and no progressive disclosure, so a 30-step procedure plus a template plus a script would have to be inlined into one prompt file.",
+      "enforcement_owner": "The model. It decides whether the description matches the request and then decides whether to follow each step in order. Nothing in the harness checks that step 17 happened.",
+      "context_boundary": "Main session context. Before triggering, only the skill name and description are resident; on trigger the body enters the main window, and the template and script files are read only if and when the body directs a read.",
+      "lifecycle": "Triggers when the model matches the conversation to the skill description, or when the user asks for it by name. Once loaded the body stays in context for the rest of the session; there is no unload.",
+      "failure_mode": "Fails open and silently. If the description says 'release notes' and the user says 'ship notes for the cut', the skill never loads and the model improvises a plausible but non-conforming document. Long procedures also suffer step-skipping partway through.",
+      "version_caveat": "Agent Skills with SKILL.md and YAML frontmatter are a relatively recent addition to Claude Code and I do not know the exact version that introduced them or which frontmatter keys (beyond name and description) are supported in the current release. I am not aware of a plan restriction on project skills."
+    },
+    {
+      "id": "S013",
+      "primary": "A custom slash command, for example .claude/commands/reseed-staging.md, holding the scripted steps. A command only expands when the user literally types the command, so the procedure has no model-initiated trigger path at all.",
+      "rejected_alternative": "A skill. Skills are model-invoked on description relevance, which is precisely the autonomous-trigger behaviour this scenario forbids.",
+      "enforcement_owner": "Split, and this matters. The harness owns invocation of the packaged procedure (only user input expands a command). The model still owns the shell, so 'never reseeds on its own' is only truly guaranteed if a permission deny rule or a PreToolUse hook also blocks the underlying drop and seed commands.",
+      "context_boundary": "Main session context. The command file's text is expanded into the conversation as a user turn at invocation time; nothing about it is resident before that, and it leaves no standing instruction afterward.",
+      "lifecycle": "Fires only on an explicit /reseed-staging typed by a human. It is a one-shot prompt expansion for that turn and does not persist as a rule.",
+      "failure_mode": "Fails open with respect to the actual risk. The command guarantees the packaged procedure is not auto-triggered, but the model can still reason its way to running the same destructive SQL by hand, so a command alone is advisory protection against an unwanted reseed.",
+      "version_caveat": "Slash commands in .claude/commands are stable. Frontmatter keys such as description, argument-hint and allowed-tools, and the $ARGUMENTS and positional-argument substitutions, were added over time and I do not know which release introduced each, so I would verify the frontmatter schema against the installed version before relying on allowed-tools to scope the command."
+    },
+    {
+      "id": "S014",
+      "primary": "A nested CLAUDE.md placed at src/api/CLAUDE.md. Claude Code supports subdirectory memory files that load when work reaches that part of the tree, which keeps the API conventions out of the root file's always-resident budget while putting them in front of the model exactly when someone edits an endpoint.",
+      "rejected_alternative": "A skill scoped to API work. A skill triggers on topical description match rather than on file path, so it can miss a session that quietly edits a handler without ever naming the API domain.",
+      "enforcement_owner": "The model. The harness delivers the text; adherence to input validation, the error envelope and OpenAPI comments is the model's choice. If adherence continues to slip, the real owner has to become a PostToolUse hook running the repo's linter or schema check.",
+      "context_boundary": "Main session context, loaded lazily. Only the subtree file crosses in, and only for sessions that touch src/api, so sessions working elsewhere pay no token cost for it.",
+      "lifecycle": "Injected when Claude reads or edits a file under src/api, and it applies for the remainder of that session. I am not fully certain of the exact trigger condition in the current release (whether it is any file access under the directory, or only certain tools), so that is worth verifying.",
+      "failure_mode": "Fails open, and with a timing hazard: because loading is lazy, the conventions can arrive after the model has already drafted its plan for the change. Creating a brand new handler file at a path the model never read first is the most likely case where the nested file does not load in time.",
+      "version_caveat": "Nested CLAUDE.md support is a standard memory feature with no plan gate I am aware of, but I do not know the precise version in which the lazy subtree-loading behaviour reached its current form, and I would not assert a specific file-size limit for the root file since I do not know one."
+    },
+    {
+      "id": "S015",
+      "primary": "A user-level memory file at ~/.claude/CLAUDE.md. It is per-machine and per-user, applies to every repository that engineer opens, and lives outside any repo so nothing reaches teammates.",
+      "rejected_alternative": "A project CLAUDE.md committed to each repo. That is the exact thing the scenario forbids, since it pushes one person's indentation and commit-message preferences onto every contributor.",
+      "enforcement_owner": "The model. Personal style guidance is advisory text; nothing verifies that a commit message is conventional or that a file used two spaces.",
+      "context_boundary": "Main session context in every session on that machine, merged with whatever project memory also applies. My understanding is that the more specific project-level file wins where the two conflict, but I am not certain of the exact precedence and merge order, so that should be checked.",
+      "lifecycle": "Loaded at every session start on that machine, for every directory. It stops applying only when the file is edited or removed, or when the engineer works on a different machine.",
+      "failure_mode": "Fails open, and conflicts are silent. When a repo mandates four-space indentation and the personal file says two, the model picks one without flagging the collision, so the engineer can ship style-inconsistent diffs without noticing.",
+      "version_caveat": "The ~/.claude/CLAUDE.md user memory location is stable with no plan gate I am aware of. The separate, gitignored per-project personal file (CLAUDE.local.md) has been deprecated in favour of imports, but I do not know its current support status in the installed version, so I would not build on it."
+    },
+    {
+      "id": "S016",
+      "primary": "A hook pair backed by a plain file store. A Stop or SessionEnd hook runs a small script (optionally handing the transcript to a cheap subagent) that distils durable facts and appends them to a learned-notes file, and a SessionStart hook injects that file into the next session. The accumulation is a harness side effect of working, not a document anyone edits.",
+      "rejected_alternative": "Manual memory capture, that is, the engineer adding lines to CLAUDE.md via the # memory shortcut. It works but it is exactly the by-hand maintenance the team refuses to do, so it decays.",
+      "enforcement_owner": "Split. The harness owns that capture and injection actually happen, since hooks fire deterministically. The model owns the quality of what gets written, which is the weak point.",
+      "context_boundary": "Two boundaries. Distillation should run outside the main window, in a script or a subagent with its own context, so only the compact distilled file crosses back into the main session at start. If distillation runs inline in the main session it re-bills the whole transcript.",
+      "lifecycle": "Runs on SessionStart (inject) and on Stop or SessionEnd (capture), every session, until the hooks are removed from settings. The store itself never expires on its own and needs an explicit pruning pass.",
+      "failure_mode": "Fails open and degrades over time. A wrongly generalised observation ('the auth test is flaky') gets written once and then misleads every future session with no review gate, and unbounded growth turns the store into context poison. Capture hooks also tend to fail silently, so nobody notices when they stop working.",
+      "version_caveat": "The hook system is stable, but I do not know which Claude Code version introduced each hook event, and specifically I am not confident about the availability or exact naming of SessionStart and SessionEnd versus Stop in the installed release. I would enumerate the supported events before wiring this."
+    },
+    {
+      "id": "S017",
+      "primary": "A custom output style, defined as a markdown file with a system-prompt body and selected with /output-style. Output styles replace Claude Code's built-in software-engineering system prompt rather than appending to it, which is the only mechanism here that removes behaviour instead of adding to it.",
+      "rejected_alternative": "CLAUDE.md instructions telling the model to use a runbook voice and avoid code. That is purely additive: the software-engineering system prompt is still present and keeps pulling answers back toward code changes.",
+      "enforcement_owner": "Split. The harness owns the swap of the system prompt, so the default engineering framing is genuinely gone. The model owns the voice and the fixed structure, which remain advisory.",
+      "context_boundary": "It occupies the system prompt of the main session rather than the conversation body. My understanding is that it governs the top-level agent and does not automatically propagate to subagents, but I am not certain of subagent inheritance and would test it.",
+      "lifecycle": "Applies from the moment it is selected, persists via the settings file at whichever scope it was saved (user or project), and applies to every turn of every session under that setting until it is changed back.",
+      "failure_mode": "Fails open on structure and drifts on voice over long sessions. The bigger practical risk is the deliberate part: removing the engineering prompt also removes the verification and tool-discipline scaffolding, so if this group ever does need a code or config change the assistant is measurably worse at it.",
+      "version_caveat": "Output styles are a comparatively recent feature and I believe this area has seen churn, including changes to the built-in styles. I do not know the introducing version, whether the mechanism is still the recommended path in the current release, or whether any plan restriction applies, so this one needs checking against the installed version before adoption."
+    },
+    {
+      "id": "S018",
+      "primary": "A PreToolUse hook on the Bash tool that inspects the command and denies anything that pushes to the protected branch, backed by a permissions deny rule in settings.json (a Bash(git push:*) style entry). The hook is code the harness runs before the tool executes, so it does not depend on the model's judgement at all.",
+      "rejected_alternative": "A strongly worded CLAUDE.md rule. It has already failed twice here, and the post-compaction failure is the diagnostic: instruction text is context, and context can be summarised away, while a hook is configuration and is unaffected by compaction.",
+      "enforcement_owner": "The harness, deterministically. This is the whole point of the choice: the outcome does not depend on what the model decides in the moment.",
+      "context_boundary": "The hook executes outside the model's context, in its own process, receiving the tool-call payload on stdin. Only the decision and its reason string cross back into the transcript, which also gives the model a chance to correct course rather than silently retrying.",
+      "lifecycle": "Fires on every matching tool call for the entire session, including after compaction, and applies from session start onward. My understanding is that the hook configuration is snapshotted at startup, so mid-session edits to the hook may not take effect until a restart; I am not certain of the current behaviour there.",
+      "failure_mode": "Fails closed for calls the matcher catches, but fails OPEN for everything it does not: git -C from another directory, a push inside a shell script or a chained && command, a git alias, or a push issued through an MCP git server rather than Bash. Command-string matching is inherently leaky, so the durable guarantee is a server-side branch protection rule on main, with the hook as fast local feedback.",
+      "version_caveat": "Hooks and permission deny rules are stable features. What I am not certain about is the exact denial contract in the current version: older guidance used exit code 2 on stderr, newer guidance uses a JSON object with a permission decision field. I would confirm which the installed version honours rather than guess the field names."
+    },
+    {
+      "id": "S019",
+      "primary": "A skill whose description names the billing domain, with a short SKILL.md body that points to the long explainer as a separate reference file loaded on demand. Skills are model-invoked on topical relevance, which matches 'pull it in whenever billing comes up', and they are not user-facing menu actions.",
+      "rejected_alternative": "A custom slash command. Commands appear in the command menu as invocable actions and only expand when a human types them, which is both more visible and less automatic than this reference material needs.",
+      "enforcement_owner": "The model. It judges whether the conversation is about billing and whether to read the reference file. Nothing forces the lookup.",
+      "context_boundary": "Only the frontmatter description is resident by default. On trigger the short body enters the main session window, and the long explainer crosses in only when the model follows the pointer, which is the mechanism that keeps it from being resident every session.",
+      "lifecycle": "Triggers mid-conversation when billing comes up, and the loaded material then stays in the main window for the rest of the session with no way to evict it. It never applies in sessions that do not mention the domain.",
+      "failure_mode": "Fails open and quietly. The description is the entire trigger, so a session that says 'invoice', 'dunning' or 'proration' without saying 'billing' gets no reference at all and the model answers from priors about the legacy engine's invariants, which is exactly the trap this document exists to prevent. Write the description with the synonyms in it.",
+      "version_caveat": "Agent Skills are a recent feature and I do not know the introducing version, nor whether the current release exposes skills in any user-visible listing (which would partially undercut the 'nobody should see it as an action' requirement). I am also unsure of the per-skill body size guidance, so I will not quote a limit."
+    },
+    {
+      "id": "S020",
+      "primary": "Enterprise-managed policy memory plus managed settings, deployed by IT or MDM to the system-level managed path (on Windows this is under ProgramData\\ClaudeCode, with equivalent system paths on macOS and Linux). Managed policy sits at the top of the precedence chain and is not overridable by user or project files.",
+      "rejected_alternative": "A user-level ~/.claude/CLAUDE.md rolled out by script. It reaches every repo on the machine but sits in a user-writable location, so any developer can edit or delete it, which fails the no-opt-out requirement.",
+      "enforcement_owner": "Split, and the split is the honest answer. The harness owns that the file loads (precedence plus filesystem ACLs make that non-optional). The model still owns compliance, because the payload is guidance text, and text about data handling is advisory no matter where it is deployed.",
+      "context_boundary": "Main session context on every machine, injected at session start ahead of user and project memory. Because it is resident in every window of every session organisation-wide, its token cost is multiplied across the whole company, so brevity here has real economic weight.",
+      "lifecycle": "Applies at every session start on any machine where IT has placed the managed file, and stops only when IT removes or updates it. Developers cannot turn it off from within the CLI.",
+      "failure_mode": "Fails open on the behaviour it is supposed to guarantee: a model can read a data-handling reminder and still paste a secret into a log. It also fails open if the OS permissions are wrong, since a local administrator can delete the file. Any data-handling rule that must actually hold needs a matching deny rule or PreToolUse hook in the managed settings, not just prose.",
+      "version_caveat": "I am reasonably confident that a system-level managed settings file with highest precedence exists, and fairly confident there is a corresponding enterprise policy memory location, but I do not know the exact filenames and paths per platform in the current version, and I do not know whether this is gated to Team or Enterprise plans. Both should be confirmed with the deployment documentation before an org-wide rollout."
+    }
+  ]
+}

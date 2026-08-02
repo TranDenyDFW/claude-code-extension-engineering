@@ -1,0 +1,106 @@
+{
+  "arm": "a",
+  "batch": 1,
+  "answers": [
+    {
+      "id": "S001",
+      "primary": "A project skill (SKILL.md under .claude/skills) that owns the audit procedure and fans out one read-only auditor subagent per file or small batch, then routes every candidate finding to a separate adversarial verifier subagent before it is allowed into the report. The skill file is the durable artifact that makes next quarter's rerun identical from one invocation.",
+      "rejected_alternative": "An agent team. Rejected because 400 audits are independent and need no peer negotiation; the team's messaging substrate adds coordination cost and cross-talk with no benefit here.",
+      "enforcement_owner": "The model. A skill is instructions the model elects to follow, and nothing in the harness forces the adversarial verification gate. If the gate must be non-negotiable, back it with a hook (PreToolUse or Stop) that refuses a report lacking verifier verdicts.",
+      "context_boundary": "The orchestrating context holds only the skill body, the file queue, and the merged findings. Each auditor and each verifier runs in its own subagent window; only a structured finding list or verdict crosses back. Raw route handler source never enters the main conversation.",
+      "lifecycle": "Runs when the user invokes the skill by name or the description matches the request, and ends when the queue drains and the report is written. It has no standing effect between quarters: the file persists, the behaviour does not.",
+      "failure_mode": "Fails open and is advisory. The realistic failures are silent partial coverage (the model shrinks 400 files to the ones it sampled and reports as if complete) and a verification pass that checks the summary rather than the code, because subagent reports lose the underlying evidence. Neither failure announces itself.",
+      "version_caveat": "Skills with SKILL.md frontmatter are generally available in current Claude Code, and plugin packaging plus per-skill allowed-tools are more recent additions. I do not know the exact minimum version for any of these, nor the current cap on concurrently dispatched subagents, so the fan-out width may be silently throttled."
+    },
+    {
+      "id": "S002",
+      "primary": "An agent team: five teammates in one shared team session, each chartered with a different hypothesis and able to message the others so rebuttals land while the work is in flight, with the lead writing the surviving consensus to a findings document.",
+      "rejected_alternative": "Parallel subagents dispatched with the Task tool. Rejected because subagents cannot see or answer each other, so you would get five isolated monologues and no disproof.",
+      "enforcement_owner": "The model. The harness supplies the team substrate (separate contexts, message passing, addressability); whether the investigators genuinely attack each other's theories rather than politely agree is model behaviour driven by the charters.",
+      "context_boundary": "Each teammate has its own context window. What crosses is the messages they post to each other plus their final reports; your main conversation should see the lead's synthesis and the findings doc, not five full investigation transcripts.",
+      "lifecycle": "Starts when the team is created for this investigation and runs until the members converge or you stop them. It is a session-scoped construct, not standing configuration, so nothing about it survives into the next debugging session unless you re-create it.",
+      "failure_mode": "Fails open. The dominant failure is sycophantic convergence: five instances of the same model tend to agree rather than falsify, so a wrong consensus can be produced confidently. Secondary costs are roughly five times the tokens and a lead that summarizes the debate instead of the evidence.",
+      "version_caveat": "Agent teams are the newest of these mechanisms and I believe they shipped as an opt-in or experimental feature. I do not know the exact version that introduced them, the setting or flag name that enables them, or whether availability is plan restricted."
+    },
+    {
+      "id": "S003",
+      "primary": "A dedicated subagent (for example .claude/agents/test-runner.md) that runs the suite inside its own context window and returns only the failing test names with their error messages. Its final message is the only thing that crosses back.",
+      "rejected_alternative": "A hook on the Bash tool that trims the test output. Rejected because the filtering needed here is judgment (deciding which lines constitute a failure and its message), which is model work, and I am not confident a PostToolUse hook can rewrite tool output that has already been produced.",
+      "enforcement_owner": "The harness owns the isolation: a subagent's context is genuinely separate and the parent receives only the returned report. The model owns what it chooses to put in that report, which is where the requirement can still be defeated.",
+      "context_boundary": "The suite's tens of thousands of stdout lines live entirely in the subagent's window. Only one text report crosses into your conversation. The subagent's instructions must cap what it returns, since a verbose agent pasting a large excerpt would reintroduce exactly what you excluded.",
+      "lifecycle": "Fires when you request a test run, or automatically when the agent description matches the request, and ends when the report is returned. Nothing persists between runs; the agent definition file persists, the context does not.",
+      "failure_mode": "Closed with respect to the raw output (it structurally cannot leak) but open with respect to correctness. A subagent that misreads a crashed run can report 'all passed', and a huge log can exhaust the subagent's own context and force truncation or compaction that drops failures it already saw.",
+      "version_caveat": "Subagents defined as .claude/agents Markdown files with name, description, tools and model frontmatter are generally available. I do not know which version introduced per-subagent model selection, and I do not know whether subagent output size is capped by the harness or only by the prompt."
+    },
+    {
+      "id": "S004",
+      "primary": "An agent team with three named teammates, one per layer (frontend, backend API, tests), sharing a channel so interface contract changes propagate mid-flight, and each individually addressable so you can redirect one worker without going through a coordinator.",
+      "rejected_alternative": "Three parallel subagents. Rejected on two counts specific to this request: subagents cannot exchange the evolving contract with each other, and once dispatched they are unaddressable, so redirecting one means stopping everything.",
+      "enforcement_owner": "The model. The harness provides addressability and the message bus; keeping the contract actually synchronized, and broadcasting a change rather than assuming it, is model discipline that nothing enforces.",
+      "context_boundary": "Three separate context windows plus the shared team channel. What crosses is the messages teammates post and the files they write to the working tree; your direct redirect enters only the addressed teammate's window, which is precisely the property you asked for.",
+      "lifecycle": "Runs for the duration of the feature and dissolves when the work lands or you tear the team down. There is no standing effect on later sessions and no persistence of the contract discussion beyond whatever the teammates wrote to files.",
+      "failure_mode": "Fails open. The concrete risk is write collision and drift on the shared contract surface (types, API client, fixtures) that all three layers touch, since a shared working tree gives no isolation. A contract change that a teammate forgets to broadcast produces work that compiles in isolation and breaks on integration.",
+      "version_caveat": "Agent teams are newer than subagents and I believe they are opt-in or experimental. I cannot confirm the version that introduced them, the enabling flag or setting, whether teammates share a working tree or get separate worktrees by default, or whether the feature is plan restricted."
+    },
+    {
+      "id": "S005",
+      "primary": "A dynamic workflow: a defined iterate-until-condition loop where the loop control lives outside the model. The harness (or an equivalent driver script built on the Agent SDK) owns the round counter and the stop predicate (type check clean, or two consecutive rounds with no reduction in error count), and the model only performs the fixes inside each round.",
+      "rejected_alternative": "A skill that instructs the model to keep looping until the check passes. Rejected because the termination test then lives in model judgment, and the model will either stop early declaring victory or fail to notice the two-round no-progress condition.",
+      "enforcement_owner": "The harness, for iteration and termination. The model owns only the per-round edits. That split is the whole point of the requirement that nobody re-decides anything between rounds.",
+      "context_boundary": "Each round should run in a fresh or bounded context carrying forward only the current error list and the error count, so ten rounds of type checker output do not accumulate. Run inline in the main conversation instead, and every round stays resident and the loop degrades as context fills.",
+      "lifecycle": "Starts on invocation, stops on the first clean run or on the second consecutive no-progress round, and applies to nothing outside that invocation. It is not a standing gate on commits or on future type errors.",
+      "failure_mode": "Fails open unless the stop condition is measured mechanically from the checker's own output. The classic failure is oscillation, where a fix for one error reintroduces another and the count plateaus without convergence. A subtler one: if progress is defined as raw error count, a refactor that consolidates many errors into one root error can look like no progress and stop the loop while real progress was happening.",
+      "version_caveat": "I am not confident about the current name, file format, or release status of the dynamic-workflow mechanism in Claude Code, and it may be experimental or behind a flag. A shell or Agent SDK driven loop invoking Claude once per round is the version independent fallback that gives the same enforcement split."
+    },
+    {
+      "id": "S006",
+      "primary": "Parallel subagents, one per file or small batch, each operating in its own git worktree so writes cannot collide, dispatched by a skill (or dynamic workflow) that owns the queue, a fixed worker pool, the per-result verification command, and the merge back.",
+      "rejected_alternative": "An agent team. Rejected because 500 identical transforms require no negotiation between workers; a team buys addressability and chat that this task never uses, at real coordination and token cost.",
+      "enforcement_owner": "Split. The harness owns the isolation (separate contexts, separate worktrees) and owns the verification verdict if the check is a real command whose exit code gates the result. The model owns transform quality and, dangerously, owns whether every file actually got attempted.",
+      "context_boundary": "Each subagent sees only its assigned files and returns a pass/fail plus a short diff summary. The orchestrating context holds the queue and a results ledger, never 500 files of component source. Merge conflicts surface at the worktree level, not in anyone's context.",
+      "lifecycle": "Runs once per migration invocation and ends when the queue drains and all worktrees are merged or discarded. The skill persists for reruns; the workers, worktrees, and their contexts do not.",
+      "failure_mode": "Fails open. Expect conflicts on the shared files every worker wants to touch (theme config, global styles, the styling library's provider setup), silent skips counted as done, and per-file verification that passes while the application is broken in aggregate because no worker sees the composition. There is also a resource hazard if concurrency scales with file count instead of a fixed worker pool.",
+      "version_caveat": "Git worktree isolation and background or parallel agent execution are relatively recent Claude Code additions and I do not know the version that introduced either. Worktree isolation also presupposes a git repository with a clean working tree, and I do not know the current ceiling on simultaneously running agents."
+    },
+    {
+      "id": "S007",
+      "primary": "Parallel subagents: one read-only reviewer subagent per changed file, each returning a structured finding list against a fixed schema, followed by a single merge step (in the orchestrator or in one dedicated synthesizer subagent) that deduplicates and ranks.",
+      "rejected_alternative": "An agent team. Rejected because the scenario states the reviewers have nothing to discuss; the team's message bus and addressability would add cost and noise while changing nothing about the merged output.",
+      "enforcement_owner": "The model. Nothing at the harness level guarantees that all 60 files were actually reviewed or that the merge preserved every finding, unless the file list is enumerated by a script and the ledger is reconciled against it.",
+      "context_boundary": "Each reviewer's window holds one file's diff plus whatever context it pulls; only its findings cross back. The parent then holds 60 finding lists at once, which is itself a large payload, so a capped and structured per-reviewer output matters as much as the isolation does.",
+      "lifecycle": "Runs on invocation against one specific pull request or diff and ends with the merged summary. It carries no standing state and must be re-run per pull request; it is not a merge gate unless something else enforces it.",
+      "failure_mode": "Fails open. The structural cost of the isolation is that cross-file defects are invisible by construction: a caller and callee contract broken across two files is never seen by any single reviewer. Deduplication can also collapse two genuinely different findings into one, and 60 parallel dispatches is a real token and rate-limit expense.",
+      "version_caveat": "Subagents are generally available, but I do not know the current limit on how many can run concurrently, so 60 will very likely be queued in waves rather than run simultaneously. Wall-clock expectations should assume batching."
+    },
+    {
+      "id": "S008",
+      "primary": "A dynamic workflow, or failing that a skill that defines a strict three stage chain, invoking three specialized subagents in sequence (finder, fixer, verifier) with each stage's structured output as the next stage's declared input. The sequencing belongs to the pipeline definition, not to a per-step model decision.",
+      "rejected_alternative": "An agent team running the three specialists concurrently. Rejected because they all operate on the same handful of hot files, so concurrent edits would collide, and the dependency is genuinely serial: the fixer cannot start before the finder finishes.",
+      "enforcement_owner": "The harness if a workflow or driver script executes the stages and passes the artifacts. The model if the chain is only described in a skill, which is materially weaker: a single model asked to do all three roles will tend to collapse them into one pass and verify its own work.",
+      "context_boundary": "Three separate subagent contexts. What crosses each boundary is a structured handoff, first the finding list, then the change list or diff. The orchestrator retains only the handoffs, not the analysis transcripts, which is what keeps a long profiling session out of the main window.",
+      "lifecycle": "Triggered once per performance pass and ends when the verifier reports. No stage persists, and the pipeline places no standing constraint on later edits to the same hot files.",
+      "failure_mode": "Fails open, and the lossy handoff is the practical failure: the fixer knows only what the finder wrote down, so it fixes the description rather than the issue, and the verifier then confirms the same description. Serial execution also buys no wall-clock saving, only role separation, and a verifier that can see the fixer's reasoning is a much weaker check than an independent one.",
+      "version_caveat": "I am not confident about the current status or file format of the dynamic-workflow mechanism, so a skill defined chain is the version safe form of this answer. Sequential subagent invocation itself is generally available. I also do not know whether a subagent can dispatch the next stage itself or whether the chain must be driven from the parent."
+    },
+    {
+      "id": "S009",
+      "primary": "An agent team of three teammates with distinct charters (user experience, technical architecture, devil's advocate) sharing a channel so each reacts to the others' arguments while they are still forming, with every teammate individually addressable so you can jump in and redirect one mid-flight.",
+      "rejected_alternative": "A brainstorming skill run in a single main context that role plays the three perspectives in turn. Rejected because one context blends the voices into a single house style and there is no separate explorer to jump into or redirect.",
+      "enforcement_owner": "The model. Nothing forces the devil's advocate to be genuinely adversarial, and nothing forces the other two to update in response. The harness only guarantees that the three are separate and reachable.",
+      "context_boundary": "Three context windows plus the shared channel. Arguments and any design document the teammates write cross that boundary; your main conversation receives the synthesis rather than three full exploration transcripts, and a redirect you send enters only the addressed teammate's window.",
+      "lifecycle": "Lives for the exploration and ends when you settle the design or dissolve the team. It applies only before the commitment point and has no bearing on the implementation that follows unless a written artifact is produced deliberately.",
+      "failure_mode": "Fails open and is purely advisory. The dominant failure is convergence: three instances of the same model share priors and tend to agree, so the devil's advocate needs an explicit adversarial charter and will still soften over time. A second failure is producing no durable artifact, leaving the reasoning stranded in ephemeral team contexts.",
+      "version_caveat": "Same caveat as the other team answers: this is the newest mechanism of the set, I believe it is opt-in or experimental, and I do not know the introducing version, the enabling flag, or whether it is restricted by plan."
+    },
+    {
+      "id": "S010",
+      "primary": "Subagents used for verification fan-out: the review pass produces findings and dispatches one independent verifier subagent per finding, each investigating in its own window and returning only a verdict line with its evidence pointer, after which one merged verified summary is emitted.",
+      "rejected_alternative": "An agent team of verifiers. Rejected on the scenario's own terms: independence between verifiers is the point, and team chatter is exactly the traffic that must not reach the conversation.",
+      "enforcement_owner": "Split. The harness owns the context isolation, so a verifier's tool calls and reasoning structurally cannot enter your window. The model owns whether it emits only the final summary and whether it honestly applies a negative verdict rather than reporting the finding anyway.",
+      "context_boundary": "Each verifier's investigation stays in its own context; a short verdict crosses. Note the distinction the requirement turns on: if the review pass runs in your main conversation, you will see the dispatch calls themselves even though you never see their contents. Hiding the dispatches too requires the whole pass to run one level down.",
+      "lifecycle": "Runs per review pass and ends with the single summary. Nothing standing, no persistence between passes, and it is not a gate on commit or merge unless something else makes it one.",
+      "failure_mode": "Fails open. Verifier independence is only as strong as what each verifier is given: handed a finding statement and asked to check it, models confirm far more often than they refute, so the pass can become a rubber stamp. If a verifier receives the finding text but not the code, its verdict carries no information at all.",
+      "version_caveat": "I believe subagents in Claude Code cannot themselves dispatch further subagents (the Task tool is not available inside a subagent), and I am not certain whether that limitation has been lifted. If it still holds, the fan-out must originate in the main session, so the verification content is hidden but the dispatch calls are not, and the requirement is met only in substance."
+    }
+  ]
+}

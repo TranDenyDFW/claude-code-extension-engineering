@@ -71,11 +71,11 @@ mechanism pairings are
 standard is applied to this repo itself, and the numbers are published whether or not
 they flatter it.
 
-**Tier 1, deterministic regression: 184 questions (set v2), 100% pass.** Each question
+**Tier 1, deterministic regression: 191 questions (set v2), 100% pass.** Each question
 carries a regex answer key and a source file, run by
 [tests/run-tests.mjs](tests/run-tests.mjs). Near-tautological on the first run since the
 keys derive from the content; it earns its keep as a regression gate and through
-`--prove-fail`, which guts every source file and confirms all 174 positive assertions go
+`--prove-fail`, which guts every source file and confirms all 181 positive assertions go
 red. A suite that stays green against deleted content proves nothing; this one cannot.
 Set v2 (2026-07-31) added coverage for the marketplace-submission facts, the frontmatter
 gotcha, and the measured behaviors, and retired the two known-deficient v1 keys; the
@@ -88,15 +88,30 @@ with claude-opus-5. The treatment score is a retrieval result, not a truth resul
 the control had no web access; both caveats are spelled out in
 [tests/results.md](tests/results.md) along with per-question detail.
 
-**Tier 3, architecture decisions: 60 scenarios, three arms, and the skill loses one of
-them.** Scenarios authored from the official documentation, independently of this
-reference, then blind-graded on a seven-field rubric. Unaided model:
-71% (37/60 correct primary choices). Model with the full official docs: 82% (52/60). Model
-with this skill: 79% (46/60). The skill beats unaided recall and loses to docs-in-hand
-overall, while leading BOTH other arms on the two dimensions it exists for:
-rejected-alternative reasoning (78%) and context boundary (93%). The expected keys were
-docs-authored, which structurally favors the docs arm; that bias and the rest of the method
-are in [tests/results-tier3.md](tests/results-tier3.md).
+**Tier 3, architecture decisions: 60 scenarios, four arms, and the reference does not
+survive its own control.** Scenarios authored from the official documentation,
+independently of this reference, then blind-graded on a seven-field rubric with four
+anonymous sheets per scenario. Measured 2026-08-02: unaided 70%, official docs 90%, docs
+plus a staged decide-then-verify-then-cite procedure 93%, docs plus that procedure plus
+this skill 92%.
+
+The control is the point. Adding the staged procedure to plain documentation use wins 22
+scenarios and loses 7. Adding this reference ON TOP of that same procedure wins 7 and
+loses 15. Without the procedure-only arm, 92% against a 90% baseline with the skill in the
+winning arm would have read as a modest win; the control says the gain came from the
+staging and the reference contributed nothing to it. The pre-committed rule required 6
+points over docs to ship a workflow built on this; it returned 2, so nothing shipped.
+
+What survives: the reference beats unaided recall, and reaches that from a 120 KB local
+read rather than dozens of network fetches. What does not: any claim that it improves on
+having the documentation. The unaided arm landing at 70% against 71% on a different day
+with different graders is the evidence that the instrument, not the arms, is being read
+correctly. Full method, the unequal-documentation-access flaw, and 27 expected-key defects
+the graders found are in [tests/results-tier3.md](tests/results-tier3.md); every number
+there is re-derivable from committed raw grades and CI fails if the prose drifts from them.
+
+Earlier three-arm numbers (71% unaided, 82% docs, 79% skill) measured different content and
+are kept as history in the same file.
 
 **Trigger benchmark, live: precision 100%, recall 96%.** One hundred fifty real headless
 sessions, three passes per prompt, majority scoring, in a clean profile. The description

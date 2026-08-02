@@ -1,0 +1,166 @@
+{
+  "arm": "bplus",
+  "batch": 6,
+  "answers": [
+    {
+      "id": "S051",
+      "primary": "A PostToolUse hook in the repo's checked-in .claude/settings.json, matcher \"Edit|Write\", whose command reads .tool_input.file_path from the stdin JSON and runs the formatter on that one path, narrowed to TypeScript either by the hook's `if` filter (for example \"Edit(*.ts)\") or by a guard in the script. The documented shape is literally `jq -r '.tool_input.file_path' | xargs npx prettier --write`.",
+      "rejected_alternative": "The project guidance file (CLAUDE.md or .claude/rules) they already tried. It shapes what Claude intends to do but never guarantees the step, because instructions are interpreted by the model while hooks are executed by Claude Code; that is exactly the gap that lets the formatter get skipped every few sessions.",
+      "enforcement_owner": "The harness. Claude Code runs the hook itself at a fixed point in its lifecycle, so the formatter runs whether or not the model remembered it; the model has no ability to skip a configured hook.",
+      "context_boundary": "The hook runs as a separate OS process with the tool-call JSON (tool_name, tool_input.file_path, session_id, cwd) on stdin, entirely outside the model's context window. Nothing about the formatter run crosses back into the transcript unless the hook prints to stdout or blocks with decision \"block\" plus a reason, and stdout is capped at 10,000 characters.",
+      "lifecycle": "Fires after each successful Edit or Write tool call that matches the matcher, in every permission mode, for as long as the settings file that declares it is loaded. Settings edits are picked up by the file watcher within a few seconds. It stops applying when the entry is removed, when disableAllHooks is set in that settings file, or at session end.",
+      "failure_mode": "It repairs rather than prevents: PostToolUse runs after the write has already landed on disk, so there is a window where unformatted content exists. It fails open, since any exit code other than 2 is a non-blocking error and execution simply continues, so a missing formatter binary or a bad path silently produces the original symptom again. Only exit 2 or decision \"block\" feeds the failure back to Claude, and because the hook lives in project settings a developer can disable it locally unless it ships as a managed or plugin hook.",
+      "version_caveat": "No version gate on the PostToolUse Edit|Write hook itself. The comma-separated matcher form \"Edit, Write\" requires Claude Code v2.1.191 or later; the pipe form works in all versions. Hook output is capped at 10,000 characters, and a plain command hook defaults to a 600 second timeout.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/hooks-guide",
+        "lifecycle": "https://code.claude.com/docs/en/hooks",
+        "failure_mode": "https://code.claude.com/docs/en/hooks",
+        "version_caveat": "https://code.claude.com/docs/en/hooks-guide#filter-hooks-with-matchers"
+      }
+    },
+    {
+      "id": "S052",
+      "primary": "permissions.deny rules in the repository's checked-in .claude/settings.json: Read(./.env), Read(./.env.*), Read(./secrets/**), plus matching Edit(...) deny entries so no file-editing tool can write them either. This is the documented example for exactly this case, and the file is committed so every teammate picks it up on checkout.",
+      "rejected_alternative": "A PreToolUse hook that inspects tool_input.file_path and denies matching paths. It works, but it adds a script to maintain and is strictly weaker: a hook's allow can never override a deny rule anyway, and deny rules are already evaluated first and cannot be overridden by any other settings scope.",
+      "enforcement_owner": "The harness. Permission rules are enforced by Claude Code, not by the model, and a deny at any scope cannot be overridden by any other scope including command-line arguments.",
+      "context_boundary": "Evaluated in the permission layer of the main session process before the tool call executes. A denied Read never returns file bytes into the model's context window; only the denial message crosses back, so the credentials themselves never enter the transcript.",
+      "lifecycle": "Loaded when the session starts from .claude/settings.json and reloaded when the file changes; applies to every matching tool call in every permission mode, including bypassPermissions. Deny and ask rules are not subject to the workspace trust dialog (only allow rules and additionalDirectories are), so they take effect for a teammate immediately. It stops applying only when the rules are removed from the file.",
+      "failure_mode": "Fails closed for Claude's own tools, but the boundary is narrower than it looks. Read and Edit deny rules cover the built-in file tools and the file commands Claude Code recognizes inside Bash (cat, head, tail, sed); they do not cover arbitrary subprocesses such as a Python or Node script that opens the file itself, and Write and NotebookEdit are not covered by a Read deny. Path anchoring is also easy to get wrong: a bare Read(.env) matches any depth under the current directory, while a single leading slash anchors at the settings source rather than the filesystem root.",
+      "version_caveat": "A Read deny rule also blocking the Edit tool on the same path requires Claude Code v2.1.208 or later. From v2.1.210, file permissions are checked against Edit(path) and Read(path) rules only, so a Write(...) or Glob(...) path rule is accepted, never consulted, and warns at startup. On Windows, paths are normalized to POSIX form, so absolute matches need forms like //c/**/.env.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/permissions#manage-permissions",
+        "lifecycle": "https://code.claude.com/docs/en/permissions#settings-precedence",
+        "failure_mode": "https://code.claude.com/docs/en/permissions#read-and-edit",
+        "version_caveat": "https://code.claude.com/docs/en/permissions#read-and-edit"
+      }
+    },
+    {
+      "id": "S053",
+      "primary": "A Notification hook in ~/.claude/settings.json (or shipped fleet-wide as a plugin or managed hook) that invokes the platform notifier: osascript on macOS, notify-send on Linux, a PowerShell toast on Windows. Scope it with the matchers \"permission_prompt\" for approval waits and \"idle_prompt\" for input waits, or leave the matcher empty to fire on all notification types.",
+      "rejected_alternative": "A Stop hook. It fires only when Claude finishes responding, so it would miss the case the engineers actually care about, a run that is blocked mid-flight waiting on an approval, and it cannot distinguish \"done\" from \"stuck\".",
+      "enforcement_owner": "The harness. Claude Code raises the Notification event itself whenever it is waiting on input or permission, so the alert does not depend on the model deciding to announce anything.",
+      "context_boundary": "The hook runs as a separate OS process with the notification JSON on stdin, outside the model's context window. Notification is a side-effect-only event with no decision control, so nothing it emits re-enters the session and it cannot alter or block what Claude does.",
+      "lifecycle": "Fires each time Claude Code raises a notification of the matched type: a permission prompt, going idle waiting for the next prompt, MCP elicitation dialogs, and background-session events. It stops when the hook entry is removed, when disableAllHooks is set, or at session end.",
+      "failure_mode": "Purely advisory and fail-open by design: Notification cannot block, its output and exit code carry no decision, and a non-zero exit is a non-blocking error. So a broken notifier just means nobody gets alerted while the run sits blocked. The documented concrete case is macOS, where osascript routes through Script Editor and fails silently with no permission prompt until Allow Notifications is turned on for Script Editor once by hand.",
+      "version_caveat": "The agent_needs_input and agent_completed matchers require Claude Code v2.1.198 or later and fire only while agent view is open; permission_prompt and idle_prompt carry no documented version gate. On macOS, Script Editor needs notification permission granted once before any notification appears.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/hooks-guide#get-notified-when-claude-needs-input",
+        "lifecycle": "https://code.claude.com/docs/en/hooks-guide#get-notified-when-claude-needs-input",
+        "failure_mode": "https://code.claude.com/docs/en/hooks",
+        "version_caveat": "https://code.claude.com/docs/en/hooks-guide#get-notified-when-claude-needs-input"
+      }
+    },
+    {
+      "id": "S054",
+      "primary": "Managed (enterprise policy) settings deploying permissions.disableBypassPermissionsMode set to \"disable\", pinned to an OS-protected location on every laptop: /Library/Application Support/ClaudeCode/managed-settings.json or the com.anthropic.claudecode MDM plist on macOS, /etc/claude-code/managed-settings.json on Linux and WSL, and C:\\Program Files\\ClaudeCode\\managed-settings.json or HKLM\\SOFTWARE\\Policies\\ClaudeCode on Windows. Pair it with a pinned permissions.defaultMode, permissions.disableAutoMode if classifier-only approval also counts as prompting switched off, and allowManagedPermissionRulesOnly so local rules cannot re-widen.",
+      "rejected_alternative": "The same key in the developer's own ~/.claude/settings.json or the repo's .claude/settings.json. The setting does work from any scope, but both of those live somewhere the developer can edit, which is precisely the requirement it has to satisfy; only managed settings sit above user, project, local, and command-line arguments.",
+      "enforcement_owner": "The harness, at startup. Managed settings are the highest precedence source and cannot be overridden by any other level including command-line arguments, so --dangerously-skip-permissions and --permission-mode bypassPermissions are rejected at launch rather than negotiated with the model.",
+      "context_boundary": "This lives entirely in the CLI process's startup configuration plane and never enters the model's context window. The model is not consulted and does not see the policy; what crosses the boundary is only the refusal to start in that mode.",
+      "lifecycle": "Read at CLI startup for every session on that machine (and on managed-settings refresh for server-delivered policy), and it holds for the whole session. It stops applying only if someone with administrator rights removes the managed file, MDM payload, or registry value.",
+      "failure_mode": "Fails closed on any host where the policy actually landed; the real risk is coverage rather than bypass. The policy has to be delivered to the correct OS-specific path on every laptop, a WSL install reads /etc/claude-code unless wslInheritsWindowsSettings is set in the Windows policy chain, and remotely delivered policy falls back to cached or absent values on a fetch failure unless forceRemoteSettingsRefresh is true. Invalid managed entries are stripped tolerantly, though security-enforcement fields are documented to fail safe.",
+      "version_caveat": "disableBypassPermissionsMode is documented as working from any scope, so it is managed placement, not the key itself, that provides the guarantee; no version gate is stated for it. Pair it with disableSideloadFlags, which is managed-settings-only and requires Claude Code v2.1.193 or later, so --agents and --mcp-config cannot re-widen the session. Server-managed settings delivery through claude.ai is an admin feature on Team and Enterprise plans; the file, MDM, and registry channels are not plan-gated. Note dontAsk mode also never prompts but auto-denies, so it is not a bypass.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/permissions#managed-settings",
+        "lifecycle": "https://code.claude.com/docs/en/settings#settings-files",
+        "failure_mode": "https://code.claude.com/docs/en/settings#settings-files",
+        "version_caveat": "https://code.claude.com/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode"
+      }
+    },
+    {
+      "id": "S055",
+      "primary": "A Stop hook that gates the end of the turn. The robust shape is a command hook that checks a per-turn evidence marker written by a PostToolUse Bash hook when the test command exited 0, and blocks with exit 2 (stderr becomes the reason) or JSON decision \"block\" when the marker is missing; the documentation also shows a type \"agent\" Stop hook whose prompt is to verify the test suite passes, which is the option to use when the verdict has to be checked against real codebase state rather than hook input alone.",
+      "rejected_alternative": "A CLAUDE.md or .claude/rules instruction saying \"always run the tests before declaring done\". The scenario explicitly includes the model simply forgetting, and guidance is interpreted by the model rather than enforced by Claude Code, so it cannot hold in exactly the case that matters.",
+      "enforcement_owner": "Split, and worth stating plainly: the harness owns the gate, because Claude Code will not let the turn end while the Stop hook blocks, but the model owns the remedy, because running and fixing the tests is still model work. The hook decides whether stopping is permitted, not whether the code is correct.",
+      "context_boundary": "The hook runs out of process, receiving session_id, transcript_path, cwd and stop_hook_active on stdin. The blocking reason (stderr on exit 2, or the reason field) is injected back into the same session's context so Claude keeps working in the same window. An agent-type Stop hook instead runs its verification inside a separate subagent context and returns only its verdict across the boundary.",
+      "lifecycle": "Fires when Claude finishes responding, on every turn, and re-fires after each blocked continuation until the hook allows the stop. It does not fire on StopFailure (a turn ended by an API error, where output and exit code are ignored); SubagentStop is the analogous event for subagent turns. It stops applying when the entry is removed or hooks are disabled.",
+      "failure_mode": "Two distinct ways it stops holding. It fails open on script error, because any non-zero exit other than 2 is a non-blocking error and the turn ends anyway, so a crashed checker silently lets untested work be declared complete. And Claude Code overrides a Stop hook after it blocks eight consecutive times without progress, ending the turn with a warning, so a condition the model cannot satisfy degrades into no gate at all. The hook must parse stop_hook_active and exit 0 when it is true, or it loops against its own continuation.",
+      "version_caveat": "No version gate or plan restriction is documented for the Stop hook. The consecutive-block cap is 8 and is raised with the CLAUDE_CODE_STOP_HOOK_BLOCK_CAP environment variable. Agent-type hooks default to a 60 second timeout and prompt-type to 30 seconds, versus 600 seconds for command hooks, and both consume model tokens on every turn.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/hooks",
+        "lifecycle": "https://code.claude.com/docs/en/hooks",
+        "failure_mode": "https://code.claude.com/docs/en/hooks-guide",
+        "version_caveat": "https://code.claude.com/docs/en/hooks-guide"
+      }
+    },
+    {
+      "id": "S056",
+      "primary": "An explicit content-scoped permissions.ask rule, Bash(git push:*) (equivalently Bash(git push *)), placed in project or managed settings. The documentation states that explicit ask rules still force a prompt in bypassPermissions mode and in auto mode, and that content-scoped ask rules like Bash(git push *) still force a prompt even for sandboxed commands under auto-allow, which is exactly the \"no matter what approval configuration the session is running under\" requirement.",
+      "rejected_alternative": "A PreToolUse hook returning permissionDecision \"ask\" on matching Bash commands. Hooks do run in every permission mode, but a hook decision is still subordinate to the rule layer and adds a script that can crash, whereas the ask rule is the mechanism the docs name as surviving bypassPermissions.",
+      "enforcement_owner": "The harness. The ask rule is evaluated by Claude Code's permission layer before the tool runs and is one of the few things the docs list as still prompting even when every other check is skipped; allow rules and the model's own intent have no effect on it.",
+      "context_boundary": "Evaluated in the main session process's permission layer. The prompt is routed to the human, not to the model; only the human's approve or reject decision crosses back into the model's context as the tool result, so the model cannot self-approve.",
+      "lifecycle": "Evaluated on every Bash tool call that matches the pattern, in every permission mode, for as long as the rule sits in a loaded settings file. Deny and ask rules merge across all scopes and do not require the workspace trust dialog, so a checked-in rule is live for a teammate on first run.",
+      "failure_mode": "Fails closed in an interactive session, but it inverts in unattended ones: in dontAsk mode Claude Code denies a matching ask rule rather than prompting, and in non-interactive -p runs there is no human to answer, so \"halt for a human\" becomes \"the push never happens\". The other exposure is pattern fragility, since prefix rules do not cover pushes reached through an environment runner such as `devbox run git push`, through `xargs -n1 git push`, or through exec wrappers, so the escape routes need their own rules.",
+      "version_caveat": "No version gate on ask rules themselves. Adjacent gates matter for the surrounding config: in bypassPermissions, protected-path writes stopped prompting at v2.1.126 and the rm -rf circuit breaker only covers command and process substitution from v2.1.208; and from v2.1.211 auto mode allows pushes to any branch of the current repository by default, which is precisely why the docs point at an explicit permissions.ask rule to reinstate a human checkpoint.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode",
+        "lifecycle": "https://code.claude.com/docs/en/permissions#manage-permissions",
+        "failure_mode": "https://code.claude.com/docs/en/permissions",
+        "version_caveat": "https://code.claude.com/docs/en/permission-modes"
+      }
+    },
+    {
+      "id": "S057",
+      "primary": "A PostToolUse hook with matcher \"Bash\" (plus a PostToolUseFailure hook with the same matcher, and PowerShell if that tool is enabled) that appends tool_input.command, tool_use_id, session_id, cwd and a timestamp to an append-only log or a collector endpoint. Ship it through managed settings with allowManagedHooksOnly set to true so a developer cannot drop it, and consider async so it adds no latency and suppressOutput so it stays out of the transcript.",
+      "rejected_alternative": "The OpenTelemetry export, which does emit claude_code.tool_result with bash_command and full_command attributes. It is a real option and easier to centralize, but the command text is redacted unless OTEL_LOG_TOOL_DETAILS=1 is set, so it is a telemetry feed rather than an enforced record, and it captures decisions and results rather than being positioned as the compliance artifact itself.",
+      "enforcement_owner": "The harness. Claude Code invokes the hook with the actual tool_input it is about to run or has just run, so the record is generated by the runtime rather than authored by the model; nothing about it depends on Claude choosing to report accurately.",
+      "context_boundary": "The hook runs in a separate OS process with the tool-call JSON on stdin, and the log is written outside the session entirely. Nothing needs to cross back into the model's context window, and OTEL_* exporter variables are stripped from hook subprocesses so the hook's own writes are not double-counted.",
+      "lifecycle": "PostToolUse fires after each Bash call that succeeds and PostToolUseFailure after each one that fails, in every permission mode, for the whole session. It stops when the entry is removed or disableAllHooks is set, which is why the entry belongs in managed settings, since a managed hook cannot be disabled from outside managed settings.",
+      "failure_mode": "Fails open with respect to the record: a PostToolUse hook failure is a non-blocking error and the command has already run, so a crashed or slow logger loses entries silently instead of stopping work. The coverage gaps are the real problem for an audit claim: a PostToolUse-only logger misses failed commands, misses calls denied before execution (which need PreToolUse if attempts must be recorded), and cannot see nested shells or child processes spawned by a logged command. Hook output is capped at 10,000 characters, so the hook must write to a file rather than to stdout.",
+      "version_caveat": "No version gate is documented on PostToolUse or PostToolUseFailure. Making the record non-removable requires allowManagedHooksOnly, which is a managed-settings-only key. If the OTel path is used instead or alongside, it needs the enabling flags CLAUDE_CODE_ENABLE_TELEMETRY=1 and OTEL_LOG_TOOL_DETAILS=1, since command text is redacted by default, and OTEL_LOG_TOOL_CONTENT=1 for input and output bodies.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/hooks",
+        "lifecycle": "https://code.claude.com/docs/en/hooks",
+        "failure_mode": "https://code.claude.com/docs/en/hooks",
+        "version_caveat": "https://code.claude.com/docs/en/monitoring-usage"
+      }
+    },
+    {
+      "id": "S058",
+      "primary": "A PreToolUse hook with matcher \"Bash\" that parses the command and returns hookSpecificOutput.permissionDecision \"allow\" for exactly the approved invocation `aws s3 ls`, \"deny\" with a permissionDecisionReason for any other command whose resolved program is aws, and stays silent (exit 0, no JSON) for everything else so unrelated commands follow the normal permission flow. Deliberately do not add an aws entry to permissions.deny.",
+      "rejected_alternative": "Settings permission rules, allow: [\"Bash(aws s3 ls)\"] with deny: [\"Bash(aws *)\"]. The docs are explicit that rules are evaluated deny, then ask, then allow, and that a broad deny like Bash(aws *) blocks every matching call including one that also matches a narrower allow, so a deny rule cannot carry allowlist exceptions. That configuration would block the one command they want to keep.",
+      "enforcement_owner": "The harness. PreToolUse runs before the permission prompt for every tool call, and a hook deny (or exit 2) stops the call before permission rules are even evaluated, so the block holds even against a broad Bash allow rule.",
+      "context_boundary": "The hook runs as a separate process with tool_input.command on stdin, outside the model's context window. Only the permissionDecisionReason crosses back, appearing to the model as the refusal text, which is where you put the message steering it toward the one approved invocation.",
+      "lifecycle": "Runs before every Bash tool call, in every permission mode (default, plan, acceptEdits, auto, dontAsk and bypassPermissions), with permission_mode present in the hook input so it can react conditionally. It stops applying when the entry is removed or hooks are disabled.",
+      "failure_mode": "Fails open on hook error: an exit code other than 2 is a non-blocking error and the call continues into the normal permission flow, so a crashing or timing-out parser silently reopens the whole aws surface. The harder problem is shell parsing, because the deny must survive compound commands (`aws s3 ls && aws iam create-user`), leading assignments (`AWS_PROFILE=prod aws ...`), wrappers and runners that are not on the built-in strip list, `sh -c`, xargs and aliased or absolute paths. One safety fact to design around: a hook returning \"allow\" never overrides a matching deny or ask rule, so pairing this hook with an aws deny rule would silently break the approved command.",
+      "version_caveat": "No version gate, experimental status or plan restriction is documented for PreToolUse permissionDecision allow/deny. Two behaviors to plan for: entering auto mode drops broad allow rules that grant arbitrary code execution (blanket Bash(*), wildcarded interpreters, package-manager run commands), which changes what reaches the hook; and if developers must not be able to remove the hook, it has to ship via managed settings with allowManagedHooksOnly, a managed-only key.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/permissions#extend-permissions-with-hooks",
+        "lifecycle": "https://code.claude.com/docs/en/hooks",
+        "failure_mode": "https://code.claude.com/docs/en/permissions#manage-permissions",
+        "version_caveat": "https://code.claude.com/docs/en/permission-modes"
+      }
+    },
+    {
+      "id": "S059",
+      "primary": "The built-in Bash sandbox: sandbox.enabled true, with sandbox.credentials.files entries { \"path\": \"~/.aws/credentials\", \"mode\": \"deny\" } and { \"path\": \"~/.ssh\", \"mode\": \"deny\" }, or the equivalent sandbox.filesystem.denyRead paths. These are enforced by Seatbelt on macOS and bubblewrap on Linux and WSL2, and the OS-level restriction is inherited by every child process the command spawns, including children of children.",
+      "rejected_alternative": "A PreToolUse hook that inspects the Bash command string for those paths. A textual check on the command line cannot see what a Python script opens at runtime, which is the exact failure they already have; the same reasoning rules out extending the existing Read and Edit deny rules, which the docs say do not apply to arbitrary subprocesses.",
+      "enforcement_owner": "The harness configures the boundary but the operating system enforces it. The docs make the distinction explicit: permission decisions are evaluated before a command runs based on the command string, while the OS enforces the sandbox on the running process, so it holds regardless of what the model chose to run and even when an allowed command does more than its name suggests.",
+      "context_boundary": "There is no context crossing at all: this is a kernel-level boundary around the Bash subprocess tree, outside the model's context window entirely. What returns to the session is only the command's own failure message. Subagents run in the same process and inherit the parent session's sandbox configuration.",
+      "lifecycle": "Applies to every Bash command that runs inside the sandbox for the whole session once enabled. It does not apply to commands listed in excludedCommands, to a command retried with the dangerouslyDisableSandbox escape hatch, or to the built-in Read, Edit and Write tools, which stay on the permission system rather than the sandbox.",
+      "failure_mode": "Fails OPEN by default, which is the trap here: if the sandbox cannot start because a dependency is missing or the platform is unsupported, Claude Code shows a warning and runs commands unsandboxed. Set sandbox.failIfUnavailable true and allowUnsandboxedCommands false to make it a hard gate. Two further holes: sandbox.filesystem.disabled true switches off the read protections including credentials.files, and there is no built-in credential deny list, so only the paths you list are blocked and a broad allowWrite or an excludedCommands entry can undo the restriction from the other side.",
+      "version_caveat": "The sandbox does not run on native Windows; macOS, Linux and WSL2 only, with WSL1 unsupported. Linux and WSL2 need bubblewrap and socat installed, an AppArmor profile for bwrap on Ubuntu 24.04 and later, and the optional seccomp filter from @anthropic-ai/sandbox-runtime for Unix-socket blocking. sandbox.credentials requires Claude Code v2.1.187 or later (mask mode v2.1.199), sandbox.filesystem.disabled requires v2.1.216 or later and is honored only from user, managed or --settings sources, sandbox.network.strictAllowlist requires v2.1.219, and network.tlsTerminate is flagged experimental.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/sandboxing",
+        "lifecycle": "https://code.claude.com/docs/en/sandboxing#sandbox-modes",
+        "failure_mode": "https://code.claude.com/docs/en/sandboxing",
+        "version_caveat": "https://code.claude.com/docs/en/sandboxing"
+      }
+    },
+    {
+      "id": "S060",
+      "primary": "Managed settings setting strictPluginOnlyCustomization to true, which blocks skills, agents, hooks and MCP servers from user and project sources so all four can come only from plugins or managed settings, with IT's content shipped as plugins from a controlled marketplace. Pair it with strictKnownMarketplaces (an allowlist, or [] for total lockdown), blockedMarketplaces, managed extraKnownMarketplaces plus enabledPlugins to force-install the approved set, allowManagedHooksOnly, allowManagedMcpServersOnly with allowedMcpServers, and disableSideloadFlags.",
+      "rejected_alternative": "disableAllHooks in user settings combined with per-surface deny rules such as Agent(...) and mcp__*. That only removes capability wholesale, cannot distinguish IT-shipped extensions from developer-added ones, and lives in a scope the developer edits; managed settings are the only source that cannot be overridden by user, project, local or command-line configuration.",
+      "enforcement_owner": "The harness, at configuration load time. Managed settings sit above every other source, and the managed-only keys named here are read from managed settings alone, so placing them in user or project files has no effect at all.",
+      "context_boundary": "This operates in the CLI's startup and discovery plane, deciding which skills, subagents, hooks and MCP tools are ever registered. Blocked ones never reach the model's context window: the model does not see a suppressed skill or a denied MCP server's tools, so there is nothing for it to be tempted by.",
+      "lifecycle": "Evaluated when Claude Code loads settings and discovers extensions at session start, and again on configuration change, applying for the whole session on that machine. It also closes the --add-dir path, which otherwise loads skills (with live reload) and subagents from an added directory. It stops applying only when an administrator changes the managed policy.",
+      "failure_mode": "Fails closed for the four named surfaces, but the seams are outside them. disableSideloadFlags rejects --plugin-dir, --plugin-url, --agents and --mcp-config but explicitly does not block `claude mcp add`, a committed .mcp.json, or the SDK's setMcpServers(), so allowedMcpServers is needed for per-server control. Array-valued keys merge across scopes unless an allowManaged*Only lock is set. And CLAUDE.md, .claude/rules, slash commands and output styles are not among the four locked surfaces, so a developer can still steer behavior through them even with the lockdown on.",
+      "version_caveat": "strictPluginOnlyCustomization, strictKnownMarketplaces, allowManagedHooksOnly, allowManagedMcpServersOnly and allowManagedPermissionRulesOnly are managed-settings-only keys with no version stated in the settings and permissions references; strictPluginOnlyCustomization accepts true to lock all four surfaces or an array such as [\"skills\", \"hooks\"] to lock only the named ones. disableSideloadFlags requires Claude Code v2.1.193 or later. Server-managed settings delivery through claude.ai is an admin feature on Team and Enterprise plans, and forceRemoteSettingsRefresh makes a failed remote-policy fetch fail closed at startup.",
+      "citations": {
+        "enforcement_owner": "https://code.claude.com/docs/en/permissions#managed-settings",
+        "lifecycle": "https://code.claude.com/docs/en/settings#settings-files",
+        "failure_mode": "https://code.claude.com/docs/en/settings#available-settings",
+        "version_caveat": "https://code.claude.com/docs/en/plugin-marketplaces"
+      }
+    }
+  ]
+}

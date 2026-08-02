@@ -50,9 +50,18 @@ if (DOC_NUMBERS) {
   // were tried and dropped: historical tables quote superseded numbers by
   // design, so those patterns produced ten hits and zero real findings. A
   // checker that cries wolf gets ignored, which is worse than no checker.
+  const qRows = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
+    .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
+
   const FACTS = [
     { label: 'checker fixtures', live: (checker.match(/^\s+name:/gm) || []).length, re: /(?:grown to\s+)?(\w+)\s+fixtures/gi },
     { label: 'ledger claims', live: claims.length, re: /(\d+)\s+source assignments/gi },
+    // Added 2026-08-02 after the README was found claiming 184 questions and 174
+    // positive assertions against a live 191 and 181. Both phrasings are specific
+    // enough that a match can only be a claim about CURRENT state: a historical
+    // quote does not say "questions (set v2)" or "all N positive assertions".
+    { label: 'suite rows', live: qRows.length, re: /(\d+)\s+questions \(set v2\)/gi },
+    { label: 'positive assertions', live: qRows.filter(r => r.answer_key && !r.must_not_match).length, re: /all\s+(\d+)\s+positive assertions/gi },
   ];
   const WORDS = { six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13 };
 

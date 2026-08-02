@@ -164,8 +164,50 @@ of a specific architecture choice, which a general per-mechanism posture paragra
 answer. If so, the fix is per-pairing failure paths, a larger change than this one. Do not
 retry until the hypothesis is checked.
 
-Also open from that run: S055 went ungraded (grader returned 9 of 10), so the re-run
-percentages are over 59 scenarios. See `tests/results-tier3.md`.
+**Superseded in scope by the 2026-08-02 four-arm run, which asked a larger question and got
+a worse answer.** The idea was that the reference and the docs solve different halves of the
+rubric, so combining them should beat docs alone. It does not. Docs plus a staged
+decide-then-verify-then-cite procedure scored 93 percent; adding this reference on top
+scored 92, losing 15 paired scenarios to 7. The procedure is the effect and the reference is
+not. So item 15 is no longer "which content moves failure_mode": on this benchmark no
+content in this reference improved on simply having the documentation, and a further content
+push would be answering the wrong question. Details in `tests/results-tier3.md`.
+
+**S055 is closed as a class of defect.** It went ungraded because a grader returned 9 records
+of 10 and nothing counted them, so the re-run percentages are over 59 scenarios. The harness
+now refuses to score until every scenario, sheet and field is graded exactly once, checks the
+total record count independently of the per-cell sweep, and has a self-test that plants each
+of those failures and requires the gate to reject them. The historical 59-scenario figure is
+left as published rather than backfilled.
+
+**20. Twenty-seven expected-key defects across 26 of the 60 Tier 3 scenarios.**
+Graders in the 2026-08-02 run were required to grade to the key and record disagreements
+rather than adjust scores. They reported 27, listed in `tests/tier3/key-defects.jsonl`:
+`rejected_alternative` 9, `version_caveat` 8, `enforcement_owner` 4, `context_boundary` 3,
+`failure_mode` 2, `lifecycle` 1.
+
+One pattern repeats and is mechanical enough to fix: a key asserts `version_caveat` is "none"
+while another field of the SAME key concedes a version-gated fact. S037's key says no version
+caveat applies while its own `failure_mode` says project-level frontmatter hooks require
+workspace trust on v2.1.218 or later. S003 and S016 have the same internal contradiction.
+Others are judgment calls worth arguing (S022's rejected alternative is the same mechanism as
+its primary, differing only in provenance).
+
+Keys stayed frozen for comparability. Repairing them is its own task with its own before and
+after, and it would break comparability with every table published so far, so it needs a
+deliberate decision rather than a quiet edit.
+
+**21. Documentation access was unequal across the Tier 3 docs arms.**
+WebFetch returned an unusable oversized page dump instead of an answer for the largest doc
+pages, and anchors did not reduce the payload. Failures per arm: B 11, B+ 22, D 18. B+ is
+the control that decides whether a gain is attributed to the reference or to the procedure,
+and it was the most degraded arm. Agents also recovered inconsistently, most declining to
+open the persisted dumps on isolation grounds while one read them.
+
+This does not obviously flip the result, since the most degraded arm still finished ahead,
+but it is a real capability difference between arms and it weakens the attribution more than
+the headline. A rerun would need a fetch path that returns usable content for pages over
+about 50 KB before the magnitudes are worth trusting to the point.
 
 **16. ~~Trigger recall is 16% in a crowded environment.~~ RESOLVED 2026-07-31, recall 96%.**
 The 16% run had measured an EMPTY description (the frontmatter defect, item 19). With the

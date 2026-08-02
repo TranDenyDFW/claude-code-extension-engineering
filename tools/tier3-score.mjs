@@ -488,7 +488,7 @@ console.log('Completeness gate: PASS, every scenario, sheet and field graded exa
 
 const rows = score(grades, map, citationRates(loadAnswers()));
 const v = verdict(rows);
-const paired = [['d', 'b'], ['d', 'bplus'], ['b', 'a']]
+const paired = [['d', 'b'], ['d', 'bplus'], ['bplus', 'b'], ['b', 'a']]
   .filter(([x, y]) => rows.some(r => r.arm === x) && rows.some(r => r.arm === y))
   .map(([x, y]) => pairedComparison(grades, map, x, y));
 const block = renderMarkdown(rows, v, { paired });
