@@ -1,0 +1,55 @@
+{
+  "batch": 4,
+  "scenarios": [
+    {
+      "id": "S031",
+      "focus": "orchestration",
+      "scenario": "Our integration suite prints thousands of lines of logs. I want the suite executed and only the failing tests with their error messages to end up in my working conversation; the raw output is useless to me afterward and I will never reference it again."
+    },
+    {
+      "id": "S032",
+      "focus": "orchestration",
+      "scenario": "I want a code-review worker for this repo that is structurally incapable of modifying the repository, no matter what its instructions say or what the model decides mid-task. It should only be able to read and search files."
+    },
+    {
+      "id": "S033",
+      "focus": "orchestration",
+      "scenario": "Mid-session I have a quick conceptual question about code we already walked through together. The answer should draw on everything discussed so far, needs no new file reads or commands, and neither the question nor the answer should take up room in the ongoing conversation history."
+    },
+    {
+      "id": "S034",
+      "focus": "orchestration",
+      "scenario": "Two hours into a debugging session, I want to hand off drafting regression tests for the bug we just characterized. The helper needs all the accumulated findings, ruled-out hypotheses, config quirks, and stack traces from our discussion, and I do not want to re-explain any of it while I keep working on the fix."
+    },
+    {
+      "id": "S035",
+      "focus": "orchestration",
+      "scenario": "We have a written multi-step research procedure for summarizing pull requests that the team triggers by name. Its many intermediate file reads and command outputs must never land in the invoking conversation, and the procedure should run with read-only capabilities."
+    },
+    {
+      "id": "S036",
+      "focus": "orchestration",
+      "scenario": "When we delegate endpoint implementation to a specialized worker, it keeps ignoring our API-conventions guide even though the main session has that guidance loaded. Every run of the worker must start with the full conventions text already in front of it, guaranteed, not merely discoverable."
+    },
+    {
+      "id": "S037",
+      "focus": "orchestration",
+      "scenario": "A reporting worker needs shell access to run database CLI queries, but any statement that mutates data (INSERT, UPDATE, DELETE, schema changes) must be deterministically blocked before it executes, even if the worker attempts one anyway."
+    },
+    {
+      "id": "S038",
+      "focus": "orchestration",
+      "scenario": "We ship a long-running autonomous cleanup routine that users launch by name. While it is running, it must be impossible for it to interrupt the user with clarifying questions, and that capability should come back automatically once the user sends their next message."
+    },
+    {
+      "id": "S039",
+      "focus": "orchestration",
+      "scenario": "Five investigators should chase competing root-cause theories for a flaky-connection bug in parallel, and they must be able to message each other directly to try to disprove each other's findings and converge through a shared work list, rather than each just reporting back to one coordinator."
+    },
+    {
+      "id": "S040",
+      "focus": "orchestration",
+      "scenario": "Our project rules file says vendor/ must never be read or searched, and work done directly in the session respects that. But whenever codebase exploration gets delegated out during research, the delegated searches keep touching vendor/ anyway."
+    }
+  ]
+}

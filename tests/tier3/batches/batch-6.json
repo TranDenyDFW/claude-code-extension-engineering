@@ -1,0 +1,55 @@
+{
+  "batch": 6,
+  "scenarios": [
+    {
+      "id": "S051",
+      "focus": "crosscut",
+      "scenario": "Every time the agent modifies a TypeScript file, our formatter must run on that file. We wrote the instruction into the project guidance the agent reads at startup, but every few sessions it skips the step and unformatted code lands in a commit."
+    },
+    {
+      "id": "S052",
+      "focus": "crosscut",
+      "scenario": "Our repo contains .env files and a secrets/ directory holding live credentials. The agent must never be able to read those paths with its built-in tools, and the restriction should be checked into the repo so every teammate gets it automatically."
+    },
+    {
+      "id": "S053",
+      "focus": "crosscut",
+      "scenario": "Engineers kick off long agent runs and switch to other windows. They want an OS desktop alert the moment the run is blocked waiting for an approval or for input, without anyone watching the terminal."
+    },
+    {
+      "id": "S054",
+      "focus": "crosscut",
+      "scenario": "Security mandates that no developer may run the agent with approval prompting switched off entirely, and a developer must not be able to lift the restriction by editing anything in their own home directory or in any repo they control. The control has to hold on every laptop in the fleet."
+    },
+    {
+      "id": "S055",
+      "focus": "crosscut",
+      "scenario": "Before the agent ends its turn and declares work complete, the test suite must have actually been run and passed during that turn; if not, the agent should be sent back to keep working. This must hold even when the model simply forgets to test."
+    },
+    {
+      "id": "S056",
+      "focus": "crosscut",
+      "scenario": "We run the agent in a fully auto-approved configuration for speed, but any git push must still halt and wait for a human to explicitly confirm, every single time, no matter what approval configuration the session is running under."
+    },
+    {
+      "id": "S057",
+      "focus": "crosscut",
+      "scenario": "Compliance needs an accurate record of every shell command the agent actually executed on developer machines, captured automatically with the full command line, rather than relying on the model to self-report what it ran."
+    },
+    {
+      "id": "S058",
+      "focus": "crosscut",
+      "scenario": "We want to shut off the entire aws CLI surface for the agent except one approved read-only invocation, aws s3 ls, which should go through without prompting. Every other aws command must be refused outright."
+    },
+    {
+      "id": "S059",
+      "focus": "crosscut",
+      "scenario": "Our path-based blocks stop the agent's own file tools from reading ~/.aws/credentials and ~/.ssh, but a Python script it launches can still open those files directly. We need every process the agent spawns, including children of children, to be physically unable to read those paths."
+    },
+    {
+      "id": "S060",
+      "focus": "crosscut",
+      "scenario": "The platform team must guarantee that the only automation scripts, on-demand instruction packages, custom agent definitions, and external tool servers that ever load are the ones IT ships centrally. Nothing a developer adds on their own machine or commits into a repo may take effect."
+    }
+  ]
+}

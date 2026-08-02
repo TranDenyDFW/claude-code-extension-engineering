@@ -1,0 +1,55 @@
+{
+  "batch": 1,
+  "scenarios": [
+    {
+      "id": "S001",
+      "focus": "enforcement",
+      "scenario": "Quarterly security pass: about 400 route handler files each need the identical audit step for missing authorization checks, every finding must be adversarially verified before it is reported, and next quarter the whole pass should rerun the same way from a single command."
+    },
+    {
+      "id": "S002",
+      "focus": "enforcement",
+      "scenario": "A production service drops the connection after exactly one message and nobody knows why. I want five investigators working in parallel, each owning a different hypothesis, actively trying to disprove each other's theories like a scientific debate, with whatever consensus survives written to a findings doc."
+    },
+    {
+      "id": "S003",
+      "focus": "enforcement",
+      "scenario": "Running our test suite prints tens of thousands of lines. I want the suite run and only the failing tests with their error messages reported back, and the raw output must never enter the conversation I am working in."
+    },
+    {
+      "id": "S004",
+      "focus": "enforcement",
+      "scenario": "One feature cuts across the frontend, the backend API, and the test suite. I want three workers, each owning one layer, keeping each other informed as the interface contract evolves during the work, and I want to drop into any individual worker directly to redirect it without going through an intermediary."
+    },
+    {
+      "id": "S005",
+      "focus": "enforcement",
+      "scenario": "Run the strict type check, fix whatever it reports, run it again, and keep looping until it passes or two consecutive rounds make no progress. Nobody should babysit the loop or re-decide anything between rounds."
+    },
+    {
+      "id": "S006",
+      "focus": "enforcement",
+      "scenario": "Migrate roughly 500 component files from one styling library to another. Every file gets the same transform, each performed in an isolated copy so edits never collide, and each result is verified before it counts as done."
+    },
+    {
+      "id": "S007",
+      "focus": "enforcement",
+      "scenario": "A 60-file pull request needs a correctness review of every changed file, one reviewer per file, then all per-file findings merged, deduplicated, and ranked into a single summary. The reviewers have nothing to discuss with each other; only the merged output matters."
+    },
+    {
+      "id": "S008",
+      "focus": "enforcement",
+      "scenario": "Three specialists must run in strict sequence: one finds performance issues, one fixes exactly what was found, one verifies the fixes. Each step consumes the previous step's output, and all three work in the same handful of hot files."
+    },
+    {
+      "id": "S009",
+      "focus": "enforcement",
+      "scenario": "Before committing to a design for a new developer tool, I want it explored from three angles at once, user experience, technical architecture, and a devil's advocate, with the perspectives reacting to each other's arguments as they form, and I want to jump into any one explorer mid-flight and redirect it."
+    },
+    {
+      "id": "S010",
+      "focus": "enforcement",
+      "scenario": "A review pass over recent changes should dispatch an independent verifier for each finding it produces, typically 5 to 10 findings, and none of the per-finding verification chatter should ever reach my conversation. I want exactly one final verified summary back."
+    }
+  ]
+}

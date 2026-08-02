@@ -1,0 +1,55 @@
+{
+  "batch": 3,
+  "scenarios": [
+    {
+      "id": "S021",
+      "focus": "delegation",
+      "scenario": "Engineers keep pasting stack traces and issue details from our SaaS error-tracking service into the conversation by hand. We want Claude to query that service's live data directly, with each engineer signing in through the vendor's browser-based login instead of sharing a long-lived API key."
+    },
+    {
+      "id": "S022",
+      "focus": "delegation",
+      "scenario": "Claude keeps introducing type errors on our TypeScript codebase that it only discovers when the test suite finally runs. We want it to see compiler diagnostics immediately after each edit and to jump to definitions and references instead of grepping for symbol names."
+    },
+    {
+      "id": "S023",
+      "focus": "delegation",
+      "scenario": "Our platform team maintains a set of code-review helpers, reusable workflow commands, edit-time automations, and a shared external-tool configuration. Every engineer who clones any of our repositories should be offered the same set automatically and should receive updates whenever we publish changes."
+    },
+    {
+      "id": "S024",
+      "focus": "delegation",
+      "scenario": "We ship an internal deployment CLI, a compiled binary with many subcommands. Whenever our shared toolkit is active, Claude should be able to run it as a bare command inside ordinary shell pipelines, composing it with grep and jq across every project, without anyone editing their PATH."
+    },
+    {
+      "id": "S025",
+      "focus": "delegation",
+      "scenario": "The tooling bundle we distribute internally changes daily. Teammates should automatically receive every merged commit as an update, with zero release bookkeeping on our side."
+    },
+    {
+      "id": "S026",
+      "focus": "delegation",
+      "scenario": "We need Claude connected to an internal HTTP tool service that authenticates with short-lived tokens minted by our single-sign-on helper command. Tokens expire mid-session, and the service exposes no OAuth endpoints of its own."
+    },
+    {
+      "id": "S027",
+      "focus": "delegation",
+      "scenario": "Whenever our shared toolkit is active in a session, Claude should hear about new lines appended to the application's error log as they appear, for the whole session, without anyone asking it to start watching."
+    },
+    {
+      "id": "S028",
+      "focus": "delegation",
+      "scenario": "Security approved a third-party hosted integration for read-only use, but the vendor's sign-in service advertises write and admin permissions as well. We must guarantee that the credential stored on engineers' machines can never authorize a write, not merely that the assistant declines to perform one."
+    },
+    {
+      "id": "S029",
+      "focus": "delegation",
+      "scenario": "Everyone working in one repository needs the same connection to our staging-database tool service, picked up automatically from a fresh clone, with each person consenting once before it first runs. No other repository will ever use this connection."
+    },
+    {
+      "id": "S030",
+      "focus": "delegation",
+      "scenario": "Our distributed toolkit needs npm dependencies installed on each user's machine at first run, and those installed modules must keep working after the toolkit updates instead of being stranded or wiped when a new version lands."
+    }
+  ]
+}
