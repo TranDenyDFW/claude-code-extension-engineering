@@ -88,27 +88,36 @@ with claude-opus-5. The treatment score is a retrieval result, not a truth resul
 the control had no web access; both caveats are spelled out in
 [tests/results.md](tests/results.md) along with per-question detail.
 
-**Tier 3, architecture decisions: 60 scenarios, four arms, and the reference does not
-survive its own control.** Scenarios authored from the official documentation,
+**Tier 3, architecture decisions: 60 scenarios, four arms, and the run does not support the
+hypothesis that motivated it.** Scenarios authored from the official documentation,
 independently of this reference, then blind-graded on a seven-field rubric with four
 anonymous sheets per scenario. Measured 2026-08-02: unaided 70%, official docs 90%, docs
 plus a staged decide-then-verify-then-cite procedure 93%, docs plus that procedure plus
 this skill 92%.
 
-The control is the point. Adding the staged procedure to plain documentation use wins 22
-scenarios and loses 7. Adding this reference ON TOP of that same procedure wins 7 and
-loses 15. Without the procedure-only arm, 92% against a 90% baseline with the skill in the
-winning arm would have read as a modest win; the control says the gain came from the
-staging and the reference contributed nothing to it. The pre-committed rule required 6
-points over docs to ship a workflow built on this; it returned 2, so nothing shipped.
+The hypothesis was that the reference and the docs solve different halves of the rubric, so
+combining them should beat the docs. The pre-committed rule required 6 points over docs to
+ship a workflow built on that; it returned 2. Nothing shipped.
 
-What survives: the reference beats unaided recall, and reaches that from a 120 KB local
-read rather than dozens of network fetches. What does not: any claim that it improves on
-having the documentation. The unaided arm landing at 70% against 71% on a different day
-with different graders is the evidence that the instrument, not the arms, is being read
-correctly. Full method, the unequal-documentation-access flaw, and 27 expected-key defects
-the graders found are in [tests/results-tier3.md](tests/results-tier3.md); every number
-there is re-derivable from committed raw grades and CI fails if the prose drifts from them.
+**Only one comparison in the run survives its own robustness check.** Documentation beats
+unaided recall by about 20 points, 53 paired scenarios to 3, and it holds no matter which
+grader's batch is removed. Every comparison among the three docs-holding arms either fails
+significance or collapses when one of the six batches is dropped: the 93% arm's apparent
+lead over the 90% arm goes from p=0.008 to p=0.263 without batch 6 alone. A first version of
+that page claimed the staged procedure was the real effect; an independent review showed
+that claim rested on a single grader, and it is retracted in place rather than quietly
+edited.
+
+So the reference's claims are unchanged rather than strengthened: it beats unaided recall,
+and reaches that from a 120 KB local read rather than dozens of network fetches. This run
+found no measurable benefit from it once the documentation is present, and no measurable
+harm either; three arms inside three points on an instrument whose per-batch noise reaches
+fifteen cannot resolve the question.
+
+Full method, the leave-one-batch-out tables, the unequal-documentation-access flaw, and the
+expected-key defects the graders found are in
+[tests/results-tier3.md](tests/results-tier3.md). Every number there is re-derivable from
+committed raw grades and CI fails if the prose drifts from them.
 
 Earlier three-arm numbers (71% unaided, 82% docs, 79% skill) measured different content and
 are kept as history in the same file.

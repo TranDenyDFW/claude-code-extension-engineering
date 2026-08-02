@@ -164,14 +164,15 @@ of a specific architecture choice, which a general per-mechanism posture paragra
 answer. If so, the fix is per-pairing failure paths, a larger change than this one. Do not
 retry until the hypothesis is checked.
 
-**Superseded in scope by the 2026-08-02 four-arm run, which asked a larger question and got
-a worse answer.** The idea was that the reference and the docs solve different halves of the
-rubric, so combining them should beat docs alone. It does not. Docs plus a staged
-decide-then-verify-then-cite procedure scored 93 percent; adding this reference on top
-scored 92, losing 15 paired scenarios to 7. The procedure is the effect and the reference is
-not. So item 15 is no longer "which content moves failure_mode": on this benchmark no
-content in this reference improved on simply having the documentation, and a further content
-push would be answering the wrong question. Details in `tests/results-tier3.md`.
+**Superseded in scope by the 2026-08-02 four-arm run, which asked a larger question and could
+not answer it.** The idea was that the reference and the docs solve different halves of the
+rubric, so combining them should beat docs alone. The run does not support that: docs 90
+percent, docs plus a staged procedure 93, docs plus procedure plus this reference 92, and no
+comparison among those three survives dropping a single grader's batch. So item 15 is no
+longer "which content moves failure_mode". Nothing in this reference showed a measurable
+effect once the documentation was present, and nothing showed harm either; the instrument
+cannot resolve differences that small. A further content push would be answering a question
+this benchmark has not been shown able to grade. Details in `tests/results-tier3.md`.
 
 **S055 is closed as a class of defect.** It went ungraded because a grader returned 9 records
 of 10 and nothing counted them, so the re-run percentages are over 59 scenarios. The harness
@@ -180,11 +181,16 @@ total record count independently of the per-cell sweep, and has a self-test that
 of those failures and requires the gate to reject them. The historical 59-scenario figure is
 left as published rather than backfilled.
 
-**20. Twenty-seven expected-key defects across 26 of the 60 Tier 3 scenarios.**
-Graders in the 2026-08-02 run were required to grade to the key and record disagreements
-rather than adjust scores. They reported 27, listed in `tests/tier3/key-defects.jsonl`:
-`rejected_alternative` 9, `version_caveat` 8, `enforcement_owner` 4, `context_boundary` 3,
-`failure_mode` 2, `lifecycle` 1.
+**20. Twenty-seven expected-key defect records covering at least 36 of the 60 Tier 3
+scenarios.** Graders in the 2026-08-02 run were required to grade to the key and record
+disagreements rather than adjust scores. They reported 27 records, listed in
+`tests/tier3/key-defects.jsonl`: `rejected_alternative` 9, `version_caveat` 8,
+`enforcement_owner` 4, `context_boundary` 3, `failure_mode` 2, `lifecycle` 1.
+
+This entry first said 26 scenarios, counting each record's `scenario` string as a single id.
+Two records name ranges instead ("all ten (S041 through S050)" and a nine-scenario list), so
+coverage is at least 36. The artifact has no schema forcing one id per record and no gate
+checking it, which is the actual defect; the miscount was the symptom.
 
 One pattern repeats and is mechanical enough to fix: a key asserts `version_caveat` is "none"
 while another field of the SAME key concedes a version-gated fact. S037's key says no version
@@ -204,10 +210,40 @@ the control that decides whether a gain is attributed to the reference or to the
 and it was the most degraded arm. Agents also recovered inconsistently, most declining to
 open the persisted dumps on isolation grounds while one read them.
 
-This does not obviously flip the result, since the most degraded arm still finished ahead,
-but it is a real capability difference between arms and it weakens the attribution more than
-the headline. A rerun would need a fetch path that returns usable content for pages over
-about 50 KB before the magnitudes are worth trusting to the point.
+This did not decide the outcome, since no comparison among the docs arms survived the
+leave-one-batch-out check anyway, but it is a real capability difference and it would have to
+be fixed before any rerun could claim a small difference between them. A rerun needs a fetch
+path that returns usable content for pages over about 50 KB.
+
+The two columns are also agent self-reports with no artifact behind them, and an independent
+reviewer found the URL counts do not reconcile with the citations present in the answers.
+Instrumenting the fetch path so failures are recorded rather than narrated is part of the
+same fix.
+
+**22. One grader per batch confounds grader effect with scenario focus, and it produced a
+published claim that was wrong.** Each of the six Tier 3 graders scored ten consecutive
+scenarios alone, and each batch is exactly one focus area, so grader strictness and topic
+difficulty cannot be separated. Batch 6 rated B+ fifteen points above B while the other five
+batches ranged from -1.4 to +2.9. That single batch produced the entire apparent effect, and
+the first published version of `results-tier3.md` reported it as a finding about the arms.
+An independent review caught it.
+
+Fixed mechanically: `tier3-score.mjs` now recomputes every paired comparison with each batch
+removed in turn and labels any comparison whose significance depends on one batch as
+RESTS ON ONE GRADER. It has a self-test with both a fragile fixture and a robust one.
+
+Not fixed: the design itself. Two or three graders per batch, or rotating graders across
+scenarios instead of assigning whole batches, is the real answer and costs proportionally
+more grading. Until then this benchmark cannot resolve differences of a few points, which is
+exactly the size of the differences it was built to detect.
+
+**23. The Tier 3 citation rate measures format, not verification.** It reports the share of
+factual fields carrying a well-formed URL, and both staged arms hit 100 percent. Cross-checked
+against the run's own fetch-failure reports, 27 percent of B+ citations and 20 percent of D
+citations point at pages those same arms reported as returning unusable dumps. The arms say
+they re-sourced the facts from smaller sibling pages while citing the canonical page, which is
+defensible and unverifiable from the artifacts. Either the metric should be renamed to what it
+measures, or citations should be checked against what the arm actually fetched.
 
 **16. ~~Trigger recall is 16% in a crowded environment.~~ RESOLVED 2026-07-31, recall 96%.**
 The 16% run had measured an EMPTY description (the frontmatter defect, item 19). With the

@@ -142,6 +142,62 @@ export function completenessProblems(grades, scenarioIds, map, partial = false) 
 }
 
 /**
+ * Leave-one-batch-out robustness, added 2026-08-02 AFTER an independent review
+ * found the published conclusion resting entirely on one of six graders.
+ *
+ * Each batch is graded by one grader, so a single lenient or strict grader can
+ * manufacture an effect across ten scenarios that looks like a finding across
+ * sixty. Published B+ over B was 22 wins to 7 at p=0.008; dropping batch 6
+ * alone makes it 13 to 7 at p=0.263, while dropping any other batch moves it
+ * barely at all. The overall table cannot show that, and neither could the
+ * paired table, so both were reported and the conclusion drawn from them was
+ * wrong.
+ *
+ * This runs for every comparison and every batch. A comparison whose sign or
+ * significance depends on one batch is not a finding about the arms, it is a
+ * finding about that grader.
+ */
+export function batchRobustness(grades, map, armX, armY, batchOf) {
+  const full = pairedComparison(grades, map, armX, armY);
+  const batches = [...new Set(Object.keys(map).map(batchOf))].sort();
+  const drops = batches.map(b => {
+    const kept = grades.filter(g => batchOf(g.scenario) !== b);
+    const r = pairedComparison(kept, map, armX, armY);
+    return { dropped: b, ...r };
+  });
+  // Fragility is about SIGNIFICANCE, not margin. A first version compared win
+  // ratios and got both answers wrong: it flagged the two null comparisons,
+  // which have nothing to be fragile about, and cleared B+ over B, whose p went
+  // from 0.008 to 0.263 when one batch was removed. That is exactly the
+  // comparison the conclusion rested on.
+  //
+  // So: a comparison that is not significant to begin with is reported as null,
+  // never as fragile. A significant one is fragile if removing any single batch
+  // either flips its direction or takes it out of significance.
+  const ALPHA = 0.05;
+  const fullP = signTest(full.wins, full.losses);
+  const dir = Math.sign(full.wins - full.losses);
+  const worst = drops.reduce((a, b) =>
+    signTest(b.wins, b.losses) > signTest(a.wins, a.losses) ? b : a, drops[0]);
+  const significant = fullP < ALPHA;
+  const fragile = significant && (
+    signTest(worst.wins, worst.losses) >= ALPHA ||
+    drops.some(d => Math.sign(d.wins - d.losses) !== dir)
+  );
+  return { full, drops, worst, fragile, significant, fullP };
+}
+
+/** Two-sided exact sign test over the decided (non-tied) scenarios. */
+export function signTest(wins, losses) {
+  const n = wins + losses;
+  if (!n) return 1;
+  const C = (a, b) => { let r = 1; for (let i = 0; i < b; i++) r = r * (a - i) / (i + 1); return r; };
+  let p = 0;
+  for (let i = 0; i <= Math.min(wins, losses); i++) p += C(n, i);
+  return Math.min(1, (2 * p) / Math.pow(2, n));
+}
+
+/**
  * Per-scenario paired comparison. Declared BEFORE the full run, after a pilot
  * showed three docs-holding arms landing at 93 to 97 percent: at a ceiling,
  * two means differing by a few points is nearly uninformative, while the same
@@ -246,7 +302,7 @@ export function verdict(rows) {
     const g2 = d.overall - bplus.overall;
     attribution = g2 >= DECISION_MARGIN
       ? `The skill's decision content carried it: D is ${g2} points over B+, which had the same procedure without the skill.`
-      : `The procedure carried it, not the reference: D is ${g2} points over B+, inside the noise floor. The honest headline is about the staged procedure.`;
+      : `D is ${g2} points over B+, inside the noise floor, so the reference did not add anything measurable on top of the procedure.`;
   }
   return { headline, detail, attribution };
 }
@@ -282,15 +338,52 @@ export function renderMarkdown(rows, v, meta = {}) {
     L.push('small effect that two overall percentages near a ceiling cannot. Secondary and');
     L.push('reported only: the pre-committed margin above is what decides the outcome.');
     L.push('');
-    L.push('| Comparison | Scenarios | Wins | Losses | Ties | Mean delta |');
-    L.push('|---|---|---|---|---|---|');
+    L.push('| Comparison | Scenarios | Wins | Losses | Ties | Mean delta | Sign test |');
+    L.push('|---|---|---|---|---|---|---|');
     for (const p of meta.paired) {
-      L.push(`| ${p.armX.toUpperCase()} vs ${p.armY.toUpperCase()} | ${p.n} | ${p.wins} | ${p.losses} | ${p.ties} | ${p.meanDeltaPoints >= 0 ? '+' : ''}${p.meanDeltaPoints} pts |`);
+      L.push(`| ${p.armX.toUpperCase()} vs ${p.armY.toUpperCase()} | ${p.n} | ${p.wins} | ${p.losses} | ${p.ties} | ${p.meanDeltaPoints >= 0 ? '+' : ''}${p.meanDeltaPoints} pts | p=${signTest(p.wins, p.losses).toFixed(3)} |`);
+    }
+    L.push('');
+    L.push('Ties are reported because they dominate: a split like 22 to 7 describes only the');
+    L.push('scenarios where the arms differed at all, and reading it without the tie column');
+    L.push('overstates how often one arm actually beat the other.');
+    L.push('');
+  }
+  if (meta.robustness && meta.robustness.length) {
+    L.push('Leave-one-batch-out. Each batch is graded by ONE grader, so a single lenient or');
+    L.push('strict grader can manufacture across ten scenarios what looks like a finding across');
+    L.push('sixty. Every comparison is recomputed with each batch removed in turn.');
+    L.push('');
+    L.push('| Comparison | All 60 | Worst single-batch drop | Verdict |');
+    L.push('|---|---|---|---|');
+    for (const r of meta.robustness) {
+      const f = r.full, w = r.worst;
+      const call = !r.significant
+        ? 'not significant to begin with'
+        : (r.fragile ? '**RESTS ON ONE GRADER**' : 'robust');
+      L.push(`| ${f.armX.toUpperCase()} vs ${f.armY.toUpperCase()} | ${f.wins}W ${f.losses}L, p=${signTest(f.wins, f.losses).toFixed(3)} | drop batch ${w.dropped}: ${w.wins}W ${w.losses}L, p=${signTest(w.wins, w.losses).toFixed(3)} | ${call} |`);
     }
     L.push('');
   }
   L.push(`**Verdict, by the rule committed before the run: ${v.headline}.** ${v.detail}`);
   if (v.attribution) { L.push(''); L.push(v.attribution); }
+  // The ship decision above is the pre-committed rule and is untouched. This
+  // line is a post-hoc guard added after an independent review found the first
+  // published attribution resting on a single grader's batch. It can only
+  // WEAKEN a claim, never create one.
+  if (meta.robustness && meta.robustness.length) {
+    const fragile = meta.robustness.filter(r => r.fragile);
+    const solid = meta.robustness.filter(r => r.significant && !r.fragile);
+    L.push('');
+    if (fragile.length) {
+      L.push(`**Do not carry any of these forward as a finding about the arms.** ` +
+        fragile.map(r => `${r.full.armX.toUpperCase()} over ${r.full.armY.toUpperCase()}`).join(' and ') +
+        ` loses significance when a single batch is removed, so it is a fact about that grader, not about the arms.` +
+        (solid.length ? ` What survives every drop: ${solid.map(r => `${r.full.armX.toUpperCase()} over ${r.full.armY.toUpperCase()}`).join(', ')}.` : ''));
+    } else if (solid.length) {
+      L.push(`Robust across every single-batch drop: ${solid.map(r => `${r.full.armX.toUpperCase()} over ${r.full.armY.toUpperCase()}`).join(', ')}.`);
+    }
+  }
   L.push('');
   L.push(END);
   return L.join('\n');
@@ -421,6 +514,57 @@ function selfTest() {
   check('paired comparison scores d over b on the fixture', pc.wins === 2 && pc.losses === 0, `${pc.wins}W ${pc.losses}L ${pc.ties}T`);
   check('paired mean delta is expressed in points', pc.meanDeltaPoints === 50, `${pc.meanDeltaPoints} pts`);
 
+  check('sign test is two-sided and exact', Math.abs(signTest(5, 0) - 0.0625) < 1e-9, `p(5,0)=${signTest(5, 0)}`);
+  check('sign test returns 1 with nothing decided', signTest(0, 0) === 1);
+
+  // The defect an independent review found: a comparison carried entirely by one
+  // grader's batch. Fixture: two batches, one where x sweeps and one where y does.
+  const rMap = {}, rGrades = [];
+  for (let s = 1; s <= 20; s++) {
+    const id = 'S' + String(s).padStart(3, '0');
+    rMap[id] = { 1: 'd', 2: 'b' };
+    const dWins = s <= 10;
+    for (const f of GRADED_FIELDS) {
+      rGrades.push({ scenario: id, sheet: 1, field: f, score: dWins ? 1 : 0.5 });
+      rGrades.push({ scenario: id, sheet: 2, field: f, score: dWins ? 0.5 : 1 });
+    }
+  }
+  const bOf = id => Math.floor((Number(id.slice(1)) - 1) / 10) + 1;
+  const rob = batchRobustness(rGrades, rMap, 'd', 'b', bOf);
+  check('leave-one-batch-out recomputes per batch', rob.drops.length === 2, `${rob.drops.length} drop(s)`);
+  check('a null comparison is reported as null, not fragile',
+    rob.significant === false && rob.fragile === false, `p=${rob.fullP.toFixed(3)}`);
+
+  // Batch 1 sweeps for x, batch 2 is a near-tie: significant overall, and the
+  // significance evaporates when batch 1 is removed. This is the real shape.
+  const cMap = {}, cGrades = [];
+  for (let s = 1; s <= 20; s++) {
+    const id = 'S' + String(s).padStart(3, '0');
+    cMap[id] = { 1: 'd', 2: 'b' };
+    const xWins = s <= 10;
+    const tie = s > 10 && s <= 18;
+    for (const f of GRADED_FIELDS) {
+      cGrades.push({ scenario: id, sheet: 1, field: f, score: tie ? 1 : (xWins ? 1 : 0.5) });
+      cGrades.push({ scenario: id, sheet: 2, field: f, score: tie ? 1 : (xWins ? 0.5 : 1) });
+    }
+  }
+  const carried = batchRobustness(cGrades, cMap, 'd', 'b', bOf);
+  check('a significant effect carried by ONE batch is flagged',
+    carried.significant === true && carried.fragile === true,
+    `full ${carried.full.wins}W ${carried.full.losses}L p=${carried.fullP.toFixed(3)}, worst drop ${carried.worst.wins}W ${carried.worst.losses}L p=${signTest(carried.worst.wins, carried.worst.losses).toFixed(3)}`);
+
+  const stableGrades = [];
+  for (let s = 1; s <= 20; s++) {
+    const id = 'S' + String(s).padStart(3, '0');
+    for (const f of GRADED_FIELDS) {
+      stableGrades.push({ scenario: id, sheet: 1, field: f, score: 1 });
+      stableGrades.push({ scenario: id, sheet: 2, field: f, score: 0.5 });
+    }
+  }
+  const stable = batchRobustness(stableGrades, cMap, 'd', 'b', bOf);
+  check('an effect consistent across batches is significant and NOT fragile',
+    stable.significant === true && stable.fragile === false, `p=${stable.fullP.toFixed(3)}`);
+
   const rows = score(full, map);
   const d = rows.find(r => r.arm === 'd'), b = rows.find(r => r.arm === 'b');
   check('un-blinding routes each sheet to the right arm', d.overall === 100 && b.overall === 50, `d=${d.overall}% b=${b.overall}%`);
@@ -434,7 +578,14 @@ function selfTest() {
   check('verdict NEGATIVE at parity', verdict(mk(80, 80, 80)).headline === 'NEGATIVE');
   check('verdict NEGATIVE below', verdict(mk(80, 80, 74)).headline === 'NEGATIVE');
   check('attribution credits the skill when D clears B+', /decision content carried it/.test(verdict(mk(70, 76, 86)).attribution));
-  check('attribution credits the procedure when D ties B+', /procedure carried it/.test(verdict(mk(70, 84, 86)).attribution));
+  // Reworded after review: the old text asserted "the procedure carried it",
+  // which claims a positive effect for B+ that D-versus-B+ parity cannot
+  // support. Parity means the reference added nothing, and says nothing about
+  // whether the procedure did anything.
+  check('attribution claims only what D-versus-B+ parity supports',
+    /did not add anything measurable/.test(verdict(mk(70, 84, 86)).attribution));
+  check('attribution does NOT assert the procedure was the cause',
+    !/procedure carried it/.test(verdict(mk(70, 84, 86)).attribution));
 
   console.log(bad
     ? `SELF-TEST FAIL: ${bad} check(s) failed`
@@ -488,10 +639,13 @@ console.log('Completeness gate: PASS, every scenario, sheet and field graded exa
 
 const rows = score(grades, map, citationRates(loadAnswers()));
 const v = verdict(rows);
-const paired = [['d', 'b'], ['d', 'bplus'], ['bplus', 'b'], ['b', 'a']]
-  .filter(([x, y]) => rows.some(r => r.arm === x) && rows.some(r => r.arm === y))
-  .map(([x, y]) => pairedComparison(grades, map, x, y));
-const block = renderMarkdown(rows, v, { paired });
+const PAIRS = [['d', 'b'], ['d', 'bplus'], ['bplus', 'b'], ['b', 'a']]
+  .filter(([x, y]) => rows.some(r => r.arm === x) && rows.some(r => r.arm === y));
+const paired = PAIRS.map(([x, y]) => pairedComparison(grades, map, x, y));
+// Batch = the grader who scored it. Scenario ids are S001..S060 in batches of 10.
+const batchOf = id => Math.floor((Number(String(id).slice(1)) - 1) / 10) + 1;
+const robustness = PAIRS.map(([x, y]) => batchRobustness(grades, map, x, y, batchOf));
+const block = renderMarkdown(rows, v, { paired, robustness });
 
 if (argv.includes('--markdown')) { console.log(block); process.exit(0); }
 
