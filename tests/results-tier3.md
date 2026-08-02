@@ -64,6 +64,53 @@ with a skip-if-ambiguous rule but not independently re-adjudicated field by fiel
 Grader strictness varies by batch. n=60 gives roughly plus or minus 6 points at 95%
 confidence on the overall percentages.
 
+## Arm C re-run, 2026-08-02: the content fix did not work
+
+The two weakest fields below were treated as a content problem and fixed as one: failure
+posture was added as an explicit section to the six mechanism references that lacked it
+(`mcp`, `workflows`, `lsp`, `output-styles`, `claude-md-family`, `context-modes`), and
+version gates were moved onto the decision lines themselves in `lsp`, `workflows` and
+`auto-memory` rather than living only in `compatibility.md`.
+
+Arm C was then re-run against the same 60 scenarios, same rubric, blind-graded.
+
+| Field | Before (2026-07-30) | After (2026-08-02) | Delta |
+|---|---|---|---|
+| primary | 82% | 83% | +1 |
+| rejected_alternative | 78% | 75% | -3 |
+| enforcement_owner | 84% | 76% | -8 |
+| context_boundary | 93% | 89% | -4 |
+| lifecycle | 85% | 85% | 0 |
+| **failure_mode** (the target) | **61%** | **61%** | **0** |
+| **version_caveat** (the target) | **72%** | **68%** | **-4** |
+| Overall | 79% | 77% | -2 |
+
+Primary strict: 46 of 60 before, 45 of 59 after.
+
+**The intervention failed on its own terms.** `failure_mode` did not move at all and
+`version_caveat` went down. Publishing this because the plan pre-committed to publishing
+whichever way it went, and because a fix that is asserted rather than measured is exactly
+what this repo exists to argue against.
+
+**Why it probably failed, stated as a hypothesis and not a finding.** The deficit was read
+as "the reference does not say what happens when this fails". The likelier reading now is
+that the scenarios ask for the failure mode of a *specific architecture choice in a
+specific situation*, and a general per-mechanism posture paragraph does not supply that.
+Content presence was never the binding constraint. Testing that would mean rewriting the
+composition cards' per-pairing failure paths into the mechanism references, which is a
+larger change than this one and should not be attempted until the hypothesis is checked.
+
+**Do not over-read the negative either.** This is one nondeterministic model-graded run of
+59 scenarios against a baseline graded on a different day by different grader instances.
+The honest claim is no measurable improvement, not a proven regression: the -8 on
+`enforcement_owner`, a field this change did not touch, is a good indication of the
+run-to-run noise floor.
+
+**One scenario is missing.** S055 received no grade: its grader returned 9 records instead
+of 10 and the omission was not noticed until scoring. Percentages above are over 59, not
+60. The gap is disclosed rather than backfilled, because re-grading one scenario alone
+after seeing the totals would be a different experiment.
+
 ## What changes because of this
 
 The failure-mode and version-caveat columns are arm C's weakest against B (61 vs 75, 72 vs

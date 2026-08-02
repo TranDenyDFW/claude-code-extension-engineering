@@ -5,7 +5,7 @@
 
 The packaging and distribution boundary. A plugin bundles any combination of skills, agents, hooks, MCP servers, commands, workflows, output styles, themes, monitors and LSP configuration, and ships them as one installable, versioned unit. Several component types, LSP among them, exist ONLY inside a plugin.
 
-**Layer:** Packaging &middot; **Classification:** primitive &middot; **Status:** stable
+**Layer:** Packaging | **Classification:** primitive | **Status:** stable
 
 ## Decide a Plugin is justified
 

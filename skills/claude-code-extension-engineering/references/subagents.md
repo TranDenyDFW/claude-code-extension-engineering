@@ -5,7 +5,7 @@
 
 A delegated worker with its own context window and its own tool set. Use it to keep a bounded job out of the main context and to hard-limit what that job can touch. Since v2.1.198 subagents run in the background by default, which changes which tools resolve, so one definition can behave differently foreground and background.
 
-**Layer:** Delegation &middot; **Classification:** primitive &middot; **Status:** stable
+**Layer:** Delegation | **Classification:** primitive | **Status:** stable
 
 ## Decide a Subagent is correct
 

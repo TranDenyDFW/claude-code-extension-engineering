@@ -5,7 +5,7 @@
 
 Code the HARNESS runs on a lifecycle event, independent of the model's judgment. This is the only mechanism whose FIRING the harness owns: the model cannot talk its way out of a hook running. Firing is not outcome, though. What happens after depends on the handler's failure policy (an HTTP handler fails OPEN on connection failure) and on the tamper boundary (disableAllHooks switches every hook off; only managed policy survives that), both covered below. Five handler types (command, http, mcp_tool, prompt, agent), and the last two carry judgment, so hooks are no longer purely mechanical.
 
-**Layer:** Automation &middot; **Classification:** primitive &middot; **Status:** stable
+**Layer:** Automation | **Classification:** primitive | **Status:** stable
 
 ## Decide a Hook is correct
 

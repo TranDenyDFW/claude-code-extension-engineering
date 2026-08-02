@@ -5,7 +5,7 @@
 
 An orchestration script saved to .claude/workflows/ and invoked as /<name>. A background runtime executes it to fan out subagents at scale, so the plan, the loop and the intermediate results stay in script variables and only the final answer returns to the caller's context. Write one when the CONTROL FLOW itself must be deterministic.
 
-**Layer:** Orchestration &middot; **Classification:** primitive &middot; **Status:** stable &middot; **Since:** v2.1.154
+**Layer:** Orchestration | **Classification:** primitive | **Status:** stable | **Since:** v2.1.154
 
 ## Where it lives and how it ships
 
@@ -15,7 +15,7 @@ An orchestration script saved to .claude/workflows/ and invoked as /<name>. A ba
 
 ## Choosing this over a subagent or a team
 
-- Choose a workflow when the CONTROL FLOW must be deterministic: loops, conditionals and fan-out expressed in script rather than left to model judgment. Choose a subagent for one bounded delegated job. Choose Agent Teams only when peers must talk to each other, and note it is experimental and env-gated while workflows are stable.  [ENGINEERING]
+- Choose a workflow when the CONTROL FLOW must be deterministic: loops, conditionals and fan-out expressed in script rather than left to model judgment. Choose a subagent for one bounded delegated job. Choose Agent Teams only when peers must talk to each other, and note it is experimental and env-gated while workflows have been stable since 2.1.154.  [ENGINEERING]  [v2.1.154]
 
 ## Authoring API
 
@@ -83,6 +83,13 @@ return results.filter(Boolean)
 ## Known ambiguity
 
 - UNRESOLVED: whether /<name> comes from the filename or from meta.name is not stated in any current source. Keep the filename and meta.name identical so the distinction cannot bite you. With nested .claude/ directories the workflow closest to the working directory wins a collision.  [ENGINEERING] [v2.1.219]
+
+
+## Failure posture
+
+- A failing agent() resolves to null, it does NOT throw. The script continues with a hole in its results, so an unfiltered results array silently propagates that hole downstream. Filter with filter(Boolean) before use, and treat a short result set as a failure signal rather than a smaller answer  [ENGINEERING]  [v2.1.219]
+- A thunk that throws inside parallel() becomes null by the same rule, so parallel() never rejects. There is no exception to catch: the only evidence of failure is the shape of the data  [ENGINEERING]  [v2.1.219]
+- The workflow itself fails CLOSED at parse time: a meta object that is not a pure literal, or TypeScript syntax, stops the script from running at all rather than running partially  [ANTHROPIC]  [v2.1.219]
 
 ## Detail
 

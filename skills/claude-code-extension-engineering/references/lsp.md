@@ -5,11 +5,11 @@
 
 Language-server integration for symbol-aware navigation and live diagnostics. It has no standalone authoring path: it is configured only through .lsp.json in a plugin root or lspServers in plugin.json, so shipping an LSP means shipping a plugin.
 
-**Layer:** Packaging &middot; **Classification:** subtype &middot; **Status:** stable &middot; **Since:** v2.0.74
+**Layer:** Packaging | **Classification:** subtype | **Status:** stable | **Since:** v2.0.74
 
 ## Selection
 
-- Use when symbol-aware navigation or diagnostics materially outperform text search [OFFICIAL]
+- Use when symbol-aware navigation or diagnostics materially outperform text search. The LSP tool itself arrived at 2.0.74, so on older builds this whole branch is unavailable rather than merely degraded [OFFICIAL]  [v2.0.74]
 - Keep text search as a fallback when the server is unavailable [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 
 ## Installation and discovery
@@ -35,7 +35,7 @@ In order, per server:
 - Handle missing binaries, initialization failure, stale diagnostics, and server crashes [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - Do not let one failed server suppress another valid server [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 
-## LSP / Code Intelligence
+## Testing an LSP plugin
 
 - Clean-install and binary-discovery smoke test
 - Definition, references, hover/type, workspace-symbol, and diagnostic tests
@@ -81,6 +81,12 @@ Every key below sits inside the per-server object, keyed by language id.
 default. When several enabled servers claim the same extension, see the multiple-servers rule.
 
 - restartOnCrash and shutdownTimeout live INSIDE the per-server object, in the same field set as command and args, not at the top level of .lsp.json.  [v2.1.205]
+
+
+## Failure posture
+
+- LSP failure is ADVISORY, never blocking: a missing binary, a failed handshake, or a server dying mid-session degrades navigation and diagnostics back to text search rather than stopping the session. Nothing about an LSP plugin can be used as a guarantee  [ENGINEERING]  [v2.1.220]
+- The failure is also quiet, which is the real hazard: symbol-aware answers silently become grep-quality answers. Test the fallback path deliberately, because nothing announces the downgrade  [ENGINEERING]
 
 ## Detail
 

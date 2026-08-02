@@ -5,7 +5,7 @@
 
 A governed connection to an external system: tools, resources and prompts served over a defined protocol with its own authentication and permission boundary. Choose it over a shell command when the connection needs credentials, a schema, or an audit boundary.
 
-**Layer:** Tools &middot; **Classification:** primitive &middot; **Status:** stable
+**Layer:** Tools | **Classification:** primitive | **Status:** stable
 
 ## Selection and ownership
 
@@ -85,7 +85,7 @@ A governed connection to an external system: tools, resources and prompts served
 - Assuming transport errors can enforce a policy decision
 - Using draft MCP features as released behavior
 
-## Model Context Protocol (MCP)
+## Testing an MCP integration
 
 - Contract-test schemas and error shapes
 - Transport-test startup, reconnect, timeout, and shutdown
@@ -103,6 +103,12 @@ A governed connection to an external system: tools, resources and prompts served
 - Context cost measured
 - Released-spec compatibility recorded
 - Clean install and removal proven
+
+
+## Failure posture
+
+- An MCP server that fails to connect FAILS OPEN: the run continues without that server's tools, and the init message reports status failed, needs-auth, or still pending rather than aborting. Never treat an MCP call as a policy gate: the tool being absent is indistinguishable, from the model's side, from the tool declining  [ENGINEERING]  [v2.1.220]
+- Degraded rather than absent is the harder case: last-known catalogs are preserved when a refresh fails, so a stale tool list can look healthy. Surface degraded status explicitly instead of inferring it from a successful call  [ENGINEERING]
 
 ## Detail
 

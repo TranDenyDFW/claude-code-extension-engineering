@@ -5,7 +5,7 @@
 
 Instruction files loaded into context automatically, every session. CLAUDE.md at four scopes (managed, user, project, directory), CLAUDE.local.md, @path imports that recurse up to four hops, and .claude/rules for modular or path-scoped sets. This is the only mechanism that costs context whether or not it is used, so it is the wrong home for anything procedural or long.
 
-**Layer:** Context / Instruction &middot; **Classification:** primitive &middot; **Status:** stable
+**Layer:** Context / Instruction | **Classification:** primitive | **Status:** stable
 
 ## Scope and loading
 
@@ -49,6 +49,12 @@ Instruction files loaded into context automatically, every session. CLAUDE.md at
 - Imports resolve
 - No claim of deterministic enforcement
 - Fresh-session and conflict tests pass
+
+
+## Failure posture
+
+- CLAUDE.md is ADVISORY by construction: it is context, not configuration, and there is no failure mode in which it forces an outcome. A rule that must hold belongs in a hook or a permission rule; anything written here is a request the model can miss under pressure  [ENGINEERING]  [v2.1.220]
+- Import failure is silent: an @path that does not resolve, or that exceeds the four-hop limit, drops that content with no error surfaced in the session. Verify imports resolve in a fresh session rather than assuming loaded means present  [ENGINEERING]
 
 ## Detail
 

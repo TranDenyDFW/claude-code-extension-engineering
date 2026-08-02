@@ -5,7 +5,7 @@
 
 The programmatic authoring tier. Cross-referenced beside the interactive surface, never mixed into it: these are library APIs, not files the CLI discovers.
 
-**Layer:** Programmatic tier &middot; **Classification:** sdk &middot; **Status:** stable
+**Layer:** Programmatic tier | **Classification:** sdk | **Status:** stable
 
 ## What it is
 

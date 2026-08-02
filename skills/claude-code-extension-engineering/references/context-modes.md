@@ -5,7 +5,7 @@
 
 How a piece of work gets its context: the main thread, a forked context, or a fully isolated subagent window. Choose by starting context, tool boundary, communication path and lifecycle, not by how big the task feels.
 
-**Layer:** Delegation &middot; **Classification:** supporting &middot; **Status:** stable
+**Layer:** Delegation | **Classification:** supporting | **Status:** stable
 
 ## Context comparison
 
@@ -35,3 +35,8 @@ How a piece of work gets its context: the main thread, a forked context, or a fu
 
 - Starting context: Independent Claude Code session with team task and peer messages
 - Selection rule: do not infer context inheritance from the word fork [OFFICIAL]
+
+## Failure posture
+
+- Context isolation fails QUIETLY in one direction only: an isolated worker that never received the context it needed still returns a confident summary, and the caller cannot tell a well-informed answer from an uninformed one. Check what the mode actually starts with, above, rather than assuming inheritance  [ENGINEERING]  [v2.1.220]
+- The word fork carries no guarantee about any of this. Two mechanisms both called fork start with different inputs, so treat the label as a name, not a contract  [OFFICIAL]

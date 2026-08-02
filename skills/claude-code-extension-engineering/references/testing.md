@@ -5,7 +5,7 @@
 
 How to prove an extension works. Run the task WITHOUT the extension first and record the failure, because a control run is what separates content worth shipping from content the model already produces unaided. Trigger and behaviour are separate tests: firing when it should is not the same as being correct once it fires.
 
-**Layer:** Capability &middot; **Classification:** supporting &middot; **Status:** stable
+**Layer:** Capability | **Classification:** supporting | **Status:** stable
 
 ## Testing strategy
 

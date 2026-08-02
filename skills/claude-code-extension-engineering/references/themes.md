@@ -5,7 +5,7 @@
 
 User-authored named colour themes as JSON. Cosmetic, not a behaviour primitive, but authored and plugin-distributable, so it belongs on the map.
 
-**Layer:** Context / Instruction &middot; **Classification:** primitive &middot; **Status:** stable &middot; **Since:** v2.1.118
+**Layer:** Context / Instruction | **Classification:** primitive | **Status:** stable | **Since:** v2.1.118
 
 ## What it is
 

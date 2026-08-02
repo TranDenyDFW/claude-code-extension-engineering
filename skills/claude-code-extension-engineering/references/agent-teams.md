@@ -5,7 +5,7 @@
 
 Independent Claude Code sessions that talk to each other as peers rather than returning a result to a caller. EXPERIMENTAL and disabled by default. Reach for it only when subagent result-return genuinely cannot express the coordination, because cost scales with team size.
 
-**Layer:** Orchestration &middot; **Classification:** primitive &middot; **Status:** experimental &middot; **Since:** v2.1.178
+**Layer:** Orchestration | **Classification:** primitive | **Status:** experimental | **Since:** v2.1.178
 
 ## Current lifecycle (v2.1.178+)
 
@@ -38,7 +38,7 @@ Independent Claude Code sessions that talk to each other as peers rather than re
 - Avoid teams when tasks are tightly coupled or cannot be partitioned [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - Detect duplicate ownership, idle loops, stale tasks, and orphan teammates [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 
-## Agent Teams [OFFICIAL] [EXPERIMENTAL]
+## Choosing a team over subagents [OFFICIAL] [EXPERIMENTAL]
 
 - Use when peers must communicate, challenge findings, or self-coordinate [OFFICIAL]
 - Prefer subagents for focused work where only the result matters [OFFICIAL]

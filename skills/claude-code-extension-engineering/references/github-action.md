@@ -5,7 +5,7 @@
 
 Authored CI workflow YAML that runs Claude Code in GitHub Actions, built on the Agent SDK. The one genuinely authorable mechanism in the CI tier.
 
-**Layer:** Programmatic tier &middot; **Classification:** sdk &middot; **Status:** stable
+**Layer:** Programmatic tier | **Classification:** sdk | **Status:** stable
 
 ## What it is
 

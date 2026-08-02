@@ -4,7 +4,7 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-07-31 against Claude Code 2.1.220.
+Last reviewed 2026-08-02 against Claude Code 2.1.220.
 
 ---
 
@@ -92,15 +92,17 @@ self-marketplace later is a one-commit revert if ever wanted.
 
 ## Cosmetic or structural
 
-**10. Duplicate-title sections.**
-`references/mcp.md` has a `## Model Context Protocol (MCP)` section inside `mcp.md`;
-`references/lsp.md` has `## LSP / Code Intelligence`; `references/agent-teams.md` has
-`## Agent Teams`. Leftovers of the generation pass; the content under them is testing
-guidance and belongs under a heading that says so.
+**10. ~~Duplicate-title sections.~~ RESOLVED 2026-08-02.**
+All three renamed to describe their actual content: `mcp.md` and `lsp.md` became testing
+headings, and `agent-teams.md` became `## Choosing a team over subagents` because its
+content is selection guidance, not testing. This item's own wording was wrong on that
+third case, and the rename followed the content rather than the description. No anchor
+link or answer key targeted the old heading text; both were checked first.
 
-**11. HTML entities in the metadata line.**
-Every reference uses `&middot;` in its `**Layer:** ...` line. Renders fine on GitHub, but
-a plain separator would be simpler for the model-reading case.
+**11. ~~HTML entities in the metadata line.~~ RESOLVED 2026-08-02.**
+All 39 occurrences across 17 of the 21 reference files replaced with a plain pipe
+separator. Zero remain. The main consumer of these files is a model reading raw text, so
+the markup bought nothing.
 
 **12. ~~Two answer keys in question set v1 test half their question.~~ RESOLVED 2026-07-31 in set v2.**
 `F048` keyed only on `20 concurrent`; `F057` only on `MAX_MCP_OUTPUT_TOKENS`. In v2 both
@@ -108,22 +110,46 @@ ids were retired (not renumbered, so historical tables stay accurate) and F172 t
 carry the four facts as separate rows. Keys were never retuned in place, preserving the
 published v1 numbers.
 
-**13. Tier 1 matches file-wide, not line-wide. PARTIALLY ADDRESSED 2026-07-31.**
-A key is asserted to appear somewhere in its file rather than in the passage it guards.
-`F104` and `F078`, the known instances, were rekeyed in v2 to phrases unique to the
-passage each guards (uniqueness verified by per-file count before committing the key). The
-rest of the set still matches file-wide; `tools/coverage-report.mjs` now makes the gap
-visible mechanically after any content edit.
+**13. ~~Tier 1 matches file-wide, not line-wide.~~ CLOSED 2026-08-02, with a named residue.**
+A key is asserted to appear somewhere in its file rather than in the passage it guards, so
+a row could survive deletion of what it protects. Measured rather than assumed: 41 of 174
+keys matched more than once; 133 were already unique. All 30 genuinely ambiguous keys were
+rescoped to phrases verified unique in their file before committing, joining `F104` and
+`F078` from v2. Five were gut-tested by deleting only the guarded passage: each turned
+exactly its own row red and nothing else.
 
-**14. `references/compatibility.md` mixes two things.**
-Profile-contract schema plus the per-feature version gates. Readers want the second;
-reorder to put the version table first.
+The residue is 11 rows, and they are intentional, not unfixed. `A015` keys on
+`Proprietary` (13 hits in `sources.md`) and `A001` on `experimental` (7 hits in
+`agent-teams.md`): in both, the plurality IS the answer to the question asked, so
+narrowing them would make the test wrong. The nine `R` routing rows key on terms in the
+SKILL.md frontmatter description, which is exactly the surface they are meant to test, and
+those terms also appear in the router table. Narrowing those would test the wrong thing.
+`tools/coverage-report.mjs` continues to make any new drift visible mechanically.
 
-**15. Tier 3 exposed two content weaknesses.**
+**14. ~~`references/compatibility.md` mixes two things.~~ RESOLVED 2026-08-02.**
+Reordered into three sections: feature introduction versions first (what readers actually
+come for), then current support states, then the profile contract that governs how entries
+are written. A pure move, verified by accounting rather than assertion: 38 bullets and 37
+evidence tags before and after, zero lost, zero added.
+
+**15. Tier 3 content weaknesses: fix ATTEMPTED and MEASURED as ineffective, 2026-08-02.**
 Arm C trailed the docs arm most on failure_mode (61% vs 75%) and version_caveat (72% vs
-80%). Failure paths live mostly in composition cards rather than beside each mechanism,
-and version gates live in one compatibility file rather than at each decision point.
-Both are content moves, not test changes. See `tests/results-tier3.md`.
+80%). The diagnosis was that failure paths lived only in composition cards and version
+gates only in `compatibility.md`, so both were moved: six references gained an explicit
+Failure posture section, and three decision lines gained their version gate inline.
+
+Arm C was then re-run against the same 60 scenarios. It did not work. failure_mode stayed
+at 61 percent, version_caveat fell to 68, overall went 79 to 77. The content additions are
+kept because they are correct and independently useful, and seven suite rows now guard
+them, but they did not buy what they were meant to buy.
+
+Working hypothesis for the next attempt, untested: the scenarios ask for the failure mode
+of a specific architecture choice, which a general per-mechanism posture paragraph does not
+answer. If so, the fix is per-pairing failure paths, a larger change than this one. Do not
+retry until the hypothesis is checked.
+
+Also open from that run: S055 went ungraded (grader returned 9 of 10), so the re-run
+percentages are over 59 scenarios. See `tests/results-tier3.md`.
 
 **16. ~~Trigger recall is 16% in a crowded environment.~~ RESOLVED 2026-07-31, recall 96%.**
 The 16% run had measured an EMPTY description (the frontmatter defect, item 19). With the
@@ -147,7 +173,7 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 255 source assignments in `claims.jsonl` were made by subagents with stated rules,
+The 268 source assignments in `claims.jsonl` were made by subagents with stated rules,
 not independently double-checked. The integrity gate catches structural drift, not a
 wrong-but-plausible source id. A second blind attribution pass with disagreement
 reporting would harden it.

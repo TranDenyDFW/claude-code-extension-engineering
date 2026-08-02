@@ -5,7 +5,7 @@
 
 The only authored surface that modifies Claude's SYSTEM PROMPT rather than adding context to it. A markdown file with frontmatter whose instructions are appended to the system prompt while the style is active.
 
-**Layer:** Context / Instruction &middot; **Classification:** primitive &middot; **Status:** stable &middot; **Since:** v1.0.81
+**Layer:** Context / Instruction | **Classification:** primitive | **Status:** stable | **Since:** v1.0.81
 
 ## What it is
 
@@ -18,3 +18,8 @@ The only authored surface that modifies Claude's SYSTEM PROMPT rather than addin
 - Built-in styles (Default, Explanatory, Learning, Proactive) ship with Claude Code and are selected, not authored. Only the custom file is an extension point.  [v1.0.81]
 - Plugins ship output styles through an output-styles/ directory or the outputStyles manifest key.
 - The /output-style command was removed at v2.1.91; on current builds selection is through /config or the outputStyle setting. Verify the activation path on your build before documenting it.  [v2.1.91]
+
+## Failure posture
+
+- An output style cannot fail closed, because it is system-prompt text rather than enforcement. If the style is not selected, not loaded, or overridden by a plugin style with force-for-plugin, the session simply behaves as Default and says nothing about it  [ENGINEERING]  [v2.1.220]
+- It is also read ONCE at session start, so a mid-session edit appears to do nothing until /clear or a new session. That silence is the most common reason a style looks broken when it is merely not yet loaded  [OFFICIAL]  [v2.1.220]

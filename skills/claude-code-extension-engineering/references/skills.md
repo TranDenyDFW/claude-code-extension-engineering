@@ -5,7 +5,7 @@
 
 A SKILL.md file holding reusable instructions the model reads when it decides the skill is relevant, or when you invoke it by name. One primitive with several invocation modes: model-invoked, user-invoked with /name, and plugin-shipped. Custom commands were merged into skills, so a .claude/commands/x.md and a .claude/skills/x/SKILL.md both produce /x and behave the same way.
 
-**Layer:** Capability &middot; **Classification:** primitive &middot; **Status:** stable
+**Layer:** Capability | **Classification:** primitive | **Status:** stable
 
 ## Methodology source and risk tier
 
