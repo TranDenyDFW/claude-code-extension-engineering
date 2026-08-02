@@ -152,10 +152,19 @@ const TOOL_DEFS = [
       let diags = null;
       try {
         const parsed = JSON.parse(r.out.slice(r.out.indexOf('{')));
-        diags = (parsed.diagnostics || []).map(d => ({
-          file: d.file || '',
-          text: `${d.rule || ''} ${d.message || ''} ${d.suggestion || ''}`,
-        }));
+        // Error level only. The fourth echo channel an independent review
+        // found: agnix's warning-level CC-HK-010 complaint QUOTES the hook's
+        // matcher value inside its own message ("at hooks.PreToolUse[matcher=
+        // Bash|(]..."), so a style warning about timeouts scored a catch on
+        // the bad-matcher fixture agnix never actually validated. Style
+        // opinions do not attest defects; errors do. This mirrors how the
+        // extension doctor consumes agnix when delegating.
+        diags = (parsed.diagnostics || [])
+          .filter(d => d.level === 'error')
+          .map(d => ({
+            file: d.file || '',
+            text: `${d.rule || ''} ${d.message || ''} ${d.suggestion || ''}`,
+          }));
       } catch { }
       return { ...r, diags, findings: diags ? fileAnchored(diags).length : 0 };
     },
@@ -397,6 +406,15 @@ function selfTest() {
   check('a real finding line still catches', scoreCell(shadow, lineToolHit) === 'catch');
   check('diag scoring text excludes the file path itself',
     scoreCell(shadow, { out: '', findings: 1, diags: [{ file: 'x/settings-shadowing/settings.json', text: 'unrelated message' }] }) === 'miss');
+
+  // The fourth echo channel, found by independent review: a diagnostic whose
+  // MESSAGE quotes the defective config value. The agnix adapter now keeps
+  // error-level diagnostics only, so a style warning echoing "matcher=Bash|("
+  // must not reach scoring. Simulated at the scoreCell layer: the adapter
+  // contract is that warnings never become diags.
+  const matcherSig = { kind: 'failure-mode', signal: 'matcher|regex|invalid|compile|pattern' };
+  check('a style warning echoing the defective value is not a catch once filtered out',
+    scoreCell(matcherSig, { out: 'warning CC-HK-010 Command hook at hooks.PreToolUse[matcher=Bash|(].hooks[0] has no timeout', findings: 0, diags: [] }) === 'miss');
 
   const fake = {
     tools: [

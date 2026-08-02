@@ -44,7 +44,7 @@ manifest naming the defect, the citation behind it, and a concept-word signal re
 | over-cap-description | miss | miss | miss | miss | n/a | catch | catch |
 | dup-skill-across-scopes | miss | miss | miss | miss | n/a | catch | catch |
 | bad-hook-event | catch | catch | miss | miss | n/a | catch | catch |
-| bad-matcher-regex | catch | miss | miss | miss | n/a | catch | catch |
+| bad-matcher-regex | miss | miss | miss | miss | n/a | catch | catch |
 | missing-hook-handler | miss | miss | miss | miss | n/a | catch | catch |
 | disable-all-hooks | miss | miss | miss | miss | n/a | catch | catch |
 | settings-shadowing | miss | miss | miss | miss | n/a | catch | catch |
@@ -54,11 +54,11 @@ manifest naming the defect, the citation behind it, and a concept-word signal re
 | plugin-version-pinned | miss | miss | miss | miss | miss | catch | catch |
 | control-array-matcher | catch | miss | catch | miss | n/a | catch | catch |
 | control-bad-skill-name | catch | miss | miss | miss | n/a | catch | catch |
-| clean tree | FALSE-POS | FALSE-POS | clean | clean | n/a | clean | clean |
+| clean tree | clean | FALSE-POS | clean | clean | n/a | clean | clean |
 
 | Tool | Caught (of 12) | Clean-tree false positives | Crashes | Wrote during a run |
 |---|---|---|---|---|
-| agnix (bare) | 4 | 1 | 0 | no |
+| agnix (bare) | 3 | 0 | 0 | no |
 | claude-code-templates | 1 | 1 | 0 | no |
 | cclint | 0 | 0 | 0 | no |
 | claude-skill-validator | 0 | 0 | 0 | no |
@@ -68,10 +68,13 @@ manifest naming the defect, the citation behind it, and a concept-word signal re
 
 Cell-level notes, each verified against the raw output rather than the score:
 
-- **agnix's four catches are genuine** (frontmatter parse error, unknown hook event,
-  matcher validity, unresolvable subagent tools), file-anchored, error-level. Its clean-tree
-  false positive is CC-HK-010, a warning demanding a `timeout` field on a perfectly valid
-  hook.
+- **agnix's three catches are genuine** (frontmatter parse error, unknown hook event,
+  unresolvable subagent tools), file-anchored, error-level. An earlier revision of this
+  document claimed FOUR, including bad-matcher-regex, and called all four verified; an
+  independent review showed that fourth cell was another echo artifact (round four, below)
+  and the sentence was wrong as published. With scoring restricted to error-level
+  diagnostics, agnix's clean-tree CC-HK-010 style warning also stops counting as a false
+  positive, so both its columns changed.
 - **cct's one catch is real but derives from a defect of its own**: it validates hook events
   against a four-event allowlist, so it flags our misspelled event AND would flag 26 real
   events the same way. Its clean-tree false positives are complaints about the machine
@@ -86,7 +89,7 @@ Cell-level notes, each verified against the raw output rather than the score:
   mapping. The measured content of this bench is the competitor columns, the false-positive
   column, and the clean-tree discipline, not our own perfect score.
 
-## Three rounds of scoring hardening, disclosed because each one changed the numbers
+## Four rounds of scoring hardening, disclosed because each one changed the numbers
 
 The first scoring pass matched signals against raw tool output and produced agnix 9 of 12.
 Reading the raw outputs showed the extra five were fake: agnix prints a run-level VER-001
@@ -101,8 +104,18 @@ per-tool parsers, and the rule that a tool reporting zero violations scores miss
 of its prose. Both tools: 0. All three defenses have must-fail cases in the runner's
 self-test.
 
-The lesson is the repo's recurring one: a benchmark's first output flatters everyone, and
-only reading the raw evidence deflates it.
+The fourth round was found by the independent reviewer, not by us, and it survived our own
+raw-output verification pass: agnix's scored "catch" on bad-matcher-regex was a
+warning-level CC-HK-010 style complaint whose message QUOTES the defective matcher value
+("at hooks.PreToolUse[matcher=Bash|(]..."), so the word "matcher" in the echo matched the
+signal while agnix never validated the regex at all. A diagnostic can echo the defect
+without attesting it. Fix: the agnix adapter scores error-level diagnostics only, which is
+also exactly how the extension doctor consumes agnix when delegating, with a must-fail
+self-test case pinning it. agnix: 4 to 3.
+
+The lesson is the repo's recurring one, now four times over: a benchmark's first output
+flatters everyone, reading the raw evidence deflates it, and the reading must be done by
+someone who did not write the scorer.
 
 ## Decision rule, committed in the plan before the bench ran
 
@@ -112,7 +125,7 @@ only reading the raw evidence deflates it.
 
 **Applied: SHIP, with one clause requiring honest interpretation.** The wrapper catches 12
 of 12 with zero clean-tree false positives, and strictly beats every bare COMPETITOR (best:
-agnix at 4). The literal "best bare tool" is our own bare doctor, also at 12, which the
+agnix at 3). The literal "best bare tool" is our own bare doctor, also at 12, which the
 wrapper does not strictly beat ON THESE FIXTURES; it cannot, because the fixture set was
 selected as exactly the gap nobody covered, which makes that comparison circular. What
 delegation adds is agnix's per-file rule set BEYOND the fixture universe, imported at zero

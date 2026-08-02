@@ -38,11 +38,12 @@ more installed skills, adjudicated against a real YAML parser, with zero false p
 
 **Benchmarked, not asserted.** Four ecosystem linters plus the official validator were
 installed sandboxed and run against fifteen committed fixtures encoding the documented
-failure modes. Best competitor: 4 of 12, with a false positive on the clean tree. Nothing
-else caught cross-scope duplicates, settings shadowing, `disableAllHooks`, the memory cap,
-MCP scope collisions, or version pinning. Full matrix, three rounds of scoring hardening
-that each deflated fake catches, and the limitations (including why our own 12 of 12 is by
-construction and NOT the headline) are in
+failure modes. Best competitor: 3 of 12. Nothing else caught the matcher validity, the
+cross-scope duplicates, settings shadowing, `disableAllHooks`, the missing handler, the
+memory cap, MCP scope collisions, the description cap, or version pinning. Full matrix,
+FOUR rounds of scoring hardening that each deflated fake catches (the fourth found by an
+independent reviewer after publication), and the limitations (including why our own 12 of
+12 is by construction and NOT the headline) are in
 [tests/results-lint-bench.md](tests/results-lint-bench.md).
 
 ## Five things this catches that are easy to get wrong
