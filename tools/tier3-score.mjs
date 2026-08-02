@@ -41,6 +41,7 @@ const END = '<!-- tier3-score:end -->';
 
 /** Human labels. Kept out of the packets on purpose; only the scorer knows. */
 export const ARM_LABEL = {
+  a: 'A: unaided (calibration)',
   b: 'B: official docs',
   bplus: 'B+: docs, staged procedure, no skill',
   d: 'D: docs + skill, staged procedure',
@@ -71,13 +72,28 @@ export const VALID_SCORES = new Set([0, 0.5, 1]);
  * be present, and every score must be one of the three allowed values. Returns
  * the list of reasons the set is unscoreable, empty when it is sound.
  */
-export function completenessProblems(grades, scenarioIds, map) {
+export function completenessProblems(grades, scenarioIds, map, partial = false) {
   const problems = [];
   const seen = new Map();
+
+  // Scope. By default every scenario in the set must be graded, which is the
+  // publishing posture. --partial narrows scope to the scenarios that actually
+  // have sheets, for a pilot or a single-batch re-grade, and the caller prints
+  // the denominator loudly. Completeness WITHIN scope stays absolute: S055 was
+  // a record lost inside the scope, not a deliberate subset, and a silent
+  // denominator is what made it a published error rather than a caught one.
+  if (partial) scenarioIds = scenarioIds.filter(id => map[id]);
 
   for (const g of grades) {
     if (!scenarioIds.includes(g.scenario)) {
       problems.push(`unknown scenario id ${g.scenario}`);
+      continue;
+    }
+    // Surplus records addressed to a sheet that does not exist were silently
+    // absorbed before, so a grader inventing a fourth sheet went unreported
+    // while the real sheets still looked complete. Independent review finding.
+    if (map[g.scenario] && !(String(g.sheet) in map[g.scenario])) {
+      problems.push(`${g.scenario}: graded a sheet ${g.sheet} that does not exist (this scenario has sheets ${Object.keys(map[g.scenario]).join(', ')})`);
       continue;
     }
     if (!GRADED_FIELDS.includes(g.field)) {
@@ -112,7 +128,55 @@ export function completenessProblems(grades, scenarioIds, map) {
     }
   }
 
+  // Total arithmetic, checked independently of the per-cell sweep above. The
+  // per-cell checks answer "is anything missing"; this answers "is the count
+  // what it should be", and the two fail differently. Reported as a distinct
+  // problem so a mismatch cannot hide behind a clean per-cell pass.
+  const expected = scenarioIds.reduce((n, id) => n + (map[id] ? Object.keys(map[id]).length : 0), 0) * GRADED_FIELDS.length;
+  const inScopeRecords = grades.filter(g => scenarioIds.includes(g.scenario)).length;
+  if (expected && inScopeRecords !== expected) {
+    problems.push(`record count is ${inScopeRecords}, expected ${expected} (${scenarioIds.length} scenarios x sheets x ${GRADED_FIELDS.length} fields)`);
+  }
+
   return [...new Set(problems)];
+}
+
+/**
+ * Per-scenario paired comparison. Declared BEFORE the full run, after a pilot
+ * showed three docs-holding arms landing at 93 to 97 percent: at a ceiling,
+ * two means differing by a few points is nearly uninformative, while the same
+ * data compared scenario by scenario is not, because every arm answered the
+ * identical scenario and the scenario's own difficulty cancels.
+ *
+ * This does NOT replace the pre-committed rule and does not change what ships.
+ * DECISION_MARGIN still governs. This is a reported secondary that says whether
+ * a small overall gap is consistent or noisy, and it is written down here
+ * rather than chosen once the real numbers are visible.
+ */
+export function pairedComparison(grades, map, armX, armY) {
+  const cell = new Map();
+  for (const g of grades) {
+    const arm = map[g.scenario]?.[String(g.sheet)];
+    if (arm !== armX && arm !== armY) continue;
+    cell.set(`${g.scenario}|${arm}`, (cell.get(`${g.scenario}|${arm}`) || 0) + g.score);
+  }
+  const ids = [...new Set([...cell.keys()].map(k => k.split('|')[0]))].sort();
+  let wins = 0, losses = 0, ties = 0, deltaSum = 0, n = 0;
+  const perScenario = [];
+  for (const id of ids) {
+    const x = cell.get(`${id}|${armX}`), y = cell.get(`${id}|${armY}`);
+    if (x === undefined || y === undefined) continue;
+    const delta = x - y;
+    if (delta > 0) wins++; else if (delta < 0) losses++; else ties++;
+    deltaSum += delta; n++;
+    perScenario.push({ id, delta });
+  }
+  return {
+    armX, armY, n, wins, losses, ties,
+    meanDeltaPoints: n ? Math.round((100 * deltaSum) / (n * GRADED_FIELDS.length)) : 0,
+    decided: wins + losses,
+    perScenario,
+  };
 }
 
 // ------------------------------------------------------------------ scoring --
@@ -212,6 +276,19 @@ export function renderMarkdown(rows, v, meta = {}) {
     for (const r of rows) L.push(`| ${r.label} | ${r.citationRate === null ? 'not requested' : fmtPct(r.citationRate)} |`);
     L.push('');
   }
+  if (meta.paired && meta.paired.length) {
+    L.push('Paired per-scenario comparison. Every arm answered the identical scenario, so');
+    L.push('comparing scenario by scenario cancels the scenario\'s own difficulty and detects a');
+    L.push('small effect that two overall percentages near a ceiling cannot. Secondary and');
+    L.push('reported only: the pre-committed margin above is what decides the outcome.');
+    L.push('');
+    L.push('| Comparison | Scenarios | Wins | Losses | Ties | Mean delta |');
+    L.push('|---|---|---|---|---|---|');
+    for (const p of meta.paired) {
+      L.push(`| ${p.armX.toUpperCase()} vs ${p.armY.toUpperCase()} | ${p.n} | ${p.wins} | ${p.losses} | ${p.ties} | ${p.meanDeltaPoints >= 0 ? '+' : ''}${p.meanDeltaPoints} pts |`);
+    }
+    L.push('');
+  }
   L.push(`**Verdict, by the rule committed before the run: ${v.headline}.** ${v.detail}`);
   if (v.attribution) { L.push(''); L.push(v.attribution); }
   L.push('');
@@ -283,11 +360,11 @@ function loadAnswers() {
 function selfTest() {
   const ids = ['S001', 'S002'];
   const map = {
-    S001: { 1: 'b', 2: 'bplus', 3: 'd' },
-    S002: { 1: 'd', 2: 'b', 3: 'bplus' },
+    S001: { 1: 'b', 2: 'bplus', 3: 'd', 4: 'a' },
+    S002: { 1: 'd', 2: 'b', 3: 'bplus', 4: 'a' },
   };
   // Scores chosen so the arms separate predictably: d strong, b weak, bplus mid.
-  const perArmScore = { b: 0.5, bplus: 0.5, d: 1 };
+  const perArmScore = { a: 0, b: 0.5, bplus: 0.5, d: 1 };
   const full = [];
   for (const id of ids) {
     for (const [sheet, arm] of Object.entries(map[id])) {
@@ -319,6 +396,30 @@ function selfTest() {
     completenessProblems([...full, { scenario: 'S999', sheet: 1, field: 'primary', score: 1 }], ids, map).some(p => /unknown scenario/.test(p)));
   check('an unknown field name is caught',
     completenessProblems([...full, { scenario: 'S001', sheet: 1, field: 'vibes', score: 1 }], ids, map).some(p => /unknown field/.test(p)));
+
+  // Independent review found both of these passing silently.
+  check('a grade for a sheet that does not exist is caught',
+    completenessProblems([...full, { scenario: 'S001', sheet: 9, field: 'primary', score: 1 }], ids, map)
+      .some(p => /does not exist/.test(p)));
+  check('a record-count mismatch is reported in its own right',
+    completenessProblems([...full, { scenario: 'S001', sheet: 1, field: 'primary', score: 1 }], ids, map)
+      .some(p => /record count is/.test(p)));
+
+  // Partial scope: a legitimate pilot or single-batch re-grade must be
+  // scoreable, but only within an explicitly narrowed scope.
+  const oneScenarioMap = { S001: map.S001 };
+  const oneScenario = full.filter(g => g.scenario === 'S001');
+  check('a partial run is unscoreable by default',
+    completenessProblems(oneScenario, ids, oneScenarioMap).some(p => /absent from the blinding map/.test(p)));
+  check('a partial run scores cleanly when scope is narrowed explicitly',
+    completenessProblems(oneScenario, ids, oneScenarioMap, true).length === 0);
+  check('a record lost INSIDE a partial scope is still caught',
+    completenessProblems(oneScenario.slice(0, -1), ids, oneScenarioMap, true).length > 0);
+
+  const pc = pairedComparison(full, map, 'd', 'b');
+  check('paired comparison counts every scenario both arms answered', pc.n === 2, `n=${pc.n}`);
+  check('paired comparison scores d over b on the fixture', pc.wins === 2 && pc.losses === 0, `${pc.wins}W ${pc.losses}L ${pc.ties}T`);
+  check('paired mean delta is expressed in points', pc.meanDeltaPoints === 50, `${pc.meanDeltaPoints} pts`);
 
   const rows = score(full, map);
   const d = rows.find(r => r.arm === 'd'), b = rows.find(r => r.arm === 'b');
@@ -371,8 +472,11 @@ if (!existsSync(MAP_PATH)) {
 }
 const map = JSON.parse(readFileSync(MAP_PATH, 'utf8'));
 
-const problems = completenessProblems(grades, ids, map);
+const PARTIAL = argv.includes('--partial');
+const problems = completenessProblems(grades, ids, map, PARTIAL);
+const inScope = PARTIAL ? ids.filter(id => map[id]).length : ids.length;
 console.log(`Grades: ${grades.length}  scenarios in set: ${ids.length}  arms: ${ARMS.join(', ')}`);
+if (PARTIAL) console.log(`PARTIAL RUN: scoring over ${inScope} of ${ids.length} scenarios. Diagnostic only, not publishable as a full result.`);
 if (problems.length) {
   console.log(`\nREFUSING TO SCORE: ${problems.length} completeness problem(s).`);
   for (const p of problems.slice(0, 40)) console.log(`  ${p}`);
@@ -384,7 +488,10 @@ console.log('Completeness gate: PASS, every scenario, sheet and field graded exa
 
 const rows = score(grades, map, citationRates(loadAnswers()));
 const v = verdict(rows);
-const block = renderMarkdown(rows, v);
+const paired = [['d', 'b'], ['d', 'bplus'], ['b', 'a']]
+  .filter(([x, y]) => rows.some(r => r.arm === x) && rows.some(r => r.arm === y))
+  .map(([x, y]) => pairedComparison(grades, map, x, y));
+const block = renderMarkdown(rows, v, { paired });
 
 if (argv.includes('--markdown')) { console.log(block); process.exit(0); }
 

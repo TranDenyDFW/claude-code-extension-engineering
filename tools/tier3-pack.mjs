@@ -34,12 +34,30 @@ const MAP_PATH = join(ROOT, 'tests', 'tier3', 'blinding-map.json');
 /** The seven GRADED fields. `rejection_reason` is key-only, never graded. */
 export const GRADED_FIELDS = KEY_FIELDS.filter(f => f !== 'rejection_reason');
 
-/** Arm ids as they appear in answer filenames. Never in a packet. */
-export const ARMS = ['b', 'bplus', 'd'];
+/**
+ * Arm ids as they appear in answer filenames. Never in a packet.
+ *
+ * Arm A is the calibration anchor, added after the pilot. Three docs-holding
+ * arms all landed at 93 to 97 percent, which leaves less headroom than the
+ * decision margin needs, and nothing in that data distinguishes "the graders
+ * were lenient" from "these scenarios saturate for anything holding the docs".
+ * An unaided arm separates those: near its historical 71 percent means the
+ * ceiling is real, up at 90 percent means the rubric is loose.
+ */
+export const ARMS = ['a', 'b', 'bplus', 'd'];
 
-const PERMUTATIONS = [
-  [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0],
-];
+function allPermutations(n) {
+  if (n <= 1) return [[0]];
+  const out = [];
+  for (const sub of allPermutations(n - 1)) {
+    for (let i = 0; i <= sub.length; i++) {
+      out.push([...sub.slice(0, i), n - 1, ...sub.slice(i)]);
+    }
+  }
+  return out;
+}
+
+const PERMUTATIONS = allPermutations(ARMS.length);
 
 /** FNV-1a over the scenario id. Deterministic across runs and machines. */
 export function permutationFor(id) {
@@ -52,10 +70,21 @@ export function permutationFor(id) {
 }
 
 /**
- * Blinding is only real if the packet cannot betray the mapping. Two ways it
- * could: an arm label left in a field name or value, or an `arm` key surviving
- * on a sheet. Both are checked against the serialized packet, so a future edit
- * that reintroduces either fails here rather than silently at grading time.
+ * Blinding is only real if the packet cannot betray the mapping.
+ *
+ * The obvious tell is an arm label surviving on a sheet. The one that actually
+ * shipped was subtler and an independent review caught it: arm B is never asked
+ * to cite, so its sheet was the ONLY one carrying no `citations` object, and a
+ * grader could pick out the baseline arm on every scenario at 20 of 20
+ * precision and recall. The old version whitelisted `citations` as benign, and
+ * the fixtures built every arm with the same key set, so the check could not
+ * fail on the real shape.
+ *
+ * The invariant is therefore structural, not a list of forbidden words: every
+ * sheet in a packet carries exactly `sheet` plus the seven graded fields, and
+ * nothing else. Any per-arm difference in SHAPE is a tell no matter how
+ * innocent the field looks. Citations are dropped at pack time; the citation
+ * rate is computed from the answer files, which graders never see.
  */
 export function blindingProblems(packet) {
   const problems = [];
@@ -67,13 +96,18 @@ export function blindingProblems(packet) {
       }
     }
   }
+  const EXPECTED = ['sheet', ...GRADED_FIELDS].sort().join(',');
   for (const s of packet.scenarios) {
     if (s.sheets.length !== ARMS.length) {
       problems.push(`${s.id}: ${s.sheets.length} sheet(s), expected ${ARMS.length}`);
     }
     for (const sheet of s.sheets) {
-      const extra = Object.keys(sheet).filter(k => k !== 'sheet' && !GRADED_FIELDS.includes(k) && k !== 'citations');
-      if (extra.length) problems.push(`${s.id} sheet ${sheet.sheet}: unexpected field(s) ${extra.join(', ')}`);
+      const got = Object.keys(sheet).sort().join(',');
+      if (got !== EXPECTED) {
+        const extra = Object.keys(sheet).filter(k => k !== 'sheet' && !GRADED_FIELDS.includes(k));
+        const missing = ['sheet', ...GRADED_FIELDS].filter(k => !(k in sheet));
+        problems.push(`${s.id} sheet ${sheet.sheet}: key set differs from every other sheet${extra.length ? `, extra: ${extra.join(', ')}` : ''}${missing.length ? `, missing: ${missing.join(', ')}` : ''}. A structural difference identifies the arm.`);
+      }
     }
   }
   return [...new Set(problems)];
@@ -102,9 +136,12 @@ export function pack(scenarios, answersByArm) {
       const order = permutationFor(id).map(i => ARMS[i]).filter(a => perArm[a]);
       const sheets = order.map((arm, i) => {
         const src = perArm[arm];
+        // Exactly these keys, in this order, for every arm. Citations are
+        // deliberately NOT carried through: a grader does not need them, and
+        // only two arms are asked to produce them, so passing them along
+        // labels the other arms by omission.
         const sheet = { sheet: i + 1 };
         for (const f of GRADED_FIELDS) sheet[f] = src[f] ?? '';
-        if (src.citations) sheet.citations = src.citations;
         return sheet;
       });
       map[id] = Object.fromEntries(order.map((arm, i) => [String(i + 1), arm]));
@@ -146,10 +183,15 @@ function selfTest() {
     { id: 'S002', focus: 'delegation', scenario: 'need two', primary: 'p2', rejected_alternative: 'r2', rejection_reason: 'why2', enforcement_owner: 'model', context_boundary: 'isolated', lifecycle: 'spawn', failure_mode: 'closed', version_caveat: 'v2' },
   ];
   const mk = (id, tag) => ({ id, batch: 1, ...Object.fromEntries(GRADED_FIELDS.map(f => [f, `${tag}-${f}`])) });
+  // Two arms carry citations and two do not, exactly as the real run does.
+  // The previous fixtures gave every arm the same key set, which is why the
+  // shape-based tell survived the self-test and reached an independent review.
+  const withCites = o => ({ ...o, citations: { lifecycle: 'https://code.claude.com/docs/en/x' } });
   const answers = {
+    a: [mk('S001', 'A'), mk('S002', 'A')],
     b: [mk('S001', 'B'), mk('S002', 'B')],
-    bplus: [mk('S001', 'BP'), mk('S002', 'BP')],
-    d: [mk('S001', 'D'), mk('S002', 'D')],
+    bplus: [withCites(mk('S001', 'BP')), withCites(mk('S002', 'BP'))],
+    d: [withCites(mk('S001', 'D')), withCites(mk('S002', 'D'))],
   };
 
   let bad = 0;
@@ -160,16 +202,29 @@ function selfTest() {
 
   const { packets, map } = pack(scenarios, answers);
   check('packs one packet per batch', packets.length === 1, `${packets.length} packet(s)`);
-  check('every scenario gets one sheet per arm', packets[0].scenarios.every(s => s.sheets.length === 3));
+  check('every scenario gets one sheet per arm', packets[0].scenarios.every(s => s.sheets.length === ARMS.length));
   check('clean packet has no blinding problems', blindingProblems(packets[0]).length === 0, blindingProblems(packets[0])[0] || '');
+
+  // The defect an independent review found: arm B is the only arm never asked
+  // to cite, so carrying citations through made its sheet the only one without
+  // them, identifying the baseline arm on every scenario.
+  const anyCitations = packets[0].scenarios.some(s => s.sheets.some(sh => 'citations' in sh));
+  check('citations never reach a packet, so the arms that cite are not marked', !anyCitations);
+  const keySets = new Set(packets[0].scenarios.flatMap(s => s.sheets.map(sh => Object.keys(sh).sort().join(','))));
+  check('every sheet in a packet has an identical key set', keySets.size === 1, `${keySets.size} distinct key set(s)`);
 
   const roundTrip = packets[0].scenarios.every(s =>
     s.sheets.every(sheet => {
       const arm = map[s.id][String(sheet.sheet)];
-      const tag = { b: 'B', bplus: 'BP', d: 'D' }[arm];
+      const tag = { a: 'A', b: 'B', bplus: 'BP', d: 'D' }[arm];
       return sheet.primary === `${tag}-primary`;
     }));
   check('the blinding map un-blinds every sheet back to its arm', roundTrip);
+
+  const shapeTell = JSON.parse(JSON.stringify(packets[0]));
+  shapeTell.scenarios[0].sheets[1].citations = { lifecycle: 'https://code.claude.com/docs/en/x' };
+  check('a lone extra field on ONE sheet is caught as a structural tell',
+    blindingProblems(shapeTell).some(p => /key set differs/.test(p)));
 
   // The threat the map exists to prevent: position encoding the arm. If every
   // scenario put the same arm in slot 1, blinding would be decorative.
@@ -187,6 +242,8 @@ function selfTest() {
   const perms = new Set(['S001', 'S002', 'S010', 'S033', 'S047', 'S060'].map(id => permutationFor(id).join('')));
   check('permutation is deterministic and varies by id', perms.size > 1, `${perms.size} distinct ordering(s) over 6 ids`);
   check('permutation is stable across calls', permutationFor('S038').join('') === permutationFor('S038').join(''));
+  check('permutation space covers every ordering of the arms',
+    PERMUTATIONS.length === [1, 1, 2, 6, 24, 120][ARMS.length], `${PERMUTATIONS.length} orderings for ${ARMS.length} arms`);
 
   console.log(bad
     ? `SELF-TEST FAIL: ${bad} check(s) failed`
@@ -214,6 +271,14 @@ const armsPresent = Object.keys(answersByArm).sort();
 
 if (!armsPresent.length) {
   console.log('No answer sheets in tests/tier3/answers/ yet. Nothing to pack.');
+  // A committed blinding map with no answers behind it is drift, not an empty
+  // start: the map claims a packing that nothing can reproduce. The scorer
+  // already guarded its equivalent case; an independent review found this one
+  // passing, so it now fails the same way.
+  if (CHECK_ONLY && existsSync(MAP_PATH)) {
+    console.log('FAIL: blinding-map.json is committed but there are no answers to re-derive it from.');
+    process.exit(1);
+  }
   process.exit(CHECK_ONLY ? 0 : 1);
 }
 
