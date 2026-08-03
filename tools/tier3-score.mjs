@@ -750,7 +750,10 @@ function selfTest() {
   }
   check('two agreeing grades aggregate cleanly', (() => {
     const r = aggregateCells(g2);
-    return r.problems.length === 0 && r.flat.every(c => c.score === 1) && r.disagreements.length === 0;
+    // The flat-count assertion is load-bearing: without it a gutted aggregator
+    // returning empty arrays passed this check vacuously (independent-review
+    // finding) and only crashed a later check by accident.
+    return r.problems.length === 0 && r.flat.length === g2.length / 2 && r.flat.every(c => c.score === 1) && r.disagreements.length === 0;
   })());
   check('half-point disagreement means the cell, no adjudication needed', (() => {
     const gg = g2.map(x => ({ ...x }));

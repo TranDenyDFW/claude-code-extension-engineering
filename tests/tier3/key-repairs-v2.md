@@ -232,3 +232,89 @@ quote below was re-verified mechanically against the mirror bytes when applied.
   plain reading flag as confusing. Rephrased to lead with the gate; substance and evidence
   citation unchanged (sub-agents.md: "Before v2.1.218, frontmatter hooks could run from
   folders you had not trusted, including in non-interactive sessions.").
+
+## The seeding episode, and its fix
+
+An independent review of the repair phase found that the ORIGINAL context-boundary
+repair prompt embedded a parenthetical pre-stating the answer substance for the very
+family it repaired ("settings and hooks run in the harness outside any context
+window..."). The seeded direction was doc-true and every applied value was
+quote-verified, but a prompt that contains answer content for a graded field is not
+blind, and the review failed that check. Correctly.
+
+Fix: a fresh agent re-derived all 14 keys from the scenario rows and the mirror with
+NO answer-shaped hints. The unseeded values are the ones shipped; both versions are
+recorded below. The unseeded agent independently converged on the same substance in
+every case, which is what one expects when the answers are doc-determined facts, and
+is evidence the seeding steered phrasing at most. That claim is checkable here.
+
+### S018.context_boundary
+- seeded (superseded): harness (the hook command is a separate process spawned at the tool-call boundary with no context window of its own, receiving the attempted command as JSON on stdin; only the deny reason crosses into the session context, since exit-2 stderr is fed back to Claude and a JSON deny's permissionDecisionReason is shown to Claude)
+- unseeded (SHIPPED): no context window of its own (the hook runs as a shell process at the tool-call boundary, before the push can execute); what crosses back into the main conversation is only the block plus its reason, fed to Claude as an error message so it knows why the call was refused
+- evidence: `hooks.md`: "stderr text is fed back to Claude as an error message. The effect depends on the event: `PreToolUse` blocks the tool call"
+
+### S023.context_boundary
+- seeded (superseded): per component (marketplace registration and plugin installs run in the harness, outside any context window; once enabled, skill and agent descriptions and command names sit in every session's main context as the always-on listing cost, full bodies load on invoke, and the plugin's hooks execute harness-side)
+- unseeded (SHIPPED): no context window for the distribution layer (marketplace registration, install, and update tracking are harness operations that never enter a conversation); once a teammate enables the plugin, each bundled component crosses into their sessions under its own rules, for example skills are model-invoked from task context while hooks fire on harness events
+- evidence: `plugins.md`: "Skills are model-invoked: Claude automatically uses them based on the task context."
+
+### S025.context_boundary
+- seeded (superseded): harness (version resolution is client-side cache-key bookkeeping performed when /plugin update or auto-update fires; no context window is involved and nothing enters the session context, updated components simply reach later sessions under their own per-component rules)
+- unseeded (SHIPPED): no context window anywhere in the mechanism (version resolution and update checks are harness bookkeeping over the plugin cache); the commit SHA serves purely as the version string that decides when teammates receive an update, and nothing about versioning ever enters a conversation
+- evidence: `plugins.md`: "If omitted and your plugin is distributed via git, the commit SHA is used and every commit counts as a new version."
+
+### S030.context_boundary
+- seeded (superseded): harness process with one context leak (the manifest diff and npm install run in a SessionStart hook process and write only to the on-disk data directory; SessionStart is one of the events whose stdout is added as context, so any install output the hook does not redirect enters the session context for Claude to see)
+- unseeded (SHIPPED): the install work itself runs in shell processes outside any context window, writing dependencies to the persistent per-plugin data directory; the one boundary crossing to watch is that SessionStart hook stdout is added as context Claude can see, so a noisy npm install leaks into the main context unless the script silences its output
+- evidence: `hooks.md`: "The exceptions are `UserPromptSubmit`, `UserPromptExpansion`, and `SessionStart`, where stdout is added as context that Claude can see and a"
+
+### S045.context_boundary
+- seeded (superseded): per component (marketplace distribution, installation, and version updates run in the harness, outside any context window; enabled components then cost context per their own rules: skill and agent descriptions and command names are always-on in every session's main context, bodies cost tokens on invoke, hooks run harness-side)
+- unseeded (SHIPPED): no context window for distribution (versioned install and update propagation happen in the harness, outside any conversation); inside each consuming session the bundle crosses into context per component, for example plugin MCP servers start automatically when enabled and surface as standard tools in the main conversation while hooks run as event handlers outside the model
+- evidence: `plugins-reference.md`: "Plugin MCP servers start automatically when the plugin is enabled"
+
+### S051.context_boundary
+- seeded (superseded): harness (the formatter runs in a separate PostToolUse hook process after each matching edit, outside any context window; on success its stdout goes to the debug log and nothing enters the session context, and only exit-2 stderr is shown to Claude)
+- unseeded (SHIPPED): no context window (the formatter is a shell process fired after each matching edit); by default nothing crosses into the conversation because for most hook events stdout goes to the debug log, and only a blocking exit 2 stderr or an explicit additionalContext return feeds anything back to Claude
+- evidence: `hooks.md`: "For most events, stdout is written to the debug log but not shown in the transcript."
+
+### S052.context_boundary
+- seeded (superseded): harness (deny rules are evaluated by the permission system before each tool call, outside any context window; the blocked call never executes, so the secret file contents never enter any context in any session)
+- unseeded (SHIPPED): no context window (deny rules are evaluated by Claude Code at the tool-call boundary, not by the model); what the boundary guarantees is that matching secret file contents never cross into context, with coverage extending beyond the Read tool to Grep, Glob, @file mentions, and IDE-shared context
+- evidence: `permissions.md`: "Claude makes a best-effort attempt to apply `Read` rules to all built-in tools that read files like Grep and Glob, to `@file` mentions in yo"
+
+### S053.context_boundary
+- seeded (superseded): harness, out-of-band (the notifier runs as a separate process whenever Claude Code sends a notification, entirely outside any context window; nothing crosses into the session context: the hook cannot block or modify anything and exit-2 stderr goes to the user only)
+- unseeded (SHIPPED): no context window (the notifier is a pure side-effect command fired on the Notification event); nothing crosses back into the conversation: the event supports no decision control, and even blocking stderr is shown to the user only, never to Claude
+- evidence: `hooks.md`: "No decision control. Used for side effects like logging or cleanup"
+
+### S054.context_boundary
+- seeded (superseded): harness (managed settings are configuration the client loads from the OS-protected policy source, not context; they gate which permission modes are selectable for the session and nothing from them enters any context window)
+- unseeded (SHIPPED): no context window at any point (a managed-settings policy key the harness reads at startup to decide which permission modes are selectable); it consumes no conversation context, and nothing the model or a developer-writable file emits can cross back to change it, since managed settings cannot be overridden by anything
+- evidence: `settings.md`: "**Managed** (highest): can't be overridden by anything"
+
+### S056.context_boundary
+- seeded (superseded): harness (the ask rule is evaluated before the tool call and the confirmation is a terminal prompt to the user, all outside any context window; the push executes only after approval, so nothing from the gate itself enters the session context)
+- unseeded (SHIPPED): no context window (the rule is evaluated by the harness before the matching Bash call and pauses it on a terminal prompt); what crosses the boundary is the human's confirmation or refusal rather than model output, and the tool call proceeds only after that approval
+- evidence: `permissions.md`: "**Ask** rules prompt for confirmation whenever Claude Code tries to use the specified tool."
+
+### S057.context_boundary
+- seeded (superseded): harness (the logger runs in a separate PostToolUse hook process outside any context window, receiving the executed command and its result as JSON on stdin; the audit trail is written to disk and nothing enters the session context, since hook stdout goes to the debug log)
+- unseeded (SHIPPED): no context window (the hook is a shell process that receives the executed command and its result as JSON on stdin); the audit trail flows outward to a log file on disk, and nothing returns to Claude's context from a logging hook that exits 0 quietly
+- evidence: `hooks.md`: "Command hooks receive JSON data via stdin and communicate results through exit codes, stdout, and stderr."
+
+### S058.context_boundary
+- seeded (superseded): harness (the gate runs as a separate hook process before each Bash call, outside any context window, with the command arriving as JSON on stdin; the one approved invocation proceeds normally and only a deny reason crosses into the session context so Claude sees why a call was refused)
+- unseeded (SHIPPED): no context window (the script runs as a shell process before each Bash tool call reaches execution); on a deny decision the reason crosses into the main conversation and is shown to Claude, while on an allow decision the reason is shown to the user but not Claude and the call simply proceeds
+- evidence: `hooks.md`: "For `"allow"` and `"ask"`, shown to the user but not Claude. For `"deny"`, shown to Claude"
+
+### S059.context_boundary
+- seeded (superseded): OS boundary below the harness (Seatbelt or bubblewrap enforce the sandbox on the Bash command and every child process at the operating-system level; no context window is involved anywhere, so the block holds even if a prompt injection bypasses Claude's decision-making, and nothing enters the session context)
+- unseeded (SHIPPED): no context window (the boundary is an OS-level sandbox enforced at command execution time, blocking all processes rather than just Claude's own tools); the protected credential contents never reach any context, and the boundary holds even when a prompt injection has already steered Claude's decisions
+- evidence: `permissions.md`: "Sandbox restrictions prevent Bash commands from reaching resources outside defined boundaries, even if a prompt injection bypasses Claude's "
+
+### S060.context_boundary
+- seeded (superseded): harness (the lock is applied when customization sources load; blocked user- and project-source skills, agents, hooks, and MCP servers are never loaded at all, so neither their descriptions nor their tool definitions ever enter any context window, while permitted plugin and managed components enter context per their own rules)
+- unseeded (SHIPPED): no context window (a load-time gate the harness reads from managed settings); skills, agents, hooks, and MCP servers from user and project sources are blocked from loading at all, so nothing from those sources ever reaches any session or its context
+- evidence: `permissions.md`: "Block skills, agents, hooks, and MCP servers from user and project sources, so they can only come from plugins or managed settings."
+

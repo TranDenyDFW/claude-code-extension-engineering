@@ -1,0 +1,106 @@
+{
+  "arm": "a",
+  "batch": 1,
+  "answers": [
+    {
+      "id": "S001",
+      "primary": "A skill exposed as a single slash command owns the pass: its instructions fan the roughly 400 route handler files out to read-only auditor subagents in bounded batches, and every finding must pass through a separate adversarial verifier subagent before it is written into the quarterly report.",
+      "rejected_alternative": "A dynamic workflow (a headless claude -p orchestration script); it also reruns from one command, but it adds external scripting and state plumbing that the in-session skill plus subagent fan-out does not need.",
+      "enforcement_owner": "The model. A skill is advisory instruction text; the harness loads it, but nothing forces the model to visit all 400 files or to verify before reporting.",
+      "context_boundary": "Each auditor subagent runs in its own fresh context holding only its assigned files; only structured findings cross back to the orchestrating session, and verifier subagents likewise return only a confirmed or rejected verdict.",
+      "lifecycle": "Runs when the user invokes the slash command each quarter; it ends when the report is written, and the skill file persists in the repo so next quarter's run is identical.",
+      "failure_mode": "Advisory and fails open: under context pressure the model can shrink batches, skip files, or report unverified findings, and nothing in the harness blocks that; a per-file manifest with checkoff is the usual mitigation.",
+      "version_caveat": "Skills and subagents are stable features with no enabling flag; I recall the parallel subagent concurrency cap being around 10 with the rest queued, but I am not certain of the exact number."
+    },
+    {
+      "id": "S002",
+      "primary": "An agent team of five teammates, one per hypothesis, using inter-teammate messaging to attack each other's theories, with the lead writing whatever consensus survives to the findings doc.",
+      "rejected_alternative": "Five parallel subagents; each can own a hypothesis but they cannot see or rebut each other's work, since subagent contexts never touch and results only meet in the caller after the fact.",
+      "enforcement_owner": "The model: the debating, disproving, and converging behavior is entirely prompt-driven, and nothing in the harness enforces genuine adversarial testing.",
+      "context_boundary": "Each teammate holds a full separate context window; what crosses between them is explicit messages and the shared task list, and the findings doc on disk is the durable meeting point.",
+      "lifecycle": "The team is spawned for this one investigation and applies until it is disbanded or the session ends; the findings doc outlives the team.",
+      "failure_mode": "Fails open: teammates may converge politely instead of disproving, sit idle waiting on messages, or burn large token volumes; a coordination failure loses the debate, not the data already written to the doc.",
+      "version_caveat": "Agent teams are an experimental feature gated behind an opt-in setting or environment flag; I do not remember the exact flag name and will not guess it."
+    },
+    {
+      "id": "S003",
+      "primary": "A subagent (a custom test-runner agent definition) that executes the suite inside its own context and returns only the failing tests with their error messages; the tens of thousands of output lines live and die in the subagent's transcript.",
+      "rejected_alternative": "A skill telling the main session to pipe test output through a filter script; it reduces noise but the raw stream still risks entering the working conversation whenever the filter or the model slips.",
+      "enforcement_owner": "Split: the harness enforces the isolation, because a subagent transcript is never merged into the caller's context, while the model owns whether the final report stays terse.",
+      "context_boundary": "The suite output exists only in the subagent's context; the single thing that crosses the boundary is the subagent's final report of failures and error messages.",
+      "lifecycle": "Dispatched on demand whenever the suite should run; the subagent's context is discarded as soon as its report returns.",
+      "failure_mode": "Fails open at the report edge: nothing caps the subagent's final message, so a sloppy agent can paste large log excerpts into its report and defeat the purpose; the agent definition should hard-limit the report shape.",
+      "version_caveat": "Subagents dispatched via the Task mechanism are stable with no enabling flag; agent definitions live in .claude/agents with YAML frontmatter controlling tools and model."
+    },
+    {
+      "id": "S004",
+      "primary": "An agent team with three teammates owning the frontend, the backend API, and the test suite; teammates message each other as the interface contract shifts, and the user can address any teammate directly to redirect it without an intermediary.",
+      "rejected_alternative": "Three subagents; they satisfy the ownership split but fail both hard requirements, since subagents cannot message peers and the user cannot drop into a running subagent mid-flight.",
+      "enforcement_owner": "The model: contract synchronization happens only if teammates actually send updates, which is prompted behavior, not harness-checked.",
+      "context_boundary": "Each teammate keeps its own context; contract changes cross as teammate messages and shared task list updates, and user redirections go straight into the targeted teammate's context.",
+      "lifecycle": "The team lives for the duration of the feature and stops applying when disbanded; nothing persists to future sessions except the code and any notes written to disk.",
+      "failure_mode": "Fails open: silent contract drift when a teammate forgets to broadcast a change, and edit collisions if two teammates touch the same file since there is no file locking; experimental status adds general instability.",
+      "version_caveat": "Agent teams are experimental and gated behind an opt-in flag whose exact name I am not certain of; direct per-teammate user interaction is part of that experimental surface."
+    },
+    {
+      "id": "S005",
+      "primary": "A Stop hook: when the model tries to end the turn, the hook itself runs the strict type check; on remaining errors it blocks the stop and feeds the error list back so the model fixes and retries, and it tracks the error count in a small state file so it allows the stop after a clean pass or after two consecutive rounds with no reduction.",
+      "rejected_alternative": "A skill that says loop until clean; that depends on the model choosing to keep looping, which is exactly the babysitting-by-hope this scenario forbids.",
+      "enforcement_owner": "The harness: the hook executes deterministically outside the model, and its block decision is applied whether or not the model agrees.",
+      "context_boundary": "The hook runs as an external process; only its block reason (the fresh type errors) enters the conversation, and its progress state lives in a file outside any context window.",
+      "lifecycle": "Fires on every Stop event while configured in the project settings; it stops applying when the check passes, when the stagnation counter trips, or when the hook is removed from settings.",
+      "failure_mode": "Fails closed by design, since the turn cannot end with errors outstanding; the key risk is a livelock if the progress detection is buggy, and conversely a crashing hook that exits with a non-blocking code fails open and silently lets the turn end.",
+      "version_caveat": "Stop hooks with block semantics (exit code 2 or a block decision in JSON output) are standard current hook behavior to my knowledge, with no enabling flag; hook configuration changes generally need a settings reload or new session and are reviewable via /hooks."
+    },
+    {
+      "id": "S006",
+      "primary": "A dynamic workflow: an orchestration script (Agent SDK or headless claude -p) launched from one command, running a fixed-size pool of workers, each worker applying the identical transform inside its own git worktree, with a verifier step checking each result before the file is marked done in a state ledger.",
+      "rejected_alternative": "An agent team; teammates are built for collaborative, communicating work, and 500 identical independent transforms need throughput, isolation, and bookkeeping rather than discussion.",
+      "enforcement_owner": "Split: the harness side (the workflow script) owns sequencing, worktree isolation, retries, and the done ledger; the model owns only the quality of each individual transform.",
+      "context_boundary": "Every file's transform runs in a fresh headless session containing just that file's work; only pass or fail status and the diff cross into the shared ledger, and no long-lived conversation accumulates across the 500 files.",
+      "lifecycle": "Starts when the command launches the script and ends when the ledger shows every file verified; reruns resume from the ledger instead of starting over.",
+      "failure_mode": "Fails closed per file, because an unverified file stays not-done and gets retried; the realistic failures are integration-time worktree merge conflicts and gradual transform drift between isolated sessions.",
+      "version_caveat": "Headless claude -p and the Agent SDK are stable, and worktree isolation is plain git; I am not aware of a flag gate here, but I cannot quote exact SDK option names from memory."
+    },
+    {
+      "id": "S007",
+      "primary": "Parallel subagents: one read-only reviewer subagent per changed file, dispatched in batches from the orchestrating session, which then merges, dedupes, and ranks the returned findings into a single summary.",
+      "rejected_alternative": "An agent team; the reviewers explicitly have nothing to discuss, so paying for teammate messaging and coordination buys nothing over a plain fan-out and merge.",
+      "enforcement_owner": "The model: batch discipline, covering all 60 files, and honest deduplication are all instruction-following, not harness-checked.",
+      "context_boundary": "Each reviewer sees only its own file's diff plus minimal PR context in a fresh subagent context; only structured findings return, and the merge and ranking happen in the caller's context.",
+      "lifecycle": "Runs when the review is invoked, typically wrapped in a skill for repeatability, and ends when the merged summary is produced; nothing persists between runs.",
+      "failure_mode": "Fails open: the concurrency cap forces batching so late batches can degrade, severity scales drift across independent reviewers which makes the ranking noisy, and one verbose reviewer can bloat the merging context.",
+      "version_caveat": "Subagent fan-out is stable with no enabling flag; I recall the parallel execution cap being about 10 concurrent tasks with the remainder queued, though I am not certain of the exact number."
+    },
+    {
+      "id": "S008",
+      "primary": "A skill that runs a strict three-stage subagent pipeline: a finder subagent produces a findings report, a fixer subagent receives exactly that report and makes the edits, and a verifier subagent receives the report plus the diff and confirms; the skill text forbids reordering or blending stages.",
+      "rejected_alternative": "An agent team of three specialists; teams shine when peers work concurrently and talk, while this is a serial pipeline over the same handful of hot files where concurrency would cause edit collisions.",
+      "enforcement_owner": "The model: the orchestrating session enforces the sequence only as faithfully as it follows the skill, and nothing in the harness makes stage two wait for stage one.",
+      "context_boundary": "Each specialist runs in a fresh subagent context; the previous stage's report is injected into the next stage's prompt, so the handoff artifact is the entire interface and the main context carries only those reports.",
+      "lifecycle": "Triggered by invoking the skill; each stage starts when the previous one returns, and the run ends at the verifier's verdict.",
+      "failure_mode": "Advisory and fails open: the classic break is the lossy handoff, where the finder's report omits context the fixer needs, or the fixer's edits shift line numbers the verifier trusts; the orchestrator can also blur stages together.",
+      "version_caveat": "Skills and sequential subagent dispatch are stable, unflagged features; passing handoff artifacts by file path rather than inline text avoids output-size truncation limits whose exact values I cannot quote precisely."
+    },
+    {
+      "id": "S009",
+      "primary": "An agent team with three teammates covering user experience, technical architecture, and a devil's advocate, debating through teammate messages as their positions form, with the user free to jump into any explorer and redirect it mid-flight.",
+      "rejected_alternative": "Three parallel subagents with an orchestrator synthesis; that produces three static essays instead of a reactive debate, and the user cannot steer an individual subagent once it is dispatched.",
+      "enforcement_owner": "The model: whether the perspectives genuinely engage each other's arguments is prompt-shaped behavior with no harness check.",
+      "context_boundary": "Each explorer keeps its own context; arguments cross only as explicit messages, and user redirections enter the chosen teammate's context directly rather than through the lead.",
+      "lifecycle": "The team exists for the exploration and stops at disband or session end; the surviving design rationale should be written to a file because team context is not durable.",
+      "failure_mode": "Fails open: the devil's advocate can soften into agreement, message traffic can swamp actual thinking, and an experimental feature can drop or misroute messages; there is no deliverable unless someone is explicitly told to compile one.",
+      "version_caveat": "Agent teams are experimental and require an explicit opt-in flag or setting; I am not confident of the exact flag name and decline to invent it."
+    },
+    {
+      "id": "S010",
+      "primary": "A dynamic workflow: one command starts a fresh headless orchestrator session (claude -p or the Agent SDK) that performs the review pass, dispatches an independent verifier subagent per finding, and emits exactly one verified summary; all per-finding verification chatter stays inside that separate session tree.",
+      "rejected_alternative": "Running the fan-out from my own session as nested subagents; to my recollection subagents cannot dispatch subagents of their own because the Task capability is withheld inside them, so verifier dispatches and results would have to flow through my conversation.",
+      "enforcement_owner": "Split: the harness guarantees the isolation, since a separate process's contexts can never leak into mine; the model owns whether the verifiers genuinely and independently check each finding.",
+      "context_boundary": "The review and all verification occupy the headless session and its subagent contexts; the only thing that crosses back is the single final summary, ideally as a file plus a short stdout verdict.",
+      "lifecycle": "Runs when the wrapping command is invoked after changes land, and the process exits once the summary is emitted; nothing persists between runs except the summary artifact.",
+      "failure_mode": "Quality fails open, since verifiers can rubber-stamp findings rather than independently reproduce them, while delivery fails closed: if the headless run dies you get no summary at all, so the wrapper must check the exit status.",
+      "version_caveat": "Headless mode and the Agent SDK are stable and unflagged; the rule that subagents cannot spawn further subagents matches my knowledge of Claude Code, but I cannot cite the version where it is documented."
+    }
+  ]
+}

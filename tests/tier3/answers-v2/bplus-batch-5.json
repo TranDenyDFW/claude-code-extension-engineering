@@ -1,0 +1,164 @@
+{
+  "arm": "bplus",
+  "batch": 5,
+  "answers": [
+    {
+      "id": "S041",
+      "primary": "Permission deny rules (the rules mechanism in settings): Read(./secrets/**) and Edit(./secrets/**) deny rules in .claude/settings.json or managed settings, with the sandbox enabled for OS-level coverage of subprocesses. Step 1 favored a PreToolUse hook; step 2 changed the answer, because the docs state the hook if-filter is best-effort and direct hard allow/deny enforcement to the permission system.",
+      "rejected_alternative": "A PreToolUse hook returning permissionDecision deny. It loses because Bash pattern matching for hooks is best-effort and fails open on unparseable commands, and the documentation explicitly says to use the permission system rather than a hook to enforce a hard deny.",
+      "enforcement_owner": "The harness: deny rules are evaluated by Claude Code before any tool call runs, regardless of what the model argues, and a deny at any settings level cannot be overridden by an allow anywhere else, including managed settings for a compliance-grade guarantee.",
+      "context_boundary": "Applies in the main session and inside subagents, but evaluation happens in the harness outside the model's context; the model only sees the denial as a blocked tool result, and secrets content never enters the context window.",
+      "lifecycle": "Evaluated on every tool call for as long as the rule exists in the settings file, with deny checked first before ask and allow; it stops applying only when the rule is removed from settings.",
+      "failure_mode": "Fails closed for built-in file tools and recognized Bash file commands, but Read/Edit deny rules do not cover arbitrary subprocesses that open files themselves (a Python or Node script), so without the sandbox the guarantee has a bypass; shell commands that touch secrets/ indirectly are the weak edge.",
+      "version_caveat": "A Read deny rule also blocking the Edit tool on the same path requires v2.1.208 or later, and Write and NotebookEdit are never covered by Read denies, so an explicit Edit deny rule is required for full coverage.",
+      "citations": {
+        "enforcement_owner": {"page": "permissions.md", "quote": "Permission deny rules block Claude from even attempting to access restricted resources"},
+        "lifecycle": {"page": "permissions.md", "quote": "Rules are evaluated in order: deny, then ask, then allow. The first match in that order determines the outcome, and rule specificity doesn't change the order."},
+        "failure_mode": {"page": "permissions.md", "quote": "They don't apply to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself."},
+        "version_caveat": {"page": "permissions.md", "quote": "Write and NotebookEdit aren't covered, so add an `Edit` deny rule for paths no tool may change. Requires Claude Code v2.1.208 or later."}
+      }
+    },
+    {
+      "id": "S042",
+      "primary": "A skill: put the 400-line runbook in .claude/skills/release/SKILL.md with the two helper scripts bundled in the skill directory and referenced via ${CLAUDE_SKILL_DIR}; only the short frontmatter description sits in context until a release actually happens.",
+      "rejected_alternative": "CLAUDE.md. It loses because memory content is loaded into every session, so all unrelated work keeps paying the 400-line token cost the team resents; the skill body loads only when used.",
+      "enforcement_owner": "The model: skill selection is advisory. Claude loads the skill when the description matches or a human types /release, and nothing in the harness forces the runbook steps to be followed once loaded.",
+      "context_boundary": "Main conversation context: only the description is resident by default; the full rendered body enters the conversation as a single message when invoked and persists for the rest of that session.",
+      "lifecycle": "Loads when the user or Claude invokes it, roughly once a week at release time; once invoked the content stays in context for the remainder of that session and is re-attached within a token budget across compaction.",
+      "failure_mode": "Advisory and fails open: Claude may not invoke it when the request wording misses the description, and with many skills installed the listing budget can truncate the description keywords, so a release conversation can proceed without the runbook unless someone types the command.",
+      "version_caveat": "Plain skills have no version gate here, but pre-approving the bundled helper scripts through allowed-tools with ${CLAUDE_SKILL_DIR} substitution requires v2.1.129 or later; on earlier versions the rule never matches and each script run prompts for permission.",
+      "citations": {
+        "enforcement_owner": {"page": "skills.md", "quote": "Claude uses skills when relevant, or you can invoke one directly with `/skill-name`."},
+        "lifecycle": {"page": "skills.md", "quote": "When you or Claude invoke a skill, the rendered `SKILL.md` content enters the conversation as a single message and stays there for the rest of the session."},
+        "failure_mode": {"page": "skills.md", "quote": "Claude Code shortens descriptions to fit the listing's character budget, which can strip the keywords Claude needs to match your request."},
+        "version_caveat": {"page": "skills.md", "quote": "The `allowed-tools` substitution for `${CLAUDE_SKILL_DIR}` requires Claude Code v2.1.129 or later."}
+      }
+    },
+    {
+      "id": "S043",
+      "primary": "An MCP server: add the self-hosted tracker as a remote HTTP MCP server (claude mcp add --transport http tracker <url>, shared at project scope via .mcp.json) and complete the OAuth 2.0 flow via /mcp or claude mcp login, making ticket lookup and update first-class tools in the session.",
+      "rejected_alternative": "A skill wrapping curl or a CLI against the tracker API. It loses because it would need hand-rolled OAuth token storage and refresh, while MCP gives a supported OAuth flow, automatic token refresh, and typed tools without pasting anything into chat.",
+      "enforcement_owner": "Split: the harness owns the connection, the OAuth handshake, and token refresh; the model owns the outcome, since it decides when to call the tracker tools during a coding session, which keeps the integration advisory.",
+      "context_boundary": "Tool definitions and tool results enter the main conversation context; ticket text crosses the boundary as live tool results instead of pasted chat text, and OAuth credentials never enter the context window.",
+      "lifecycle": "Configured once at a scope (project .mcp.json checked into version control to share with the team); the server connects each session and its tools stay available until the entry is removed or the OAuth grant is revoked.",
+      "failure_mode": "Fails open at the workflow level: on an expired token Claude Code refreshes and retries once, but if refresh fails the server is flagged in /mcp and the session simply continues without tracker tools until the user re-authenticates; each user must complete OAuth individually.",
+      "version_caveat": "OAuth authentication works with HTTP servers; running the OAuth flow from the shell with claude mcp login requires v2.1.186 or later, and project-scoped .mcp.json servers require per-user approval before first use.",
+      "citations": {
+        "enforcement_owner": {"page": "mcp.md", "quote": "MCP servers give Claude Code access to your tools, databases, and APIs."},
+        "lifecycle": {"page": "mcp.md", "quote": "The scope you choose controls which projects the server loads in and whether the configuration is shared with your team."},
+        "failure_mode": {"page": "mcp.md", "quote": "When a request to an OAuth server you already signed in to returns `401 Unauthorized`, Claude Code refreshes the stored token, reconnects, and retries the request once."},
+        "version_caveat": {"page": "mcp.md", "quote": "From v2.1.186, `claude mcp login <name>` runs a configured server's OAuth flow directly from your shell, so you don't need to open the `/mcp` panel inside a session."}
+      }
+    },
+    {
+      "id": "S044",
+      "primary": "A SessionStart hook in the repo's .claude/settings.json: a command hook that queries the tracker for the current sprint's tickets and reads the active git branch, printing both to stdout so they are injected as context the moment the session opens.",
+      "rejected_alternative": "CLAUDE.md. It loses because memory files are static text loaded from disk; the requirement is live data pulled from tooling at session-open time, which only an executed hook can fetch.",
+      "enforcement_owner": "The harness: Claude Code executes the hook automatically at session start with no model judgment involved; what the model then does with the injected sprint context is model-owned.",
+      "context_boundary": "The hook runs as an external shell process outside the model; only its stdout crosses the boundary, added to the main conversation as context Claude can see and act on before the first prompt.",
+      "lifecycle": "Fires each time a session begins or resumes (matcher values startup, resume, clear, compact, fork) for every session opened in the repo; it stops applying when the entry is removed from settings or disableAllHooks is set.",
+      "failure_mode": "Fails open: SessionStart cannot block, so if the tracker call errors the session proceeds without sprint context and the model never sees the error notice; a slow tracker query also delays every session start.",
+      "version_caveat": "Exit code 2 stderr from SessionStart hooks appears in the transcript only as of v2.1.199; earlier versions wrote it to the debug log only, so hook failures were effectively silent.",
+      "citations": {
+        "enforcement_owner": {"page": "hooks.md", "quote": "Hooks are user-defined shell commands, HTTP endpoints, or LLM prompts that execute automatically at specific points in Claude Code's lifecycle."},
+        "lifecycle": {"page": "hooks.md", "quote": "When a session begins or resumes"},
+        "failure_mode": {"page": "hooks.md", "quote": "Claude doesn't see it, and the session or subagent proceeds"},
+        "version_caveat": {"page": "hooks.md", "quote": "As of Claude Code v2.1.199, `SessionStart`, `Setup`, and `SubagentStart` show exit code 2 stderr in the transcript. Earlier versions wrote it to the debug log only."}
+      }
+    },
+    {
+      "id": "S045",
+      "primary": "A plugin distributed through a private org marketplace: bundle the code-review skill or agent, the lifecycle hooks, and the tracker MCP server into one versioned plugin, host the marketplace in a private repo, and reference it from each repo's .claude/settings.json via extraKnownMarketplaces plus enabledPlugins.",
+      "rejected_alternative": "Committing raw .claude/ configuration (skills, hooks, .mcp.json) into each of the 40 repos. It loses because there is no version field or central update path, so every change becomes 40 separate commits and consumers drift.",
+      "enforcement_owner": "The harness: marketplace registration, install prompts, version resolution, and component loading are Claude Code mechanics driven by repository settings; the model only consumes the shipped components once loaded.",
+      "context_boundary": "Each consuming session loads the plugin's components into its own context (skill descriptions in context; hooks and MCP config operate outside it); nothing is shared across repos except the versioned plugin source itself.",
+      "lifecycle": "Loads in every session of a repo where the plugin is enabled; consumers receive an update when the plugin's version field is bumped (or on every commit SHA if no version is set), and it stops applying when disabled or uninstalled.",
+      "failure_mode": "Fails open per user: each person must consent to install and trust the marketplace and plugin, so org-wide coverage is not automatic from repo settings alone; and same-named project or user agents silently shadow the plugin's versions, so updates appear to not take effect.",
+      "version_caveat": "As of v2.1.195 every plugin-loading path requires per-user install and trust confirmation, so repo-level settings recommend rather than force; only managed settings can force-enable a plugin organization-wide.",
+      "citations": {
+        "enforcement_owner": {"page": "settings.md", "quote": "Defines additional marketplaces that should be made available for the repository. Typically used in repository-level settings to ensure team members have access to required plugin sources."},
+        "lifecycle": {"page": "plugins.md", "quote": "If set, users only receive updates when you bump this field. If omitted and your plugin is distributed via git, the commit SHA is used and every commit counts as a new version."},
+        "failure_mode": {"page": "plugins.md", "quote": "Project and user `.claude/agents/` definitions override same-named plugin agents, so the plugin version only takes effect once the originals are removed."},
+        "version_caveat": {"page": "settings.md", "quote": "As of Claude Code v2.1.195, every path that loads plugins asks each user to [install and trust the plugin](/docs/en/discover-plugins#configure-team-marketplaces) before it runs."}
+      }
+    },
+    {
+      "id": "S046",
+      "primary": "A skill with disable-model-invocation: true (a user-invoked command, e.g. .claude/skills/deploy-prod/SKILL.md) so the deploy procedure starts only when a human types /deploy-prod, paired with permission ask/deny rules on the underlying deploy commands as a hard backstop.",
+      "rejected_alternative": "A plain model-invocable skill. It loses because Claude could load and act on the procedure whenever it judges the code ready, which is exactly the trigger the requirement forbids.",
+      "enforcement_owner": "The harness gates the trigger: with the flag set, the skill's description is not in Claude's context and the Skill tool cannot invoke it, so only a typed command starts it; execution of the steps after the human trigger is model work.",
+      "context_boundary": "With disable-model-invocation the description is not resident in context at all between uses; the full body enters the main conversation only when the user types the command, then persists for that session.",
+      "lifecycle": "Runs when and only when a human types the slash command; the rendered content stays in context for the rest of the session, and the gate applies until the frontmatter is edited.",
+      "failure_mode": "The trigger fails closed, with two open edges: nothing stops the model from performing equivalent deploy commands outside the skill unless permission rules block them, and malformed frontmatter YAML silently drops the metadata carrying the gate.",
+      "version_caveat": "As of v2.1.196 the flag also prevents the skill from firing when a scheduled task names it as the prompt; before that, scheduled tasks were a bypass around the human-only trigger.",
+      "citations": {
+        "enforcement_owner": {"page": "skills.md", "quote": "Only you can invoke the skill. Use this for workflows with side effects or that you want to control timing"},
+        "lifecycle": {"page": "skills.md", "quote": "Description not in context, full skill loads when you invoke"},
+        "failure_mode": {"page": "skills.md", "quote": "If the frontmatter YAML is malformed, Claude Code loads the skill body with empty metadata, so `/skill-name` still works but Claude has no `description` to match against."},
+        "version_caveat": {"page": "skills.md", "quote": "As of v2.1.196, also prevents the skill from running when a [scheduled task](/docs/en/scheduled-tasks) fires with the skill as its prompt."}
+      }
+    },
+    {
+      "id": "S047",
+      "primary": "A GitHub Action: a workflow in the repository triggered on issues.opened that runs the Claude Code GitHub Actions integration to label the new issue, check it against likely duplicates, and post a first-response comment entirely inside CI.",
+      "rejected_alternative": "Routines (Anthropic-managed event/scheduled agents, which can also trigger on GitHub events). They lose because the team wants the automation versioned alongside the repo and bound directly to the repo event, which the docs position as the GitHub Actions fit.",
+      "enforcement_owner": "The harness/CI side: the workflow trigger fires deterministically on the repo event with no human at a terminal; the model owns triage quality, and because the run is autonomous it cannot ask clarifying questions, so the prompt must fully encode the triage policy.",
+      "context_boundary": "Runs in an ephemeral CI runner session per event, isolated from anyone's interactive sessions and local configuration; the issue payload enters as prompt context and only labels and the comment leave via the GitHub API.",
+      "lifecycle": "Fires on each issues.opened event for as long as the workflow file exists on the default branch; it stops applying when the workflow is removed or disabled in the repository.",
+      "failure_mode": "Fails open: a failed run just leaves the issue untriaged with the error visible only in the Actions log, and an underspecified prompt produces mislabels or false duplicate matches with no human checkpoint before the comment posts.",
+      "version_caveat": "unknown",
+      "citations": {
+        "enforcement_owner": {"page": "common-workflows.md", "quote": "The task runs autonomously, so it can't ask clarifying questions."},
+        "lifecycle": {"page": "common-workflows.md", "quote": "Tasks tied to repo events like opened PRs, or cron schedules that should live alongside your workflow config."},
+        "failure_mode": {"page": "common-workflows.md", "quote": "be explicit about what success looks like and what to do with results"}
+      }
+    },
+    {
+      "id": "S048",
+      "primary": "An agent team: enable CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1, then have the lead spawn five teammates, one per root-cause hypothesis, each instructed to defend its theory, message the others directly to attack their evidence, and converge on a written consensus the lead synthesizes.",
+      "rejected_alternative": "Five parallel subagents. They lose because subagents only report results back to the caller and never talk to each other, so the required direct adversarial back-and-forth between investigators cannot happen.",
+      "enforcement_owner": "The model: the lead session owns coordination, task assignment, and synthesis from natural-language instruction; the harness only provides the teammate spawning, shared task list, and messaging plumbing.",
+      "context_boundary": "Each teammate runs in its own fully independent context window; what crosses boundaries is the shared task list, direct teammate-to-teammate messages, and the lead's final synthesis.",
+      "lifecycle": "Teammates are spawned when the lead forms the team for this investigation and are cleaned up automatically when the session exits; the debate lives and dies with the session.",
+      "failure_mode": "Advisory and fails open: Claude may quietly spawn subagents instead of a real team and the agent panel looks the same, token cost is far higher than a single session, and there are known limitations around session resumption, task coordination, and shutdown behavior.",
+      "version_caveat": "Experimental and disabled by default; requires setting CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in settings.json or the environment, with the current behavior documented as of v2.1.178.",
+      "citations": {
+        "enforcement_owner": {"page": "agent-teams.md", "quote": "Tell the lead what you want in natural language. It handles team coordination, task assignment, and delegation based on your instructions."},
+        "lifecycle": {"page": "agent-teams.md", "quote": "spawning a teammate no longer needs a setup step, and cleanup happens automatically when the session exits"},
+        "failure_mode": {"page": "agent-teams.md", "quote": "Claude may sometimes use [subagents](/docs/en/sub-agents) instead of creating a team. Subagents appear in the same agent panel as teammates, so the panel alone doesn't confirm a team formed."},
+        "version_caveat": {"page": "agent-teams.md", "quote": "Agent teams are experimental and disabled by default. Enable them by setting `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`"}
+      }
+    },
+    {
+      "id": "S049",
+      "primary": "A custom output style at .claude/output-styles/data-analyst.md with keep-coding-instructions left unset, selected through the outputStyle setting in project settings; it sets the analyst role and the fixed tabular report format for every turn and drops the built-in software-engineering instructions.",
+      "rejected_alternative": "CLAUDE.md. It loses because memory only adds a message on top of the default engineering system prompt and cannot remove the default software-engineering behavior, which this requirement explicitly demands.",
+      "enforcement_owner": "Split: the harness swaps the instructions into the system prompt at session start and injects adherence reminders, but per-turn compliance with the tabular format is model-owned and advisory.",
+      "context_boundary": "Lives in the main conversation's system prompt only; subagents run their own system prompts and are untouched, so delegated work does not come back in the analyst format.",
+      "lifecycle": "Applies to every turn of every session in the project once set; the system prompt is read once at session start, so a style change takes effect only after /clear or a new session, and it stops when outputStyle is changed.",
+      "failure_mode": "Advisory, fails open: the model can drift from the fixed table format on hard turns, the style silently does not govern subagent output, and dropping the coding instructions also removes built-in guidance on scoping and verifying work when a task does need code.",
+      "version_caveat": "The standalone /output-style command was deprecated in v2.1.73 and removed in v2.1.91; set the style through /config or the outputStyle settings field instead.",
+      "citations": {
+        "enforcement_owner": {"page": "output-styles.md", "quote": "Output styles directly modify Claude Code's system prompt."},
+        "lifecycle": {"page": "output-styles.md", "quote": "Output style is part of the system prompt, which Claude Code reads once at session start. Changes take effect after `/clear` or a new session."},
+        "failure_mode": {"page": "output-styles.md", "quote": "Output styles apply to the main conversation only: a [subagent runs its own system prompt](/docs/en/sub-agents#what-loads-at-startup), so styles don't change how subagents respond."},
+        "version_caveat": {"page": "output-styles.md", "quote": "The standalone `/output-style` command was deprecated in v2.1.73 and removed in v2.1.91."}
+      }
+    },
+    {
+      "id": "S050",
+      "primary": "Headless print mode on the Agent SDK surface: the CI job pipes each diff into claude -p with a pinned --model, an explicit --settings file from the repo, --setting-sources restricted so user and local sources never load, and --strict-mcp-config with a checked-in --mcp-config so a teammate's personal automation or the project's tool-server config cannot leak into the run.",
+      "rejected_alternative": "The Claude Code GitHub Action. It loses because the job already exists as a generic CI pipe that must behave identically on any runner, and the requirement is explicit per-invocation config isolation via CLI flags rather than a GitHub-specific wrapper.",
+      "enforcement_owner": "The harness: which settings, MCP servers, and prompt sources load is decided deterministically by the CLI flags before the model runs; the model owns only the typo and lint judgments inside that sealed configuration.",
+      "context_boundary": "A fresh one-shot print-mode session per CI run; only the piped diff, the prompt, and explicitly passed configuration cross into it, and the result leaves on stdout like any Unix tool.",
+      "lifecycle": "Runs once per pull request when the CI job executes and the process exits after printing the response; nothing persists between runs, and --no-session-persistence keeps transcripts off the runner.",
+      "failure_mode": "Fails open toward leakage if flags are omitted: settings keys not explicitly overridden keep their file-based values from whatever machine runs the job, and user or project MCP config loads unless the strict flags exclude it; even fully isolated, model sampling means byte-for-byte identical output is not guaranteed by configuration alone, so the reproducibility contract needs a diff check in CI.",
+      "version_caveat": "unknown",
+      "citations": {
+        "enforcement_owner": {"page": "cli-reference.md", "quote": "Only use MCP servers from `--mcp-config`, ignoring all other MCP configurations"},
+        "lifecycle": {"page": "cli-reference.md", "quote": "Print response without interactive mode (see [Agent SDK documentation](/docs/en/agent-sdk/overview) for programmatic usage details)"},
+        "failure_mode": {"page": "cli-reference.md", "quote": "Values you set here override the same keys in your `settings.json` files for this session. Keys you omit keep their file-based values."}
+      }
+    }
+  ]
+}

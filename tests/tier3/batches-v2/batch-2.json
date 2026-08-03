@@ -1,0 +1,55 @@
+{
+  "batch": 2,
+  "scenarios": [
+    {
+      "id": "S011",
+      "focus": "knowledge",
+      "scenario": "New teammates and every fresh session re-learn the same basics: the monorepo builds with pnpm build:all, tests need a local Postgres, and API handlers live under src/api/handlers/. The team wants Claude to hold these facts in every session, shared with everyone through version control."
+    },
+    {
+      "id": "S012",
+      "focus": "knowledge",
+      "scenario": "Generating release notes here is a 30-step procedure with a fixed template, a changelog query script, and formatting conventions. It runs about once a week, and the write-up is far too long to keep pasting into chat."
+    },
+    {
+      "id": "S013",
+      "focus": "knowledge",
+      "scenario": "There is a scripted workflow that drops and reseeds the shared staging database. The team wants the steps encoded once and runnable on demand with a single short command, but the assistant must never decide on its own that a reseed is warranted, no matter how relevant the conversation looks."
+    },
+    {
+      "id": "S014",
+      "focus": "knowledge",
+      "scenario": "The API package has strict conventions (every endpoint validates input, uses the standard error envelope, carries OpenAPI comments) that only matter when someone touches src/api/. The root instructions file is already near its useful size limit and adherence is slipping."
+    },
+    {
+      "id": "S015",
+      "focus": "knowledge",
+      "scenario": "One engineer wants their personal habits (2-space indentation, conventional-commit messages, a preferred diff-review flow) applied in every repository they open on their machine, without pushing any of it onto teammates through shared repos."
+    },
+    {
+      "id": "S016",
+      "focus": "knowledge",
+      "scenario": "Claude keeps rediscovering the same repo quirks across sessions: which test target is flaky, that the dev server needs a Redis container, corrections the team repeats in chat. Nobody wants to maintain a document by hand; the knowledge should accumulate as a side effect of working."
+    },
+    {
+      "id": "S017",
+      "focus": "knowledge",
+      "scenario": "A support-ops group uses the CLI purely to draft incident communications, never to write code. They want every single response in a calm runbook voice with a fixed structure, and they want the built-in software-engineering behavior gone because it keeps steering answers toward code changes."
+    },
+    {
+      "id": "S018",
+      "focus": "knowledge",
+      "scenario": "Policy: no session may ever push to the protected main branch, full stop. A strongly worded instruction file has already failed twice, once right after context compaction. The guarantee must hold regardless of what the model decides."
+    },
+    {
+      "id": "S019",
+      "focus": "knowledge",
+      "scenario": "There is a long explainer of how the legacy billing engine works: its states, invariants, and the traps that bite people. Claude should pull it in whenever billing comes up in conversation, but it is pure background reference, not an action anyone should see or trigger from the command menu, and it is far too long to keep resident every session."
+    },
+    {
+      "id": "S020",
+      "focus": "knowledge",
+      "scenario": "The security organization wants identical data-handling reminders and coding-style guidance present in every session on every developer machine, across every repository, and individual developers must not be able to opt out of it loading."
+    }
+  ]
+}

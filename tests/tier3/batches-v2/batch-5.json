@@ -1,0 +1,55 @@
+{
+  "batch": 5,
+  "scenarios": [
+    {
+      "id": "S041",
+      "focus": "integration",
+      "scenario": "Company policy says the assistant must never modify files under secrets/ or run shell commands that touch them, even when a crafted prompt or its own reasoning argues otherwise. Compliance wants a guarantee, not a convention it usually follows."
+    },
+    {
+      "id": "S042",
+      "focus": "integration",
+      "scenario": "Our release runbook is about 400 lines of ordered steps plus two helper scripts. It is needed roughly once a week, and the team resents that every conversation pays a token cost for it even during unrelated work."
+    },
+    {
+      "id": "S043",
+      "focus": "integration",
+      "scenario": "During coding sessions the assistant should look up and update tickets in our self-hosted tracker, which sits behind OAuth. Copy-pasting ticket text into the chat is exactly what we are trying to eliminate."
+    },
+    {
+      "id": "S044",
+      "focus": "integration",
+      "scenario": "Every session opened in this repo should begin already knowing the current sprint's ticket list and the active git branch, pulled live at that moment from our tooling, without anyone asking for it or pasting it in."
+    },
+    {
+      "id": "S045",
+      "focus": "integration",
+      "scenario": "The platform team maintains a code-review helper, several lifecycle automations, and a tracker integration that about 40 repos across the org should all receive, with the ability to ship versioned updates that reach every consumer."
+    },
+    {
+      "id": "S046",
+      "focus": "integration",
+      "scenario": "We scripted our production deploy as a repeatable procedure the assistant can execute, but it must only ever start when a human explicitly types the trigger. It must never begin because the assistant judged the code ready."
+    },
+    {
+      "id": "S047",
+      "focus": "integration",
+      "scenario": "Whenever a new issue is opened in our GitHub repository, we want it triaged automatically: labeled, checked against likely duplicates, and given a first-response comment, with no human at a terminal anywhere in the loop."
+    },
+    {
+      "id": "S048",
+      "focus": "integration",
+      "scenario": "A production bug has five plausible root causes. We want five investigators working simultaneously, each defending one hypothesis and actively trying to disprove the others' findings through direct back-and-forth, converging on a written consensus."
+    },
+    {
+      "id": "S049",
+      "focus": "integration",
+      "scenario": "For a data-annotation project we want the assistant to act as a data analyst rather than a software engineer: every reply in a fixed tabular report format, with the default engineering behavior removed, applying to every turn of every interactive session in this project."
+    },
+    {
+      "id": "S050",
+      "focus": "integration",
+      "scenario": "A CI job pipes each pull request diff to the assistant for a typo and lint pass. The output must be byte-for-byte reproducible no matter whose machine or which runner executes it; a teammate's personal automation or the project's tool-server config must not leak into the run."
+    }
+  ]
+}

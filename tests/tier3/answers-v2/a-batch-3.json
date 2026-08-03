@@ -1,0 +1,106 @@
+{
+  "arm": "a",
+  "batch": 3,
+  "answers": [
+    {
+      "id": "S021",
+      "primary": "A remote MCP server over the HTTP transport using the vendor's OAuth flow: add it with claude mcp add --transport http (or an .mcp.json entry) and each engineer authenticates through /mcp, which opens the vendor's browser login and stores per-user tokens, giving Claude live query tools against the error tracker.",
+      "rejected_alternative": "A local stdio MCP server (or CLI-wrapping skill) configured with a shared long-lived API key; it delivers the same live queries but reintroduces exactly the shared-secret pattern the team wants to eliminate.",
+      "enforcement_owner": "The harness: the MCP client performs the OAuth dance, stores and refreshes tokens, and gates tool calls behind the permission system; the model only decides when to call the tools.",
+      "context_boundary": "Tool definitions load into the main conversation at session start and every query result (stack traces, issue payloads) lands in the main context window, so verbose result sets should be filtered server-side or pulled inside a subagent to keep the main window lean.",
+      "lifecycle": "Configured once per scope (project .mcp.json or user config); the browser sign-in happens on first /mcp authentication and tokens persist across sessions with refresh; it stops applying when the server entry is removed or the vendor revokes the token.",
+      "failure_mode": "Fails closed for the capability: an expired or revoked token makes tool calls error until the engineer re-authenticates via /mcp, and an unreachable vendor endpoint returns tool errors rather than silently degrading; the residual risk is context bloat from large issue payloads.",
+      "version_caveat": "Requires a Claude Code build with remote MCP support (HTTP transport plus OAuth); SSE transport is deprecated in favor of streamable HTTP. I do not recall the exact version that introduced OAuth-backed remote servers."
+    },
+    {
+      "id": "S022",
+      "primary": "The LSP mechanism: attach typescript-language-server through Claude Code's LSP support so the harness surfaces compiler diagnostics automatically after each edit and exposes go-to-definition and find-references as first-class operations instead of grep.",
+      "rejected_alternative": "A PostToolUse hook that runs tsc --noEmit after every Edit; it catches type errors deterministically but is slow on large projects and provides no definition or reference navigation.",
+      "enforcement_owner": "The harness: diagnostics are collected and injected by the LSP integration whether or not the model asks for them, though acting on a diagnostic remains the model's job.",
+      "context_boundary": "Runs in the main session; the language server is a separate process, and only diagnostics for touched files plus navigation results cross into the context window, never the whole project index.",
+      "lifecycle": "The language server starts when the session opens or the first matching file is touched, feeds diagnostics after each edit for the life of the session, and shuts down with it; the configuration persists until removed.",
+      "failure_mode": "Advisory in effect: the model can see a diagnostic and still proceed, and if the language server crashes or is misconfigured the system fails open, with edits continuing silently without diagnostics; stale diagnostics during large refactors are the other trap.",
+      "version_caveat": "LSP support in Claude Code is recent and I cannot state the exact introducing version or enabling flag with confidence; earlier builds have no LSP mechanism at all, where the PostToolUse tsc hook would be the fallback."
+    },
+    {
+      "id": "S023",
+      "primary": "A plugin published through a plugin marketplace: bundle the review agents and commands, the slash-command workflows, the hooks, and the shared MCP configuration into one plugin, host the marketplace in a git repo, and reference it from each repository's checked-in .claude settings (known-marketplace plus enabled-plugin entries) so every fresh clone offers the same set and updates flow from the marketplace.",
+      "rejected_alternative": "Checking raw .claude assets (commands, hooks, settings) into every repository individually; it works for one repo but duplicates configuration across the fleet and has no central update channel.",
+      "enforcement_owner": "The harness owns distribution, trust prompting, and loading; the model owns actually using the commands and agents well once they are loaded.",
+      "context_boundary": "Plugin hooks run outside the context entirely; commands, agents, and skills enter the main window only when invoked, and plugin-declared MCP servers add their tool schemas at session start.",
+      "lifecycle": "Offered on the first session inside a referencing repo after the engineer accepts the trust prompt, active every session thereafter, refreshed when the marketplace publishes updates, and gone when the plugin is disabled or the settings reference is removed.",
+      "failure_mode": "Fails open: an engineer can decline installation or lag on updates, so the fleet can skew across versions, and a broken published update propagates to everyone at the next refresh; nothing forces adoption.",
+      "version_caveat": "Plugins and marketplaces are a newer Claude Code feature (the 2.x line as I recall); I cannot state the exact minimum version, and the precise settings key names for marketplace references should be verified against current docs."
+    },
+    {
+      "id": "S024",
+      "primary": "A plugin in the shared toolkit that bundles the compiled binary and ensures it is on the Bash tool's PATH whenever the plugin is enabled, so the CLI composes as a bare command with grep and jq in every project; if the installed build lacks a native binary-exposure feature, the plugin ships the binary under its root and injects its directory into PATH through session-level env configuration rather than asking users to edit PATH themselves.",
+      "rejected_alternative": "An MCP server wrapping each subcommand as a tool; it gives structured calls but defeats the stated requirement of composing the binary inside ordinary shell pipelines with grep and jq.",
+      "enforcement_owner": "The harness: PATH availability inside the Bash tool is environment plumbing the harness must provide deterministically, not something the model can promise turn by turn.",
+      "context_boundary": "Runs in whatever context invokes Bash (main session or subagents); only command output crosses into the context window, and the binary itself never does.",
+      "lifecycle": "Available from session start whenever the plugin is enabled, across every project, and disappears when the plugin is disabled or uninstalled.",
+      "failure_mode": "Fails open and quietly: if the PATH injection does not apply (each Bash call runs a fresh shell that does not inherit an exported PATH, or the env setting is missing) the model hits command-not-found and may improvise absolute paths or wrong installs; name collisions with system binaries are also possible.",
+      "version_caveat": "I am not certain current plugin manifests have a first-class bin or PATH-exposure feature; the env-injection fallback depends on the settings env or SessionStart hook semantics of the installed version, so verify against current plugin docs."
+    },
+    {
+      "id": "S025",
+      "primary": "A plugin marketplace whose source is the toolkit's git repository itself: teammates install the plugin from that marketplace once, and because the marketplace serves the repository head, every merged commit becomes the next update pulled on marketplace refresh, with no tagging, versioning, or release step on the maintainers' side.",
+      "rejected_alternative": "Cutting versioned plugin releases (tags, changelogs, version bumps) for each change; it adds exactly the release bookkeeping the team wants to avoid at a daily change rate.",
+      "enforcement_owner": "The harness performs the fetch and update of marketplace and plugin content; no model behavior is involved in distribution at all.",
+      "context_boundary": "Distribution happens entirely outside any context window; only the plugin's own commands, skills, and hook outputs touch context once loaded in a session.",
+      "lifecycle": "Update checks happen when the marketplace refreshes or the user runs the plugin update command, typically surfacing at the next session start; the flow stops when the marketplace reference or the plugin is removed.",
+      "failure_mode": "Fails open in both directions: a bad merged commit ships to the whole team with no release gate, and users who have not refreshed keep running stale copies, so version skew is normal; a CI check on the plugin manifest before merge is the practical mitigation.",
+      "version_caveat": "Depends on plugin and marketplace support (the Claude Code 2.x era) and on whether the installed build auto-refreshes marketplaces or requires a manual update command; I cannot state the exact auto-update cadence with confidence."
+    },
+    {
+      "id": "S026",
+      "primary": "An MCP server reached through a thin local stdio proxy: the proxy invokes the SSO helper command to mint a fresh short-lived token before each upstream HTTP call, re-minting on a 401, so mid-session expiry is invisible to the session; the proxy process is what gets registered in the MCP configuration.",
+      "rejected_alternative": "Registering the HTTP endpoint directly with a static Authorization header via claude mcp add --transport http --header; the header value is captured at configuration time and the connection dies the first time a token expires mid-session.",
+      "enforcement_owner": "The harness plus the proxy process own token freshness deterministically; the model never sees, stores, or manages credentials.",
+      "context_boundary": "Tool schemas and call results cross into the main context; tokens live only in the proxy process environment and never enter any context window.",
+      "lifecycle": "The proxy starts with the MCP client at session start, mints tokens on demand per call, and dies with the session; the configuration entry persists in .mcp.json until removed.",
+      "failure_mode": "Fails closed: if the SSO helper cannot mint (VPN down, IdP session expired), tool calls return visible errors until the engineer re-authenticates out of band; nothing silently degrades, but the service is unusable in the meantime.",
+      "version_caveat": "Built-in MCP OAuth does not apply because the service exposes no OAuth endpoints; whether current builds support dynamic header refresh natively I cannot say for certain, which is exactly why the proxy pattern is the safe choice."
+    },
+    {
+      "id": "S027",
+      "primary": "A hook shipped in the toolkit plugin: a UserPromptSubmit hook (with a SessionStart hook to record the initial log offset) reads the lines appended to the error log since the last event and injects them as additional context, so the model hears new errors at every turn for the whole session without anyone asking it to watch.",
+      "rejected_alternative": "An MCP server exposing a tail-the-log tool or resource; the model would have to remember to poll it, which violates the requirement that nobody asks Claude to start watching.",
+      "enforcement_owner": "The harness: hooks fire deterministically on their events regardless of what the model intends or remembers.",
+      "context_boundary": "The hook script runs outside the context and only the new log lines it emits cross into the main window as injected context; the log file itself never loads.",
+      "lifecycle": "Armed automatically whenever the plugin is active in a session, fires on every user prompt for the session's duration, and stops when the session ends or the plugin is disabled.",
+      "failure_mode": "Advisory and approximate: lines surface only at hook events rather than truly mid-turn, so errors during a long autonomous stretch arrive late, and a bursty log can flood the context unless the hook caps and summarizes; a hook script error fails open with no injection and no warning.",
+      "version_caveat": "UserPromptSubmit context injection is the load-bearing feature and has existed through recent versions, but I cannot name its introduction version; to my knowledge no version offers a true push channel into a live turn."
+    },
+    {
+      "id": "S028",
+      "primary": "Constrain the credential itself at the MCP OAuth layer: register or configure the integration so the authorization request can only ever be granted read scopes (a vendor-side application registration or IdP policy that cannot issue write scope), then layer harness permission deny rules over the server's write tools as defense in depth.",
+      "rejected_alternative": "Relying solely on settings.json permission deny rules for the server's write tools; the harness would deterministically block those tool calls inside Claude Code, but the stored token would still bear write scope and could authorize writes if leaked or replayed outside the assistant.",
+      "enforcement_owner": "Neither the model nor primarily the harness: the vendor's authorization server owns the guarantee, because only the token minter can bound what the token can do; harness deny rules are a secondary, in-tool control.",
+      "context_boundary": "Scope negotiation happens in the OAuth flow outside any context window; the session only ever sees tool schemas and results, never the credential or its scopes.",
+      "lifecycle": "Set at authorization time when each engineer first signs in; it holds for the token's lifetime and across refreshes, and must be revisited if the vendor changes its scope catalogue or the client registration.",
+      "failure_mode": "If the read-only restriction cannot be expressed and the client is always granted full scopes, the design fails open at the credential layer regardless of what the assistant declines to do; the deny rules then fail closed only inside Claude Code, not for the credential at large, and that gap must be reported to security rather than papered over.",
+      "version_caveat": "I do not recall a confirmed Claude Code configuration field for requesting a restricted OAuth scope set on a remote MCP server; if the current build lacks one, the restriction must live in the vendor-side client registration, and this should be verified against current docs before promising the guarantee."
+    },
+    {
+      "id": "S029",
+      "primary": "A project-scoped MCP server declared in a .mcp.json checked into the repository root; every fresh clone picks it up automatically, and Claude Code prompts each person once to approve the project-defined server before it first runs.",
+      "rejected_alternative": "User-scope registration (claude mcp add --scope user) on each machine; that applies across all of a person's projects, violating the repo-only boundary, and does not travel with the clone.",
+      "enforcement_owner": "The harness: configuration discovery, the one-time per-user approval prompt, and server launch are all deterministic harness behavior; the model just uses the tools.",
+      "context_boundary": "Only sessions started inside that repository load the server; its tool schemas and staging-database results enter that project's main context, and nothing leaks into other repositories.",
+      "lifecycle": "Loads at session start in the repo after the one-time consent and every session thereafter; it stops applying outside the repo, when the entry is deleted, or when a user resets their project approval choices.",
+      "failure_mode": "Fails closed: a user who declines the prompt simply has no staging-database tools; the common practical failure is credentials, since .mcp.json should use environment variable expansion and a machine missing those variables gets connection errors at first call.",
+      "version_caveat": "Project-scoped .mcp.json with per-user approval has been stable for a long while, and a setting exists to pre-approve all project servers plus a command to reset the choices, but I cannot pin the exact versions where each landed."
+    },
+    {
+      "id": "S030",
+      "primary": "A plugin whose SessionStart hook bootstraps dependencies: on first run it installs the npm modules into a stable per-user directory outside the plugin's managed folder (for example a data directory keyed by the toolkit name), and on later runs it verifies a lockfile hash and reinstalls only on drift, so plugin updates that replace the plugin directory never wipe or strand the modules.",
+      "rejected_alternative": "Vendoring node_modules inside the plugin repository itself; those modules live in exactly the directory the updater replaces, so they are wiped or stranded on every update, besides bloating every fetch.",
+      "enforcement_owner": "The harness runs the hook deterministically; the hook script owns the install and version-check logic, with the model uninvolved in dependency management.",
+      "context_boundary": "Installation happens entirely outside the context window; at most a one-line hook status message crosses in, and the node_modules tree never does.",
+      "lifecycle": "Fires at session start whenever the plugin is enabled: a full install on first run, a cheap hash check thereafter, and a reinstall when the toolkit's lockfile changes; it stops when the plugin is disabled or removed.",
+      "failure_mode": "Fails open: if npm is missing, the registry is unreachable, or the install dies, the session continues and toolkit features error later at their point of use, so the hook must emit a loud warning line; slow installs also delay session start for everyone.",
+      "version_caveat": "I do not believe plugins have a first-class install or postinstall lifecycle event, which is why a SessionStart hook carries the bootstrap; verify current plugin docs in case a native dependency mechanism has since landed."
+    }
+  ]
+}
