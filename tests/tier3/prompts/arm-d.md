@@ -10,8 +10,10 @@ should show nothing else.
 
 ## Resource
 
-You have unlimited WebFetch access to the official Claude Code documentation at
-`code.claude.com`. Use it as much or as little as you judge useful.
+You have a LOCAL MIRROR of the official Claude Code documentation: the *.md files in the
+docs/ directory beside your scenarios, 20 pages fetched raw from code.claude.com today,
+byte-identical for every arm. Read them as much or as little as you judge useful. You have
+NO web access; the mirror is the documentation.
 
 You ALSO have the `claude-code-extension-engineering` reference files, at
 `skills/claude-code-extension-engineering/`. `references/selection.md` carries the decision
@@ -32,7 +34,7 @@ from the reference, before fetching anything.
 
 **Step 2, pin the facts against the documentation.** Now fetch. For each of
 `enforcement_owner`, `lifecycle`, `failure_mode` and `version_caveat`, verify your answer
-against the official documentation and record the URL of the page that supports it. These
+against the mirror and record the PAGE FILENAME (e.g. hooks.md) plus a SHORT VERBATIM QUOTE (15 to 200 characters, copied exactly) that supports it. The quote is machine-checked against the page; a paraphrase counts as unverified. These
 four are lookup answers, not reasoning answers.
 
 If step 2 contradicts step 1, change your answer. Say so in the field rather than hiding it.
@@ -69,6 +71,7 @@ Return one object per scenario with exactly these fields:
 Each field is prose, one to three sentences. Do not include the scenario text back in your
 answer. Do not add commentary outside the fields.
 
-Also return a `citations` object mapping each of the four factual field names to the
-documentation URL that supports it. Omit a field from `citations` when you reported it as
-`unknown`.
+Also return a `citations` object mapping each of the four factual field names to
+`{"page": "<mirror filename>", "quote": "<verbatim supporting quote>"}`. Omit a field from
+`citations` when you reported it as `unknown`. Quotes are machine-verified against the
+mirror bytes, so copy exactly; do not tidy whitespace inside the quoted span.

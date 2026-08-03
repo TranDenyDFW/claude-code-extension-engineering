@@ -27,9 +27,35 @@ import { loadScenarios, KEY_FIELDS } from './tier3-strip.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
-const ANSWER_DIR = join(ROOT, 'tests', 'tier3', 'answers');
-const PACKET_DIR = join(ROOT, 'tests', 'tier3', 'packets');
-const MAP_PATH = join(ROOT, 'tests', 'tier3', 'blinding-map.json');
+const SET = process.argv.includes('--set') ? process.argv[process.argv.indexOf('--set') + 1] : 'v1';
+const SFX = SET === 'v2' ? '-v2' : '';
+const ANSWER_DIR = join(ROOT, 'tests', 'tier3', `answers${SFX}`);
+const PACKET_DIR = join(ROOT, 'tests', 'tier3', `packets${SFX}`);
+const MAP_PATH = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}.json`);
+
+/**
+ * v2 grading batches are a SEEDED SHUFFLE of the scenario ids instead of the
+ * natural S001..S010 blocks. In v1 each batch was exactly one focus area and
+ * each batch had exactly one grader, so grader strictness and topic were
+ * perfectly confounded; one grader's batch manufactured the retracted
+ * headline. Shuffling breaks the confound; the fixed seed keeps the packing
+ * reproducible and --check-able.
+ */
+export function shuffledBatches(ids, size = 10) {
+  let h = 0x9e3779b9;
+  const rand = () => {
+    h ^= h << 13; h >>>= 0; h ^= h >> 17; h ^= h << 5; h >>>= 0;
+    return h / 0x100000000;
+  };
+  const a = [...ids].sort();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  const out = [];
+  for (let i = 0; i < a.length; i += size) out.push(a.slice(i, i + size));
+  return out;
+}
 
 /** The seven GRADED fields. `rejection_reason` is key-only, never graded. */
 export const GRADED_FIELDS = KEY_FIELDS.filter(f => f !== 'rejection_reason');
@@ -113,15 +139,26 @@ export function blindingProblems(packet) {
   return [...new Set(problems)];
 }
 
-export function pack(scenarios, answersByArm) {
+export function pack(scenarios, answersByArm, regroup = null) {
   const byBatch = new Map();
   const map = {};
+
+  // regroup: array of id-arrays (from shuffledBatches) that overrides the
+  // answer files' own batch numbers for GRADING purposes. Answering batches
+  // and grading batches no longer need to coincide, and in v2 they must not.
+  const batchOf = id => {
+    if (!regroup) return null;
+    const i = regroup.findIndex(g => g.includes(id));
+    return i >= 0 ? i + 1 : null;
+  };
 
   for (const [arm, sheets] of Object.entries(answersByArm)) {
     if (!ARMS.includes(arm)) throw new Error(`unknown arm: ${arm}`);
     for (const a of sheets) {
-      if (!byBatch.has(a.batch)) byBatch.set(a.batch, new Map());
-      const b = byBatch.get(a.batch);
+      const batch = regroup ? batchOf(a.id) : a.batch;
+      if (batch === null) throw new Error(`scenario ${a.id} not present in the regroup plan`);
+      if (!byBatch.has(batch)) byBatch.set(batch, new Map());
+      const b = byBatch.get(batch);
       if (!b.has(a.id)) b.set(a.id, {});
       b.get(a.id)[arm] = a;
     }
@@ -245,6 +282,25 @@ function selfTest() {
   check('permutation space covers every ordering of the arms',
     PERMUTATIONS.length === [1, 1, 2, 6, 24, 120][ARMS.length], `${PERMUTATIONS.length} orderings for ${ARMS.length} arms`);
 
+  // v2 grading batches: seeded shuffle must be deterministic, cover every id
+  // exactly once, and actually break the focus-area blocks.
+  const ids60 = Array.from({ length: 60 }, (_, i) => 'S' + String(i + 1).padStart(3, '0'));
+  const sh1 = shuffledBatches(ids60), sh2 = shuffledBatches(ids60);
+  check('shuffledBatches is deterministic', JSON.stringify(sh1) === JSON.stringify(sh2));
+  check('shuffledBatches covers all 60 ids exactly once',
+    sh1.flat().length === 60 && new Set(sh1.flat()).size === 60 && sh1.length === 6);
+  const natural = ids60.slice(0, 10).join(',');
+  check('shuffle breaks the natural focus blocks', sh1.every(b => [...b].sort().join(',') !== natural));
+  const mk2 = (id, tag, batch) => ({ id, batch, ...Object.fromEntries(GRADED_FIELDS.map(f => [f, `${tag}-${f}`])) });
+  const re = pack(
+    [ { id: 'S001', focus: 'a', scenario: 's1', primary: 'p', rejected_alternative: 'r', rejection_reason: 'rr', enforcement_owner: 'e', context_boundary: 'c', lifecycle: 'l', failure_mode: 'f', version_caveat: 'v' },
+      { id: 'S002', focus: 'b', scenario: 's2', primary: 'p', rejected_alternative: 'r', rejection_reason: 'rr', enforcement_owner: 'e', context_boundary: 'c', lifecycle: 'l', failure_mode: 'f', version_caveat: 'v' } ],
+    { a: [mk2('S001', 'A', 1), mk2('S002', 'A', 1)], b: [mk2('S001', 'B', 1), mk2('S002', 'B', 1)],
+      bplus: [mk2('S001', 'BP', 1), mk2('S002', 'BP', 1)], d: [mk2('S001', 'D', 1), mk2('S002', 'D', 1)] },
+    [['S002'], ['S001']]);
+  check('regroup overrides the answer files own batch numbers',
+    re.packets.length === 2 && re.packets[0].scenarios[0].id === 'S002' && re.packets[1].scenarios[0].id === 'S001');
+
   console.log(bad
     ? `SELF-TEST FAIL: ${bad} check(s) failed`
     : 'SELF-TEST PASS: packets carry no arm labels, the map un-blinds them, and both leak shapes are caught.');
@@ -265,7 +321,8 @@ const argv = process.argv.slice(2);
 if (argv.includes('--self-test')) selfTest();
 
 const CHECK_ONLY = argv.includes('--check');
-const scenarios = loadScenarios();
+const scenPath = SET === 'v2' ? join(ROOT, 'tests', 'architecture-scenarios-v2.jsonl') : undefined;
+const scenarios = scenPath ? loadScenarios(scenPath) : loadScenarios();
 const answersByArm = loadAnswers();
 const armsPresent = Object.keys(answersByArm).sort();
 
@@ -282,7 +339,8 @@ if (!armsPresent.length) {
   process.exit(CHECK_ONLY ? 0 : 1);
 }
 
-const { packets, map } = pack(scenarios, answersByArm);
+const regroup = SET === 'v2' ? shuffledBatches(scenarios.map(s => s.id)) : null;
+const { packets, map } = pack(scenarios, answersByArm, regroup);
 const problems = packets.flatMap(blindingProblems);
 
 console.log(`Arms: ${armsPresent.join(', ')}  packets: ${packets.length}  scenarios: ${packets.reduce((n, p) => n + p.scenarios.length, 0)}`);

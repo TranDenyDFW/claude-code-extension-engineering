@@ -5,8 +5,10 @@ answers, with no procedure imposed on how it gets there.
 
 ## Resource
 
-You have unlimited WebFetch access to the official Claude Code documentation at
-`code.claude.com`. Use it as much or as little as you judge useful.
+You have a LOCAL MIRROR of the official Claude Code documentation: the *.md files in the
+docs/ directory beside your scenarios, 20 pages fetched raw from code.claude.com today,
+byte-identical for every arm. Read them as much or as little as you judge useful. You have
+NO web access; the mirror is the documentation.
 
 You do NOT have access to the `claude-code-extension-engineering` repository or any of its
 reference files. Do not search for them, quote them, or reason from memory of them.

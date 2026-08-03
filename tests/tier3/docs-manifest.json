@@ -1,0 +1,127 @@
+{
+  "fetched": "2026-08-02",
+  "source": "https://code.claude.com/docs/llms.txt",
+  "note": "Raw .md endpoints fetched once; identical bytes staged into every docs arm. Content not committed (copyright); this manifest makes the mirror reproducible.",
+  "pages": [
+    {
+      "slug": "agents",
+      "url": "https://code.claude.com/docs/en/agents.md",
+      "sha256": "f1e18a3c16e99e639466660864faaa0c2e9166f80cd01406661bbd23110f8b39",
+      "bytes": 8176
+    },
+    {
+      "slug": "sub-agents",
+      "url": "https://code.claude.com/docs/en/sub-agents.md",
+      "sha256": "e041a579d2b97ff677a89b6160efebf3f94e50b43a60ac0ad8c69e64e29ceec9",
+      "bytes": 95655
+    },
+    {
+      "slug": "workflows",
+      "url": "https://code.claude.com/docs/en/workflows.md",
+      "sha256": "ed496d57683eb78fed89b1c4a56d8a65f6d5a8f1e104c35d11c4758857f9dd3e",
+      "bytes": 30946
+    },
+    {
+      "slug": "agent-teams",
+      "url": "https://code.claude.com/docs/en/agent-teams.md",
+      "sha256": "62495b7459c5e27fdb816272b23a4303fc34f359a1b9bc0a1cfd17112be76bdf",
+      "bytes": 33360
+    },
+    {
+      "slug": "hooks",
+      "url": "https://code.claude.com/docs/en/hooks.md",
+      "sha256": "eb0207ab2cf7e88e9667d3a0fb424db5a2938b721c65fbebbe28b16110e55346",
+      "bytes": 245465
+    },
+    {
+      "slug": "hooks-guide",
+      "url": "https://code.claude.com/docs/en/hooks-guide.md",
+      "sha256": "e1619ad3211afdd36e5c42956a08d6764cdb2979d767bd6c74593c934baf9e33",
+      "bytes": 62701
+    },
+    {
+      "slug": "skills",
+      "url": "https://code.claude.com/docs/en/skills.md",
+      "sha256": "23d035ad222c1a288a0c05cb4202a394f91f1167aa80c522f9011729bab9168a",
+      "bytes": 73907
+    },
+    {
+      "slug": "memory",
+      "url": "https://code.claude.com/docs/en/memory.md",
+      "sha256": "a7dd777240fd3f13fec00d5f9c5d3c4909e834963eceab97f01b7a74635d9ded",
+      "bytes": 35388
+    },
+    {
+      "slug": "mcp",
+      "url": "https://code.claude.com/docs/en/mcp.md",
+      "sha256": "9d2dfec8d6092abf9d3899d24eab90fb6da22452275446ae6890b11335592e5f",
+      "bytes": 80866
+    },
+    {
+      "slug": "mcp-quickstart",
+      "url": "https://code.claude.com/docs/en/mcp-quickstart.md",
+      "sha256": "26e7224342d2ff66ec22f06d41ffc149d1cb7b211eeccf0f1a128698858012ca",
+      "bytes": 24227
+    },
+    {
+      "slug": "plugins",
+      "url": "https://code.claude.com/docs/en/plugins.md",
+      "sha256": "14a3c0eb7be4943ca58e50db325ce248c1487b9a6fc5840be975075d4a4ff593",
+      "bytes": 27876
+    },
+    {
+      "slug": "plugins-reference",
+      "url": "https://code.claude.com/docs/en/plugins-reference.md",
+      "sha256": "8acb66e7256352644c86c126be932a4909af7c9fdeb4652aa9f8c6d3a0301f90",
+      "bytes": 90774
+    },
+    {
+      "slug": "settings",
+      "url": "https://code.claude.com/docs/en/settings.md",
+      "sha256": "c4fce2f04af815c24442bf77515d66eff75051ac41c9bccae92819fa9e0c63c3",
+      "bytes": 273279
+    },
+    {
+      "slug": "permissions",
+      "url": "https://code.claude.com/docs/en/permissions.md",
+      "sha256": "f43c04fd9342606bea2be41ce863a4f6d4c499333a4245801042d8ed54c4c4b3",
+      "bytes": 60850
+    },
+    {
+      "slug": "output-styles",
+      "url": "https://code.claude.com/docs/en/output-styles.md",
+      "sha256": "365c679d857d913613e9513002fa82b71dd80b7e2ca0406cc73188fb848bcdca",
+      "bytes": 9909
+    },
+    {
+      "slug": "features-overview",
+      "url": "https://code.claude.com/docs/en/features-overview.md",
+      "sha256": "0542bd26e0817861ad886cd7c67634c854ec737d292467075f34a702ccf77599",
+      "bytes": 31575
+    },
+    {
+      "slug": "cli-reference",
+      "url": "https://code.claude.com/docs/en/cli-reference.md",
+      "sha256": "3a67f5a580b20bd31d0d2dfe728d1966d7d22111e3fb92b64cd83627ba6feffc",
+      "bytes": 104140
+    },
+    {
+      "slug": "debug-your-config",
+      "url": "https://code.claude.com/docs/en/debug-your-config.md",
+      "sha256": "1c0ad5e80406b44cca2b891bcf281eb306834a3d8182fc44ff7c4dd7e4f771d8",
+      "bytes": 21229
+    },
+    {
+      "slug": "common-workflows",
+      "url": "https://code.claude.com/docs/en/common-workflows.md",
+      "sha256": "df01507484f3f783d287ea79f063bf6070b19288dc2443c0df349c8cc2e38240",
+      "bytes": 18749
+    },
+    {
+      "slug": "interactive-mode",
+      "url": "https://code.claude.com/docs/en/interactive-mode.md",
+      "sha256": "4ceba050fecab4ce76f3b8965f18592973f24ca8097a4d1587f8feb386e358dd",
+      "bytes": 56019
+    }
+  ]
+}

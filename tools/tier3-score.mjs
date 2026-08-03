@@ -23,7 +23,8 @@
  * Self-reporting: prints the gate result, the tables, and the verdict, and
  * exits non-zero if the grades are incomplete or the doc has drifted.
  */
-import { readFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { loadScenarios } from './tier3-strip.mjs';
@@ -31,10 +32,13 @@ import { GRADED_FIELDS, ARMS } from './tier3-pack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
-const GRADES = join(ROOT, 'tests', 'tier3', 'grades.jsonl');
-const MAP_PATH = join(ROOT, 'tests', 'tier3', 'blinding-map.json');
-const ANSWER_DIR = join(ROOT, 'tests', 'tier3', 'answers');
+const SET = process.argv.includes('--set') ? process.argv[process.argv.indexOf('--set') + 1] : 'v1';
+const SFX = SET === 'v2' ? '-v2' : '';
+const GRADES = join(ROOT, 'tests', 'tier3', `grades${SFX}.jsonl`);
+const MAP_PATH = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}.json`);
+const ANSWER_DIR = join(ROOT, 'tests', 'tier3', `answers${SFX}`);
 const DOC = join(ROOT, 'tests', 'results-tier3.md');
+const MIRROR = process.argv.includes('--mirror') ? process.argv[process.argv.indexOf('--mirror') + 1] : null;
 
 const BEGIN = '<!-- tier3-score:begin -->';
 const END = '<!-- tier3-score:end -->';
@@ -63,7 +67,158 @@ export const FACTUAL_FIELDS = ['enforcement_owner', 'lifecycle', 'failure_mode',
  */
 export const DECISION_MARGIN = 6;
 
+/**
+ * v2 endpoint, committed 2026-08-02 BEFORE any v2 answer agent runs, per the
+ * same discipline as DECISION_MARGIN. The v2 instrument ships the workflow
+ * only when ALL THREE hold for D versus B: paired sign test p below
+ * SIGN_ALPHA, overall margin at least DECISION_MARGIN, and the significance
+ * SURVIVING every single-grader and single-batch drop. The third clause
+ * exists because one grader manufactured the retracted v1 headline.
+ */
+export const SIGN_ALPHA = 0.05;
+
 export const VALID_SCORES = new Set([0, 0.5, 1]);
+
+// -------------------------------------------------------- v2 aggregation --
+
+/**
+ * v2 grades carry a `grader` field and every cell is graded twice. Cell value
+ * is the mean of the two base grades, EXCEPT where an adjudicator record
+ * (grader 'adj') exists, which overrides. Returns flat one-score-per-cell
+ * records shaped like v1 grades so score()/pairedComparison run unchanged,
+ * plus the reliability numbers v1 never had.
+ */
+export function aggregateCells(grades) {
+  const cells = new Map();
+  for (const g of grades) {
+    const k = `${g.scenario}|${g.sheet}|${g.field}`;
+    if (!cells.has(k)) cells.set(k, { scenario: g.scenario, sheet: g.sheet, field: g.field, base: [], adj: null });
+    const c = cells.get(k);
+    if (g.grader === 'adj') c.adj = g.score;
+    else c.base.push({ grader: g.grader, score: g.score });
+  }
+
+  const problems = [];
+  const flat = [];
+  const agreement = {};
+  let disagreements = [];
+  for (const c of cells.values()) {
+    if (c.base.length !== 2) {
+      problems.push(`${c.scenario} sheet ${c.sheet} ${c.field}: ${c.base.length} base grade(s), expected exactly 2`);
+      continue;
+    }
+    if (c.base[0].grader === c.base[1].grader) {
+      problems.push(`${c.scenario} sheet ${c.sheet} ${c.field}: both grades from ${c.base[0].grader}`);
+      continue;
+    }
+    const [a, b] = [c.base[0].score, c.base[1].score];
+    const diff = Math.abs(a - b);
+    if (diff === 1 && c.adj === null) {
+      problems.push(`${c.scenario} sheet ${c.sheet} ${c.field}: full-point disagreement (${a} vs ${b}) with no adjudication record`);
+    }
+    if (diff > 0) disagreements.push({ scenario: c.scenario, sheet: c.sheet, field: c.field, a, b, adjudicated: c.adj !== null });
+    if (!agreement[c.field]) agreement[c.field] = { n: 0, exact: 0, close: 0 };
+    const ag = agreement[c.field];
+    ag.n++; if (diff === 0) ag.exact++; if (diff <= 0.5) ag.close++;
+    flat.push({ scenario: c.scenario, sheet: c.sheet, field: c.field, score: c.adj !== null ? c.adj : (a + b) / 2 });
+  }
+  return { flat, agreement, disagreements, problems };
+}
+
+/**
+ * Leave-one-GRADER-out: recompute a paired comparison with one grader's base
+ * records removed (each cell falls back to the other grader's score, with
+ * adjudications still overriding), the per-grader analogue of the per-batch
+ * sweep that exposed the v1 artifact.
+ */
+export function graderRobustness(grades, map, armX, armY) {
+  const graders = [...new Set(grades.filter(g => g.grader && g.grader !== 'adj').map(g => g.grader))].sort();
+  const full = pairedComparison(aggregateCellsLenient(grades), map, armX, armY);
+  const drops = graders.map(gr => {
+    const kept = grades.filter(g => g.grader !== gr);
+    // After dropping, cells have one base grade; aggregate leniently.
+    const r = pairedComparison(aggregateCellsLenient(kept), map, armX, armY);
+    return { dropped: gr, ...r };
+  });
+  return { full, drops, graders };
+}
+
+/** Aggregation that accepts 1..2 base grades per cell, for robustness sweeps only. */
+export function aggregateCellsLenient(grades) {
+  const cells = new Map();
+  for (const g of grades) {
+    const k = `${g.scenario}|${g.sheet}|${g.field}`;
+    if (!cells.has(k)) cells.set(k, { scenario: g.scenario, sheet: g.sheet, field: g.field, base: [], adj: null });
+    const c = cells.get(k);
+    if (g.grader === 'adj') c.adj = g.score; else c.base.push(g.score);
+  }
+  return [...cells.values()].filter(c => c.base.length > 0 || c.adj !== null).map(c => ({
+    scenario: c.scenario, sheet: c.sheet, field: c.field,
+    score: c.adj !== null ? c.adj : c.base.reduce((s, v) => s + v, 0) / c.base.length,
+  }));
+}
+
+/**
+ * Verified quotes: an arm's citation counts only if its verbatim quote is
+ * actually present in the cited mirror page, whitespace-normalized. Replaces
+ * the v1 citation rate, which measured URL formatting and let arms cite pages
+ * they had reported unreadable.
+ */
+export function verifiedQuoteRates(answersByArm, mirrorDir) {
+  const norm = s => String(s).toLowerCase().replace(/\s+/g, ' ').trim();
+  const pageCache = new Map();
+  const page = f => {
+    if (!pageCache.has(f)) {
+      try { pageCache.set(f, norm(readFileSync(join(mirrorDir, f), 'utf8'))); }
+      catch { pageCache.set(f, null); }
+    }
+    return pageCache.get(f);
+  };
+  const out = {};
+  for (const [arm, rows] of Object.entries(answersByArm)) {
+    if (!CITING_ARMS.includes(arm)) { out[arm] = null; continue; }
+    let verified = 0, total = 0;
+    for (const a of rows) {
+      for (const f of FACTUAL_FIELDS) {
+        const c = a.citations?.[f];
+        if (!c) continue;
+        total++;
+        const p = typeof c === 'object' ? page(c.page) : null;
+        const q = typeof c === 'object' ? norm(c.quote || '') : '';
+        if (p && q.length >= 15 && p.includes(q)) verified++;
+      }
+    }
+    out[arm] = total ? Math.round((100 * verified) / total) : null;
+  }
+  return out;
+}
+
+/** The v2 verdict. Mechanical; constants above; never edited after answers exist. */
+export function verdictV2(rows, grades, map, batchOf) {
+  const get = a => rows.find(r => r.arm === a);
+  const d = get('d'), b = get('b');
+  if (!d || !b) return { headline: 'INCOMPLETE', detail: 'need arms b and d' };
+  const flat = aggregateCellsLenient(grades);
+  const pc = pairedComparison(flat, map, 'd', 'b');
+  const p = signTest(pc.wins, pc.losses);
+  const margin = d.overall - b.overall;
+
+  const gr = graderRobustness(grades, map, 'd', 'b');
+  const br = batchRobustness(flat, map, 'd', 'b', batchOf);
+  const dropP = [...gr.drops.map(x => signTest(x.wins, x.losses)), ...br.drops.map(x => signTest(x.wins, x.losses))];
+  const robust = dropP.every(x => x < SIGN_ALPHA);
+
+  const clauses = [
+    `sign test p=${p.toFixed(3)} (need < ${SIGN_ALPHA})`,
+    `margin ${margin} pts (need >= ${DECISION_MARGIN})`,
+    `robustness: ${dropP.filter(x => x < SIGN_ALPHA).length}/${dropP.length} drops stay significant (need all)`,
+  ];
+  const ship = p < SIGN_ALPHA && margin >= DECISION_MARGIN && robust;
+  return {
+    headline: ship ? 'SHIP' : (pc.wins > pc.losses ? 'INCONCLUSIVE' : 'NEGATIVE'),
+    detail: `${clauses.join('; ')}. ${ship ? 'All three clauses hold.' : 'Not all clauses hold; publish, do not ship.'}`,
+  };
+}
 
 // ------------------------------------------------------------------- gating --
 
@@ -586,6 +741,73 @@ function selfTest() {
     /did not add anything measurable/.test(verdict(mk(70, 84, 86)).attribution));
   check('attribution does NOT assert the procedure was the cause',
     !/procedure carried it/.test(verdict(mk(70, 84, 86)).attribution));
+
+  // ------------------------------------------------------------ v2 layer --
+  const g2 = [];
+  for (const id of ids) for (const [sheet] of Object.entries(map[id])) for (const f of GRADED_FIELDS) {
+    g2.push({ scenario: id, sheet: Number(sheet), field: f, score: 1, grader: 'g1' });
+    g2.push({ scenario: id, sheet: Number(sheet), field: f, score: 1, grader: 'g2' });
+  }
+  check('two agreeing grades aggregate cleanly', (() => {
+    const r = aggregateCells(g2);
+    return r.problems.length === 0 && r.flat.every(c => c.score === 1) && r.disagreements.length === 0;
+  })());
+  check('half-point disagreement means the cell, no adjudication needed', (() => {
+    const gg = g2.map(x => ({ ...x }));
+    gg[0] = { ...gg[0], score: 0.5 };
+    const r = aggregateCells(gg);
+    return r.problems.length === 0 && r.flat.find(c => c.scenario === gg[0].scenario && c.sheet === gg[0].sheet && c.field === gg[0].field).score === 0.75;
+  })());
+  check('full-point disagreement without adjudication is a completeness problem', (() => {
+    const gg = g2.map(x => ({ ...x }));
+    gg[0] = { ...gg[0], score: 0 };
+    return aggregateCells(gg).problems.some(p => /full-point disagreement/.test(p));
+  })());
+  check('an adjudication record resolves and overrides', (() => {
+    const gg = g2.map(x => ({ ...x }));
+    gg[0] = { ...gg[0], score: 0 };
+    gg.push({ scenario: gg[0].scenario, sheet: gg[0].sheet, field: gg[0].field, score: 0, grader: 'adj' });
+    const r = aggregateCells(gg);
+    return r.problems.length === 0 && r.flat.find(c => c.scenario === gg[0].scenario && c.sheet === gg[0].sheet && c.field === gg[0].field).score === 0;
+  })());
+  check('a single-graded cell is a completeness problem in strict mode', (() => {
+    return aggregateCells(g2.slice(1)).problems.some(p => /1 base grade/.test(p));
+  })());
+  check('both grades from one grader is a completeness problem', (() => {
+    const gg = g2.map(x => ({ ...x }));
+    gg[1] = { ...gg[1], grader: 'g1' };
+    return aggregateCells(gg).problems.some(p => /both grades from/.test(p));
+  })());
+  check('agreement stats count exact and close correctly', (() => {
+    const gg = g2.map(x => ({ ...x }));
+    gg[0] = { ...gg[0], score: 0.5 };
+    const ag = aggregateCells(gg).agreement.primary;
+    return ag && ag.exact === ag.n - 1 && ag.close === ag.n;
+  })());
+
+  {
+    const tmp = join(tmpdir(), `score-st-${Date.now()}`);
+    mkdirSync(tmp, { recursive: true });
+    writeFileSync(join(tmp, 'hooks.md'), 'Hooks reference. Command hooks fail open when the handler exits nonzero without a decision.');
+    const arms = {
+      d: [{ id: 'S001', citations: { failure_mode: { page: 'hooks.md', quote: 'Command hooks fail open when the handler exits nonzero' } } }],
+      bplus: [{ id: 'S001', citations: { failure_mode: { page: 'hooks.md', quote: 'this sentence appears nowhere in the page at all, invented' } } }],
+    };
+    const r = verifiedQuoteRates(arms, tmp);
+    check('a real verbatim quote verifies', r.d === 100, `d=${r.d}`);
+    check('an invented quote does NOT verify (planted fake)', r.bplus === 0, `bplus=${r.bplus}`);
+    rmSync(tmp, { recursive: true, force: true });
+  }
+
+  check('graderRobustness drops each grader once', (() => {
+    const r = graderRobustness(g2, map, 'd', 'b');
+    return r.graders.length === 2 && r.drops.length === 2;
+  })());
+  check('verdictV2 refuses to ship on an insignificant result', (() => {
+    const rows2 = [{ arm: 'd', overall: 92 }, { arm: 'b', overall: 90 }];
+    const v = verdictV2(rows2, g2, map, id => 1);
+    return v.headline !== 'SHIP';
+  })());
 
   console.log(bad
     ? `SELF-TEST FAIL: ${bad} check(s) failed`
