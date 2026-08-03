@@ -124,39 +124,37 @@ with claude-opus-5. The treatment score is a retrieval result, not a truth resul
 the control had no web access; both caveats are spelled out in
 [tests/results.md](tests/results.md) along with per-question detail.
 
-**Tier 3, architecture decisions: 60 scenarios, four arms, and the run does not support the
-hypothesis that motivated it.** Scenarios authored from the official documentation,
-independently of this reference, then blind-graded on a seven-field rubric with four
-anonymous sheets per scenario. Measured 2026-08-02: unaided 70%, official docs 90%, docs
-plus a staged decide-then-verify-then-cite procedure 93%, docs plus that procedure plus
-this skill 92%.
+**Tier 3, architecture decisions: 60 scenarios, four arms, twice-graded, and a clean
+negative.** The hypothesis was that this reference and the official docs solve different
+halves of the rubric, so combining them should beat the docs. Three runs later, on an
+instrument rebuilt specifically to detect a small effect, it does not.
 
-The hypothesis was that the reference and the docs solve different halves of the rubric, so
-combining them should beat the docs. The pre-committed rule required 6 points over docs to
-ship a workflow built on that; it returned 2. Nothing shipped.
+Measured 2026-08-02 (v2, repaired keys): unaided 71%, official docs 88%, docs plus a staged
+decide-then-verify-then-cite procedure 88%, docs plus that procedure plus this skill 87%.
+**Combined versus docs alone: 20 scenarios to 20, p=1.000.** A dead heat. The pre-committed
+rule returned NEGATIVE and nothing shipped.
 
-**Only one comparison in the run survives its own robustness check.** Documentation beats
-unaided recall by about 20 points, 53 paired scenarios to 3, and it holds no matter which
-grader's batch is removed. Every comparison among the three docs-holding arms either fails
-significance or collapses when one of the six batches is dropped: the 93% arm's apparent
-lead over the 90% arm goes from p=0.008 to p=0.263 without batch 6 alone. A first version of
-that page claimed the staged procedure was the real effect; an independent review showed
-that claim rested on a single grader, and it is retracted in place rather than quietly
-edited.
+**What survives is what always survived**: documentation beats unaided recall by 18 points,
+48 paired scenarios to 9, p<0.001, robust to dropping any batch. The largest single component
+is `version_caveat`, 35% unaided against 80 to 82% with docs, which is the intuitive result
+since version gates are exactly what cannot be recalled.
 
-So the reference's claims are unchanged rather than strengthened: it beats unaided recall,
-and reaches that from a 120 KB local read rather than dozens of network fetches. This run
-found no measurable benefit from it once the documentation is present, and no measurable
-harm either; three arms inside three points on an instrument whose per-batch noise reaches
-fifteen cannot resolve the question.
+**The instrument is the real product of that work.** v1 could not resolve the question: dead
+key fields, documentation arriving unevenly across arms, and one grader in six who
+manufactured a headline that had to be retracted. v2 fixes all four defects and gates each
+one: a key linter that the frozen v1 set fails at 15 errors and v2 passes at 0; a
+byte-identical local docs mirror with sha256 per page; two independent graders per cell with
+blind adjudication; and citations carrying verbatim quotes checked against the mirror. First
+reliability number this benchmark has ever had: **92% exact inter-grader agreement across
+1,680 double-graded cells**, 99% within half a point, zero non-verifying quotes.
 
-Full method, the leave-one-batch-out tables, the unequal-documentation-access flaw, and the
-expected-key defects the graders found are in
-[tests/results-tier3.md](tests/results-tier3.md). Every number there is re-derivable from
-committed raw grades and CI fails if the prose drifts from them.
+So the reference's claim is narrower than the project once hoped and now well measured: it
+beats unaided recall, and reaches that from a local read rather than dozens of network
+fetches. It adds nothing once the documentation is present.
 
-Earlier three-arm numbers (71% unaided, 82% docs, 79% skill) measured different content and
-are kept as history in the same file.
+Full method, both runs, the retraction, the repair log, and the still-open key defects are in
+[tests/results-tier3.md](tests/results-tier3.md). Every number is re-derivable from committed
+raw grades and CI fails if the prose drifts from them.
 
 **Trigger benchmark, live: precision 100%, recall 96%.** One hundred fifty real headless
 sessions, three passes per prompt, majority scoring, in a clean profile. The description

@@ -1,0 +1,575 @@
+{
+  "batch": 4,
+  "scenarios": [
+    {
+      "id": "S001",
+      "focus": "enforcement",
+      "scenario": "Quarterly security pass: about 400 route handler files each need the identical audit step for missing authorization checks, every finding must be adversarially verified before it is reported, and next quarter the whole pass should rerun the same way from a single command.",
+      "key": {
+        "primary": "Dynamic workflow: a script fans out one auditor subagent per file, a verifier stage cross-checks findings, and the run is saved to .claude/workflows/ as a reusable slash command",
+        "rejected_alternative": "Spawning many parallel subagents directly from the main conversation",
+        "rejection_reason": "The main agent coordinates subagents turn by turn and every result returns to its context window; at 400 items that exceeds what one conversation can coordinate (20 concurrent subagents and 200 per session by default), and the orchestration is not repeatable. The workflow runtime runs dozens to hundreds of agents per run (up to 1,000, 16 concurrent), keeps intermediate results in script variables instead of any context window, and a saved run reruns as /<name>. This is the docs' own 'audit many files for the same issue' shape.",
+        "enforcement_owner": "harness",
+        "context_boundary": "isolated context (each spawned agent has its own context; intermediate results live in script variables, and only the final report reaches the session)",
+        "lifecycle": "explicit invocation: 'use a workflow' or the ultracode keyword in a typed prompt, later the saved /<name> command; a launch approval prompt gates the run per permission mode",
+        "failure_mode": "Stopping mid fan-out is expensive on resume: cached results stop at the first unfinished agent and every agent started after it reruns; exiting Claude Code forfeits resume entirely (resume works only within the same session); no mid-run user input is possible.",
+        "version_caveat": "Requires Claude Code v2.1.154 or later; paid plans only; on Pro it must be enabled from the Dynamic workflows row in /config"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "Dynamic workflow: Claude writes a JavaScript orchestration script that fans out one auditor agent per route handler file, pipes every finding through adversarial verifier agents, and filters out findings that do not survive; the run is then saved from /workflows into .claude/workflows/ so next quarter it reruns identically as a single slash command.",
+          "rejected_alternative": "Subagents driven from the main conversation: 400 fan-outs exceed what one conversation coordinates (20 concurrent, 200 per session), each report would land back in the main context, and nothing repeatable would survive to next quarter.",
+          "enforcement_owner": "Split ownership: the harness runtime executes the script, so the fan-out, the verification stage, and the stop conditions run deterministically every quarter; the content of each audit and each verification verdict remains model judgment inside the spawned agents.",
+          "context_boundary": "The script executes in an isolated runtime outside any conversation, and each auditor and verifier subagent gets its own fresh context window; intermediate findings live in script variables, and only the final filtered report crosses into the main session.",
+          "lifecycle": "Triggered the first time by asking for a workflow (or the ultracode keyword) and thereafter by invoking the saved command; it runs in the background until the script returns, is resumable within the same session, and per-project plan approval can be persisted with the don't-ask-again option.",
+          "failure_mode": "Workflow agents always run in acceptEdits with your existing tool allowlist, so non-allowlisted Bash or web calls can stall a 400-agent run on permission prompts; exiting Claude Code mid-run loses resumability. The adversarial verification itself is advisory model judgment, so a lazy verifier passes bad findings through (fails open).",
+          "version_caveat": "Requires Claude Code v2.1.154 or later and a paid plan; on Pro, enable it from the Dynamic workflows row in /config. Runtime caps apply (16 concurrent agents, 1,000 agents per run), and the default medium size guideline on v2.1.219+ aims for under 15 agents, so the prompt must state the full per-file fan-out."
+        },
+        {
+          "sheet": 2,
+          "primary": "Dynamic workflow: an orchestration script saved to .claude/workflows/ and invoked as a /name command. A first stage lists the ~400 route handler files, a pipeline fans out one auditor subagent per file, a verification stage adversarially checks each finding before it is reported, and the saved script reruns identically next quarter.",
+          "rejected_alternative": "Agent team: peers that message each other add nothing because the per-file auditors have no need to talk, teams are experimental and sized for 3 to 5 teammates, and a team run is not reproducible from a single command the way a saved script is.",
+          "enforcement_owner": "The harness: the workflow runtime executes the script, so the loop, the fan-out, and the verify-before-report ordering are code the model cannot reinterpret; only each auditor's judgment inside its own task is model-owned.",
+          "context_boundary": "Each spawned subagent runs in its own context window; intermediate per-file findings live in script variables rather than in any context window, and only the final verified report crosses back into the caller's session.",
+          "lifecycle": "Runs when the user invokes the saved /name command (or asks for the workflow in a prompt); executes in the background until the script returns; the on-disk script in .claude/workflows/ persists, so next quarter's rerun is the same single command.",
+          "failure_mode": "Per-item failures fail open: a dead auditor agent resolves to a null result and leaves a silent hole unless the script filters and counts results. Mid-run, shell commands outside the permission allowlist stall the run on prompts, and exiting Claude Code mid-run loses the run's progress.",
+          "version_caveat": "Requires Claude Code v2.1.154 or later; workflows are available on all paid plans, and on Pro they must be enabled from the Dynamic workflows row in /config."
+        },
+        {
+          "sheet": 3,
+          "primary": "A skill exposed as a single slash command owns the pass: its instructions fan the roughly 400 route handler files out to read-only auditor subagents in bounded batches, and every finding must pass through a separate adversarial verifier subagent before it is written into the quarterly report.",
+          "rejected_alternative": "A dynamic workflow (a headless claude -p orchestration script); it also reruns from one command, but it adds external scripting and state plumbing that the in-session skill plus subagent fan-out does not need.",
+          "enforcement_owner": "The model. A skill is advisory instruction text; the harness loads it, but nothing forces the model to visit all 400 files or to verify before reporting.",
+          "context_boundary": "Each auditor subagent runs in its own fresh context holding only its assigned files; only structured findings cross back to the orchestrating session, and verifier subagents likewise return only a confirmed or rejected verdict.",
+          "lifecycle": "Runs when the user invokes the slash command each quarter; it ends when the report is written, and the skill file persists in the repo so next quarter's run is identical.",
+          "failure_mode": "Advisory and fails open: under context pressure the model can shrink batches, skip files, or report unverified findings, and nothing in the harness blocks that; a per-file manifest with checkoff is the usual mitigation.",
+          "version_caveat": "Skills and subagents are stable features with no enabling flag; I recall the parallel subagent concurrency cap being around 10 with the rest queued, but I am not certain of the exact number."
+        },
+        {
+          "sheet": 4,
+          "primary": "A dynamic workflow: Claude writes a script that fans one audit agent out per route handler file, adds an adversarial verification stage each finding must survive before it is reported, and the run is saved from /workflows as a project command in .claude/workflows/ so next quarter the identical orchestration reruns from a single slash command.",
+          "rejected_alternative": "A skill encoding the audit procedure. It loses because a skill leaves Claude orchestrating turn by turn in the main context, where 400 per-file results accumulate; with a workflow the saved artifact is the orchestration itself rather than instructions, so the rerun is identical by construction.",
+          "enforcement_owner": "The harness: the workflow runtime executes the script in the background, so fan-out order, the verification gate, and completion are enforced by the script rather than by the model's turn-by-turn judgment. The individual audit agents are still model work.",
+          "context_boundary": "Each spawned agent gets its own context window; intermediate per-file findings live in script variables, not in any conversation, and only the final verified report lands in the user's session.",
+          "lifecycle": "Runs when the saved command is invoked (or when the user asks for the workflow); it executes in the background and stops when the script returns. A stopped run is resumable only within the same session, while the saved script persists indefinitely as a /command.",
+          "failure_mode": "Fails open operationally: stopping mid fan-out discards every agent that started after the first unfinished one, unallowlisted shell commands prompt mid-run and stall an unattended pass, and the workflow's agents run in acceptEdits so any file edits are auto-approved.",
+          "version_caveat": "Requires Claude Code v2.1.154 or later; available on all paid plans, and on Pro it must be enabled from the Dynamic workflows row in /config."
+        }
+      ]
+    },
+    {
+      "id": "S005",
+      "focus": "enforcement",
+      "scenario": "Run the strict type check, fix whatever it reports, run it again, and keep looping until it passes or two consecutive rounds make no progress. Nobody should babysit the loop or re-decide anything between rounds.",
+      "key": {
+        "primary": "Dynamic workflow: the script holds the check-fix-recheck loop and the deterministic two-rounds-no-progress termination condition",
+        "rejected_alternative": "Chaining subagents turn by turn from the main conversation",
+        "rejection_reason": "With chained subagents the model re-decides after every round and each round's results land in the main context, so a long loop both drifts (the stop condition is judgment, not code) and bloats context. The workflow docs give this exact prompt as a canonical shape ('keep fixing until a check passes... or two rounds in a row make no progress'): the script owns the iteration and the stop condition, and the session receives only the final outcome.",
+        "enforcement_owner": "harness",
+        "context_boundary": "isolated context (per-round agents; loop state and round results held in script variables)",
+        "lifecycle": "explicit invocation via the workflow request or ultracode keyword, or a saved command; approval prompt at launch",
+        "failure_mode": "No mid-run user input, so if a fix genuinely needs a human call the run cannot pause to ask; a loop that stalls without triggering the stop condition burns agents toward the 1,000-agent per-run cap; exiting the session loses resumability.",
+        "version_caveat": "Requires Claude Code v2.1.154 or later; paid plans; Pro enables via /config"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "Dynamic workflow: the documented keep-fixing-until-a-check-passes shape, a script that loops run-the-strict-type-check, fan out fixer agents on the reported errors, re-run, and terminate on pass or when two consecutive rounds make no progress; the runtime holds the loop so nobody re-decides anything between rounds. Save it as a command if it recurs.",
+          "rejected_alternative": "A Stop hook that blocks the turn until the type check passes: it fails closed, but it cannot express the two-rounds-without-progress exit, so an unfixable error traps the session, and the fixing between checks would still need the model babysat turn by turn.",
+          "enforcement_owner": "Harness for the loop: the iteration, the progress comparison, and both stop conditions execute deterministically in the workflow runtime; the fixes themselves are model work inside each spawned agent.",
+          "context_boundary": "Loop state (round count, previous error list, progress delta) lives in script variables inside the isolated runtime; each fixer agent gets a fresh context containing only its errors; only the final passed-or-stalled report enters your conversation.",
+          "lifecycle": "Starts when you request the workflow or invoke the saved command and approve the plan; phases repeat until the check passes or the no-progress condition trips; resumable within the session if paused, but starts fresh if you exit Claude Code mid-run.",
+          "failure_mode": "Permission prompts for non-allowlisted commands (the type-check invocation itself) can stall the supposedly unattended run, so allowlist first; a weak fixer can thrash the same errors until the no-progress rule trips, and the progress comparison is only as good as the script's diff of rounds. The loop is bounded (fails closed), fix quality is advisory.",
+          "version_caveat": "Workflows require v2.1.154 or later and a paid plan; on Pro they must be enabled in /config. Workflow agents always run in acceptEdits with your tool allowlist regardless of the session's permission mode."
+        },
+        {
+          "sheet": 2,
+          "primary": "Dynamic workflow: the script loops run-the-type-check, parse failures, dispatch fix agents, re-run, and terminates on pass or when two consecutive rounds report no progress; this matches the documented keep-fixing-until-a-check-passes workflow shape.",
+          "rejected_alternative": "A Stop hook that blocks the turn until the type check passes: it is harness-owned but cannot cleanly express the two-rounds-without-progress exit condition, risks an unbounded block, and keeps every fix iteration inside the main conversation.",
+          "enforcement_owner": "The harness: the loop and its termination condition are script code executed by the workflow runtime, so nobody re-decides anything between rounds and the model cannot talk its way out of another iteration.",
+          "context_boundary": "Type-checker output and per-round fix results stay inside the spawned agents' contexts and the script's variables; the caller's session receives only the final passed-or-stalled report.",
+          "lifecycle": "Starts on /name invocation or an in-prompt workflow request; iterates unattended in the background; stops when the check passes, when two consecutive rounds make no progress, or at the runtime's hard agent caps.",
+          "failure_mode": "Per-round agent failures resolve to null and fail open, so the script must treat a silent round as no progress rather than as success; the 1,000 agents per run cap bounds a runaway loop, and the large-run warning is advisory only.",
+          "version_caveat": "Requires Claude Code v2.1.154 or later and a paid plan; on Pro, Dynamic workflows must be enabled in /config."
+        },
+        {
+          "sheet": 3,
+          "primary": "A dynamic workflow whose script holds the loop: run the strict type check, fan fixes out to agents, rerun, and terminate on pass or when two consecutive rounds make no progress. Changed from step 1: I initially chose a Stop hook, but the documentation pins this exact loop, including the two-rounds-no-progress stop rule, as a canonical workflow example, and the script is the right owner of the loop state.",
+          "rejected_alternative": "A Stop hook that blocks the turn until the type check passes. It loses because the no-progress termination needs durable round-over-round state that a stateless exit-code hook handles poorly, every fix iteration stays in one main-conversation context, and a miswritten Stop hook can trap the session in an endless loop.",
+          "enforcement_owner": "The harness: the workflow runtime executes the script outside the conversation, so the rerun-fix-rerun loop and its termination condition are enforced by script logic, with no one re-deciding anything between rounds.",
+          "context_boundary": "Each fix agent works in its own context; per-round results accumulate in script variables rather than any conversation, and only the final outcome (passed, or stalled after two flat rounds) reaches the user's session.",
+          "lifecycle": "Starts when the workflow is requested (ultracode keyword, a plain request for a workflow, or a saved command); it runs in the background and stops when the check passes or the no-progress rule fires. Resumable only within the same session.",
+          "failure_mode": "The unattended loop stalls if a needed command is not allowlisted, because agent tool calls can still prompt mid-run with nobody watching; a stopped run replays expensively on resume, and exiting Claude Code mid-run means the next session starts the workflow fresh.",
+          "version_caveat": "Requires Claude Code v2.1.154 or later; available on all paid plans, and on Pro it must be enabled from the Dynamic workflows row in /config."
+        },
+        {
+          "sheet": 4,
+          "primary": "A Stop hook: when the model tries to end the turn, the hook itself runs the strict type check; on remaining errors it blocks the stop and feeds the error list back so the model fixes and retries, and it tracks the error count in a small state file so it allows the stop after a clean pass or after two consecutive rounds with no reduction.",
+          "rejected_alternative": "A skill that says loop until clean; that depends on the model choosing to keep looping, which is exactly the babysitting-by-hope this scenario forbids.",
+          "enforcement_owner": "The harness: the hook executes deterministically outside the model, and its block decision is applied whether or not the model agrees.",
+          "context_boundary": "The hook runs as an external process; only its block reason (the fresh type errors) enters the conversation, and its progress state lives in a file outside any context window.",
+          "lifecycle": "Fires on every Stop event while configured in the project settings; it stops applying when the check passes, when the stagnation counter trips, or when the hook is removed from settings.",
+          "failure_mode": "Fails closed by design, since the turn cannot end with errors outstanding; the key risk is a livelock if the progress detection is buggy, and conversely a crashing hook that exits with a non-blocking code fails open and silently lets the turn end.",
+          "version_caveat": "Stop hooks with block semantics (exit code 2 or a block decision in JSON output) are standard current hook behavior to my knowledge, with no enabling flag; hook configuration changes generally need a settings reload or new session and are reviewable via /hooks."
+        }
+      ]
+    },
+    {
+      "id": "S010",
+      "focus": "enforcement",
+      "scenario": "A review pass over recent changes should dispatch an independent verifier for each finding it produces, typically 5 to 10 findings, and none of the per-finding verification chatter should ever reach my conversation. I want exactly one final verified summary back.",
+      "key": {
+        "primary": "One subagent that spawns nested subagents: the reviewer delegates a verifier per finding and only the top-level summary returns to the session",
+        "rejected_alternative": "A dynamic workflow with a review stage and a verify stage",
+        "rejection_reason": "The fan-out is real but small and hangs entirely off one delegated task. The subagent docs name this exact shape as what nesting is for: 'a reviewer subagent that dispatches a verifier per finding, so the intermediate output never reaches your main conversation', with subagents able to spawn up to three layers below the main conversation by default. At 5 to 10 agents the workflow's launch approval, background runtime, and generated script buy nothing; workflows are for jobs that outgrow a handful of subagents.",
+        "enforcement_owner": "harness",
+        "context_boundary": "isolated context (a nested subagent tree; intermediate results are confined to it and only the top-level summary returns)",
+        "lifecycle": "model-decided delegation; nesting occurs inside the reviewer subagent when its tool list includes Agent and depth allows",
+        "failure_mode": "At the depth limit the Agent tool is withheld and the leaf agent does the verification itself; verifier detail is only as visible as the reviewer's synthesis, so a weak summary hides verified evidence; every spawn counts against the 200-per-session subagent cap.",
+        "version_caveat": "Nesting depth defaults to three layers as of v2.1.219, configurable via CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH (v2.1.217+); v2.1.217 to v2.1.218 defaulted to one layer, and v2.1.172 to v2.1.216 allowed five"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "Nested subagents: a top-level reviewer subagent performs the review pass and itself dispatches an independent verifier subagent per finding; all verification chatter stays inside the reviewer's subtree, and only the reviewer's single verified summary returns to the conversation. The docs name the reviewer-dispatching-a-verifier-per-finding shape as the canonical nested-subagent use.",
+          "rejected_alternative": "A dynamic workflow with review and verify stages. It would work but loses for 5 to 10 findings: it is plan-gated, launch-prompted, heavier machinery, while nesting is native to subagents (default depth of three layers below the main conversation) and keeps the whole pass inside the session with no orchestration artifact to manage.",
+          "enforcement_owner": "Split: the model decides to nest and dispatch the verifiers, but the harness enforces the boundary, withholding the Agent tool at the depth limit and structurally returning only the top-level subagent's summary to the main conversation.",
+          "context_boundary": "Each verifier runs in its own context window and reports to the reviewer subagent, not to the main conversation; only the top-level reviewer's final verified summary crosses into the user's session.",
+          "lifecycle": "The reviewer spawns on delegation, dispatches one fresh verifier instance per finding as findings emerge, and the whole pass ends when the top-level reviewer returns its summary; every nested spawn counts against the session's subagent budget.",
+          "failure_mode": "Fails closed at the caps: at the depth limit or the default 200-per-session spawn limit the Agent tool errors with Subagent spawn limit reached and the reviewer must verify findings itself, losing independence; on v2.1.217 through v2.1.218 the default depth of one blocked nesting entirely unless raised.",
+          "version_caveat": "Depth defaults moved across releases: up to five layers on v2.1.172 through v2.1.216, one on v2.1.217 through v2.1.218, and three from v2.1.219; the CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH override requires v2.1.217 or later, and the session spawn-cap override requires v2.1.212 or later."
+        },
+        {
+          "sheet": 2,
+          "primary": "A dynamic workflow: one command starts a fresh headless orchestrator session (claude -p or the Agent SDK) that performs the review pass, dispatches an independent verifier subagent per finding, and emits exactly one verified summary; all per-finding verification chatter stays inside that separate session tree.",
+          "rejected_alternative": "Running the fan-out from my own session as nested subagents; to my recollection subagents cannot dispatch subagents of their own because the Task capability is withheld inside them, so verifier dispatches and results would have to flow through my conversation.",
+          "enforcement_owner": "Split: the harness guarantees the isolation, since a separate process's contexts can never leak into mine; the model owns whether the verifiers genuinely and independently check each finding.",
+          "context_boundary": "The review and all verification occupy the headless session and its subagent contexts; the only thing that crosses back is the single final summary, ideally as a file plus a short stdout verdict.",
+          "lifecycle": "Runs when the wrapping command is invoked after changes land, and the process exits once the summary is emitted; nothing persists between runs except the summary artifact.",
+          "failure_mode": "Quality fails open, since verifiers can rubber-stamp findings rather than independently reproduce them, while delivery fails closed: if the headless run dies you get no summary at all, so the wrapper must check the exit status.",
+          "version_caveat": "Headless mode and the Agent SDK are stable and unflagged; the rule that subagents cannot spawn further subagents matches my knowledge of Claude Code, but I cannot cite the version where it is documented."
+        },
+        {
+          "sheet": 3,
+          "primary": "Nested subagents: a custom reviewer subagent that keeps Agent in its tools reviews the recent changes, then dispatches one verifier subagent per finding one layer further down; all per-finding verification chatter stays inside the nested layer and only the reviewer's single verified summary returns to your conversation. The docs name reviewer-dispatches-a-verifier-per-finding as the case nesting exists for.",
+          "rejected_alternative": "Dynamic workflow: it would equally keep the chatter out of the session and verify per finding, but for 5 to 10 findings the script-and-approval overhead outweighs it; nesting keeps this a one-line delegation. Reach for the workflow instead once you want the pass saved as a rerunnable command.",
+          "enforcement_owner": "Model: the reviewer decides to spawn verifiers, writes their prompts, and weighs their verdicts; the harness enforces only the spawn depth cap, the concurrency and session limits, and the tool lists. The only structural guarantee is that just the top-level summary crosses back.",
+          "context_boundary": "The reviewer runs in its own context one level below main; each verifier runs another level down in a fresh context receiving only its finding; verifier reports return to the reviewer, and only the reviewer's summary (after output scanning) crosses into your conversation.",
+          "lifecycle": "Runs when you invoke or @-mention the reviewer subagent; verifiers end as they report and the reviewer ends with its summary, resumable via SendMessage; every nested spawn counts against the 200-subagents-per-session budget.",
+          "failure_mode": "Fails open: if the depth limit is exhausted or Agent is missing from the reviewer's tools, the reviewer silently verifies its own findings instead of dispatching independent checkers, defeating the point; each verifier is also only as independent as the prompt the reviewer writes for it.",
+          "version_caveat": "Depth defaults shifted across versions: up to three nested layers is the default as of v2.1.219, but v2.1.217 and v2.1.218 defaulted to one layer (no nesting) unless CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH (available from v2.1.217) raised it, and v2.1.172 through v2.1.216 allowed five layers with no override."
+        },
+        {
+          "sheet": 4,
+          "primary": "Dynamic workflow: stage one produces the review findings, stage two fans out one independent verifier agent per finding (5 to 10 of them), and a final stage returns exactly one verified summary; all per-finding verification chatter stays in agent contexts and script variables.",
+          "rejected_alternative": "Model-orchestrated subagents: every verifier's report would return into the user's conversation, violating the requirement that per-finding chatter never reach it, and the model could skip or merge verifications at its own discretion.",
+          "enforcement_owner": "The harness: the workflow runtime executes the script in an isolated environment, so every finding gets its verifier and only the final summary is emitted, by construction rather than by model discipline.",
+          "context_boundary": "Reviewers and verifiers each run in their own context windows; intermediate findings and verification exchanges live in script variables, and the single verified summary is the only thing that crosses into the user's session.",
+          "lifecycle": "Runs when the review workflow is invoked; executes in the background and finishes when the script returns the summary; savable to .claude/workflows/ so the pass reruns as a command.",
+          "failure_mode": "Fails open per finding: a dead verifier resolves to null and its finding silently goes unverified unless the script filters and marks it; the run is lost if Claude Code exits mid-run, and only permission prompts can pause it.",
+          "version_caveat": "Requires Claude Code v2.1.154 or later; workflows are available on all paid plans, with Pro requiring the /config toggle to enable them."
+        }
+      ]
+    },
+    {
+      "id": "S015",
+      "focus": "knowledge",
+      "scenario": "One engineer wants their personal habits (2-space indentation, conventional-commit messages, a preferred diff-review flow) applied in every repository they open on their machine, without pushing any of it onto teammates through shared repos.",
+      "key": {
+        "primary": "User-scope memory: ~/.claude/CLAUDE.md, optionally split into topic files under ~/.claude/rules/",
+        "rejected_alternative": "A gitignored CLAUDE.local.md in each project",
+        "rejection_reason": "CLAUDE.local.md is scoped to a single project, and because it is gitignored it exists only in the worktree where it was created. The user file at ~/.claude/CLAUDE.md loads automatically for all projects on the machine and is never shared through the repo.",
+        "enforcement_owner": "model",
+        "context_boundary": "main context",
+        "lifecycle": "Loaded at session start in every project; user scope loads before project scope, so project instructions appear later in context and win on conflict",
+        "failure_mode": "Project-level instructions can silently override the personal preference where they conflict, and the file spends context tokens in every session whether relevant or not",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "User-scope memory: ~/.claude/CLAUDE.md for the habits, optionally organized into ~/.claude/rules/ files. Settled on the one-project-vs-shared axis inverted: machine-wide personal scope, deliberately outside any repo.",
+          "rejected_alternative": "CLAUDE.local.md. It loses because it is per-project (one gitignored file in each repo, and only in the worktree where it was created), while the engineer wants the habits in every repository on the machine with zero per-repo setup.",
+          "enforcement_owner": "The model. User memory is loaded context, not enforcement; the harness guarantees only that the file loads before project memory in every session on this machine.",
+          "context_boundary": "Runs in the main session context of every project opened on this machine. The content crosses into each session at launch but never crosses into teammates' environments because it lives in the home directory, not the repo.",
+          "lifecycle": "Loaded at the start of every conversation, in every project, before project-level instructions. It stops applying only when the engineer edits or deletes the file.",
+          "failure_mode": "Advisory and fails open: Claude may drift from the preferences, and when a project CLAUDE.md gives conflicting guidance the outcome is arbitrary, with project instructions appearing later in context and tending to win.",
+          "version_caveat": "None applies: user-scope CLAUDE.md and ~/.claude/rules/ are core stable behavior with no version gate, experimental status, or enabling flag."
+        },
+        {
+          "sheet": 2,
+          "primary": "User-level instructions on that engineer's machine: ~/.claude/CLAUDE.md for the standing preferences (2-space indent, conventional commits) plus optional topic files under ~/.claude/rules/. These load in every project on the machine and never enter any shared repository.",
+          "rejected_alternative": "CLAUDE.local.md: it is also personal and gitignored, but it is per-project, so the engineer would have to recreate it in every repo (and in every worktree), which contradicts the every-repository requirement.",
+          "enforcement_owner": "The model. User CLAUDE.md and user rules are advisory context; nothing in the harness enforces indentation or commit style.",
+          "context_boundary": "Loaded in full into the main conversation context at session start for every project, ordered before project-level instructions so project rules read later and take practical priority on conflict.",
+          "lifecycle": "Loads at every session launch on that machine across all repositories; stops applying only when the engineer edits or deletes the files. It is never committed, so teammates are untouched.",
+          "failure_mode": "Advisory and fails open: Claude may deviate, and because user instructions load before project instructions, a project CLAUDE.md that contradicts them can win arbitrarily; conflicting guidance is the main practical failure.",
+          "version_caveat": "No version gate; user CLAUDE.md and ~/.claude/rules/ are core. Imports in user-scope memory files load without the external-import approval dialog since they are the user's own files."
+        },
+        {
+          "sheet": 3,
+          "primary": "User-level CLAUDE.md at ~/.claude/CLAUDE.md holding the personal preferences (indentation, conventional commits, diff-review flow); it applies to every project opened on that machine and never enters any repository.",
+          "rejected_alternative": "Project CLAUDE.md; it travels through version control and would impose one engineer's personal habits on the whole team.",
+          "enforcement_owner": "The model; it is advisory instruction text.",
+          "context_boundary": "Loaded into the main context of every session on this machine, layered with any project-level instructions that also load.",
+          "lifecycle": "Read at session start in every project on the machine; stops when the user edits or deletes the file.",
+          "failure_mode": "Advisory, fails open: it can silently conflict with team project conventions (project rules should normally win for shared code), and a long personal file taxes every session's context.",
+          "version_caveat": "Long-standing core behavior; no flags or version gates."
+        },
+        {
+          "sheet": 4,
+          "primary": "User-scope memory: ~/.claude/CLAUDE.md, optionally split into ~/.claude/rules/ topic files, holding the 2-space indentation, conventional-commit, and diff-review preferences; it loads for every project on that machine and is never committed to any repo.",
+          "rejected_alternative": "CLAUDE.local.md: it is per-project, so the engineer would have to recreate it in every repository and worktree, and it covers only the current project rather than every repo they open.",
+          "enforcement_owner": "The model. User memory is context, not enforced configuration; the harness loads it every session but Claude decides whether to follow the preferences.",
+          "context_boundary": "Loads in full into the main session context at launch on this machine only, positioned before project-level instructions; nothing reaches teammates because the files live in the engineer's home directory.",
+          "lifecycle": "Loaded at the start of every session in every project on the machine; it applies until the engineer edits or deletes the file.",
+          "failure_mode": "Advisory, fails open, and loses conflicts: user-level content loads before project content so project rules take priority, and when two instructions conflict Claude may pick one arbitrarily.",
+          "version_caveat": "None. No version gate, experimental status, or enabling flag is documented for user-scope CLAUDE.md or ~/.claude/rules/."
+        }
+      ]
+    },
+    {
+      "id": "S026",
+      "focus": "delegation",
+      "scenario": "We need Claude connected to an internal HTTP tool service that authenticates with short-lived tokens minted by our single-sign-on helper command. Tokens expire mid-session, and the service exposes no OAuth endpoints of its own.",
+      "key": {
+        "primary": "MCP server configured with headersHelper: a command that writes a JSON object of headers to stdout, run fresh at each connection and automatically re-run with one retry when a call returns 401 or 403",
+        "rejected_alternative": "A static Authorization header in the server's .mcp.json entry using ${TOKEN} environment-variable expansion",
+        "rejection_reason": "Environment expansion resolves once from the ambient environment, so an expired short-lived token leaves the connection failing until restart. The docs name headersHelper as the mechanism for authentication schemes other than OAuth, such as Kerberos, short-lived tokens, or an internal SSO, and Claude Code re-runs the helper, reconnects, and retries the call once on 401/403.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context",
+        "lifecycle": "helper runs in a shell with a 10-second timeout at session start, on every reconnect, and on a 401/403 retry; there is no caching, so the script owns any token reuse",
+        "failure_mode": "the helper executes arbitrary shell commands, so at project or local scope it only runs after the workspace trust dialog is accepted; a helper that exceeds 10 seconds or prints non-JSON breaks the connection entirely",
+        "version_caveat": "automatic helper re-run and single retry on 401/403 requires Claude Code v2.1.193 or later"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "An HTTP MCP server entry with a headersHelper command that shells out to the SSO helper and prints the auth header as JSON. The helper runs fresh at every connection, and on a 401 or 403 mid-session Claude Code automatically re-runs it, reconnects with fresh headers, and retries the call once, which absorbs mid-session token expiry.",
+          "rejected_alternative": "Static headers with a Bearer token captured at add time; it dies the first time the short-lived token expires mid-session. OAuth configuration is also out since the service exposes no OAuth endpoints.",
+          "enforcement_owner": "The harness: Claude Code executes the helper, merges its output into connection headers, and drives the 401-triggered refresh-and-retry; the model never sees or manages the token.",
+          "context_boundary": "The helper runs in a shell outside the context window with a 10-second timeout; tokens stay in connection headers and never enter model context, while tool results cross into the main conversation.",
+          "lifecycle": "Runs at session start, on every reconnect, and again on a 401/403 retry; there is no caching, so the helper script owns any token reuse. Applies as long as the server entry exists in configuration.",
+          "failure_mode": "Fails closed: if the helper errors, times out, or the single retry after re-minting also fails, the server is flagged as needing authentication and its tools are unavailable. The helper must emit a flat JSON object of string pairs on stdout or the connection gets no headers.",
+          "version_caveat": "Automatic helper re-run on 401/403 with one retry requires v2.1.193 or later. When defined at project or local scope the helper only runs after workspace trust, and a plugin-provided headersHelper cannot substitute user_config values as of v2.1.207."
+        },
+        {
+          "sheet": 2,
+          "primary": "An HTTP MCP server entry whose `headersHelper` runs the SSO helper command, minting a fresh short-lived token whenever Claude Code connects or reconnects; no OAuth endpoints are needed on the service. Step 1 chose a local stdio proxy server that would mint tokens itself; the documented headersHelper mechanism replaces it, so I changed my answer.",
+          "rejected_alternative": "Static `headers` with ${VAR} expansion in .mcp.json: the value is fixed when the config loads, so a token that expires mid-session goes stale with no refresh path, while headersHelper reruns the mint command on each connection and on auth failure.",
+          "enforcement_owner": "The harness: Claude Code runs the helper command, merges its JSON output into the connection headers, and reruns it automatically on 401/403; the model never sees or manages tokens.",
+          "context_boundary": "The helper runs in a harness-spawned shell with a 10 second timeout; tokens exist only in connection headers and never enter model context, while only tool results cross into the main conversation.",
+          "lifecycle": "The helper runs fresh on each connection, at session start and on reconnect, with no caching; from v2.1.193 a 401/403 mid-session triggers an automatic helper rerun, reconnect, and one retry of the failed call.",
+          "failure_mode": "Fails closed: if the rerun-and-retry also fails the tool call errors and the server is marked as needing authentication in /mcp; a helper that exceeds the 10 second timeout or emits non-JSON prevents the connection.",
+          "version_caveat": "The automatic rerun-and-retry on 401/403 requires v2.1.193 or later; on earlier versions headers are only minted at connection time, so mid-session expiry breaks calls until a reconnect."
+        },
+        {
+          "sheet": 3,
+          "primary": "An MCP server (HTTP transport) with a headersHelper command that invokes the SSO helper to mint a fresh short-lived token and emit it as an Authorization header; Claude Code runs the helper at each connection and automatically re-runs it when the token expires mid-session.",
+          "rejected_alternative": "Static headers with ${VAR} expansion in .mcp.json. It loses because expansion happens when the config is read, so a token that expires mid-session leaves the connection permanently rejected with no re-mint path; OAuth is also unavailable because the service exposes no OAuth endpoints.",
+          "enforcement_owner": "The harness: Claude Code executes the helper, merges its output into the connection headers, and owns the 401 re-run-and-retry; the model never sees or handles the token.",
+          "context_boundary": "Tool calls run in the main conversation and results cross into context; the helper runs as a harness-spawned shell subprocess, and the token travels only in connection headers, never through the model's context.",
+          "lifecycle": "The helper runs fresh on every connection, at session start and on reconnect, with no caching, and again automatically when a tool call returns 401/403; it stops applying when the server entry is removed.",
+          "failure_mode": "On mid-session expiry Claude Code re-runs the helper, reconnects, and retries the failed call once; if that retry also fails the server is marked as needing authentication and the session continues without it (fails open). The helper itself is subject to a 10-second shell timeout.",
+          "version_caveat": "Automatic helper re-run on 401/403 requires v2.1.193 or later; at project or local scope the helper command only executes after the workspace trust dialog is accepted, since it runs arbitrary shell."
+        },
+        {
+          "sheet": 4,
+          "primary": "An MCP server reached through a thin local stdio proxy: the proxy invokes the SSO helper command to mint a fresh short-lived token before each upstream HTTP call, re-minting on a 401, so mid-session expiry is invisible to the session; the proxy process is what gets registered in the MCP configuration.",
+          "rejected_alternative": "Registering the HTTP endpoint directly with a static Authorization header via claude mcp add --transport http --header; the header value is captured at configuration time and the connection dies the first time a token expires mid-session.",
+          "enforcement_owner": "The harness plus the proxy process own token freshness deterministically; the model never sees, stores, or manages credentials.",
+          "context_boundary": "Tool schemas and call results cross into the main context; tokens live only in the proxy process environment and never enter any context window.",
+          "lifecycle": "The proxy starts with the MCP client at session start, mints tokens on demand per call, and dies with the session; the configuration entry persists in .mcp.json until removed.",
+          "failure_mode": "Fails closed: if the SSO helper cannot mint (VPN down, IdP session expired), tool calls return visible errors until the engineer re-authenticates out of band; nothing silently degrades, but the service is unusable in the meantime.",
+          "version_caveat": "Built-in MCP OAuth does not apply because the service exposes no OAuth endpoints; whether current builds support dynamic header refresh natively I cannot say for certain, which is exactly why the proxy pattern is the safe choice."
+        }
+      ]
+    },
+    {
+      "id": "S034",
+      "focus": "orchestration",
+      "scenario": "Two hours into a debugging session, I want to hand off drafting regression tests for the bug we just characterized. The helper needs all the accumulated findings, ruled-out hypotheses, config quirks, and stack traces from our discussion, and I do not want to re-explain any of it while I keep working on the fix.",
+      "key": {
+        "primary": "Conversation fork (/subtask, or the fork subagent type): it inherits the entire conversation history, system prompt, tools, and model, runs the side task in the background, and only its final result returns; it also reuses the parent's prompt cache.",
+        "rejected_alternative": "Delegate to a named test-writer subagent with a delegation prompt summarizing the session.",
+        "rejection_reason": "A named subagent starts from fresh context; the delegation message would have to compress two hours of nuance and would lose ruled-out hypotheses and quirks. The docs say to use a fork exactly when a named subagent would need too much background to be useful, and the fork's tool calls still stay out of the main context.",
+        "enforcement_owner": "harness",
+        "context_boundary": "forked context",
+        "lifecycle": "explicit /subtask <task> from the user, or Claude requesting the fork subagent type when fork mode is enabled",
+        "failure_mode": "The fork inherits everything including wrong assumptions and context poisoning, so it gives no fresh perspective; it runs in the background by default, cannot spawn further forks, and steering it requires opening its transcript in the panel.",
+        "version_caveat": "/subtask requires v2.1.212 or later (the command was /fork on v2.1.161 through v2.1.211); letting Claude spawn forks itself is experimental, controlled by CLAUDE_CODE_FORK_SUBAGENT and a staged rollout"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A conversation fork started with /subtask (a forked subagent): it inherits the entire two-hour conversation, so the helper starts with every finding, ruled-out hypothesis, config quirk, and stack trace already in context, drafts the regression tests in the background, and returns only its result while you keep working on the fix.",
+          "rejected_alternative": "A named/custom subagent: it starts from a fresh context, so all the accumulated debugging context would have to be re-summarized into a delegation prompt, which is precisely the re-explaining the user wants to avoid.",
+          "enforcement_owner": "The harness: inheriting the full transcript, system prompt, and tools is structural to the fork mechanism, and its tool calls are kept out of the main window by the harness; the quality of the drafted tests is the model's responsibility.",
+          "context_boundary": "The fork receives a snapshot of the entire main-session context as of the moment it spawns and shares the parent's prompt cache; its own tool calls stay in its transcript, and only the final result comes back as a message in the main conversation.",
+          "lifecycle": "Started by typing /subtask <task> (or by Claude requesting the fork subagent type where fork mode is enabled); it runs in the background, can be watched and steered from the panel below the prompt, and ends when its result is delivered.",
+          "failure_mode": "The inherited context is frozen at spawn time, so fixes you make afterward are invisible to the fork and its drafted tests can go stale against the moving code; a fork also cannot spawn further forks. This is a delegation convenience, not an enforcement mechanism, so nothing fails closed.",
+          "version_caveat": "The /subtask command requires Claude Code v2.1.212 or later; before that the forked-subagent command was /fork, and letting Claude itself spawn forks remains experimental under staged rollout with the CLAUDE_CODE_FORK_SUBAGENT variable as the explicit override."
+        },
+        {
+          "sheet": 2,
+          "primary": "A conversation fork, started with /subtask (or by Claude requesting the fork subagent type): a subagent that inherits the entire two-hour conversation, so every finding, ruled-out hypothesis, config quirk and stack trace is already in front of it while it drafts the regression tests in the background.",
+          "rejected_alternative": "A named subagent: it starts from a fresh context with only the delegation prompt, so the accumulated findings would all have to be re-explained in the handoff message, which is exactly what the user refuses to do.",
+          "enforcement_owner": "The harness: it copies the parent conversation, system prompt, tools and model into the fork at spawn and keeps the fork's tool calls out of the main window, returning only the final result.",
+          "context_boundary": "The fork starts with the full parent conversation, sharing its prompt cache; its own drafting work stays in the fork, and only the finished result comes back as one message in the main conversation.",
+          "lifecycle": "Starts when you run /subtask with the task; it runs in the background in the panel below the prompt while you keep working on the fix, and it ends when its result message arrives (you can open its transcript to steer it, or stop it with x).",
+          "failure_mode": "It drops the input isolation subagents normally provide, so everything in the session reaches the helper; the inherited context is a snapshot at spawn, so anything learned afterwards does not propagate; and a fork cannot spawn further forks.",
+          "version_caveat": "/subtask requires v2.1.212 or later (on v2.1.161 through v2.1.211 the command was /fork, and before that it needed CLAUDE_CODE_FORK_SUBAGENT=1); letting Claude itself spawn forks is experimental."
+        },
+        {
+          "sheet": 3,
+          "primary": "A fork subagent started with /subtask (for example: /subtask draft regression tests for the bug we characterized). A fork inherits the entire conversation, so every finding, ruled-out hypothesis, config quirk, and stack trace is already in front of it with zero re-explaining, and it drafts in the background while you keep working on the fix.",
+          "rejected_alternative": "A custom test-writer subagent; a named subagent starts from fresh context, so two hours of accumulated findings would have to be compressed into the delegation prompt and would inevitably lose detail.",
+          "enforcement_owner": "The harness: it copies the conversation state into the fork and keeps the fork's tool calls out of the main window; the model owns the quality of the drafted regression tests.",
+          "context_boundary": "The fork receives a snapshot of the full history, system prompt, tools, and model at spawn and shares the parent's prompt cache; its own tool calls stay in its context, and only the final result returns to the main conversation as a message.",
+          "lifecycle": "Spawned by /subtask (or by Claude requesting the fork type), it runs in the background with a panel row for steering and follow-up messages; it ends when it delivers its result, and x dismisses a finished fork or stops a running one.",
+          "failure_mode": "The snapshot is taken at spawn, so anything discovered afterward does not reach the fork unless you message it through the panel; a background fork's edits bypass checkpointing, so /rewind cannot undo them; a fork cannot spawn further forks.",
+          "version_caveat": "/subtask requires v2.1.212 or later; on v2.1.161 through v2.1.211 the command was /fork, and on v2.1.117 through v2.1.160 it required CLAUDE_CODE_FORK_SUBAGENT=1. Claude-initiated forks remain experimental under a staged rollout."
+        },
+        {
+          "sheet": 4,
+          "primary": "A session fork: resume the current session into a second, independent conversation (claude --resume <session-id> with the fork option) and task that fork with drafting the regression tests. It starts with the entire two hours of findings, ruled-out hypotheses, config quirks, and stack traces already in context, while the original session continues on the fix.",
+          "rejected_alternative": "A subagent launched from the main session; subagents start with a clean context, so all accumulated findings would have to be serialized into the launch prompt by the model, which is exactly the lossy re-explaining the user wants to avoid.",
+          "enforcement_owner": "The model. The harness copies the transcript at fork time, but whether the helper uses the context well and whether its output is merged back correctly is model and human work.",
+          "context_boundary": "The full transcript up to the fork point crosses into the helper session as its starting context. After the fork the two contexts diverge; nothing flows between them automatically, so the drafted tests come back via the filesystem or git, not via context.",
+          "lifecycle": "Forked manually at the handoff moment; the two sessions then live and end independently. The fork stops being current the moment it is created; later findings in the original session never reach it.",
+          "failure_mode": "Fails open via divergence: discoveries made after the fork are invisible to the test-drafting helper, and both sessions editing the same files can collide. The fork also re-bills the whole accumulated context, which is expensive two hours into a session.",
+          "version_caveat": "Uncertain of the exact flag name and introducing version for forking a resumed session; --resume is long-standing, and I believe a fork-session option exists in 2025 releases but I cannot state the version. If forking is unavailable, the fallback is a written handoff document plus a fresh session, which loses fidelity."
+        }
+      ]
+    },
+    {
+      "id": "S043",
+      "focus": "integration",
+      "scenario": "During coding sessions the assistant should look up and update tickets in our self-hosted tracker, which sits behind OAuth. Copy-pasting ticket text into the chat is exactly what we are trying to eliminate.",
+      "key": {
+        "primary": "An MCP server for the tracker, added via claude mcp add / .mcp.json, exposing query and update tools with OAuth handled by the MCP authentication flow",
+        "rejected_alternative": "A skill whose SKILL.md instructs Claude to call the tracker's REST API with bundled curl scripts",
+        "rejection_reason": "The MCP docs describe exactly this trigger: 'Connect a server when you find yourself copying data into chat from another tool, like an issue tracker.' MCP gives typed tools, a managed OAuth flow, and per-tool permissioning; a script-based skill leaves credential storage, token refresh, and response parsing as hand-rolled shell plumbing.",
+        "enforcement_owner": "split: the harness owns the client-side machinery, it runs the OAuth flow, stores and refreshes tokens, and evaluates per-tool mcp__ permission rules; the tracker service enforces access on its side by rejecting unauthorized requests with 401 or 403",
+        "context_boundary": "main context",
+        "lifecycle": "Server connects at session start per its configured scope; the model calls its tools during turns subject to permission rules",
+        "failure_mode": "Fails closed toward the tracker: on a 401 Claude Code refreshes the stored token, reconnects, and retries the request once, flagging the server in /mcp for re-authentication only if that retry also fails, so expired credentials pause tracker access until the user signs back in; a dropped HTTP connection is retried with exponential backoff up to five attempts before the server is marked failed; oversized ticket payloads are limited by the 25,000-token default MCP output cap (warning at 10,000).",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "An MCP server: expose the tracker through an HTTP MCP endpoint and add it at project scope (claude mcp add --transport http, committed via .mcp.json) so Claude gets typed lookup and update tools; authenticate with the built-in OAuth 2.0 flow via /mcp or claude mcp login.",
+          "rejected_alternative": "A skill that wraps the tracker's REST API with curl in Bash; it leaves token handling to hand-rolled scripts, has no managed OAuth refresh, and gives the model no typed tool surface.",
+          "enforcement_owner": "The harness owns the connection, OAuth token storage, and refresh; the model owns when and how to call the ticket tools during coding.",
+          "context_boundary": "Tool schemas load into the main conversation's context at session start (a recurring token cost even when unused); ticket data crosses in as tool results; credentials never enter the model's context.",
+          "lifecycle": "The server connects at session start and its tools remain available all session; tokens are refreshed automatically (a 401 triggers one refresh-and-retry), re-authentication happens through /mcp, and removal is claude mcp remove.",
+          "failure_mode": "Fails open: if the server is down or the refresh token is rejected, the tools error and the model may fall back to asking the user for ticket text, the exact behavior being eliminated; /mcp flags the server needing re-auth rather than blocking the session.",
+          "version_caveat": "OAuth works with HTTP transport only, not WebSocket; claude mcp login requires v2.1.186+; the immediate re-authenticate notice on rejected refresh tokens is v2.1.195+, and the single retry after transient refresh failures is v2.1.206+."
+        },
+        {
+          "sheet": 2,
+          "primary": "An MCP server: add the self-hosted tracker as a remote HTTP MCP server (claude mcp add --transport http tracker <url>, shared at project scope via .mcp.json) and complete the OAuth 2.0 flow via /mcp or claude mcp login, making ticket lookup and update first-class tools in the session.",
+          "rejected_alternative": "A skill wrapping curl or a CLI against the tracker API. It loses because it would need hand-rolled OAuth token storage and refresh, while MCP gives a supported OAuth flow, automatic token refresh, and typed tools without pasting anything into chat.",
+          "enforcement_owner": "Split: the harness owns the connection, the OAuth handshake, and token refresh; the model owns the outcome, since it decides when to call the tracker tools during a coding session, which keeps the integration advisory.",
+          "context_boundary": "Tool definitions and tool results enter the main conversation context; ticket text crosses the boundary as live tool results instead of pasted chat text, and OAuth credentials never enter the context window.",
+          "lifecycle": "Configured once at a scope (project .mcp.json checked into version control to share with the team); the server connects each session and its tools stay available until the entry is removed or the OAuth grant is revoked.",
+          "failure_mode": "Fails open at the workflow level: on an expired token Claude Code refreshes and retries once, but if refresh fails the server is flagged in /mcp and the session simply continues without tracker tools until the user re-authenticates; each user must complete OAuth individually.",
+          "version_caveat": "OAuth authentication works with HTTP servers; running the OAuth flow from the shell with claude mcp login requires v2.1.186 or later, and project-scoped .mcp.json servers require per-user approval before first use."
+        },
+        {
+          "sheet": 3,
+          "primary": "An MCP server for the tracker, added as a remote HTTP or SSE server with OAuth (claude mcp add --transport http, then /mcp to complete the auth flow), giving the model direct lookup and update tools.",
+          "rejected_alternative": "A skill wrapping curl scripts: it can hit the API but pushes OAuth token acquisition, refresh, and storage onto hand-rolled scripts, which the MCP auth flow already handles.",
+          "enforcement_owner": "Split: the harness owns transport, OAuth, and credential storage; the model owns deciding when to call the ticket tools.",
+          "context_boundary": "Tool definitions occupy the main context all session; ticket text crosses in only as tool results when a tool is called; OAuth tokens live in the client credential store and never enter the context.",
+          "lifecycle": "Configured once per scope (.mcp.json for the project, or user scope), connects at session start, and the tools remain available every session until removed; tokens are refreshed by the client.",
+          "failure_mode": "Fails closed on expired or revoked auth (tool calls error until /mcp re-authenticates); a large tool surface bloats context; the model may still paste ticket text into chat instead of calling the update tool unless prompted otherwise.",
+          "version_caveat": "Remote MCP transports with OAuth require a 2025-era Claude Code; older builds supported only stdio servers, and the self-hosted tracker must speak the MCP OAuth flow or be fronted by a local stdio proxy."
+        },
+        {
+          "sheet": 4,
+          "primary": "An MCP server for the tracker, added as a project-scoped remote HTTP server (claude mcp add --transport http, checked into .mcp.json) using Claude Code's OAuth 2.0 support, so Claude reads and updates tickets directly. The external-data-behind-an-authenticated-boundary axis settled it.",
+          "rejected_alternative": "A skill wrapping curl scripts against the tracker API: it leaves OAuth token acquisition, refresh, and storage to hand-rolled scripts and provides no governed connection or approval boundary.",
+          "enforcement_owner": "Split: the harness owns the connection, the approval prompt for project-scoped servers, and token storage; the model owns deciding when to call the tracker tools.",
+          "context_boundary": "Work runs in the main session; tool calls and ticket payloads cross the MCP boundary as tool results, while OAuth tokens are stored by the harness and never enter the context window.",
+          "lifecycle": "The server configuration persists in .mcp.json and connects each session; tokens refresh automatically across sessions; it stops applying when the server is removed, toggled off in /mcp, or its authorization is revoked.",
+          "failure_mode": "Fails closed and visibly: expired or rejected auth surfaces as 401/403 and the server is flagged as needing authentication, so tool calls error instead of fabricating ticket data; server downtime blocks ticket work until reconnection or re-auth.",
+          "version_caveat": "OAuth works with HTTP servers; re-authenticating from the command line with claude mcp login requires v2.1.186 or later, and non-interactive runs cannot complete the OAuth flow at all."
+        }
+      ]
+    },
+    {
+      "id": "S050",
+      "focus": "integration",
+      "scenario": "A CI job pipes each pull request diff to the assistant for a typo and lint pass. The output must be byte-for-byte reproducible no matter whose machine or which runner executes it; a teammate's personal automation or the project's tool-server config must not leak into the run.",
+      "key": {
+        "primary": "Headless invocation with bare mode: claude --bare -p with the prompt, --allowedTools for the needed tools, and any required context passed explicitly via flags",
+        "rejected_alternative": "Plain claude -p in the CI script, reasoning that non-interactive mode is already isolated",
+        "rejection_reason": "The headless docs state that without --bare, claude -p 'loads the same context an interactive session would,' including hooks, skills, plugins, MCP servers, auto memory, and CLAUDE.md from the working directory and ~/.claude. Bare mode exists precisely for 'CI and scripts where you need the same result on every machine': a hook in a teammate's ~/.claude or a server in the project's .mcp.json never runs because bare mode never reads them.",
+        "enforcement_owner": "harness",
+        "context_boundary": "independent sessions",
+        "lifecycle": "Explicitly invoked per CI run as a one-shot non-interactive command; only flags passed on that invocation take effect",
+        "failure_mode": "Fails closed by omission: bare mode skips auto-discovery of hooks, skills, plugins, MCP servers, auto memory, and CLAUDE.md, so any context or tool grant the CI run needs but the flags do not pass simply is not there, and the lint pass silently runs without it; a tool call outside --allowedTools also cannot be interactively approved mid-run, since handling permission prompts in non-interactive mode requires a --permission-prompt-tool handler.",
+        "version_caveat": "--bare is the recommended mode for scripted and SDK calls and is slated to become the default for -p in a future release; until then, omitting it changes behavior"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "Headless non-interactive invocation, claude -p (the Agent SDK's print mode), in the CI job with the isolation flags checked into the pipeline: --setting-sources restricted so user and local settings never load, --strict-mcp-config so no project or personal MCP config is consulted, an explicit --settings/--tools/--model set, and --no-session-persistence so nothing carries between runs.",
+          "rejected_alternative": "The GitHub Action wrapper: it standardizes the runner but layers its own defaults and does not by itself exclude repo-committed settings or a teammate's environment; the explicit flag set on a plain headless call is the isolation contract here.",
+          "enforcement_owner": "The harness: which configuration sources load is decided by CLI flags at launch, not by model behavior or by whatever settings happen to exist on the machine.",
+          "context_boundary": "A fresh non-interactive context per run; only the piped PR diff, the pinned prompt, and the pipeline's explicit configuration cross in, while user hooks, local settings, and the project's .mcp.json are excluded by the flags.",
+          "lifecycle": "One session per pull request diff, launched by CI and exiting when the response is printed; with session persistence disabled there is no state to expire, and the contract lives as long as the pipeline config does.",
+          "failure_mode": "Fails open on omission: forget one flag and a teammate's user-level hooks or the project MCP servers silently load into the run; and even with hermetic config, model sampling is not guaranteed byte-identical across invocations, so literal byte-for-byte reproducibility additionally requires normalizing or post-processing the output deterministically.",
+          "version_caveat": "Relies on --setting-sources, --strict-mcp-config, --tools, and --no-session-persistence (print mode only) as documented in the current CLI reference; pin the Claude Code CLI version and the --model in CI, since defaults and flag behavior shift between releases."
+        },
+        {
+          "sheet": 2,
+          "primary": "A headless Agent SDK invocation inside the CI job: the SDK defaults to loading no user or project filesystem settings (empty settingSources), so with an explicit pinned model, fixed prompt, and no MCP config the run carries only what the workflow defines.",
+          "rejected_alternative": "claude -p on the runner: convenient, but headless CLI by default picks up whatever user settings, hooks, and project .mcp.json exist on that machine, which is precisely the leakage being banned; it is mitigable with strict flags, but the SDK's isolation is the default rather than an opt-in.",
+          "enforcement_owner": "Harness: isolation comes from the SDK configuration and the CI environment, not from asking the model to ignore local config.",
+          "context_boundary": "Each CI run is a fresh, ephemeral context containing only the piped diff and the fixed prompt; output leaves as process stdout that the pipeline captures.",
+          "lifecycle": "Runs once per pull request event in CI and terminates; nothing persists between runs or between machines.",
+          "failure_mode": "Config leakage is closed, but true byte-for-byte reproducibility still fails open: sampling is nondeterministic across runs even at fixed settings, and model snapshot updates change output, so the guarantee must soften to environment-identical unless results are cached by diff hash.",
+          "version_caveat": "The Claude Code SDK was renamed the Agent SDK in late 2025 and its default changed to loading no filesystem settings; on older SDK or CLI versions you must pass explicit isolation flags (for example --strict-mcp-config for MCP), and you should pin the model ID to a dated snapshot."
+        },
+        {
+          "sheet": 3,
+          "primary": "Headless print mode on the Agent SDK surface: the CI job pipes each diff into claude -p with a pinned --model, an explicit --settings file from the repo, --setting-sources restricted so user and local sources never load, and --strict-mcp-config with a checked-in --mcp-config so a teammate's personal automation or the project's tool-server config cannot leak into the run.",
+          "rejected_alternative": "The Claude Code GitHub Action. It loses because the job already exists as a generic CI pipe that must behave identically on any runner, and the requirement is explicit per-invocation config isolation via CLI flags rather than a GitHub-specific wrapper.",
+          "enforcement_owner": "The harness: which settings, MCP servers, and prompt sources load is decided deterministically by the CLI flags before the model runs; the model owns only the typo and lint judgments inside that sealed configuration.",
+          "context_boundary": "A fresh one-shot print-mode session per CI run; only the piped diff, the prompt, and explicitly passed configuration cross into it, and the result leaves on stdout like any Unix tool.",
+          "lifecycle": "Runs once per pull request when the CI job executes and the process exits after printing the response; nothing persists between runs, and --no-session-persistence keeps transcripts off the runner.",
+          "failure_mode": "Fails open toward leakage if flags are omitted: settings keys not explicitly overridden keep their file-based values from whatever machine runs the job, and user or project MCP config loads unless the strict flags exclude it; even fully isolated, model sampling means byte-for-byte identical output is not guaranteed by configuration alone, so the reproducibility contract needs a diff check in CI.",
+          "version_caveat": "unknown"
+        },
+        {
+          "sheet": 4,
+          "primary": "Headless print mode in the Agent SDK tier: the CI job pipes each diff to claude -p with a pinned --settings file, --setting-sources limited to project, and --strict-mcp-config so no tool-server config outside the pipeline loads; the checked-in pipeline fully specifies the run's configuration on any machine or runner.",
+          "rejected_alternative": "The Claude Code GitHub Action: it also runs Claude in CI, but it ties the job to GitHub's runner and workflow model, while this requirement is a runner-agnostic pipe that behaves identically wherever it executes.",
+          "enforcement_owner": "The harness: the CLI flags deterministically exclude user and local settings and any MCP servers not named by the pipeline, regardless of whose machine runs the job; the typo and lint judgments themselves remain model-owned.",
+          "context_boundary": "Each invocation is a fresh non-interactive context; only the piped diff, the pinned settings, and the prompt cross in, and a single printed result crosses out; teammates' personal hooks, skills, and tool servers stay outside by flag.",
+          "lifecycle": "Runs once per CI invocation when the pipeline step executes and exits after printing; nothing persists between runs; it stops applying when the pipeline step is removed.",
+          "failure_mode": "Configuration isolation is fail-closed under the flags, but the deliverable is not: model output is not guaranteed byte-for-byte identical across runs even with identical inputs, and if the flags are omitted the default behavior auto-discovers hooks, skills, plugins, MCP servers, and CLAUDE.md, which is exactly the leak the team fears.",
+          "version_caveat": "Print mode itself carries no version gate; if the job pins output shape with --json-schema, invalid schemas only fail loudly on v2.1.205 or later, where earlier builds silently produced unstructured output."
+        }
+      ]
+    },
+    {
+      "id": "S057",
+      "focus": "crosscut",
+      "scenario": "Compliance needs an accurate record of every shell command the agent actually executed on developer machines, captured automatically with the full command line, rather than relying on the model to self-report what it ran.",
+      "key": {
+        "primary": "PostToolUse hook with a Bash matcher whose command appends the executed command and its result from the hook's stdin JSON to an audit log",
+        "rejected_alternative": "A PreToolUse hook with a Bash matcher that logs each command",
+        "rejection_reason": "PreToolUse fires before permission evaluation and before the call runs, so it records attempts that a deny rule, a hook, or the user subsequently blocked; the audit trail would contain commands that never executed. PostToolUse fires only after the tool call succeeds, and logging operations is one of its documented use cases.",
+        "enforcement_owner": "harness",
+        "context_boundary": "no context window (the hook is a shell process that receives the executed command and its result as JSON on stdin); the audit trail flows outward to a log file on disk, and nothing returns to Claude's context from a logging hook that exits 0 quietly",
+        "lifecycle": "PostToolUse event fires after each successful Bash tool call, receiving tool input and result on stdin",
+        "failure_mode": "It captures successes only: commands that error need a companion PostToolUseFailure hook, and the log lives on each developer's machine unless the hook itself ships entries to central storage.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A PostToolUse hook matched on Bash that appends tool_input.command plus timestamp, cwd, session id, and the exit status from tool_response to an append-only audit log; PostToolUse fires only after the command actually ran, matching the actually-executed requirement, and managed settings distribute it fleet-wide.",
+          "rejected_alternative": "Claude Code's built-in OpenTelemetry export: good for fleet aggregation, but I am not certain the OTEL event stream carries the full command line of every Bash call, and that exact string is what compliance demanded; the hook guarantees it.",
+          "enforcement_owner": "Harness: capture happens automatically at the tool boundary, never by model self-report.",
+          "context_boundary": "The hook runs outside the model context, reading the tool call JSON on stdin and writing to a log the model never sees; nothing is added to any context window.",
+          "lifecycle": "Fires after every Bash tool call in every session while configured; deployed through managed settings it applies until IT removes it.",
+          "failure_mode": "Fails open for logging: if the log write errors the command still ran and the record is silently missing; it also records the command line the agent issued, not the child process tree, so a spawned script is one opaque line, and a locally writable log can be tampered with unless shipped to a remote sink.",
+          "version_caveat": "PostToolUse hooks are 2025-era and generally available with no plan restriction I know of; the exact stdin field names (tool_input.command, tool_response) are recited from memory and worth verifying."
+        },
+        {
+          "sheet": 2,
+          "primary": "A PostToolUse hook with matcher Bash that appends tool_input.command from the stdin JSON to an audit log (the documented jq append pattern), paired with a PostToolUseFailure hook on Bash so commands that ran and failed are captured too; deploy the hooks through managed settings so every developer machine records identically.",
+          "rejected_alternative": "CLAUDE.md rules telling the model to record what it ran: self-reporting is exactly what compliance rejected, and instructions cannot guarantee capture; the hook reads the command line from the harness's own tool event, not from the model.",
+          "enforcement_owner": "The harness: it fires the event after each Bash tool call and supplies the executed command string itself, so the record does not depend on model honesty.",
+          "context_boundary": "The hook process and log file live outside the context window; the full command line arrives in the hook's stdin JSON and nothing is added to the model's context. The log therefore reflects what the harness executed, not what the model narrated.",
+          "lifecycle": "Fires after every Bash tool call completes for as long as the hooks are configured; PostToolUse fires only on success, which is why PostToolUseFailure is added for failed executions.",
+          "failure_mode": "The logger is advisory and fails open: a hook error is non-blocking, so commands keep executing while records are silently lost. Also, a script the agent launches appears in the log only as its single invoking command line, not its inner commands, and commands run outside the Bash tool are never seen.",
+          "version_caveat": "The logging pattern itself is not version gated; correlating log lines with OpenTelemetry events via the prompt_id input field requires Claude Code v2.1.196 or later."
+        },
+        {
+          "sheet": 3,
+          "primary": "A logging hook on PostToolUse plus PostToolUseFailure with matcher Bash that appends tool_input.command (with session_id and timestamp) from the stdin JSON to an append-only audit log; PostToolUse covers commands that completed and PostToolUseFailure covers ones that started and failed. Deploy it via managed settings so developers cannot switch it off. Settled by the enforcement-owner axis: compliance capture must be harness-owned, never model self-report.",
+          "rejected_alternative": "A CLAUDE.md instruction telling the model to record the commands it runs: model-owned self-reporting, which is precisely what compliance ruled out.",
+          "enforcement_owner": "The harness: tool events fire on every Bash call in the agentic loop (including inside subagents), and the hook process receives the exact command line that was submitted to the tool.",
+          "context_boundary": "The hook process receives the full command JSON on stdin outside the context window and writes to the log file; nothing crosses back into model context, so the capture is invisible to and untouchable by the agent.",
+          "lifecycle": "Fires at the completion of every Bash tool call, success or failure; it stops when the entry is removed, or effectively never for developers when shipped as a managed hook they cannot disable.",
+          "failure_mode": "Fail-open: a broken logging script is a non-blocking hook error and the command still runs, leaving silent gaps in the record; user-scope deployment can also be defeated by disableAllHooks, which cannot disable managed hooks. Commands inside a script file the agent executes appear as one Bash entry rather than per inner command, and EndConversation tool calls skip PreToolUse and PostToolUse entirely.",
+          "version_caveat": "No version gate on the events themselves; the prompt_id input field, useful for correlating audit lines with OpenTelemetry, requires v2.1.196 or later."
+        },
+        {
+          "sheet": 4,
+          "primary": "PostToolUse and PostToolUseFailure command hooks with matcher Bash (add PowerShell on Windows fleets), delivered through managed settings, appending timestamp, session_id, and tool_input.command from the stdin JSON to an append-only audit log.",
+          "rejected_alternative": "A PreToolUse hook: it fires before execution, so it records attempts including commands that were denied and never ran; the Post events record what actually executed and how it exited.",
+          "enforcement_owner": "The harness fires the hooks on every Bash tool call; the model never mediates and never self-reports.",
+          "context_boundary": "The hook process runs outside the model context; the executed command line crosses in via stdin and goes to the log, and nothing returns to the conversation (silent exit 0).",
+          "lifecycle": "Runs on every Bash tool call in every session, including inside subagents where settings and managed hooks also fire; persists as long as the managed hook configuration is deployed.",
+          "failure_mode": "Advisory and fails open: a logging failure does not stop the command, and anything executed outside the Bash tool (an MCP server's own side effects, or grandchild commands a logged script spawns internally) is not captured as a separate line; deploy with allowManagedHooksOnly so developers cannot strip the hook.",
+          "version_caveat": "allowManagedHooksOnly is a managed-settings-only key; the prompt_id stdin field for correlating log lines with OpenTelemetry events requires v2.1.196+."
+        }
+      ]
+    },
+    {
+      "id": "S058",
+      "focus": "crosscut",
+      "scenario": "We want to shut off the entire aws CLI surface for the agent except one approved read-only invocation, aws s3 ls, which should go through without prompting. Every other aws command must be refused outright.",
+      "key": {
+        "primary": "PreToolUse hook on Bash that inspects the command and returns permissionDecision \"deny\" for aws commands unless they match the approved invocation (returning \"allow\" for that one)",
+        "rejected_alternative": "permissions.deny Bash(aws *) paired with permissions.allow Bash(aws s3 ls)",
+        "rejection_reason": "Rules evaluate in fixed deny, then ask, then allow order and the first match wins; rule specificity does not change the order. The permissions docs state a broad deny like Bash(aws *) blocks every matching call including ones a narrower allow also matches, so a deny rule cannot carry allowlist exceptions. Exception logic must live in a PreToolUse hook, which the docs recommend for exactly this allow-everything-except pattern, and no deny rule for aws may remain in settings since deny rules override hook allow decisions.",
+        "enforcement_owner": "harness",
+        "context_boundary": "no context window (the script runs as a shell process before each Bash tool call reaches execution); on a deny decision the reason crosses into the main conversation and is shown to Claude, while on an allow decision the reason is shown to the user but not Claude and the call simply proceeds",
+        "lifecycle": "PreToolUse event fires before each Bash tool call, ahead of permission rules and any prompt",
+        "failure_mode": "The hook script must handle compound commands itself: a naive check passes 'aws s3 ls && aws iam delete-user', and the protection exists only on machines where the hook is configured.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A PreToolUse hook on Bash that parses the command: a bare aws s3 ls invocation (with nothing chained to it) returns permissionDecision allow so it runs without prompting, and any other command invoking aws returns deny with a reason. A hook is required because the permission rule engine cannot carve an allow exception out of a broader deny.",
+          "rejected_alternative": "settings.json permissions with deny Bash(aws:*) plus allow Bash(aws s3 ls:*): deny rules take precedence over allow rules, so the broad deny swallows the exception and aws s3 ls gets refused too.",
+          "enforcement_owner": "Harness: the hook decision is applied before execution and the model cannot negotiate around it.",
+          "context_boundary": "The hook process inspects the command string from stdin outside the context window; only the allow or deny outcome and any denial reason surface to the model.",
+          "lifecycle": "Runs on every Bash tool call for the session while configured; distribute via project or managed settings so it applies to every teammate.",
+          "failure_mode": "Command parsing is the risk: compound commands like aws s3 ls && aws s3 rb, full binary paths, shell variables, or aws called inside a script must all be handled or the control fails open; a strict parser that denies anything ambiguous fails closed, which is the safer default here.",
+          "version_caveat": "PreToolUse permissionDecision allow/deny/ask is the current 2025 hook output contract; older builds used the approve/block spelling, and I cannot pin the exact version boundary unaided."
+        },
+        {
+          "sheet": 2,
+          "primary": "A PreToolUse hook on matcher Bash whose script denies (permissionDecision \"deny\") any subcommand starting with aws unless it is exactly aws s3 ls, paired with an allow rule Bash(aws s3 ls) so the approved invocation runs without prompting. The hook is required because permission rules alone cannot express a carve-out from a deny.",
+          "rejected_alternative": "Pure permission rules, deny Bash(aws *) plus allow Bash(aws s3 ls): the docs use this exact aws example to show it cannot work, because deny is evaluated first and a deny rule cannot carry allowlist exceptions, so the approved command would be blocked too.",
+          "enforcement_owner": "The harness: it runs the PreToolUse hook before every Bash call and a blocking hook takes precedence over allow rules, so refusal does not depend on the model.",
+          "context_boundary": "The hook runs outside the context window; on a deny, the permissionDecisionReason is shown to Claude inside its context so it stops retrying, while the approved aws s3 ls result returns as a normal tool result.",
+          "lifecycle": "The hook fires before every Bash tool call and the allow rule is evaluated in the same permission pass on each call; both apply for as long as they exist in loaded settings.",
+          "failure_mode": "If implemented as rules only, it fails closed the wrong way (the approved command is blocked); with the hook, the script must handle compound commands and substitutions itself, and a parsing miss lets an aws call fall through to the normal permission flow, a prompt rather than an outright refusal, so the refusal guarantee fails open on unparsed shapes.",
+          "version_caveat": "A hook deny has always been honored across documented versions; before v2.1.211 the auto-mode classifier could approve a command without showing a prompt a hook requested via ask, which is why the enforcement here uses deny, not ask."
+        },
+        {
+          "sheet": 3,
+          "primary": "A PreToolUse command hook on Bash (if: \"Bash(aws *)\") that returns permissionDecision \"deny\" for any aws invocation, including each subcommand of compound commands, unless the command is exactly \"aws s3 ls\"; pair it with an allow rule \"Bash(aws s3 ls)\" so the approved call runs without prompting.",
+          "rejected_alternative": "Pure permission rules, deny \"Bash(aws *)\" plus allow \"Bash(aws s3 ls)\": deny is evaluated before allow, so the broad deny blocks the narrower allowed call too; a deny rule cannot carry an allowlist exception.",
+          "enforcement_owner": "The harness: the hook's deny decision blocks the call before the permission prompt, and hook blocks take precedence over allow rules.",
+          "context_boundary": "The hook inspects the full command JSON outside the model context; only the deny reason crosses back so Claude can adjust course.",
+          "lifecycle": "Runs on every Bash tool call matching the aws pattern for the life of the settings entry; the if filter deliberately fails open on unparseable commands so the script still gets to inspect them.",
+          "failure_mode": "Degrades rather than breaks: if the hook script itself crashes, that is a non-blocking error and the call falls through to the normal permission flow, where non-allowlisted aws commands prompt instead of being refused outright; the script must itself check compound commands and $() substitutions rather than trusting the best-effort if filter.",
+          "version_caveat": "No significant version gate; the documented Bash if-matching table governs when the handler spawns, and the sample stdin-parsing pattern needs jq (or a PowerShell equivalent) on PATH."
+        },
+        {
+          "sheet": 4,
+          "primary": "A PreToolUse hook (matcher Bash, if: \"Bash(aws *)\") that parses tool_input.command and returns hookSpecificOutput.permissionDecision \"allow\" for exactly aws s3 ls and \"deny\" for every other aws invocation. A hook is required because permission rules alone cannot express deny-all-with-one-exception: deny is evaluated first, so a broad deny rule cannot carry an allowlist carve-out, and an ask rule would violate the no-prompt requirement.",
+          "rejected_alternative": "Permission rules deny Bash(aws *) plus allow Bash(aws s3 ls): the deny wins on every aws call including s3 ls, so the exception is inexpressible in rules alone.",
+          "enforcement_owner": "The harness: the hook's allow/deny decision is enforced by the permission flow before the tool runs, and a matching managed deny rule would still take precedence over a hook allow.",
+          "context_boundary": "The hook runs as a separate process before the tool executes; the command JSON crosses in on stdin, the permissionDecision JSON crosses out, and the deny reason is shown to Claude in context so it stops retrying blocked variants.",
+          "lifecycle": "Runs before every matching Bash tool call for the life of the configuration; it stops when the hook is removed or hooks are disabled, so ship it in managed settings (with allowManagedHooksOnly) if it must survive developer tampering.",
+          "failure_mode": "Deny decisions fail closed, but command matching is best-effort string analysis: the if filter deliberately fails open (runs the hook) on unparseable commands, so the script must itself default to deny for any aws invocation it cannot classify; evasions such as running aws from inside a generated shell script bypass inspection of the literal command. A hook that crashes exits non-2 and is non-blocking, so always emit explicit decision JSON.",
+          "version_caveat": "Use hookSpecificOutput.permissionDecision with allow/deny/ask; the old top-level approve/block values are deprecated for PreToolUse and map to allow/deny."
+        }
+      ]
+    }
+  ]
+}

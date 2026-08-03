@@ -237,6 +237,41 @@ scenarios instead of assigning whole batches, is the real answer and costs propo
 more grading. Until then this benchmark cannot resolve differences of a few points, which is
 exactly the size of the differences it was built to detect.
 
+**25. Items 20 to 23 are FIXED and re-measured, 2026-08-02 (v2 run).**
+All four Tier 3 instrument defects were repaired and the four-arm question re-asked on the
+repaired instrument. Results in `tests/results-tier3.md`; every fix carries its own gate:
+
+- **Item 20, broken keys: FIXED.** `tools/tier3-keys-lint.mjs` makes key quality mechanical
+  (ERROR on ungradeable placeholder fields and on a key contradicting itself about version
+  gates). The frozen v1 set lints RED at 15 errors; `architecture-scenarios-v2.jsonl` lints
+  GREEN at 0. 42 patches applied blind and quote-verified against the docs mirror, plus 14
+  context_boundary keys re-derived unseeded after an independent review found the first
+  repair prompt pre-stated the answer shape. Both versions published side by side.
+- **Item 21, unequal documentation: FIXED by construction.** 20 pages fetched once as raw
+  markdown, sha256-manifested, staged byte-identical into every docs arm, no web access
+  during answering. The three pages WebFetch could never deliver are now complete.
+- **Item 22, one grader per batch: FIXED.** Seeded-shuffle batches mixing focus areas, two
+  independent graders per cell, blind adjudication of full-point splits. First reliability
+  number this benchmark has ever had: 92% exact agreement across 1,680 double-graded cells,
+  99% within half a point, 9 full-point splits.
+- **Item 23, citation rate measured format: FIXED.** Citations now carry a verbatim quote
+  checked against mirror bytes; 98% and 99% verified with ZERO non-verifying quotes among
+  those supplied.
+
+Residues, open:
+- **Single replicate.** Answer-agent nondeterminism is unmeasured. The pooled multi-replicate
+  endpoint (`pooledVerdict`, `REPLICATE_RULE`) is committed in the scorer, written before any
+  replicate data existed, so replicates 2 and 3 can be added and pooled without touching the
+  rule. Deferred for budget.
+- **S040's key is still wrong and costs every arm equally.** Its primary is an advisory
+  remedy while its own `failure_mode` concedes a hard guarantee needs a different mechanism;
+  all four arms chose the deny rule and score zero on five of seven fields. keys-lint does
+  not yet catch the class "the key's own failure_mode names a better primary than the key's
+  primary". That rule is the next lint addition.
+- **More "none" version_caveat collisions** reported by v2 graders (candidates: v2.1.199,
+  v2.1.196, v2.1.208). Needs a changelog check before the next run, with the caveat that arms
+  sharing a base model can converge on the same fabrication.
+
 **24. The extension doctor ships; the bench that justified it has known limits.**
 Added 2026-08-02 after a survey-install-and-test pass over the ecosystem's validators
 (directive: wrap an incumbent rather than build from reasoning). The measured gap was real:

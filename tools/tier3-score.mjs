@@ -40,7 +40,9 @@ const ANSWER_DIR = join(ROOT, 'tests', 'tier3', `answers${SFX}`);
 const DOC = join(ROOT, 'tests', 'results-tier3.md');
 const MIRROR = process.argv.includes('--mirror') ? process.argv[process.argv.indexOf('--mirror') + 1] : null;
 
-const BEGIN = '<!-- tier3-score:begin -->';
+const BEGIN = `<!-- tier3-score:begin set=${SET} -->`;
+// The block names the set it governs, so `--check` and `--check --set v2` each own
+// only their own numbers instead of the v1 checker failing on a v2 block.
 const END = '<!-- tier3-score:end -->';
 
 /** Human labels. Kept out of the packets on purpose; only the scorer knows. */
@@ -77,7 +79,98 @@ export const DECISION_MARGIN = 6;
  */
 export const SIGN_ALPHA = 0.05;
 
+/**
+ * Replicate expansion, committed 2026-08-02 BEFORE replicate 2 or 3 data
+ * existed and before replicate 1's grades were read. The user directive was a
+ * more comprehensive combine test; the design answer is replication, not a
+ * bigger scenario set, because answer-agent nondeterminism is the variance the
+ * single-run design cannot see.
+ *
+ * Pooled primary endpoint for D versus B across replicates:
+ *   1. sign test over PER-SCENARIO MEAN deltas (mean across replicates,
+ *      so n stays 60 and scenarios stay the unit of inference), p < SIGN_ALPHA;
+ *   2. pooled overall margin >= DECISION_MARGIN;
+ *   3. significance surviving every leave-one-grader, leave-one-batch, AND
+ *      leave-one-replicate drop.
+ * All three or no ship, same as the single-run rule it extends.
+ */
+export const REPLICATE_RULE = 'pooled-per-scenario-mean, all-drops-robust';
+
+export function pooledPerScenarioDeltas(replicates, armX, armY) {
+  // replicates: array of { grades, map } per replicate run.
+  const perScenario = new Map();
+  for (const { grades, map } of replicates) {
+    const flat = aggregateCellsLenient(grades);
+    const cell = new Map();
+    for (const g of flat) {
+      const arm = map[g.scenario]?.[String(g.sheet)];
+      if (arm !== armX && arm !== armY) continue;
+      const k = `${g.scenario}|${arm}`;
+      cell.set(k, (cell.get(k) || 0) + g.score);
+    }
+    for (const id of new Set([...cell.keys()].map(k => k.split('|')[0]))) {
+      const x = cell.get(`${id}|${armX}`), y = cell.get(`${id}|${armY}`);
+      if (x === undefined || y === undefined) continue;
+      if (!perScenario.has(id)) perScenario.set(id, []);
+      perScenario.get(id).push(x - y);
+    }
+  }
+  return [...perScenario.entries()].map(([id, ds]) => ({
+    id, meanDelta: ds.reduce((s, v) => s + v, 0) / ds.length, reps: ds.length,
+  }));
+}
+
+export function pooledVerdict(replicates, rowsPooled, batchOf) {
+  const deltas = pooledPerScenarioDeltas(replicates, 'd', 'b');
+  const wins = deltas.filter(x => x.meanDelta > 0).length;
+  const losses = deltas.filter(x => x.meanDelta < 0).length;
+  const p = signTest(wins, losses);
+  const d = rowsPooled.find(r => r.arm === 'd'), b = rowsPooled.find(r => r.arm === 'b');
+  const margin = d && b ? d.overall - b.overall : -100;
+
+  const dropPs = [];
+  // leave-one-replicate
+  if (replicates.length > 1) {
+    for (let i = 0; i < replicates.length; i++) {
+      const rest = replicates.filter((_, j) => j !== i);
+      const dd = pooledPerScenarioDeltas(rest, 'd', 'b');
+      dropPs.push({ kind: 'replicate', dropped: i + 1, p: signTest(dd.filter(x => x.meanDelta > 0).length, dd.filter(x => x.meanDelta < 0).length) });
+    }
+  }
+  // leave-one-grader and leave-one-batch, within each replicate's contribution
+  replicates.forEach(({ grades, map }, i) => {
+    const graders = [...new Set(grades.filter(g => g.grader && g.grader !== 'adj').map(g => g.grader))];
+    for (const gr of graders) {
+      const reps2 = replicates.map((r, j) => j === i ? { grades: r.grades.filter(g => g.grader !== gr), map: r.map } : r);
+      const dd = pooledPerScenarioDeltas(reps2, 'd', 'b');
+      dropPs.push({ kind: 'grader', dropped: `r${i + 1}:${gr}`, p: signTest(dd.filter(x => x.meanDelta > 0).length, dd.filter(x => x.meanDelta < 0).length) });
+    }
+  });
+  const batches = [...new Set(deltas.map(x => batchOf(x.id)))];
+  for (const bch of batches) {
+    const dd = deltas.filter(x => batchOf(x.id) !== bch);
+    dropPs.push({ kind: 'batch', dropped: bch, p: signTest(dd.filter(x => x.meanDelta > 0).length, dd.filter(x => x.meanDelta < 0).length) });
+  }
+
+  const robust = dropPs.every(x => x.p < SIGN_ALPHA);
+  const ship = p < SIGN_ALPHA && margin >= DECISION_MARGIN && robust;
+  return {
+    headline: ship ? 'SHIP' : (wins > losses ? 'INCONCLUSIVE' : 'NEGATIVE'),
+    detail: `pooled sign test ${wins}W ${losses}L p=${p.toFixed(4)} (need < ${SIGN_ALPHA}); pooled margin ${margin} pts (need >= ${DECISION_MARGIN}); ${dropPs.filter(x => x.p < SIGN_ALPHA).length}/${dropPs.length} drops stay significant (need all)`,
+    wins, losses, p, margin, dropPs,
+  };
+}
+
 export const VALID_SCORES = new Set([0, 0.5, 1]);
+
+/**
+ * Aggregated v2 cells are the MEAN of two independent grades, so they land on
+ * the quarter lattice: 0 and 0.5 average to 0.25, 0.5 and 1 to 0.75. The raw
+ * three-value set still governs what a grader may emit; this wider set governs
+ * what the completeness gate accepts AFTER aggregation. Keeping them separate
+ * means a grader inventing 0.25 is still rejected.
+ */
+export const VALID_AGGREGATED_SCORES = new Set([0, 0.25, 0.5, 0.75, 1]);
 
 // -------------------------------------------------------- v2 aggregation --
 
@@ -180,9 +273,13 @@ export function verifiedQuoteRates(answersByArm, mirrorDir) {
     let verified = 0, total = 0;
     for (const a of rows) {
       for (const f of FACTUAL_FIELDS) {
+        // Denominator is EVERY factual field, not just the ones a citation was
+        // supplied for. Skipping missing citations before incrementing made a
+        // 97.9 percent rate print as a flat 100, which is the metric flattering
+        // itself by dropping its own misses.
+        total++;
         const c = a.citations?.[f];
         if (!c) continue;
-        total++;
         const p = typeof c === 'object' ? page(c.page) : null;
         const q = typeof c === 'object' ? norm(c.quote || '') : '';
         if (p && q.length >= 15 && p.includes(q)) verified++;
@@ -227,7 +324,7 @@ export function verdictV2(rows, grades, map, batchOf) {
  * be present, and every score must be one of the three allowed values. Returns
  * the list of reasons the set is unscoreable, empty when it is sound.
  */
-export function completenessProblems(grades, scenarioIds, map, partial = false) {
+export function completenessProblems(grades, scenarioIds, map, partial = false, validScores = VALID_SCORES) {
   const problems = [];
   const seen = new Map();
 
@@ -255,8 +352,8 @@ export function completenessProblems(grades, scenarioIds, map, partial = false) 
       problems.push(`${g.scenario} sheet ${g.sheet}: unknown field ${g.field}`);
       continue;
     }
-    if (!VALID_SCORES.has(g.score)) {
-      problems.push(`${g.scenario} sheet ${g.sheet} ${g.field}: score ${JSON.stringify(g.score)} is not 0, 0.5 or 1`);
+    if (!validScores.has(g.score)) {
+      problems.push(`${g.scenario} sheet ${g.sheet} ${g.field}: score ${JSON.stringify(g.score)} is not one of ${[...validScores].join(", ")}`);
       continue;
     }
     const k = `${g.scenario}|${g.sheet}|${g.field}`;
@@ -479,10 +576,15 @@ export function renderMarkdown(rows, v, meta = {}) {
   }
   L.push('');
   if (rows.some(r => r.citationRate !== null)) {
-    L.push('Citation rate is the share of the four factual fields carrying a documentation URL. An arm');
-    L.push('with a low rate answered from memory rather than looking it up, which the overall score hides.');
+    L.push(meta.verifiedQuotes
+      ? 'VERIFIED-quote rate: the share of the four factual fields whose citation carries a quote that'
+      : 'Citation rate is the share of the four factual fields carrying a documentation URL. An arm');
+    L.push(meta.verifiedQuotes
+      ? 'appears VERBATIM in the cited mirror page, checked mechanically. Fields with no citation count'
+      : 'with a low rate answered from memory rather than looking it up, which the overall score hides.');
+    if (meta.verifiedQuotes) L.push('against the rate, so this measures verification, not formatting.');
     L.push('');
-    L.push('| Arm | Citation rate |');
+    L.push(meta.verifiedQuotes ? '| Arm | Verified-quote rate |' : '| Arm | Citation rate |');
     L.push('|---|---|');
     for (const r of rows) L.push(`| ${r.label} | ${r.citationRate === null ? 'not requested' : fmtPct(r.citationRate)} |`);
     L.push('');
@@ -504,10 +606,37 @@ export function renderMarkdown(rows, v, meta = {}) {
     L.push('overstates how often one arm actually beat the other.');
     L.push('');
   }
+  if (meta.agreement && Object.keys(meta.agreement).length) {
+    const dis = meta.disagreements || [];
+    const adj = dis.filter(d => d.adjudicated).length;
+    L.push('Inter-grader agreement. Every cell was graded twice by independent graders, so this');
+    L.push('benchmark finally has a reliability number instead of assuming one. Full-point splits');
+    L.push('(0 versus 1) went to a blind adjudicator who saw the key and the answer but neither');
+    L.push('the two scores nor which arm produced the sheet.');
+    L.push('');
+    L.push('| Field | Cells | Exact agreement | Within half a point |');
+    L.push('|---|---|---|---|');
+    for (const f of GRADED_FIELDS) {
+      const a = meta.agreement[f];
+      if (!a) continue;
+      L.push(`| ${f} | ${a.n} | ${Math.round((100 * a.exact) / a.n)}% | ${Math.round((100 * a.close) / a.n)}% |`);
+    }
+    const tot = Object.values(meta.agreement).reduce((s, a) => ({ n: s.n + a.n, exact: s.exact + a.exact, close: s.close + a.close }), { n: 0, exact: 0, close: 0 });
+    L.push(`| **all fields** | **${tot.n}** | **${Math.round((100 * tot.exact) / tot.n)}%** | **${Math.round((100 * tot.close) / tot.n)}%** |`);
+    L.push('');
+    L.push(`Disagreements of any size: ${dis.length} of ${tot.n} cells. Full-point splits requiring adjudication: ${dis.length ? dis.filter(d => Math.abs(d.a - d.b) === 1).length : 0}.`);
+    L.push('');
+  }
   if (meta.robustness && meta.robustness.length) {
-    L.push('Leave-one-batch-out. Each batch is graded by ONE grader, so a single lenient or');
-    L.push('strict grader can manufacture across ten scenarios what looks like a finding across');
-    L.push('sixty. Every comparison is recomputed with each batch removed in turn.');
+    L.push(meta.twoGraders
+      ? 'Leave-one-batch-out. Every comparison is recomputed with each grading batch removed in'
+      : 'Leave-one-batch-out. Each batch is graded by ONE grader, so a single lenient or');
+    L.push(meta.twoGraders
+      ? 'turn, because a batch that behaves unlike the rest can manufacture across ten scenarios'
+      : 'strict grader can manufacture across ten scenarios what looks like a finding across');
+    L.push(meta.twoGraders
+      ? 'what looks like a finding across sixty. This is what caught the retracted v1 headline.'
+      : 'sixty. Every comparison is recomputed with each batch removed in turn.');
     L.push('');
     L.push('| Comparison | All 60 | Worst single-batch drop | Verdict |');
     L.push('|---|---|---|---|');
@@ -638,8 +767,18 @@ function selfTest() {
   check('a whole missing sheet is caught', completenessProblems(wholeSheetGone, ids, map).some(p => /no grades at all/.test(p)));
 
   check('a duplicated grade is caught', completenessProblems([...full, full[0]], ids, map).some(p => /graded 2 times/.test(p)));
-  check('an out-of-range score is caught',
-    completenessProblems([...full.slice(1), { ...full[0], score: 0.75 }], ids, map).some(p => /not 0, 0\.5 or 1/.test(p)));
+  check('an out-of-range RAW score is caught',
+    completenessProblems([...full.slice(1), { ...full[0], score: 0.75 }], ids, map).some(p => /is not one of/.test(p)));
+  // The two lattices are deliberately different: a grader may only emit
+  // 0/0.5/1, but the MEAN of two such grades legitimately lands on 0.25 or
+  // 0.75, so the post-aggregation gate accepts the quarter lattice. Conflating
+  // them made the v2 scorer reject 229 perfectly valid aggregated cells.
+  check('a quarter-lattice score passes the AGGREGATED gate',
+    completenessProblems([...full.slice(1), { ...full[0], score: 0.75 }], ids, map, false, VALID_AGGREGATED_SCORES)
+      .every(p => !/is not one of/.test(p)));
+  check('a value off BOTH lattices is still caught',
+    completenessProblems([...full.slice(1), { ...full[0], score: 0.3 }], ids, map, false, VALID_AGGREGATED_SCORES)
+      .some(p => /is not one of/.test(p)));
   check('an unknown scenario id is caught',
     completenessProblems([...full, { scenario: 'S999', sheet: 1, field: 'primary', score: 1 }], ids, map).some(p => /unknown scenario/.test(p)));
   check('an unknown field name is caught',
@@ -797,8 +936,12 @@ function selfTest() {
       bplus: [{ id: 'S001', citations: { failure_mode: { page: 'hooks.md', quote: 'this sentence appears nowhere in the page at all, invented' } } }],
     };
     const r = verifiedQuoteRates(arms, tmp);
-    check('a real verbatim quote verifies', r.d === 100, `d=${r.d}`);
+    // One cited field out of four factual fields: a fully verified citation is
+    // 25 percent of the fields, not 100 percent of the citations supplied.
+    check('a real verbatim quote verifies', r.d === 25, `d=${r.d}`);
     check('an invented quote does NOT verify (planted fake)', r.bplus === 0, `bplus=${r.bplus}`);
+    const rMissing = verifiedQuoteRates({ d: [{ id: 'S001', citations: {} }] }, tmp);
+    check('missing citations count against the rate, not out of it', rMissing.d === 0, `d=${rMissing.d}`);
     rmSync(tmp, { recursive: true, force: true });
   }
 
@@ -827,7 +970,7 @@ function main() {
 const argv = process.argv.slice(2);
 if (argv.includes('--self-test')) selfTest();
 
-const grades = loadGrades();
+let grades = loadGrades();
 const scenarios = loadScenarios();
 const ids = scenarios.map(s => s.id);
 
@@ -848,8 +991,24 @@ if (!existsSync(MAP_PATH)) {
 }
 const map = JSON.parse(readFileSync(MAP_PATH, 'utf8'));
 
+// v2 grades carry a `grader` field and two base grades per cell. Aggregate to
+// one score per cell first, then every downstream path (completeness, score,
+// paired, robustness) runs on the same shape v1 used.
+let v2meta = null;
+if (SET === 'v2') {
+  const agg = aggregateCells(grades);
+  v2meta = { agreement: agg.agreement, disagreements: agg.disagreements, aggProblems: agg.problems };
+  if (agg.problems.length) {
+    console.log(`\nREFUSING TO SCORE: ${agg.problems.length} two-grader aggregation problem(s).`);
+    for (const p of agg.problems.slice(0, 30)) console.log(`  ${p}`);
+    if (agg.problems.length > 30) console.log(`  ... and ${agg.problems.length - 30} more`);
+    process.exit(1);
+  }
+  grades = agg.flat;
+}
+
 const PARTIAL = argv.includes('--partial');
-const problems = completenessProblems(grades, ids, map, PARTIAL);
+const problems = completenessProblems(grades, ids, map, PARTIAL, SET === 'v2' ? VALID_AGGREGATED_SCORES : VALID_SCORES);
 const inScope = PARTIAL ? ids.filter(id => map[id]).length : ids.length;
 console.log(`Grades: ${grades.length}  scenarios in set: ${ids.length}  arms: ${ARMS.join(', ')}`);
 if (PARTIAL) console.log(`PARTIAL RUN: scoring over ${inScope} of ${ids.length} scenarios. Diagnostic only, not publishable as a full result.`);
@@ -862,7 +1021,28 @@ if (problems.length) {
 }
 console.log('Completeness gate: PASS, every scenario, sheet and field graded exactly once.');
 
-const rows = score(grades, map, citationRates(loadAnswers()));
+// v2 with a mirror uses VERIFIED quotes (the quote must appear verbatim in the
+// cited page); v1 and any run without a mirror fall back to the format-only
+// citation rate. The first v2 scoring pass still called the old function and
+// reported 0 percent for both citing arms, because v2 citations are objects
+// and the old counter expected a URL string. Wrong number, right complaint.
+// The mirror is not committed (copyright), so CI cannot recompute verified
+// quotes. When a mirror IS present the rates are computed and PERSISTED; when
+// it is absent the persisted rates are reused, so the committed block stays
+// verifiable in CI without shipping the documentation.
+const QUOTE_RATES = join(ROOT, 'tests', 'tier3', `verified-quote-rates${SFX}.json`);
+let citeRates, usingVerified = false;
+if (SET === 'v2' && MIRROR) {
+  citeRates = verifiedQuoteRates(loadAnswers(), MIRROR);
+  usingVerified = true;
+  writeFileSync(QUOTE_RATES, JSON.stringify(citeRates, null, 2) + '\n');
+} else if (SET === 'v2' && existsSync(QUOTE_RATES)) {
+  citeRates = JSON.parse(readFileSync(QUOTE_RATES, 'utf8'));
+  usingVerified = true;
+} else {
+  citeRates = citationRates(loadAnswers());
+}
+const rows = score(grades, map, citeRates);
 const v = verdict(rows);
 const PAIRS = [['d', 'b'], ['d', 'bplus'], ['bplus', 'b'], ['b', 'a']]
   .filter(([x, y]) => rows.some(r => r.arm === x) && rows.some(r => r.arm === y));
@@ -870,7 +1050,7 @@ const paired = PAIRS.map(([x, y]) => pairedComparison(grades, map, x, y));
 // Batch = the grader who scored it. Scenario ids are S001..S060 in batches of 10.
 const batchOf = id => Math.floor((Number(String(id).slice(1)) - 1) / 10) + 1;
 const robustness = PAIRS.map(([x, y]) => batchRobustness(grades, map, x, y, batchOf));
-const block = renderMarkdown(rows, v, { paired, robustness });
+const block = renderMarkdown(rows, v, { paired, robustness, verifiedQuotes: usingVerified, twoGraders: SET === 'v2', agreement: v2meta && v2meta.agreement, disagreements: v2meta && v2meta.disagreements });
 
 if (argv.includes('--markdown')) { console.log(block); process.exit(0); }
 
@@ -881,6 +1061,14 @@ if (argv.includes('--check')) {
   const doc = readFileSync(DOC, 'utf8');
   const i = doc.indexOf(BEGIN), j = doc.indexOf(END);
   if (i === -1 || j === -1) {
+    // A set whose tables have been demoted to frozen history owns no machine
+    // block, and saying so is not a failure. v1 is in exactly that state: its
+    // numbers are published as history and the v2 block is what CI guards.
+    const other = readFileSync(DOC, 'utf8').match(/<!-- tier3-score:begin set=(\w+) -->/);
+    if (other && other[1] !== SET) {
+      console.log(`\nPASS: no block for set ${SET}; the published block governs set ${other[1]}, which owns the drift check.`);
+      process.exit(0);
+    }
     console.log(`\nFAIL: results-tier3.md has no ${BEGIN} ... ${END} block to check.`);
     process.exit(1);
   }

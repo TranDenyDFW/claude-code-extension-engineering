@@ -44,6 +44,16 @@ jobs:
       - name: Validate-output checker self-test
         run: node tools/check-validate-output.mjs --self-test
 
+      - name: Tier 3 key quality
+        # Key defects used to be found by graders AFTER a run and filed as
+        # prose. Now they are a gate. The frozen v1 set is expected RED (15
+        # errors, which is the evidence this check would have caught the
+        # instrument before the run); the live v2 set must be GREEN.
+        run: |
+          node tools/tier3-keys-lint.mjs --self-test
+          node tools/tier3-keys-lint.mjs --defects
+          node tools/tier3-keys-lint.mjs --set v2
+
       - name: Tier 3 harness self-tests
         # Each of these three feeds its own gate a known-bad input and passes
         # only if the gate rejects it: a planted key leak, an arm label left on
@@ -79,6 +89,11 @@ jobs:
           node tools/tier3-strip.mjs --check
           node tools/tier3-pack.mjs --check
           node tools/tier3-score.mjs --check
+          # The v2 block is what the published tables actually are. No --mirror
+          # here: the mirror is not committed (copyright), so the verified-quote
+          # column is regenerated only when a mirror is present locally, and the
+          # committed block carries the rates it was published with.
+          node tools/tier3-score.mjs --set v2 --check
 
       - name: Validate plugin manifest
         run: |

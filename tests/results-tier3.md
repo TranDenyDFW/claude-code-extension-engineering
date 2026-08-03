@@ -1,10 +1,14 @@
 # Tier 3: architecture-decision benchmark
 
-Scenario set v1 ([architecture-scenarios.jsonl](architecture-scenarios.jsonl), 60 scenarios),
-unchanged across every run below. Answering and grading model: `claude-opus-5`.
+Sixty scenarios, unchanged across every run. The SCENARIO PROSE is identical throughout;
+only the expected keys were repaired for v2
+([architecture-scenarios.jsonl](architecture-scenarios.jsonl) is v1 and frozen,
+[architecture-scenarios-v2.jsonl](architecture-scenarios-v2.jsonl) is current). Answering and
+grading model: `claude-opus-5`.
 
-The current run is the 2026-08-02 four-arm run. The two earlier tables are kept as history,
-labelled with the content state they measured.
+**The current run is the v2 run immediately below.** Everything after it is history, kept
+because publishing a retraction beside the claim it corrects is the point. v2 and v1 numbers
+are not comparable: keys, grading design, and documentation delivery all changed.
 
 ## What this measures
 
@@ -16,7 +20,176 @@ failure mode, and version or experimental caveat.
 
 ---
 
-# The 2026-08-02 four-arm run
+# The 2026-08-02 v2 run: repaired instrument, four arms, and a clean negative
+
+The v1 run above could not resolve the question it was built for: its keys had dead fields,
+its documentation arrived unevenly, and one grader out of six manufactured a headline that
+had to be retracted. This run rebuilds the instrument and asks the same question again.
+
+**v2 numbers are NOT comparable to v1 numbers.** The keys changed, the grading design
+changed, and documentation delivery changed. This is a fresh measurement on a better
+instrument, not a continuation of the v1 trend lines.
+
+## What was fixed, and how each fix is enforced
+
+| v1 defect | Fix | Enforcement |
+|---|---|---|
+| 14 of 60 keys had `context_boundary` as the literal string "n/a", so a quarter of that field carried zero signal; 6 keys said `version_caveat` was "none" while another field of the SAME key conceded a version gate | Keys repaired blind against the docs mirror, 42 patches applied plus 14 re-derived unseeded | [tier3-keys-lint.mjs](../tools/tier3-keys-lint.mjs), a CI gate. v1 lints RED at 15 errors; v2 lints GREEN at 0 |
+| WebFetch returned unusable dumps for large pages, unevenly across arms (B 11 failures, B+ 22, D 18), and the counts were unverifiable self-reports | 20 documentation pages fetched ONCE as raw markdown and staged byte-identical into every docs arm; no web access during answering | [docs-manifest.json](tier3/docs-manifest.json) with sha256 per page. The three pages no arm could previously read in full are now complete: `hooks` 245 KB, `settings` 273 KB, `sub-agents` 95 KB |
+| One grader per batch, and each batch was exactly one focus area, so grader strictness and topic were perfectly confounded | Seeded-shuffle batches mixing focus areas, TWO independent graders per batch, blind adjudication of full-point splits | Completeness gate refuses to score unless every cell has exactly two base grades from different graders |
+| "Citation rate" measured URL formatting; 27% of B+ and 20% of D citations pointed at pages those arms had reported unreadable | Citations now carry a verbatim quote, checked mechanically against the mirror bytes | Planted-fake self-test case; fields with no citation count against the rate |
+
+**Repair blindness, and where it initially failed.** Repair agents received the scenario
+rows, the mirror, and defect records with all 52 sentences describing sheet or arm behavior
+redacted. An independent review then found that the context-boundary prompt embedded a
+parenthetical pre-stating the answer shape for the family it repaired. The seeded values
+were doc-true and quote-verified, but a prompt carrying answer content is not blind, so all
+14 keys were re-derived by a fresh agent with no hints. Both versions are published side by
+side in [key-repairs-v2.md](tier3/key-repairs-v2.md); the unseeded values shipped.
+
+## Results
+
+<!-- tier3-score:begin set=v2 -->
+
+Overall = mean across all seven fields, partial counted as half.
+
+| Arm | Overall | Primary (strict) | Primary | Rejected alt | Owner | Context | Lifecycle | Failure | Version |
+|---|---|---|---|---|---|---|---|---|---|
+| A: unaided (calibration) | 71% | 34/60 | 69% | 61% | 90% | 95% | 79% | 66% | 35% |
+| B: official docs | 88% | 57/60 | 96% | 67% | 95% | 97% | 95% | 87% | 82% |
+| B+: docs, staged procedure, no skill | 88% | 57/60 | 96% | 68% | 96% | 97% | 96% | 85% | 80% |
+| D: docs + skill, staged procedure | 87% | 57/60 | 96% | 64% | 95% | 98% | 95% | 85% | 80% |
+
+VERIFIED-quote rate: the share of the four factual fields whose citation carries a quote that
+appears VERBATIM in the cited mirror page, checked mechanically. Fields with no citation count
+against the rate, so this measures verification, not formatting.
+
+| Arm | Verified-quote rate |
+|---|---|
+| A: unaided (calibration) | not requested |
+| B: official docs | not requested |
+| B+: docs, staged procedure, no skill | 98% |
+| D: docs + skill, staged procedure | 99% |
+
+Paired per-scenario comparison. Every arm answered the identical scenario, so
+comparing scenario by scenario cancels the scenario's own difficulty and detects a
+small effect that two overall percentages near a ceiling cannot. Secondary and
+reported only: the pre-committed margin above is what decides the outcome.
+
+| Comparison | Scenarios | Wins | Losses | Ties | Mean delta | Sign test |
+|---|---|---|---|---|---|---|
+| D vs B | 60 | 20 | 20 | 20 | -1 pts | p=1.000 |
+| D vs BPLUS | 60 | 14 | 16 | 30 | -1 pts | p=0.856 |
+| BPLUS vs B | 60 | 19 | 16 | 25 | +0 pts | p=0.736 |
+| B vs A | 60 | 48 | 9 | 3 | +18 pts | p=0.000 |
+
+Ties are reported because they dominate: a split like 22 to 7 describes only the
+scenarios where the arms differed at all, and reading it without the tie column
+overstates how often one arm actually beat the other.
+
+Inter-grader agreement. Every cell was graded twice by independent graders, so this
+benchmark finally has a reliability number instead of assuming one. Full-point splits
+(0 versus 1) went to a blind adjudicator who saw the key and the answer but neither
+the two scores nor which arm produced the sheet.
+
+| Field | Cells | Exact agreement | Within half a point |
+|---|---|---|---|
+| primary | 240 | 99% | 100% |
+| rejected_alternative | 240 | 87% | 100% |
+| enforcement_owner | 240 | 97% | 100% |
+| context_boundary | 240 | 97% | 100% |
+| lifecycle | 240 | 93% | 100% |
+| failure_mode | 240 | 85% | 100% |
+| version_caveat | 240 | 85% | 96% |
+| **all fields** | **1680** | **92%** | **99%** |
+
+Disagreements of any size: 137 of 1680 cells. Full-point splits requiring adjudication: 9.
+
+Leave-one-batch-out. Every comparison is recomputed with each grading batch removed in
+turn, because a batch that behaves unlike the rest can manufacture across ten scenarios
+what looks like a finding across sixty. This is what caught the retracted v1 headline.
+
+| Comparison | All 60 | Worst single-batch drop | Verdict |
+|---|---|---|---|
+| D vs B | 20W 20L, p=1.000 | drop batch 1: 16W 15L, p=1.000 | not significant to begin with |
+| D vs BPLUS | 14W 16L, p=0.856 | drop batch 1: 11W 11L, p=1.000 | not significant to begin with |
+| BPLUS vs B | 19W 16L, p=0.736 | drop batch 2: 15W 14L, p=1.000 | not significant to begin with |
+| B vs A | 48W 9L, p=0.000 | drop batch 1: 38W 9L, p=0.000 | robust |
+
+**Verdict, by the rule committed before the run: NEGATIVE.** D does not beat B (-1 points). Publish the negative.
+
+D is -1 points over B+, inside the noise floor, so the reference did not add anything measurable on top of the procedure.
+
+Robust across every single-batch drop: B over A.
+
+<!-- tier3-score:end -->
+
+## What this says
+
+**Combining the reference with the documentation produces no measurable benefit.** D versus
+B is 20 wins, 20 losses, p=1.000. Not a small effect the instrument struggled to see: a dead
+heat, on an instrument specifically rebuilt to detect a small effect. The verdict by the rule
+committed before any v2 answer existed is NEGATIVE.
+
+**The staged procedure also produces nothing.** B+ over B is 19 to 16, p=0.736. The v1 run's
+retracted headline claimed the procedure was the effect; with repaired keys, two graders per
+cell, and equalized documentation, it is not.
+
+**What survives is what always survived.** Documentation beats unaided recall by 18 points,
+48 scenarios to 9, p<0.001, robust to dropping any batch. The single largest component is
+`version_caveat`: 35% unaided against 80 to 82% with docs, which is the intuitive result
+since version gates and flag names are exactly what cannot be recalled.
+
+**The instrument itself is now credible, which is the run's real product.** 92% exact
+inter-grader agreement across 1,680 double-graded cells, 99% within half a point, and only 9
+full-point splits needing adjudication. Verified-quote rates of 98% and 99% with ZERO
+non-verifying quotes among those supplied: every quote an arm offered was genuinely present
+in the page it cited. A benchmark that can report those numbers can be argued with.
+
+## Limitations, including two that bound the conclusion
+
+**Single replicate.** This is one answer pass per arm. Answer-agent nondeterminism is the
+variance this design cannot see, and it is the main reason not to read the 1-point D-versus-B
+gap as anything but noise. The pooled multi-replicate endpoint is already committed in the
+scorer (`pooledVerdict`, `REPLICATE_RULE`), written before any replicate data existed, so
+replicates 2 and 3 can be added later and pooled without touching the rule. They were
+deferred for budget, not for convenience, and this line is the disclosure.
+
+**At least one key is still wrong, and it costs every arm equally.** S040's key selects an
+advisory remedy while the key's OWN `failure_mode` field concedes that "a hard guarantee
+needs a different mechanism entirely, such as a permissions deny rule, a PreToolUse hook, or
+denying Agent(Explore)". All four arms independently chose the deny rule, so all four score
+zero on primary and on the four fields derived from it. That is roughly 20 zero-scores from
+one arguable key. It does not bias D against B, but it depresses every absolute number, and
+the keys-lint does not yet catch the class "the key's own failure_mode names a better primary
+than the key's primary". Adding that rule is tracked work, not a mid-run edit.
+
+**Graders reported further key defects** during this run, recorded in
+[key-defects.jsonl](tier3/key-defects.jsonl). The repeated pattern is unchanged from v1: a
+`version_caveat` of "none" colliding with a version-dated fact multiple arms independently
+assert. The adjudicator flagged v2.1.199, v2.1.196 and v2.1.208 as candidates worth checking
+against the changelog before the next run, while noting honestly that arms sharing a base
+model can converge on the same fabrication, so convergence is not proof.
+
+**Model-graded throughout.** The agreement numbers measure how consistently this model grades
+against these keys, not human ground truth. n=60 gives roughly plus or minus 6 points at 95%
+confidence, which is why the decision margin is 6.
+
+## What changes because of this
+
+Nothing ships. The `/architecture-review` command stays unbuilt, now for a measured reason
+rather than an unresolvable one.
+
+The reference's defensible claim is unchanged and narrower than the project once hoped: it
+beats unaided recall, and it reaches that from a local read rather than dozens of network
+fetches. On this benchmark it adds nothing once the documentation is present, and the
+hypothesis that motivated three runs, that the reference and the docs solve different halves
+of the rubric so combining them should win, is not supported.
+
+
+---
+
+# Historical: the 2026-08-02 four-arm run (v1 keys, one grader per batch)
 
 ## The question, and why the arms are shaped this way
 
@@ -72,7 +245,7 @@ scorer: D must beat B by 6 points or more to ship, since n=60 gives roughly plus
 
 ## Results
 
-<!-- tier3-score:begin -->
+<!-- v1 tables, frozen history: the machine-checked block below now governs the v2 run -->
 
 Overall = mean across all seven fields, partial counted as half.
 
@@ -126,7 +299,6 @@ D is -1 points over B+, inside the noise floor, so the reference did not add any
 
 **Do not carry any of these forward as a finding about the arms.** BPLUS over B loses significance when a single batch is removed, so it is a fact about that grader, not about the arms. What survives every drop: B over A.
 
-<!-- tier3-score:end -->
 
 ## What this says
 

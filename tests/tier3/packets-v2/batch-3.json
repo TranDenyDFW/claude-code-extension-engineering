@@ -1,0 +1,575 @@
+{
+  "batch": 3,
+  "scenarios": [
+    {
+      "id": "S007",
+      "focus": "enforcement",
+      "scenario": "A 60-file pull request needs a correctness review of every changed file, one reviewer per file, then all per-file findings merged, deduplicated, and ranked into a single summary. The reviewers have nothing to discuss with each other; only the merged output matters.",
+      "key": {
+        "primary": "Dynamic workflow: fan out one reviewer agent per changed file, then hand all findings to a single merge agent that ranks and deduplicates",
+        "rejected_alternative": "An agent team of reviewers",
+        "rejection_reason": "Parallel code review is a documented team use case, which makes this a genuine near-miss, but the team version splits review by lens (security, performance, coverage) across a few peers who share and challenge each other's findings. Here reviewers are per-file, the docs' team comparison says to choose based on whether workers need to communicate (these do not), 60 workers exceeds the 3-to-5 teammate guidance, and the merge is a deterministic collect-and-reduce step; the docs list this exact 'review every changed file and write one summary' workflow shape.",
+        "enforcement_owner": "harness",
+        "context_boundary": "isolated context (per-file reviewer agents; findings flow through script variables to the merge agent)",
+        "lifecycle": "explicit invocation; naturally saved as a command to rerun on every branch",
+        "failure_mode": "The single merge agent gates the whole deliverable, so weak deduplication or ranking buries valid per-file findings; a stopped run reruns all agents that started after the first unfinished one on resume.",
+        "version_caveat": "Requires Claude Code v2.1.154 or later; paid plans; Pro enables via /config"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "Dynamic workflow: the documented review-every-changed-file-and-write-one-summary shape, one reviewer agent per changed file via pipeline(), then a single merge agent that deduplicates and ranks all per-file findings into one summary returned to the session.",
+          "rejected_alternative": "A subagent fan-out from the main conversation: 60 reviewers would collide with the 20-concurrent-subagent limit, every per-file report would land back in the main context window, and Claude rather than a script would have to merge and rank with all of that in context.",
+          "enforcement_owner": "Harness executes the per-file fan-out and the merge stage exactly as scripted; finding quality, deduplication, and ranking judgment are model work inside the reviewer and merge agents.",
+          "context_boundary": "Each reviewer sees only its assigned file in a fresh context; findings pass between stages as script variables in the isolated runtime; only the merged, ranked summary crosses into your conversation.",
+          "lifecycle": "Runs when you request the workflow (or a saved review command) and approve the plan; ends when the merge agent returns its summary; resumable within the session, fresh on restart. Reviewers do not interact, matching the requirement that they have nothing to discuss.",
+          "failure_mode": "Per-file reviewers lack cross-file context, so correctness issues spanning files are systematically missed; the merge agent can drop or misrank findings (advisory, fails open); non-allowlisted commands prompt mid-run and slow the pass.",
+          "version_caveat": "Requires v2.1.154+ on a paid plan, Pro via the /config toggle; the default medium size guideline (v2.1.219+) aims for under 15 agents, so the one-reviewer-per-file requirement must be explicit, and 60+ agents trips the advisory Large workflow warning threshold of 25."
+        },
+        {
+          "sheet": 2,
+          "primary": "A dynamic workflow: fan one reviewer agent out per changed file (60 in parallel waves), then a merge stage where a single agent deduplicates and ranks all per-file findings into one summary; the documentation's review-every-changed-file-and-write-one-summary example is exactly this shape.",
+          "rejected_alternative": "Subagent fan-out from the main conversation. It loses because 60 detailed reviewer reports would return into and consume the main context, the 20-concurrent-subagent limit forces Claude to orchestrate waves turn by turn, and since the reviewers have nothing to discuss, nothing justifies keeping orchestration in a conversation.",
+          "enforcement_owner": "The harness: the workflow runtime executes the script, so per-file fan-out and the merge-dedupe-rank stage run in scripted order regardless of model judgment mid-run; only the content of each review is model work.",
+          "context_boundary": "Per-file findings stay in script variables and are handed to the merge agent inside the run; only the single ranked summary crosses into the user's session.",
+          "lifecycle": "Runs when the workflow is requested or invoked as a saved command; executes in the background and completes when the merge stage returns the summary. Resumable within the same session, and saveable as a command for every future PR.",
+          "failure_mode": "A 60-agent run trips the Large workflow warning (threshold 25 agents), which never pauses or limits anything, and the default medium size guideline steers Claude toward fewer than 15 agents, so it may batch files instead of one reviewer per file unless the prompt insists.",
+          "version_caveat": "Requires Claude Code v2.1.154 or later; available on all paid plans, and on Pro it must be enabled from the Dynamic workflows row in /config. The medium default for the size guideline applies on v2.1.219 and later."
+        },
+        {
+          "sheet": 3,
+          "primary": "Parallel subagents: one read-only reviewer subagent per changed file, dispatched in batches from the orchestrating session, which then merges, dedupes, and ranks the returned findings into a single summary.",
+          "rejected_alternative": "An agent team; the reviewers explicitly have nothing to discuss, so paying for teammate messaging and coordination buys nothing over a plain fan-out and merge.",
+          "enforcement_owner": "The model: batch discipline, covering all 60 files, and honest deduplication are all instruction-following, not harness-checked.",
+          "context_boundary": "Each reviewer sees only its own file's diff plus minimal PR context in a fresh subagent context; only structured findings return, and the merge and ranking happen in the caller's context.",
+          "lifecycle": "Runs when the review is invoked, typically wrapped in a skill for repeatability, and ends when the merged summary is produced; nothing persists between runs.",
+          "failure_mode": "Fails open: the concurrency cap forces batching so late batches can degrade, severity scales drift across independent reviewers which makes the ranking noisy, and one verbose reviewer can bloat the merging context.",
+          "version_caveat": "Subagent fan-out is stable with no enabling flag; I recall the parallel execution cap being about 10 concurrent tasks with the remainder queued, though I am not certain of the exact number."
+        },
+        {
+          "sheet": 4,
+          "primary": "Dynamic workflow: pipeline one reviewer agent per changed file (60-way fan-out), then a single reduce agent merges, deduplicates, and ranks all findings into one summary; the docs list review-every-changed-file-then-one-ranked-summary as a canonical workflow prompt.",
+          "rejected_alternative": "Agent team: peer messaging is the one thing teams add, and these reviewers explicitly have nothing to discuss; a team would cost more tokens, cap out at a handful of peers, and add coordination risk for no benefit.",
+          "enforcement_owner": "The harness: the script guarantees every one of the 60 files gets a reviewer and that the merge stage runs only after the reviews, ordering the model cannot skip; the individual review judgment is model-owned.",
+          "context_boundary": "Each reviewer runs in its own context window; per-file findings live in script variables, the merge agent sees only the collected findings, and only the ranked summary reaches the user's session.",
+          "lifecycle": "Triggered by invoking the workflow against the PR; runs in the background while the session stays responsive; done when the script returns the merged summary, and savable as a /name command for future PRs.",
+          "failure_mode": "Fails open per file: a failed reviewer becomes a null result and that file silently goes unreviewed unless the script filters and reports the gap; only permission prompts pause the run, so non-allowlisted commands stall it mid-run.",
+          "version_caveat": "Requires Claude Code v2.1.154 or later, available on all paid plans; on Pro it must be switched on in /config."
+        }
+      ]
+    },
+    {
+      "id": "S022",
+      "focus": "delegation",
+      "scenario": "Claude keeps introducing type errors on our TypeScript codebase that it only discovers when the test suite finally runs. We want it to see compiler diagnostics immediately after each edit and to jump to definitions and references instead of grepping for symbol names.",
+      "key": {
+        "primary": "Install the official typescript-lsp plugin from the claude-plugins-official marketplace, with the typescript-language-server binary installed separately on each machine",
+        "rejected_alternative": "A PostToolUse hook on an Edit|Write matcher that runs the TypeScript compiler after each edit and feeds the errors back to Claude",
+        "rejection_reason": "A PostToolUse hook can rerun the compiler after each edit and inject the errors, matching the docs' after-edit hook pattern, but it delivers diagnostics only: go to definition, find references, and hover information are LSP capabilities, so Claude would still grep for symbol names. The typescript-lsp plugin covers both halves of the need, errors and warnings immediately after each edit plus on-demand code navigation.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context",
+        "lifecycle": "language server starts when the plugin is enabled; diagnostics are pushed into Claude's context after each edit; navigation (go to definition, find references, hover) is available on demand",
+        "failure_mode": "the plugin does not bundle the language server binary: without typescript-language-server on PATH the server fails with Executable not found in $PATH in the /plugin Errors tab and no diagnostics ever appear",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "An LSP server plugin: install the official `typescript-lsp` plugin (or ship a plugin with an `.lsp.json` pointing at typescript-language-server) so compiler diagnostics are pushed to Claude after each edit and it gets go-to-definition, find-references, and hover instead of grep.",
+          "rejected_alternative": "A PostToolUse hook running `tsc --noEmit` after each edit: it can surface type errors but provides no code navigation (definitions, references, type info), which is half of this need and is exactly what the LSP integration adds.",
+          "enforcement_owner": "The harness: Claude Code runs the language server and pushes diagnostics into Claude's context after edits by default via the `diagnostics` option, so catching type errors does not depend on the model remembering to check.",
+          "context_boundary": "Runs in the main session: type errors and warnings are injected into the main context after each file edit, and on-demand symbol lookups return targeted results that often replace broad file reads.",
+          "lifecycle": "Active while the plugin is enabled: diagnostics fire after file edits and navigation runs on demand when Claude looks up symbols; the server restarts on crash by default and stops when the plugin is disabled or the session ends.",
+          "failure_mode": "Fails open: the plugin does not bundle the language server binary, so if typescript-language-server is not installed the LSP tool is simply inactive and Claude silently falls back to grepping, with the error visible only in the /plugin Errors tab.",
+          "version_caveat": "The LSP tool is inactive until a code intelligence plugin for the language is installed; the `restartOnCrash` and `shutdownTimeout` options require v2.1.205 or later (before that, setting either made Claude Code skip the server at startup)."
+        },
+        {
+          "sheet": 2,
+          "primary": "An LSP server via the typescript-lsp plugin from the official marketplace (or a custom plugin with .lsp.json pointing at typescript-language-server). LSP integration pushes compiler diagnostics into Claude's context immediately after each edit and provides go-to-definition and find-references instead of grep.",
+          "rejected_alternative": "A PostToolUse hook that runs tsc after every Write or Edit; it can surface type errors but is slower, has no incremental server state, and provides no code navigation.",
+          "enforcement_owner": "The harness: Claude Code starts the language server process, injects diagnostics after edits without being asked, and backs the navigation capabilities. Acting on the diagnostics remains the model's job, so correction is advisory.",
+          "context_boundary": "Diagnostics are injected into the main conversation context after each edit (diagnostics: true is the default); the LSP server itself runs as a separate local process outside any context window.",
+          "lifecycle": "The server starts when a session runs with the plugin enabled and handles files matching its extensionToLanguage map; it restarts on crash by default and stops at session end or when the plugin is disabled.",
+          "failure_mode": "Fails open: if the typescript-language-server binary is not on PATH the server never starts (visible as Executable not found in the /plugin Errors tab) and Claude silently works without diagnostics, back to test-time discovery. Two enabled servers claiming .ts also conflict; only the first registered one runs.",
+          "version_caveat": "The language server binary must be installed separately (npm install -g typescript-language-server typescript). restartOnCrash and shutdownTimeout options require v2.1.205 or later; before that, setting either silently skipped the whole server."
+        },
+        {
+          "sheet": 3,
+          "primary": "An LSP server shipped as a plugin: install the typescript-lsp plugin from the official marketplace (or a custom plugin whose .lsp.json points at typescript-language-server), giving compiler diagnostics immediately after each edit plus go-to-definition and find-references.",
+          "rejected_alternative": "A PostToolUse hook running tsc after every Edit. It loses because it only returns batch compiler output as feedback, with no incremental language-server state, no go-to-definition or find-references, and it re-pays full type-check latency on every edit.",
+          "enforcement_owner": "The harness starts the language server and pushes its diagnostics into Claude's context automatically after edits; acting on those diagnostics remains the model's judgment, so the mechanism is advisory rather than blocking.",
+          "context_boundary": "The language server runs as a separate local process outside the context window; what crosses into the main session's context is the diagnostics pushed after each edit and the navigation results Claude requests.",
+          "lifecycle": "The server starts when the plugin is enabled and the session works on files it claims, publishes diagnostics after each edit, and stops on session cleanup or when the plugin is disabled.",
+          "failure_mode": "Advisory and quiet-failing: if the typescript-language-server binary is missing you get an Executable not found error in the /plugin Errors tab and Claude silently degrades to grep-quality text search; an invalid server config is skipped, with the reason visible only under claude --debug.",
+          "version_caveat": "restartOnCrash and shutdownTimeout in the LSP config require v2.1.205 or later (before that, setting either made Claude Code skip the server entirely at startup), and the language-server binary must be installed separately from the plugin."
+        },
+        {
+          "sheet": 4,
+          "primary": "The LSP mechanism: attach typescript-language-server through Claude Code's LSP support so the harness surfaces compiler diagnostics automatically after each edit and exposes go-to-definition and find-references as first-class operations instead of grep.",
+          "rejected_alternative": "A PostToolUse hook that runs tsc --noEmit after every Edit; it catches type errors deterministically but is slow on large projects and provides no definition or reference navigation.",
+          "enforcement_owner": "The harness: diagnostics are collected and injected by the LSP integration whether or not the model asks for them, though acting on a diagnostic remains the model's job.",
+          "context_boundary": "Runs in the main session; the language server is a separate process, and only diagnostics for touched files plus navigation results cross into the context window, never the whole project index.",
+          "lifecycle": "The language server starts when the session opens or the first matching file is touched, feeds diagnostics after each edit for the life of the session, and shuts down with it; the configuration persists until removed.",
+          "failure_mode": "Advisory in effect: the model can see a diagnostic and still proceed, and if the language server crashes or is misconfigured the system fails open, with edits continuing silently without diagnostics; stale diagnostics during large refactors are the other trap.",
+          "version_caveat": "LSP support in Claude Code is recent and I cannot state the exact introducing version or enabling flag with confidence; earlier builds have no LSP mechanism at all, where the PostToolUse tsc hook would be the fallback."
+        }
+      ]
+    },
+    {
+      "id": "S025",
+      "focus": "delegation",
+      "scenario": "The tooling bundle we distribute internally changes daily. Teammates should automatically receive every merged commit as an update, with zero release bookkeeping on our side.",
+      "key": {
+        "primary": "Omit the version field from both plugin.json and the marketplace entry so Claude Code falls back to the git commit SHA as the version, treating every commit as a new version",
+        "rejected_alternative": "Maintain a semantic version field in plugin.json and bump it for each release",
+        "rejection_reason": "The version string is the cache key that decides whether an update exists: with an explicit version set, pushing new commits without bumping it has no effect and /plugin update reports already at the latest version. The docs' version-management table recommends commit-SHA versioning for internal or team plugins under active development and warn against explicit versions when iterating quickly.",
+        "enforcement_owner": "harness",
+        "context_boundary": "no context window anywhere in the mechanism (version resolution and update checks are harness bookkeeping over the plugin cache); the commit SHA serves purely as the version string that decides when teammates receive an update, and nothing about versioning ever enters a conversation",
+        "lifecycle": "version is resolved when /plugin update or auto-update fires: plugin.json version first, then marketplace entry version, then the git commit SHA, then unknown",
+        "failure_mode": "every commit becomes an update, so teammates churn through half-finished work; and if someone later adds a version field for one release and forgets it, users freeze on that string while commits keep landing",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A plugin marketplace whose source is the toolkit's git repository itself: teammates install the plugin from that marketplace once, and because the marketplace serves the repository head, every merged commit becomes the next update pulled on marketplace refresh, with no tagging, versioning, or release step on the maintainers' side.",
+          "rejected_alternative": "Cutting versioned plugin releases (tags, changelogs, version bumps) for each change; it adds exactly the release bookkeeping the team wants to avoid at a daily change rate.",
+          "enforcement_owner": "The harness performs the fetch and update of marketplace and plugin content; no model behavior is involved in distribution at all.",
+          "context_boundary": "Distribution happens entirely outside any context window; only the plugin's own commands, skills, and hook outputs touch context once loaded in a session.",
+          "lifecycle": "Update checks happen when the marketplace refreshes or the user runs the plugin update command, typically surfacing at the next session start; the flow stops when the marketplace reference or the plugin is removed.",
+          "failure_mode": "Fails open in both directions: a bad merged commit ships to the whole team with no release gate, and users who have not refreshed keep running stale copies, so version skew is normal; a CI check on the plugin manifest before merge is the practical mitigation.",
+          "version_caveat": "Depends on plugin and marketplace support (the Claude Code 2.x era) and on whether the installed build auto-refreshes marketplaces or requires a manual update command; I cannot state the exact auto-update cadence with confidence."
+        },
+        {
+          "sheet": 2,
+          "primary": "A plugin distributed through a git-hosted plugin marketplace with autoUpdate set to true on the marketplace entry and no `version` field in plugin.json or the marketplace entry, so the git commit SHA is the version: every merged commit is treated as a new version and ships with zero release bookkeeping.",
+          "rejected_alternative": "Having teammates clone the toolkit repo and load it with `--plugin-dir`: that is session-scoped, requires each user to git pull manually, and has no auto-update; the marketplace path refreshes installed plugins in the background.",
+          "enforcement_owner": "The harness: on `/plugin update` or background auto-update it computes the current version (here the commit SHA), compares it to the installed cache key, and refreshes; no human or model action is needed per release.",
+          "context_boundary": "The update machinery is entirely harness-side (background marketplace refresh after startup); nothing about versioning enters model context, and already-running sessions keep the version they loaded.",
+          "lifecycle": "Auto-update fires in the background after session startup for marketplaces with autoUpdate enabled, and every new commit to the plugin's git source becomes an available update; it stops when autoUpdate is turned off or the marketplace is removed.",
+          "failure_mode": "Fails open toward staleness: if anyone adds a `version` field, pushing commits alone stops delivering updates because Claude Code sees the same version string and keeps the cached copy, and users silently stay on the old build.",
+          "version_caveat": "The autoUpdate flag must be set explicitly for this to be hands-off: when omitted it defaults to true only for official Anthropic marketplaces and to false for all others."
+        },
+        {
+          "sheet": 3,
+          "primary": "Distribute via a git-hosted plugin marketplace and omit the version field from both plugin.json and the marketplace entry, so the git commit SHA becomes the version and every merged commit counts as a new release. Set autoUpdate: true on the marketplace entry so Claude Code refreshes the marketplace and updates installed plugins in the background after startup.",
+          "rejected_alternative": "Explicit semantic versioning in plugin.json with CI bumping the field on each merge; it works but is exactly the release bookkeeping the team wants to avoid, and a missed bump silently stops updates.",
+          "enforcement_owner": "The harness: Claude Code computes the current version (the commit SHA), compares it to the installed cache key, and pulls updates automatically; no model involvement.",
+          "context_boundary": "Update mechanics run entirely outside any context window; only the plugin's components affect session context once loaded.",
+          "lifecycle": "Auto-update fires in the background after session startup on each user's machine; a running session keeps the already-loaded version, and hooks, MCP servers, and LSP servers switch paths only after /reload-plugins (monitors need a restart).",
+          "failure_mode": "Advisory-fresh at best: updates land at the next session start, so users mid-session run stale code, and if anyone ever adds a version field to plugin.json updates silently freeze until it is bumped. Fails open with a stale cached copy if the marketplace is unreachable.",
+          "version_caveat": "autoUpdate defaults to true only for official Anthropic marketplaces and false for everything else, so it must be set explicitly; commit-SHA versioning only applies to github, url, git-subdir, and git-hosted relative-path sources (npm sources resolve to unknown). Managed strictKnownMarketplaces is enforced on refresh and auto-update."
+        },
+        {
+          "sheet": 4,
+          "primary": "A plugin distributed from a git-hosted marketplace with the version field omitted from both plugin.json and the marketplace entry, so every merged commit's SHA counts as a new version; set autoUpdate: true on the marketplace entry so teammates receive updates in the background with zero release bookkeeping.",
+          "rejected_alternative": "Explicit semantic versioning in plugin.json. It loses because it reintroduces exactly the bookkeeping to be avoided: users only receive changes when the version string is bumped, and one forgotten bump silently strands every teammate on the old commit.",
+          "enforcement_owner": "The harness: Claude Code resolves the version (falling back to the git commit SHA), uses it as the update cache key, and performs the marketplace refresh and plugin update; no model behavior is involved.",
+          "context_boundary": "Entirely outside any context window: the update check runs in the background after startup, and only the updated components' normal loading touches context in later sessions.",
+          "lifecycle": "Every new commit to the plugin's git source becomes an available update; with autoUpdate the marketplace refreshes and updates installed plugins in the background after startup, and this continues until someone pins a version string or removes the marketplace.",
+          "failure_mode": "The silent-staleness trap: if anyone later adds a version field, pushed commits stop reaching users while /plugin update reports already-latest; and a mid-session update does not fully apply (hooks, MCP, and LSP servers need /reload-plugins, monitors need a session restart).",
+          "version_caveat": "autoUpdate defaults to true only for official Anthropic marketplaces and to false for all others, so the internal marketplace must set autoUpdate: true explicitly or teammates fall back to manual /plugin update."
+        }
+      ]
+    },
+    {
+      "id": "S027",
+      "focus": "delegation",
+      "scenario": "Whenever our shared toolkit is active in a session, Claude should hear about new lines appended to the application's error log as they appear, for the whole session, without anyone asking it to start watching.",
+      "key": {
+        "primary": "A plugin background monitor: an entry in monitors/monitors.json running tail -F, whose stdout lines Claude Code delivers to Claude as notifications for the lifetime of the session",
+        "rejected_alternative": "A SessionStart hook whose command launches tail -F as a detached background process",
+        "rejection_reason": "A hook command runs to completion per event and has no channel for delivering output that arrives later into the conversation, so the detached tail's lines never reach Claude. Monitors are the documented component that Claude Code starts automatically when the plugin is active, keeps running all session, and whose every stdout line is delivered to Claude as a notification, with the name field preventing duplicate processes on reload.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context",
+        "lifecycle": "starts at session start and on plugin reload with when set to always, or on first dispatch of a named skill with on-skill-invoke:<skill-name>; runs for the session lifetime",
+        "failure_mode": "monitors run only in interactive CLI sessions, run unsandboxed at hook trust level, do not load for project-scope skills-directory plugins, and keep running after the plugin is disabled mid-session until the session ends",
+        "version_caveat": "experimental component: declared under experimental.monitors in plugin.json, and the schema may change between releases while it stabilizes"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A hook shipped in the toolkit plugin: a UserPromptSubmit hook (with a SessionStart hook to record the initial log offset) reads the lines appended to the error log since the last event and injects them as additional context, so the model hears new errors at every turn for the whole session without anyone asking it to watch.",
+          "rejected_alternative": "An MCP server exposing a tail-the-log tool or resource; the model would have to remember to poll it, which violates the requirement that nobody asks Claude to start watching.",
+          "enforcement_owner": "The harness: hooks fire deterministically on their events regardless of what the model intends or remembers.",
+          "context_boundary": "The hook script runs outside the context and only the new log lines it emits cross into the main window as injected context; the log file itself never loads.",
+          "lifecycle": "Armed automatically whenever the plugin is active in a session, fires on every user prompt for the session's duration, and stops when the session ends or the plugin is disabled.",
+          "failure_mode": "Advisory and approximate: lines surface only at hook events rather than truly mid-turn, so errors during a long autonomous stretch arrive late, and a bursty log can flood the context unless the hook caps and summarizes; a hook script error fails open with no injection and no warning.",
+          "version_caveat": "UserPromptSubmit context injection is the load-bearing feature and has existed through recent versions, but I cannot name its introduction version; to my knowledge no version offers a true push channel into a live turn."
+        },
+        {
+          "sheet": 2,
+          "primary": "A background monitor bundled in the shared toolkit plugin (monitors/monitors.json) running a tail -F on the application error log; the harness starts it automatically when the plugin is active and delivers every appended line to Claude as a notification for the whole session.",
+          "rejected_alternative": "A SessionStart hook registering watchPaths so FileChanged events fire on log changes. It loses because FileChanged handlers have no documented context-injection channel, so the appended lines themselves never reach Claude, and per-event hook wiring cannot sustain a whole-session stream the way a monitor process does.",
+          "enforcement_owner": "The harness: it starts the monitor automatically when the plugin is active and pushes each stdout line into the session as a notification; the model neither starts nor sustains the watch, and reacting to the lines remains model judgment.",
+          "context_boundary": "The monitor is a persistent shell process outside the context window; each new error-log line crosses into the main session's context as a notification.",
+          "lifecycle": "Starts at session start while the plugin is active (default when: always), runs the command for the lifetime of the session, and stops when the session ends; disabling the plugin mid-session does not stop monitors that are already running.",
+          "failure_mode": "Advisory and environment-gated: monitors run only in interactive CLI sessions and are skipped on hosts where the Monitor tool is unavailable, so on those hosts Claude silently hears nothing; the command also runs unsandboxed at the same trust level as hooks.",
+          "version_caveat": "Monitors are an experimental plugin component (declare under experimental.monitors inline) whose manifest schema may still change; they also do not load for skills-directory plugins."
+        },
+        {
+          "sheet": 3,
+          "primary": "A plugin monitor (monitors/monitors.json in the shared toolkit plugin) running tail -F on the application's error log: Claude Code starts it automatically while the plugin is active and delivers every stdout line to Claude as a notification for the whole session. Step 1 chose a UserPromptSubmit hook injecting new lines each turn; monitors are the documented push mechanism for exactly this, so I changed.",
+          "rejected_alternative": "A SessionStart hook launching a background watcher: hooks fire on discrete events and cannot deliver asynchronous stdout to Claude as it appears; the monitor component exists precisely to push log lines to Claude without being asked.",
+          "enforcement_owner": "The harness: it starts the monitor when the plugin is active, keeps the process alive for the session, and injects each stdout line as a notification; the model never has to start or poll the watch.",
+          "context_boundary": "The watcher process runs harness-side in the session working directory; each appended log line crosses into the main conversation context as a notification, so a noisy log directly consumes main-session context.",
+          "lifecycle": "Starts at session start (or on first dispatch of a named skill via when: on-skill-invoke) and runs for the lifetime of the session; disabling the plugin mid-session does not stop a running monitor, and it stops when the session ends.",
+          "failure_mode": "Fails open and silently: monitors run only in interactive CLI sessions, are skipped on hosts where the Monitor tool is unavailable, and do not load from project-scope skills-directory plugins, so affected users simply never receive the log lines.",
+          "version_caveat": "Monitors are an experimental component declared under experimental.monitors, with a manifest schema that may change between releases; they run unsandboxed at the same trust level as hooks."
+        },
+        {
+          "sheet": 4,
+          "primary": "A plugin background monitor: monitors/monitors.json in the shared toolkit plugin with an entry like tail -F on the error log. Claude Code starts it automatically whenever the plugin is active and delivers every stdout line to Claude as a notification for the whole session, with no one asking it to watch.",
+          "rejected_alternative": "A FileChanged hook watching the log file; it fires on file changes but is built for reacting to watched-file edits, not for streaming appended lines as session-long notifications, and would need its own diffing logic.",
+          "enforcement_owner": "The harness starts and owns the monitor process and injects each line as a notification; what Claude does with the lines is advisory and up to the model.",
+          "context_boundary": "The monitor runs as an unsandboxed background process outside the context window; each stdout line crosses into the main conversation as a notification, so a chatty log directly consumes main-context tokens.",
+          "lifecycle": "Starts at session start and on plugin reload (when: always) and runs for the session lifetime; disabling the plugin mid-session does not stop an already-running monitor, which stops only at session end.",
+          "failure_mode": "Fails open: monitors run only in interactive CLI sessions, are skipped on hosts where the Monitor tool is unavailable, and do not load at all for project-scope skills-directory plugins, so users on those paths silently hear nothing. A noisy log can also flood the context.",
+          "version_caveat": "Monitors are an experimental component (experimental.monitors) whose schema may change between releases; monitor commands cannot reference user_config values as of v2.1.207 and run at the same trust level as hooks."
+        }
+      ]
+    },
+    {
+      "id": "S035",
+      "focus": "orchestration",
+      "scenario": "We have a written multi-step research procedure for summarizing pull requests that the team triggers by name. Its many intermediate file reads and command outputs must never land in the invoking conversation, and the procedure should run with read-only capabilities.",
+      "key": {
+        "primary": "Skill with 'context: fork' and 'agent: Explore' in the frontmatter: the SKILL.md content becomes the prompt driving an isolated subagent, and the Explore agent type supplies read-only tools (Write and Edit denied).",
+        "rejected_alternative": "A regular inline skill (default context) containing the same step-by-step instructions.",
+        "rejection_reason": "An inline skill's content and every resulting tool output land in the invoking conversation's context and stay there for the session. 'context: fork' creates a new isolated context, runs the skill content as the task, and returns only the result; the agent field picks the execution environment, and Explore is read-only by construction.",
+        "enforcement_owner": "harness",
+        "context_boundary": "isolated context",
+        "lifecycle": "invoked by /skill-name or automatically by Claude via description match; the forked subagent spawns at invocation and by default runs in the background",
+        "failure_mode": "The fork has no access to conversation history, so a procedure that depends on what was just discussed returns useless output; a backgrounded fork also runs with the narrower background tool set, and its edits (if any) fall outside /rewind checkpoints.",
+        "version_caveat": "'background: false' (wait for the result in the invoking turn) requires v2.1.218 or later; before v2.1.218 forked skills always blocked the turn"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A skill with `context: fork` and `agent: Explore` (the documented pr-summary pattern): the team triggers it by name with /skill-name, the written procedure in SKILL.md becomes the prompt driving an isolated subagent, all intermediate file reads and command output stay in that fork's context, and Explore's read-only tool set (Write and Edit denied) enforces read-only execution.",
+          "rejected_alternative": "A custom subagent: it also gives isolation and read-only tools, but it is invoked through Claude's delegation, with Claude writing the task prompt each time, whereas the skill keeps the team's written multi-step procedure verbatim and gives the exact by-name /trigger the team already uses.",
+          "enforcement_owner": "The harness: it creates the isolated fork context and withholds Write/Edit from the Explore agent type; only faithful execution of the procedure's steps inside the fork belongs to the model.",
+          "context_boundary": "A new isolated context is created per invocation; the rendered SKILL.md content (including any dynamic-context command output) crosses in as the subagent's prompt, and only the summarized result returns to the invoking conversation. None of the intermediate reads land in the invoking context.",
+          "lifecycle": "Runs when a user types /skill-name (or when Claude invokes it, unless disable-model-invocation is set); by default the forked subagent runs in the background and its result arrives when it completes, ending the instance.",
+          "failure_mode": "A skill body that contains guidelines without an explicit task makes the fork return nothing useful; and because a backgrounded fork runs with the narrower background subagent tool set, a procedure step that depends on an excluded tool fails unless background: false is set. The read-only constraint itself fails closed via the Explore tool set.",
+          "version_caveat": "The `background: false` frontmatter escape requires Claude Code v2.1.218 or later; on earlier versions forked skills always blocked the invoking turn until they finished."
+        },
+        {
+          "sheet": 2,
+          "primary": "A custom subagent in .claude/agents/ (for example pr-summarizer) whose system prompt is the written research procedure, with a read-only tools allowlist (Read, Grep, Glob, plus WebFetch or gh via a constrained path only if the procedure needs it). The team invokes it by name and it executes the whole procedure in its own context.",
+          "rejected_alternative": "A skill or custom slash command carrying the procedure; it is also name-triggered, but it executes in the invoking conversation, so every intermediate file read and command output would land in the caller's history, which the requirement forbids.",
+          "enforcement_owner": "Split: the harness owns the read-only capability boundary (tools allowlist) and the context isolation; the model owns actually following the multi-step procedure faithfully.",
+          "context_boundary": "All intermediate reads and command outputs stay inside the subagent's context window and die with it. Only the final PR summary crosses back into the invoking conversation.",
+          "lifecycle": "Defined once in the repo, loaded at session start, runs each time someone names it (or the model auto-delegates on description match), and ends when it returns its report.",
+          "failure_mode": "The capability restriction fails closed (write attempts error). The procedure execution is advisory: the model can skip or reorder steps, and auto-delegation by description is unreliable, so teams should invoke it explicitly by name. Over-summarization can drop detail the caller wanted.",
+          "version_caveat": "Custom agents with tools allowlists are GA since mid-2025 (exact version uncertain, around 1.0.60). If Bash is granted for a read-only CLI like gh pr view, the read-only guarantee weakens; a PreToolUse hook or deny rules would be needed to keep Bash constrained, since Bash itself is not read-only."
+        },
+        {
+          "sheet": 3,
+          "primary": "A skill invoked by /name that carries the written procedure, with context: fork so it executes in a subagent context and agent: Explore so the executor is the read-only built-in agent (Write and Edit denied). The SKILL.md content becomes the fork's task; add disable-model-invocation: true if only the explicit name should ever trigger it.",
+          "rejected_alternative": "A named subagent: it isolates and restricts identically, but its trigger is delegation rather than a named slash command, and the written procedure would sit in the agent body waiting for a caller to compose the task; the skill form gives the team /name with arguments directly. Checked against the Skill + Subagent composition card.",
+          "enforcement_owner": "The harness owns the isolation (a forked subagent context) and the read-only capability set, which comes from the chosen agent type; the model owns following the procedure's steps.",
+          "context_boundary": "The fork starts from the SKILL.md content, not the conversation history; all intermediate file reads and command outputs stay in the forked context, and only the summary returns to the invoking conversation.",
+          "lifecycle": "Runs when a team member types /name with arguments; the fork runs in the background and its result arrives in the conversation when it completes; the isolation ends with the fork.",
+          "failure_mode": "A context: fork skill must contain explicit instructions, or the subagent gets guidelines with no actionable prompt and returns nothing useful; a backgrounded fork also runs with the narrower background tool set, so a step depending on an excluded tool silently cannot run (set background: false to keep the full set).",
+          "version_caveat": "Forked skills run in the background by default only on v2.1.218 or later; before v2.1.218 they always blocked the invoking turn until they finished."
+        },
+        {
+          "sheet": 4,
+          "primary": "A skill holding the written procedure (SKILL.md invoked by /name) with context: fork and agent: Explore, so the procedure text becomes the prompt of a read-only forked subagent; this mirrors the documented pr-summary pattern almost exactly.",
+          "rejected_alternative": "A custom read-only subagent alone; it gives the isolation and the tool restriction but provides no named, versioned procedure the team triggers by name: the skill supplies the shared procedure text and the /name entry point.",
+          "enforcement_owner": "The harness owns the isolation and the read-only tool set (Explore denies Write and Edit); the model owns following the procedure's steps faithfully.",
+          "context_boundary": "The rendered SKILL.md, including any pre-executed !`command` dynamic context, becomes the fork's prompt; all intermediate file reads and command outputs stay in the fork's context window and only the summary returns to the invoking conversation. With agent: Explore, CLAUDE.md is not loaded into the fork.",
+          "lifecycle": "Triggered by /name (add disable-model-invocation: true to keep it strictly manual); the fork runs in the background by default and the invocation ends when its result message arrives in the invoking conversation.",
+          "failure_mode": "A backgrounded fork runs the narrower background tool set, so a procedure step needing a tool outside that set silently cannot run (set background: false to keep the full set); because Explore skips CLAUDE.md, any project rule the procedure depends on must be restated in the skill body; step adherence itself is advisory.",
+          "version_caveat": "background: false requires v2.1.218 or later, and before v2.1.218 forked skills always blocked the invoking turn. Explore inheriting the session model rather than always running Haiku is v2.1.198 and later behavior."
+        }
+      ]
+    },
+    {
+      "id": "S037",
+      "focus": "orchestration",
+      "scenario": "A reporting worker needs shell access to run database CLI queries, but any statement that mutates data (INSERT, UPDATE, DELETE, schema changes) must be deterministically blocked before it executes, even if the worker attempts one anyway.",
+      "key": {
+        "primary": "Subagent with 'tools: Bash' plus a PreToolUse hook in its frontmatter whose validation script inspects tool_input.command and exits with code 2 to block write statements (the docs' db-reader pattern).",
+        "rejected_alternative": "Restricting via the subagent's tools or disallowedTools fields alone.",
+        "rejection_reason": "Tool fields are all-or-nothing per tool: they can grant or remove Bash entirely but cannot allow SELECT while blocking INSERT within the same tool. The docs present PreToolUse hooks as the mechanism for conditional rules when you need to allow some operations of a tool while blocking others, with exit code 2 blocking deterministically.",
+        "enforcement_owner": "harness",
+        "context_boundary": "isolated context",
+        "lifecycle": "PreToolUse fires before each matching Bash call while that subagent is active; frontmatter hooks are cleaned up when it finishes",
+        "failure_mode": "Pattern-based validation can miss obfuscated commands; on macOS and Linux a script that is not executable makes the hook fail instead of blocking anything (fails open); project-level frontmatter hooks require workspace trust on v2.1.218+ or they are skipped.",
+        "version_caveat": "on v2.1.218 and later a project-level subagent frontmatter hook runs only after the workspace trust dialog is accepted, and until the folder is trusted the hooks are skipped while the subagent still runs; user-level agents in ~/.claude/agents/ are exempt, and the frontmatter hook mechanism itself has no separate minimum version"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A PreToolUse hook with matcher Bash, declared in the reporting subagent's frontmatter (or settings.json), whose command handler parses tool_input.command and exits 2, or returns permissionDecision deny, on INSERT/UPDATE/DELETE/DDL; the docs' db-reader example is this exact pattern. The harness runs it before every shell command, so the block is deterministic.",
+          "rejected_alternative": "Permission deny rules: Bash rules match command prefixes and explicitly cannot match the command content field, so SQL embedded in a CLI invocation slips past; the hook inspects the full command text instead.",
+          "enforcement_owner": "The harness: it fires the hook on every matching tool event and enforces the exit-2 block regardless of what the model decides mid-task.",
+          "context_boundary": "The handler runs as a harness-spawned process outside any model context, reading the event JSON on stdin; only the block feedback (stderr or the decision reason) enters the worker's context.",
+          "lifecycle": "Fires on every Bash PreToolUse event while the hook is configured; a frontmatter hook lives only while that subagent runs, and the guard stops applying when the hook is removed or disableAllHooks is set.",
+          "failure_mode": "The block path fails closed (exit 2), but the surrounding posture is fail-open: a non-executable script, a missing interpreter such as jq, or an exit 1 is treated as a non-blocking error and the statement proceeds, so both the pass path and the block path must be tested.",
+          "version_caveat": "PreToolUse command hooks are stable with no enabling flag; since v2.1.214 an exit-2 handler that also prints schema-invalid JSON still blocks (earlier builds let the action proceed), and disableAllHooks remains the user-side off switch outside managed settings."
+        },
+        {
+          "sheet": 2,
+          "primary": "A PreToolUse hook matched on the Bash tool that parses the proposed command for mutating SQL (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, TRUNCATE and equivalents) and returns a deny decision (exit code 2 or JSON permissionDecision deny) before execution. Hooks fire on subagent tool calls too, so the reporting worker is covered.",
+          "rejected_alternative": "Permission deny rules in settings.json for Bash; Bash permission patterns are prefix-oriented and cannot reliably classify SQL embedded in a CLI invocation, so a scripted hook that inspects the full command string is the deterministic option.",
+          "enforcement_owner": "The harness. The hook is an external script run deterministically on every matching tool call; the model cannot talk its way past it.",
+          "context_boundary": "The hook runs outside any model context as a local process receiving the tool-call JSON on stdin. Its deny reason is injected back into the calling agent's context so the worker learns why the statement was refused.",
+          "lifecycle": "Fires on every Bash PreToolUse while registered in settings; hook config is captured at session start, so edits require a new session or explicit review to take effect. It applies to main session and subagents alike.",
+          "failure_mode": "Fails open on classifier misses: obfuscated SQL, statements built from files or variables, or vendor-specific mutation syntax can slip past the pattern check, and a hook script that crashes with a non-2 exit code is treated as non-blocking. Overbroad patterns fail closed on legitimate reads (a SELECT mentioning a column named updated_at). Defense in depth via a read-only database login is the real backstop.",
+          "version_caveat": "PreToolUse hooks with JSON decision output are GA (introduced mid-2025; exact version uncertain). Field naming for the deny decision has evolved across releases (permissionDecision vs older decision fields), so verify against the installed version's hooks schema."
+        },
+        {
+          "sheet": 3,
+          "primary": "A PreToolUse hook matched on Bash, defined in the reporting subagent's frontmatter (the documented db-reader validate-readonly-query pattern) or in settings.json: the script reads the tool call JSON from stdin, inspects tool_input.command for INSERT/UPDATE/DELETE/DDL keywords, and exits with code 2 to block the command before it executes.",
+          "rejected_alternative": "Permission deny rules such as Bash(psql *): rules match command prefixes and explicitly cannot match the command's content field, so they cannot distinguish a SELECT from an UPDATE issued through the same database CLI; they would block the whole tool or nothing.",
+          "enforcement_owner": "The harness: when the hook exits 2, Claude Code blocks the tool call before execution no matter what the worker attempts, and feeds the stderr message back to the model.",
+          "context_boundary": "The hook runs as an external shell process outside any context window; it receives the tool call as JSON on stdin, and only its stderr block message crosses into the worker's context as feedback.",
+          "lifecycle": "Fires on every matching Bash tool call, after Claude creates the tool parameters and before the command runs; frontmatter hooks apply only while that subagent is active and are cleaned up when it finishes, while settings.json hooks apply session-wide including inside subagents.",
+          "failure_mode": "Fails open on script faults: only exit code 2 blocks, so a validator that crashes with exit 1, is not executable, or whose regex misses obfuscated SQL lets the mutation proceed as a non-blocking error. Only the correct exit-2 path fails closed, so the SQL pattern list must be conservative.",
+          "version_caveat": "Before v2.1.214, a hook that exited 2 while printing JSON that failed schema validation was treated as a non-blocking error and the action proceeded; also, on Windows the validation script should be written in PowerShell with shell: powershell on the hook entry."
+        },
+        {
+          "sheet": 4,
+          "primary": "A PreToolUse hook scoped to the reporting subagent (matcher Bash in the agent's frontmatter hooks) that reads the tool call JSON from stdin, inspects tool_input.command, and exits with code 2 on INSERT, UPDATE, DELETE, or DDL keywords, deterministically blocking the statement before it executes. This is the documented db-reader pattern.",
+          "rejected_alternative": "Permission deny rules such as Bash(psql *) patterns; prefix and glob rules cannot reliably classify SQL embedded in an arbitrary command line and are bypassable by compound commands, while a hook sees the full command text every time.",
+          "enforcement_owner": "The harness: the hook runs before every Bash call and exit code 2 blocks the call regardless of what the model decided; the stderr message is fed back to the subagent so it knows why.",
+          "context_boundary": "The hook script runs outside the model's context, receiving the pending tool call as JSON on stdin; only its allow-or-block outcome and the error message re-enter the subagent's context window.",
+          "lifecycle": "Active for every Bash call while that subagent is running and cleaned up when the subagent finishes; defining the same hook in settings.json instead would apply it session-wide to every Bash call.",
+          "failure_mode": "The keyword gate fails open on anything the regex does not match: obfuscated SQL, mutations inside a sourced script file, or statements executed via a file argument; and a hook script that is not executable on macOS or Linux fails without blocking anything. Test the block path by asking the subagent to run an UPDATE.",
+          "version_caveat": "As of v2.1.218, frontmatter hooks on project-level subagents run only after the workspace trust dialog is accepted; until trusted the subagent still runs with its hooks silently skipped, a fail-open window. On Windows, write the hook in PowerShell and add shell: powershell."
+        }
+      ]
+    },
+    {
+      "id": "S041",
+      "focus": "integration",
+      "scenario": "Company policy says the assistant must never modify files under secrets/ or run shell commands that touch them, even when a crafted prompt or its own reasoning argues otherwise. Compliance wants a guarantee, not a convention it usually follows.",
+      "key": {
+        "primary": "PreToolUse hook (type: command) matched on Edit|Write and Bash that inspects tool input and returns hookSpecificOutput.permissionDecision: deny, configured in settings.json",
+        "rejected_alternative": "A CLAUDE.md rule stating 'never touch files under secrets/'",
+        "rejection_reason": "The memory docs are explicit that CLAUDE.md and auto memory are context, not enforced configuration: 'To block an action regardless of what Claude decides, use a PreToolUse hook instead.' Hooks are evaluated by the client before the tool call executes, so the deny happens regardless of what the model decided; a memory instruction depends entirely on model compliance.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context",
+        "lifecycle": "Fires on the PreToolUse event before every matching tool call; deny reason is fed back to the model",
+        "failure_mode": "Fails open on hook bugs: Claude Code treats exit code 1 as a non-blocking error and proceeds with the tool call, so only exit code 2 or an explicit permissionDecision deny actually blocks; matcher gaps leak as well, since the deny runs only on calls the Edit|Write and Bash matchers catch, and the docs point hard allow/deny guarantees at the permission system because Bash command filtering is best-effort.",
+        "version_caveat": "none (no version gate on PreToolUse permissionDecision deny hooks in settings.json as of 2.1.220, per hooks.md); the Edit|Write pipe matcher form works on every version, while comma separators require v2.1.191 or later"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "Permission deny rules in settings, deployed through managed policy settings: deny Edit(secrets/**) and Read(secrets/**) so every file-editing tool, file reads, and the recognized file commands inside Bash (cat, sed, head, tail) are blocked on that path. Managed settings sit above user and project levels, so neither a crafted prompt, the model's own reasoning, nor an edit to repo settings can lift the rule.",
+          "rejected_alternative": "A PreToolUse hook returning permissionDecision deny; the hooks reference itself says the if-filtering is best-effort and fails open on unparseable commands, and directs you to the permission system for a hard allow or deny.",
+          "enforcement_owner": "The harness: the permission engine evaluates deny rules before any tool call executes, independent of what the model wants; the docs note rules are enforced by Claude Code, not the model.",
+          "context_boundary": "Enforcement happens outside the model's context window in the permission layer; only the denial message crosses back into the conversation for the model to see.",
+          "lifecycle": "Rules load at session start from the settings hierarchy and apply to every matching tool call in every session; managed rules persist until an administrator removes them and merge ahead of user, project, and local settings.",
+          "failure_mode": "Fails closed for matching calls, which is what compliance wants, but there is a residual open gap: Read/Edit rules do not cover arbitrary subprocesses such as a Python script that opens secrets/ itself, and Bash argument patterns are fragile, so the docs point to OS-level sandboxing to close that hole.",
+          "version_caveat": "A Read deny also blocking the Edit tool on the same path requires v2.1.208 or later; from v2.1.210 Claude Code warns that Write(path) and NotebookEdit(path) rules are never consulted, so the rule must be written as Edit(path). Full OS-level enforcement needs the separate sandboxing feature."
+        },
+        {
+          "sheet": 2,
+          "primary": "A PreToolUse hook (command handler, matcher Edit|Write|Bash) that inspects the tool input JSON and denies anything touching secrets/, deployed through managed policy settings and paired with permissions.deny rules for the file tools. The enforcement-ownership axis settled it: a guarantee needs the harness, not the model.",
+          "rejected_alternative": "A CLAUDE.md rule stating the policy: it is advisory text the model can be argued out of by a crafted prompt or its own reasoning, so it cannot satisfy a compliance guarantee.",
+          "enforcement_owner": "The harness: Claude Code itself blocks the tool call when the hook returns a deny decision or exits 2; the model never gets a vote on whether the hook fires.",
+          "context_boundary": "The hook runs as a separate shell process outside the model's context window; the tool-call JSON crosses in on stdin, and only the decision and its reason cross back into the session.",
+          "lifecycle": "Fires on every matching PreToolUse event, before the tool call executes, in every session while the hook stays configured; it stops applying only when removed from settings, and user-level disableAllHooks cannot switch off managed hooks.",
+          "failure_mode": "Fails closed only on exit code 2 or an explicit deny: a buggy script that exits 1 is treated as a non-blocking error and the action proceeds, so the guard fails open on script bugs, and best-effort if filters on Bash patterns also fail open; test the deny path explicitly and keep the block logic in the script body.",
+          "version_caveat": "PreToolUse itself has no version gate, but a comma-separated matcher list such as 'Edit, Write' requires v2.1.191 or later (use | separators on older builds), and the tamper-proof tier requires deploying via managed policy settings."
+        },
+        {
+          "sheet": 3,
+          "primary": "Permission deny rules (the rules mechanism in settings): Read(./secrets/**) and Edit(./secrets/**) deny rules in .claude/settings.json or managed settings, with the sandbox enabled for OS-level coverage of subprocesses. Step 1 favored a PreToolUse hook; step 2 changed the answer, because the docs state the hook if-filter is best-effort and direct hard allow/deny enforcement to the permission system.",
+          "rejected_alternative": "A PreToolUse hook returning permissionDecision deny. It loses because Bash pattern matching for hooks is best-effort and fails open on unparseable commands, and the documentation explicitly says to use the permission system rather than a hook to enforce a hard deny.",
+          "enforcement_owner": "The harness: deny rules are evaluated by Claude Code before any tool call runs, regardless of what the model argues, and a deny at any settings level cannot be overridden by an allow anywhere else, including managed settings for a compliance-grade guarantee.",
+          "context_boundary": "Applies in the main session and inside subagents, but evaluation happens in the harness outside the model's context; the model only sees the denial as a blocked tool result, and secrets content never enters the context window.",
+          "lifecycle": "Evaluated on every tool call for as long as the rule exists in the settings file, with deny checked first before ask and allow; it stops applying only when the rule is removed from settings.",
+          "failure_mode": "Fails closed for built-in file tools and recognized Bash file commands, but Read/Edit deny rules do not cover arbitrary subprocesses that open files themselves (a Python or Node script), so without the sandbox the guarantee has a bypass; shell commands that touch secrets/ indirectly are the weak edge.",
+          "version_caveat": "A Read deny rule also blocking the Edit tool on the same path requires v2.1.208 or later, and Write and NotebookEdit are never covered by Read denies, so an explicit Edit deny rule is required for full coverage."
+        },
+        {
+          "sheet": 4,
+          "primary": "A PreToolUse hook plus permissions.deny rules in .claude/settings.json: deny Edit and Write on secrets/**, and a hook script that inspects every Bash, Edit, and Write call and returns a deny decision (exit code 2 or JSON deny) when the path or command references secrets/.",
+          "rejected_alternative": "CLAUDE.md rules: they are advisory model guidance that a crafted prompt or the model's own reasoning can override, which is exactly what compliance rejects.",
+          "enforcement_owner": "Harness: the hook and the permission engine run outside the model and block the tool call regardless of what the model decided.",
+          "context_boundary": "The hook runs as an external process outside the context window; it receives the tool call JSON on stdin, and only the denial message re-enters the model's context.",
+          "lifecycle": "Fires on every matching PreToolUse event for as long as the hook and deny rules exist in settings; it stops applying only when the settings entries are removed.",
+          "failure_mode": "The deny path itself fails closed, but coverage gaps fail open: a Bash command that reaches secrets/ through a symlink, a cd, or a shell variable can evade string matching, and a hook script that crashes with a non-blocking exit code lets the call through.",
+          "version_caveat": "Hooks and permissions.deny are stable, generally available Claude Code features with no plan gate; the hook JSON schema has evolved across versions, so verify field names against the current hooks reference."
+        }
+      ]
+    },
+    {
+      "id": "S049",
+      "focus": "integration",
+      "scenario": "For a data-annotation project we want the assistant to act as a data analyst rather than a software engineer: every reply in a fixed tabular report format, with the default engineering behavior removed, applying to every turn of every interactive session in this project.",
+      "key": {
+        "primary": "A custom output style (.claude/output-styles/analyst.md without keep-coding-instructions), selected via /config or the outputStyle setting",
+        "rejected_alternative": "Writing the persona and format rules into the project CLAUDE.md",
+        "rejection_reason": "Output styles modify the system prompt itself and, by default, omit Claude Code's built-in software engineering instructions; CLAUDE.md is delivered as a user message after the system prompt and cannot remove those built-ins. The docs' comparison table assigns 'a different role, tone, or default response format every turn' to output styles and reserves CLAUDE.md for project conventions and codebase context.",
+        "enforcement_owner": "model",
+        "context_boundary": "main context",
+        "lifecycle": "Set once in settings (outputStyle) or via /config; read at session start, so changes take effect after /clear or a new session; applies to the main conversation only, not subagents",
+        "failure_mode": "Advisory: the style is system-prompt text, so holding the tabular report format each turn stays with the model; it applies to the main conversation only, since a subagent runs its own system prompt and ignores the style; and the style is read once at session start, so a mid-project edit takes effect only after /clear or a new session.",
+        "version_caveat": "The standalone /output-style command was deprecated in v2.1.73 and removed in v2.1.91; select styles through /config or the outputStyle setting instead"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "An output style: define a data-analyst style in .claude/output-styles/ that replaces the default software-engineering system prompt with the fixed tabular report contract, and pin it in project settings so every session in this repo uses it.",
+          "rejected_alternative": "CLAUDE.md instructions: they append to the engineering system prompt rather than replacing it, so the default coding persona keeps competing with the analyst format.",
+          "enforcement_owner": "Model: an output style is system prompt text, so adherence to the tabular format is model compliance, not a harness check.",
+          "context_boundary": "The style text is substituted into the system prompt of the main context window at session start and governs every turn; nothing else crosses a boundary.",
+          "lifecycle": "Applies from the start of every session in the project once set (via /output-style or the settings key) until the setting is changed back to the default style.",
+          "failure_mode": "Advisory and fails open: format drift creeps in on long sessions or unusual questions, and nothing machine-validates that a reply is actually a well-formed table.",
+          "version_caveat": "Output styles shipped in mid-2025 (roughly the 1.0.8x era); I recall deprecation signals around them in 2.x builds but am not certain, so verify they are still supported on your version before standardizing."
+        },
+        {
+          "sheet": 2,
+          "primary": "A custom output style in .claude/output-styles/, selected through the project's outputStyle setting, with keep-coding-instructions left false so the default software-engineering instructions are removed and every reply follows the fixed tabular analyst format. The change-how-Claude-responds axis settled it: only output styles modify the system prompt.",
+          "rejected_alternative": "CLAUDE.md: it adds a message after the system prompt but cannot remove the built-in software-engineering instructions, so the engineer persona would keep leaking through the analyst format.",
+          "enforcement_owner": "The model: the harness swaps the system prompt text and re-issues adherence reminders, but per-turn compliance with the tabular format remains model judgment; this is advisory, not enforced.",
+          "context_boundary": "Applies to the main conversation's system prompt only; subagents run their own system prompts and will not answer in the analyst format, so delegated work falls outside the style's boundary.",
+          "lifecycle": "Active on every turn of every interactive session in the project once set; the system prompt is read once at session start, so style edits take effect only after /clear or a new session; it stops applying when outputStyle is changed or the file is removed.",
+          "failure_mode": "Advisory and fails open: if the style is not selected or fails to load, the session silently behaves as Default; drift from the fixed table format is possible in long sessions; and subagent output ignores the style entirely.",
+          "version_caveat": "The standalone /output-style command was deprecated in v2.1.73 and removed in v2.1.91; on current builds select the style via /config or the outputStyle setting in a settings file."
+        },
+        {
+          "sheet": 3,
+          "primary": "A custom output style: a Markdown file in the repo's .claude/output-styles/ defining the data-analyst role and fixed tabular report format, with keep-coding-instructions left false so the built-in software-engineering instructions are removed, and outputStyle set in the committed project .claude/settings.json so every session in the project starts in it.",
+          "rejected_alternative": "CLAUDE.md: it appends instructions as a user-level message but leaves the default engineering system prompt fully in place, so the software-engineer default persona keeps leaking through.",
+          "enforcement_owner": "The model: the harness rewrites the system prompt and injects adherence reminders, but producing the tabular format every turn is still model compliance, not a hard gate.",
+          "context_boundary": "Applies to the main conversation's system prompt only; subagents run their own system prompts and are not affected (a fork is the exception), so delegated work will not follow the analyst format.",
+          "lifecycle": "Read once at session start and applied to every turn; a change takes effect only after /clear or a new session, and it keeps applying until the outputStyle setting is changed.",
+          "failure_mode": "Advisory: the model can drift from the format on hard turns, and the common operational trap is that picking the style via /config saves to .claude/settings.local.json (personal, gitignored), so teammates never get it unless outputStyle is committed in project settings.",
+          "version_caveat": "The standalone /output-style command was deprecated in v2.1.73 and removed in v2.1.91; set the style via /config or the outputStyle setting; plugin-shipped styles can auto-apply with force-for-plugin."
+        },
+        {
+          "sheet": 4,
+          "primary": "A custom output style at .claude/output-styles/data-analyst.md with keep-coding-instructions left unset, selected through the outputStyle setting in project settings; it sets the analyst role and the fixed tabular report format for every turn and drops the built-in software-engineering instructions.",
+          "rejected_alternative": "CLAUDE.md. It loses because memory only adds a message on top of the default engineering system prompt and cannot remove the default software-engineering behavior, which this requirement explicitly demands.",
+          "enforcement_owner": "Split: the harness swaps the instructions into the system prompt at session start and injects adherence reminders, but per-turn compliance with the tabular format is model-owned and advisory.",
+          "context_boundary": "Lives in the main conversation's system prompt only; subagents run their own system prompts and are untouched, so delegated work does not come back in the analyst format.",
+          "lifecycle": "Applies to every turn of every session in the project once set; the system prompt is read once at session start, so a style change takes effect only after /clear or a new session, and it stops when outputStyle is changed.",
+          "failure_mode": "Advisory, fails open: the model can drift from the fixed table format on hard turns, the style silently does not govern subagent output, and dropping the coding instructions also removes built-in guidance on scoping and verifying work when a task does need code.",
+          "version_caveat": "The standalone /output-style command was deprecated in v2.1.73 and removed in v2.1.91; set the style through /config or the outputStyle settings field instead."
+        }
+      ]
+    },
+    {
+      "id": "S051",
+      "focus": "crosscut",
+      "scenario": "Every time the agent modifies a TypeScript file, our formatter must run on that file. We wrote the instruction into the project guidance the agent reads at startup, but every few sessions it skips the step and unformatted code lands in a commit.",
+      "key": {
+        "primary": "PostToolUse hook with an Edit|Write matcher whose command runs the formatter on the edited file path",
+        "rejected_alternative": "A CLAUDE.md instruction telling Claude to always run the formatter after editing",
+        "rejection_reason": "The memory docs state CLAUDE.md is context, not enforced configuration, with no guarantee of strict compliance, and explicitly say that anything that must run at a specific point, such as after each file edit, should be written as a hook, which executes at fixed lifecycle events regardless of what Claude decides.",
+        "enforcement_owner": "harness",
+        "context_boundary": "no context window (the formatter is a shell process fired after each matching edit); by default nothing crosses into the conversation because for most hook events stdout goes to the debug log, and only a blocking exit 2 stderr or an explicit additionalContext return feeds anything back to Claude",
+        "lifecycle": "PostToolUse event fires after each successful tool call whose tool name matches Edit|Write",
+        "failure_mode": "A matcher typo or a failing script skips formatting silently, because non-blocking hook errors do not stop the session; the hook also runs on every matching edit whether or not the file needed formatting.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A PostToolUse hook (type: command) in .claude/settings.json with matcher Edit|Write that runs the formatter on tool_input.file_path; the harness executes it after every file-editing tool call, so the model cannot skip the step. Settled on the first selection axis: a rule that must fire on every matching event is hook territory, not guidance.",
+          "rejected_alternative": "CLAUDE.md instruction (the current approach): it is advisory and model-owned, and it is demonstrably skipped every few sessions, which is the reported failure.",
+          "enforcement_owner": "The harness: it fires the hook on every matching tool event and the hook process itself performs the formatting, so the outcome no longer depends on the model remembering anything.",
+          "context_boundary": "Triggered by main-session (and subagent) tool events, but the hook runs as a separate OS process outside the context window; the event JSON crosses in on stdin, and only optional feedback such as stderr or additionalContext crosses back into Claude's context.",
+          "lifecycle": "Fires immediately after each successful Edit or Write tool call; it stops applying when the entry is removed from settings or when disableAllHooks is set.",
+          "failure_mode": "It runs after the file is already written, and a crashing formatter is a non-blocking hook error, so the mechanism fails open (the edit stands, unformatted). The Edit|Write matcher also misses files Claude creates through Bash (heredocs, scripts), which can still land in commits unformatted; add a Stop-hook working-tree scan if that gap matters.",
+          "version_caveat": "No version gate on the PostToolUse event itself; only the optional comma-separated matcher list form (Edit, Write) requires v2.1.191 or later, and the pipe form Edit|Write works on all current builds."
+        },
+        {
+          "sheet": 2,
+          "primary": "A PostToolUse hook in the checked-in .claude/settings.json with matcher Edit|Write and an if condition of Edit(*.ts), running a command that extracts tool_input.file_path from stdin JSON and pipes it to the formatter. This is the documented auto-format pattern and it runs deterministically on every matching tool call instead of relying on the model to remember.",
+          "rejected_alternative": "CLAUDE.md (project guidance): it is advisory context the model can and demonstrably does skip every few sessions; instructions shape what the model tries but the harness never executes them.",
+          "enforcement_owner": "The harness: Claude Code fires the hook and spawns the formatter process itself on every matching tool event, with no model cooperation required.",
+          "context_boundary": "The hook runs as a separate shell process outside the context window; it receives the tool call JSON on stdin and its formatting work happens on disk. Nothing crosses back into the model's context unless the hook errors or returns feedback fields.",
+          "lifecycle": "Fires immediately after every successful Edit or Write tool call while the hook entry exists in a loaded settings file; hook entries merge across settings levels and edits to settings are picked up by the file watcher. It stops applying when the entry is removed or disableAllHooks is set.",
+          "failure_mode": "It misses files Claude changes through Bash commands (sed, echo redirects), so unformatted code can still land; the docs recommend adding a Stop hook sweep or a Bash matcher for full coverage. Formatter failures are advisory: a non-2 exit code is a non-blocking error and execution continues, so the mechanism fails open when the formatter itself breaks.",
+          "version_caveat": "Core PostToolUse behavior is not version gated; the comma form of the matcher (Edit,Write) requires Claude Code v2.1.191 or later, and hyphenated exact-match names require v2.1.195 or later."
+        },
+        {
+          "sheet": 3,
+          "primary": "A PostToolUse command hook in the repo's .claude/settings.json with matcher \"Edit|Write\" and an if condition of \"Edit(*.ts)\"; the script reads tool_input.file_path from the stdin JSON and runs the formatter on that file after every modification.",
+          "rejected_alternative": "CLAUDE.md project guidance, which is what was already tried: the model owns compliance there and skips the step probabilistically, which is exactly the observed failure.",
+          "enforcement_owner": "The harness: the hook fires deterministically on every matching tool call regardless of whether the model remembers the instruction.",
+          "context_boundary": "The hook runs as a separate shell process outside the model's context window; the tool-call JSON crosses in via stdin, and only optional stdout or systemMessage feedback crosses back into the conversation.",
+          "lifecycle": "Fires after every successful Edit or Write tool call for as long as the settings entry exists (settings are live-reloaded); it stops applying when the entry is removed or disableAllHooks is set.",
+          "failure_mode": "Advisory and fails open: a formatter crash or nonzero exit is a non-blocking error so the turn continues and unformatted code can still land; it also misses files changed through raw Bash commands like sed, so a pre-commit check remains a useful backstop.",
+          "version_caveat": "No meaningful version gate for PostToolUse itself; comma-separated matcher lists need v2.1.191+ (the pipe form works everywhere), and single-segment if patterns like Edit(src/**) anchor to the working directory only from v2.1.214."
+        },
+        {
+          "sheet": 4,
+          "primary": "A PostToolUse hook in settings.json with a matcher on Edit|Write|MultiEdit that runs the formatter on the file path taken from the tool call's tool_input JSON. The harness executes it deterministically after every matching file modification, so the step cannot be skipped.",
+          "rejected_alternative": "CLAUDE.md guidance (the current approach): it is advisory prose that the model drops under context pressure, which is exactly the observed failure.",
+          "enforcement_owner": "Harness: the hook runs whether or not the model remembers the rule.",
+          "context_boundary": "The hook runs as an external shell process outside the model's context window; it receives the tool call JSON on stdin, and its output does not enter the model's context on success (only a blocking exit feeds text back).",
+          "lifecycle": "Fires after every matching Edit/Write tool call from settings load onward, and stops applying when the hook entry is removed; hook config is captured at session start, so mid-session settings edits need a restart or review to take effect.",
+          "failure_mode": "Fails open for writes that bypass the matched tools: a file created via a Bash command or an unmatched tool lands unformatted, and a formatter crash leaves the file untouched with only a warning. Reformatting can also make the model's remembered view of the file stale, causing a later Edit old_string mismatch.",
+          "version_caveat": "Hooks including PostToolUse shipped in Claude Code during 2025 and are generally available with no plan restriction; I do not recall the exact introducing version number."
+        }
+      ]
+    },
+    {
+      "id": "S054",
+      "focus": "crosscut",
+      "scenario": "Security mandates that no developer may run the agent with approval prompting switched off entirely, and a developer must not be able to lift the restriction by editing anything in their own home directory or in any repo they control. The control has to hold on every laptop in the fleet.",
+      "key": {
+        "primary": "permissions.disableBypassPermissionsMode set to \"disable\" in managed settings deployed to the OS-protected policy location (/Library/Application Support/ClaudeCode/ on macOS, /etc/claude-code/ on Linux, C:\\Program Files\\ClaudeCode\\ on Windows) via MDM or server-managed settings",
+        "rejected_alternative": "Setting the same key in each developer's ~/.claude/settings.json or in the repo's .claude/settings.json",
+        "rejection_reason": "The key works from any scope, but user, project, and local settings files are writable by the developer, who can simply delete the line. Managed settings are the only tier the precedence order says cannot be overridden by any other level, including command-line arguments, and the permissions docs state this key is typically placed in managed settings precisely because it can't be overridden there.",
+        "enforcement_owner": "harness",
+        "context_boundary": "no context window at any point (a managed-settings policy key the harness reads at startup to decide which permission modes are selectable); it consumes no conversation context, and nothing the model or a developer-writable file emits can cross back to change it, since managed settings cannot be overridden by anything",
+        "lifecycle": "loaded from the managed policy source at startup (with live reload on change); governs which permission modes are selectable for the whole session",
+        "failure_mode": "The guarantee is only as strong as the OS ACLs on the managed file location and the reach of the deployment tooling: a developer with local admin rights, or a laptop the MDM never touched, is outside the control.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "Managed policy settings deployed fleet-wide via MDM (macOS com.anthropic.claudecode plist, Windows HKLM registry) or a system managed-settings.json (/Library/Application Support/ClaudeCode/, /etc/claude-code/, C:\\Program Files\\ClaudeCode\\), setting permissions.disableBypassPermissionsMode to \"disable\" and optionally disableAutoMode.",
+          "rejected_alternative": "Putting disableBypassPermissionsMode in user or project settings.json: the key works from any scope, but a developer can simply edit those files, so only the managed scope satisfies 'cannot lift it from home directory or repo'.",
+          "enforcement_owner": "The harness: managed settings sit at the top of the precedence order and cannot be overridden by user settings, project settings, or command-line arguments.",
+          "context_boundary": "Pure configuration evaluated at startup and on mode switches; nothing enters the model context beyond the refusal when bypass mode is attempted.",
+          "lifecycle": "Applied at every session start on every machine that carries the policy (SessionEnd even has a bypass_permissions_disabled reason); it stays in force until IT withdraws the policy.",
+          "failure_mode": "Fails open per machine that never received the profile or file: a laptop missing the policy has no restriction; mitigate with server-managed settings plus forceRemoteSettingsRefresh for fail-closed startup, and keep file-based policy in admin-only paths so users cannot edit it.",
+          "version_caveat": "The legacy C:\\ProgramData\\ClaudeCode\\managed-settings.json path is unsupported as of v2.1.75 (migrate to C:\\Program Files\\ClaudeCode); server-managed delivery and forceRemoteSettingsRefresh require the claude.ai admin console or a self-hosted Claude apps gateway."
+        },
+        {
+          "sheet": 2,
+          "primary": "Managed policy settings deployed fleet-wide by IT (MDM profile, HKLM registry policy, server-managed settings, or a system managed-settings.json) setting permissions.disableBypassPermissionsMode to \"disable\". Managed settings sit at the top of precedence, so nothing in a home directory, repo, or command line can lift the restriction.",
+          "rejected_alternative": "Putting the same key in user or project settings.json: the setting works from any scope, but a developer owns those files and can simply delete the line, which fails the requirement that the control survive edits to anything the developer controls.",
+          "enforcement_owner": "The harness: Claude Code refuses to enter bypassPermissions mode based on the managed policy, independent of anything the model or user requests; managed settings cannot be overridden by any other level including command line arguments.",
+          "context_boundary": "Nothing runs in any context window; this is harness configuration evaluated at settings load. The model never sees or reasons about the policy.",
+          "lifecycle": "Applies at every session start and on live settings reload for as long as the managed source is deployed on the laptop; it stops applying only when IT removes it from the managed channel.",
+          "failure_mode": "Fails open on any laptop where no managed source was actually deployed, so fleet coverage is the weak point; for remote delivery, forceRemoteSettingsRefresh makes startup fail closed if the managed settings fetch fails. On managed machines the control fails closed: bypass mode is simply unavailable.",
+          "version_caveat": "On Windows the legacy managed settings path is dead: files must live at C:\\Program Files\\ClaudeCode\\managed-settings.json because the C:\\ProgramData location is unsupported as of v2.1.75."
+        },
+        {
+          "sheet": 3,
+          "primary": "Enterprise managed policy settings: an MDM-deployed managed-settings.json in the system location (C:\\ProgramData\\ClaudeCode on Windows, /Library/Application Support/ClaudeCode on macOS, /etc/claude-code on Linux) setting disableBypassPermissionsMode to disable, which blocks bypassPermissions and --dangerously-skip-permissions fleet-wide.",
+          "rejected_alternative": "User or project settings.json: those sit below the managed tier in precedence and are exactly the files a developer can edit, so they cannot meet the tamper requirement.",
+          "enforcement_owner": "Harness: the CLI refuses to enter bypass mode when the managed policy forbids it, regardless of flags, home-directory config, or repo config.",
+          "context_boundary": "Pure configuration enforcement at startup and mode-switch time inside the harness; nothing runs in or crosses into the model's context window.",
+          "lifecycle": "Read at every session start from the system path; managed settings take highest precedence over CLI flags and local, project, and user settings, and apply until IT removes or changes the MDM-deployed file.",
+          "failure_mode": "Fails open per machine: a laptop the MDM missed has no control, a developer with local admin rights can delete the system file, and the policy only governs Claude Code itself, not some other agent binary the developer might run.",
+          "version_caveat": "Managed settings and the disableBypassPermissionsMode key are 2025-era Claude Code features; I am confident of the key's purpose but not of the exact version that introduced it."
+        },
+        {
+          "sheet": 4,
+          "primary": "Managed policy settings deployed fleet-wide through MDM (macOS managed preferences, Windows HKLM policy registry key, or a system managed-settings.json, or server-managed settings) setting permissions.disableBypassPermissionsMode to \"disable\". Settled by the tamper-boundary axis: enforcement that must survive the user's own edits requires the managed tier.",
+          "rejected_alternative": "The same disableBypassPermissionsMode key in checked-in project or user settings: mechanically it works from any scope, but a developer can edit those files, failing the requirement that nothing in the home directory or a controlled repo can lift the restriction.",
+          "enforcement_owner": "The harness, at the managed-policy tier: the permission mode gate is enforced by Claude Code's configuration layer and admin-deployed managed settings cannot be overridden from below.",
+          "context_boundary": "Enforced in the harness configuration layer at startup and on any attempted mode switch; no context window is involved and the model neither sees nor influences the policy.",
+          "lifecycle": "Applies to every session on every machine carrying the deployed policy, from startup; user, project and local settings and CLI flags cannot override it, and it stops only when IT withdraws the managed policy.",
+          "failure_mode": "Fails closed on managed machines: bypassPermissions cannot be activated. The practical failure is coverage, since a laptop where MDM never delivered the policy silently fails open; note invalid managed entries are stripped tolerantly rather than disabling the rest of policy, and user-writable HKCU-only delivery does not satisfy the tamper requirement.",
+          "version_caveat": "On Windows the legacy C:\\ProgramData\\ClaudeCode\\managed-settings.json path is unsupported as of v2.1.75; deploy to C:\\Program Files\\ClaudeCode\\managed-settings.json or the HKLM policy key instead."
+        }
+      ]
+    }
+  ]
+}

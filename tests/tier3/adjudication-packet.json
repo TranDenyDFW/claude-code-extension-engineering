@@ -1,0 +1,67 @@
+{
+  "items": [
+    {
+      "scenario": "S032",
+      "sheet": 2,
+      "field": "version_caveat",
+      "expected_key": "none",
+      "sheet_answer": "Before v2.1.208 a tools list resolving to zero tools launched a toolless subagent instead of erroring. Background subagents (the default since v2.1.198) run a reduced built-in tool set, which does not affect this read-only trio."
+    },
+    {
+      "scenario": "S032",
+      "sheet": 3,
+      "field": "version_caveat",
+      "expected_key": "none",
+      "sheet_answer": "Zero-tool protection is version-gated: on v2.1.208 and later Claude Code refuses to launch a subagent whose tools list resolves to nothing, while earlier versions launched it with no tools."
+    },
+    {
+      "scenario": "S032",
+      "sheet": 4,
+      "field": "version_caveat",
+      "expected_key": "none",
+      "sheet_answer": "Before v2.1.208 an unresolvable tools list launched the subagent with no tools instead of refusing; also, since v2.1.198 background-default runs resolve against a reduced built-in set (Read, Grep and Glob all remain in it)."
+    },
+    {
+      "scenario": "S044",
+      "sheet": 2,
+      "field": "version_caveat",
+      "expected_key": "none",
+      "sheet_answer": "SessionStart supports only command and mcp_tool hook types; the distinct fork source value requires v2.1.214+, and exit-code-2 stderr appearing in the transcript requires v2.1.199+."
+    },
+    {
+      "scenario": "S044",
+      "sheet": 3,
+      "field": "version_caveat",
+      "expected_key": "none",
+      "sheet_answer": "SessionStart supports only command and mcp_tool handler types; exit-2 stderr from it appearing in the transcript requires v2.1.199 or later, and earlier builds logged it to debug only."
+    },
+    {
+      "scenario": "S044",
+      "sheet": 4,
+      "field": "version_caveat",
+      "expected_key": "none",
+      "sheet_answer": "Exit code 2 stderr from SessionStart hooks appears in the transcript only as of v2.1.199; earlier versions wrote it to the debug log only, so hook failures were effectively silent."
+    },
+    {
+      "scenario": "S046",
+      "sheet": 1,
+      "field": "version_caveat",
+      "expected_key": "none",
+      "sheet_answer": "As of v2.1.196, disable-model-invocation also prevents the skill from running when a scheduled task fires with the skill as its prompt; earlier versions could still start it that way."
+    },
+    {
+      "scenario": "S046",
+      "sheet": 2,
+      "field": "version_caveat",
+      "expected_key": "none",
+      "sheet_answer": "As of v2.1.196 the flag also prevents the skill from firing when a scheduled task names it as the prompt; before that, scheduled tasks were a bypass around the human-only trigger."
+    },
+    {
+      "scenario": "S046",
+      "sheet": 3,
+      "field": "version_caveat",
+      "expected_key": "none",
+      "sheet_answer": "disable-model-invocation blocking scheduled-task invocation requires v2.1.196+; boolean frontmatter spellings beyond true/false require v2.1.218; on all versions the flag also removes the description from context entirely."
+    }
+  ]
+}
