@@ -945,6 +945,23 @@ function selfTest() {
     rmSync(tmp, { recursive: true, force: true });
   }
 
+  // The LOBO batch source, an independent-review finding: when grading batches
+  // are a shuffle of the answer blocks, deriving batch membership from the
+  // scenario NUMBER silently drops the wrong ten scenarios. This asserts the
+  // two groupings are distinguishable and that a shuffled map is not equal to
+  // the arithmetic one, which is the condition that made the bug invisible.
+  {
+    const arith = id => Math.floor((Number(String(id).slice(1)) - 1) / 10) + 1;
+    const shuffled = new Map();
+    const ids60 = Array.from({ length: 60 }, (_, i) => 'S' + String(i + 1).padStart(3, '0'));
+    ids60.forEach((id, i) => shuffled.set(id, ((i * 7) % 6) + 1));
+    const differ = ids60.filter(id => shuffled.get(id) !== arith(id)).length;
+    check('a shuffled grading-batch map differs from the arithmetic one', differ > 30, `${differ} of 60 differ`);
+    const lookup = id => shuffled.get(id) ?? arith(id);
+    check('batch lookup prefers the map over the arithmetic fallback',
+      lookup('S001') === shuffled.get('S001') && lookup('S999') === arith('S999'));
+  }
+
   check('graderRobustness drops each grader once', (() => {
     const r = graderRobustness(g2, map, 'd', 'b');
     return r.graders.length === 2 && r.drops.length === 2;
@@ -1048,7 +1065,26 @@ const PAIRS = [['d', 'b'], ['d', 'bplus'], ['bplus', 'b'], ['b', 'a']]
   .filter(([x, y]) => rows.some(r => r.arm === x) && rows.some(r => r.arm === y));
 const paired = PAIRS.map(([x, y]) => pairedComparison(grades, map, x, y));
 // Batch = the grader who scored it. Scenario ids are S001..S060 in batches of 10.
-const batchOf = id => Math.floor((Number(String(id).slice(1)) - 1) / 10) + 1;
+// Grading-batch membership must come from the PACKETS, because v2 grading
+// batches are a seeded shuffle: 48 of 60 scenarios sit in a different grading
+// batch than their natural S001-S010 block. Deriving the batch arithmetically
+// dropped answer blocks (which are exactly the six focus areas) while the prose
+// claimed grading batches, so the run had no grader-batch robustness check at
+// all. Independent-review finding; the arithmetic fallback stays only for v1,
+// where answer and grading batches were the same thing.
+const packetBatchOf = (() => {
+  const dir = join(ROOT, 'tests', 'tier3', `packets${SFX}`);
+  if (!existsSync(dir)) return null;
+  const m = new Map();
+  for (const f of readdirSync(dir).filter(x => /^batch-\d+\.json$/.test(x))) {
+    const b = Number(f.match(/\d+/)[0]);
+    for (const s of JSON.parse(readFileSync(join(dir, f), 'utf8')).scenarios) m.set(s.id, b);
+  }
+  return m.size ? m : null;
+})();
+const batchOf = id => packetBatchOf
+  ? (packetBatchOf.get(id) ?? Math.floor((Number(String(id).slice(1)) - 1) / 10) + 1)
+  : Math.floor((Number(String(id).slice(1)) - 1) / 10) + 1;
 const robustness = PAIRS.map(([x, y]) => batchRobustness(grades, map, x, y, batchOf));
 const block = renderMarkdown(rows, v, { paired, robustness, verifiedQuotes: usingVerified, twoGraders: SET === 'v2', agreement: v2meta && v2meta.agreement, disagreements: v2meta && v2meta.disagreements });
 

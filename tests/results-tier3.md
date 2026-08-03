@@ -111,10 +111,10 @@ what looks like a finding across sixty. This is what caught the retracted v1 hea
 
 | Comparison | All 60 | Worst single-batch drop | Verdict |
 |---|---|---|---|
-| D vs B | 20W 20L, p=1.000 | drop batch 1: 16W 15L, p=1.000 | not significant to begin with |
-| D vs BPLUS | 14W 16L, p=0.856 | drop batch 1: 11W 11L, p=1.000 | not significant to begin with |
-| BPLUS vs B | 19W 16L, p=0.736 | drop batch 2: 15W 14L, p=1.000 | not significant to begin with |
-| B vs A | 48W 9L, p=0.000 | drop batch 1: 38W 9L, p=0.000 | robust |
+| D vs B | 20W 20L, p=1.000 | drop batch 1: 16W 16L, p=1.000 | not significant to begin with |
+| D vs BPLUS | 14W 16L, p=0.856 | drop batch 4: 11W 11L, p=1.000 | not significant to begin with |
+| BPLUS vs B | 19W 16L, p=0.736 | drop batch 5: 14W 13L, p=1.000 | not significant to begin with |
+| B vs A | 48W 9L, p=0.000 | drop batch 4: 40W 8L, p=0.000 | robust |
 
 **Verdict, by the rule committed before the run: NEGATIVE.** D does not beat B (-1 points). Publish the negative.
 
@@ -164,6 +164,26 @@ one arguable key. It does not bias D against B, but it depresses every absolute 
 the keys-lint does not yet catch the class "the key's own failure_mode names a better primary
 than the key's primary". Adding that rule is tracked work, not a mid-run edit.
 
+**Arm A identifies itself in 10 of its 60 sheets**, writing phrases like "unaided", "from
+memory" or "I recall" in the answer text. Zero such phrases appear in B, B+ or D. Blinding
+holds structurally (packets carry no arm labels, one key set across all 240 sheets, all 24
+orderings used), but an attentive grader could recognize the unaided arm from content.
+This cannot touch D versus B, the null this run reports; it cuts against **B over A**, the
+one comparison reported as robust, in the direction of inflating it. Found by independent
+review, not by the harness. A future run should strip first-person epistemic phrasing from
+sheets before packing, or instruct the unaided arm not to narrate its own condition.
+
+**The published leave-one-batch-out table originally dropped the wrong batches.** The scorer
+derived batch membership arithmetically from the scenario number, which yields the natural
+S001-S010 blocks; in v2 those are the ANSWER batches and exactly the six focus areas, while
+grading batches are a seeded shuffle in which 48 of 60 scenarios sit elsewhere. So the run
+had no grading-batch robustness check while the prose claimed the one that caught the
+retracted v1 headline. Found by independent review, fixed, and the table above is
+regenerated from the true grading batches. Every verdict is unchanged: D versus B worst drop
+p=1.000, B over A p<0.001 on all six drops. A self-test now asserts the two groupings are
+distinguishable, since the bug was invisible precisely because both produced six plausible
+batches of ten.
+
 **Graders reported further key defects** during this run, recorded in
 [key-defects.jsonl](tier3/key-defects.jsonl). The repeated pattern is unchanged from v1: a
 `version_caveat` of "none" colliding with a version-dated fact multiple arms independently
@@ -171,9 +191,25 @@ assert. The adjudicator flagged v2.1.199, v2.1.196 and v2.1.208 as candidates wo
 against the changelog before the next run, while noting honestly that arms sharing a base
 model can converge on the same fabrication, so convergence is not proof.
 
+**Ceiling compression bounds the null.** The three docs arms sit at 87 to 88 percent with four
+of seven fields at 95 percent or above, so the room in which a difference could appear is
+small by construction. "No measurable benefit" is therefore a statement about what this
+instrument can resolve at this difficulty, not a proof that no benefit exists anywhere. A
+harder scenario set would test the same hypothesis with more headroom, and nothing here rules
+out an effect that only appears where the docs arms stop saturating.
+
 **Model-graded throughout.** The agreement numbers measure how consistently this model grades
 against these keys, not human ground truth. n=60 gives roughly plus or minus 6 points at 95%
 confidence, which is why the decision margin is 6.
+
+**One pre-commitment claim was looser than stated.** `DECISION_MARGIN`, `SIGN_ALPHA`,
+`verdict()` and `verdictV2()`, which are the constants and code that produced this NEGATIVE,
+are byte-identical from before any v2 answer existed through publication, verified by an
+independent reviewer against git history. But `REPLICATE_RULE` and `pooledVerdict`, the
+unused multi-replicate endpoint, landed in the publishing commit, about 11.5 hours AFTER the
+v2 answers existed, not before as an earlier draft of this section implied. They governed
+nothing in this run and produced no number in it; the correction is recorded because the
+claim, not the result, was wrong.
 
 ## What changes because of this
 

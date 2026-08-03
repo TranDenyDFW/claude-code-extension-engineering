@@ -129,10 +129,10 @@ negative.** The hypothesis was that this reference and the official docs solve d
 halves of the rubric, so combining them should beat the docs. Three runs later, on an
 instrument rebuilt specifically to detect a small effect, it does not.
 
-Measured 2026-08-02 (v2, repaired keys): unaided 71%, official docs 88%, docs plus a staged
-decide-then-verify-then-cite procedure 88%, docs plus that procedure plus this skill 87%.
-**Combined versus docs alone: 20 scenarios to 20, p=1.000.** A dead heat. The pre-committed
-rule returned NEGATIVE and nothing shipped.
+Measured 2026-08-02 (v2, repaired keys, one answer pass per arm, every cell graded twice):
+unaided 71%, official docs 88%, docs plus a staged decide-then-verify-then-cite procedure
+88%, docs plus that procedure plus this skill 87%. **Combined versus docs alone: 20 scenarios
+to 20, p=1.000.** A dead heat. The pre-committed rule returned NEGATIVE and nothing shipped.
 
 **What survives is what always survived**: documentation beats unaided recall by 18 points,
 48 paired scenarios to 9, p<0.001, robust to dropping any batch. The largest single component
@@ -150,7 +150,9 @@ reliability number this benchmark has ever had: **92% exact inter-grader agreeme
 
 So the reference's claim is narrower than the project once hoped and now well measured: it
 beats unaided recall, and reaches that from a local read rather than dozens of network
-fetches. It adds nothing once the documentation is present.
+fetches. It adds nothing MEASURABLE once the documentation is present, on a single answer
+pass where the three docs arms sit within one point of each other near a ceiling. That is a
+statement about what this instrument can resolve, not a proof that no benefit exists.
 
 Full method, both runs, the retraction, the repair log, and the still-open key defects are in
 [tests/results-tier3.md](tests/results-tier3.md). Every number is re-derivable from committed
