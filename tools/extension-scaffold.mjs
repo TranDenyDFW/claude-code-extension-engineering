@@ -49,7 +49,25 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // ------------------------------------------------------------------ analysis
 export const GUARANTEE = /\b(always|never|must|shall|block|blocked|prevent|prevented|ensure|guarantee|forbid|forbidden|disallow|not permitted|may not|cannot)\b/i;
 export const FAIL_CLOSED = /(even if|missing or crash|deleted or crash|crashes|still hold|still apply|cannot be bypassed|fail(s)? closed|regardless of|bypass)/i;
-export const PROTECT = /\b(prevent|block|protect|forbid|disallow|deny|guard|no changes? to|read-?only)\b/i;
+/**
+ * Is this a request to PROTECT a path?
+ *
+ * Two admissible shapes, and the second is what independent review found missing
+ * ("Never allow modification of X" was being refused):
+ *   1. a protective verb: prevent, block, protect, forbid, ...
+ *   2. a negation followed closely by a change verb: "never ... modification",
+ *      "must not be overwritten", "no one may edit"
+ *
+ * A first attempt simply added the change verbs on their own. That was too loose:
+ * it swallowed "keep changes in a separate commit" and "into a changelog", which
+ * are not protection requirements at all. The negation is what carries the intent,
+ * so it is required.
+ */
+export const PROTECT_VERB = /\b(prevent|block|protect|forbid|disallow|deny|guard|read-?only|lock(ed)? down)\b/i;
+export const NEGATED_CHANGE = /\b(never|not|no|nobody|no one|none)\b[^.!?]{0,40}?\b(modif\w*|chang\w*|overwrit\w*|edit\w*|alter\w*|touch\w*|writ\w*|updat\w*)/i;
+export const PROTECT = {
+  test: (s) => PROTECT_VERB.test(s) || NEGATED_CHANGE.test(s),
+};
 
 /** Pull a path or glob out of the requirement: backticked, quoted, or path-shaped. */
 export function extractTarget(text) {
@@ -108,42 +126,66 @@ export function analyse(requirement) {
 }
 
 // ------------------------------------------------------------------ emission
+/**
+ * Build the case paths from the target.
+ *
+ * A single-file target is NOT a directory. An earlier version appended
+ * "/main.tf" unconditionally, so a requirement naming one file emitted cases
+ * targeting `config/prod.secrets.yaml/main.tf`, which the deny rule
+ * `Edit(config/prod.secrets.yaml)` cannot match. The bundle then failed its own
+ * spec. Found by independent review; no check in the verify spec caught it,
+ * because the tool reports NOT DONE rather than a false green.
+ */
+export function casePathsFor(glob) {
+  const singleFile = !glob.includes('*');
+  if (singleFile) {
+    const dot = glob.lastIndexOf('.');
+    const stem = dot > glob.lastIndexOf('/') ? glob.slice(0, dot) : glob;
+    return {
+      singleFile,
+      inside: glob,
+      nested: null,                       // a file has no subtree
+      nearMiss: `${stem}.example`,        // prefix collision on the same stem
+    };
+  }
+  const base = glob.replace(/\/?\*+$/, '');
+  return { singleFile, inside: `${base}/main.tf`, nested: `${base}/nested/deep/x.tf`, nearMiss: `${base}-notes.md` };
+}
+
 export function conformanceFor(name, requirement, a) {
-  const g = a.glob;
-  const inside = g.replace(/\*+$/, '').replace(/\/$/, '') + '/main.tf';
-  const nested = g.replace(/\*+$/, '').replace(/\/$/, '') + '/nested/deep/x.tf';
-  const base = g.replace(/\/\*+$/, '');
-  return {
-    extension: name,
-    mechanism: a.mechanism,
-    requirement,
-    generated_by: 'extension-scaffold',
-    cases: [
-      { id: 'C1', kind: 'enforce', event: 'PreToolUse',
+  const { singleFile, inside, nested, nearMiss } = casePathsFor(a.glob);
+  const cases = [
+    { id: 'C1', kind: 'enforce', event: 'PreToolUse',
+      input: { tool_name: 'Write', tool_input: { file_path: inside, content: 'x' } },
+      expect: { decision: 'deny' } },
+    { id: 'C2', kind: 'near-miss', event: 'PreToolUse',
+      input: { tool_name: 'Write', tool_input: { file_path: 'src/app.ts', content: 'x' } },
+      expect: { decision: { not: 'deny' } } },
+    { id: 'C3', kind: 'wiring', event: 'PreToolUse',
+      input: { tool_name: 'Edit', tool_input: { file_path: inside, content: 'x' } },
+      expect: { decision: 'deny' } },
+    { id: 'C4', kind: 'near-miss', event: 'PreToolUse',
+      input: { tool_name: 'Write', tool_input: { file_path: nearMiss, content: 'x' } },
+      expect: { decision: { not: 'deny' } } },
+  ];
+  // Only a subtree target has a nested case to make.
+  if (!singleFile) {
+    cases.push({ id: 'C5', kind: 'enforce', event: 'PreToolUse',
+      input: { tool_name: 'Write', tool_input: { file_path: nested, content: 'x' } },
+      expect: { decision: 'deny' } });
+  }
+  if (a.failClosed) {
+    const n = cases.length;
+    cases.push(
+      { id: `C${n + 1}`, kind: 'fail-posture', event: 'PreToolUse', mutate: 'delete-handler',
         input: { tool_name: 'Write', tool_input: { file_path: inside, content: 'x' } },
-        expect: { decision: 'deny' } },
-      { id: 'C2', kind: 'near-miss', event: 'PreToolUse',
-        input: { tool_name: 'Write', tool_input: { file_path: 'src/app.ts', content: 'x' } },
-        expect: { decision: { not: 'deny' } } },
-      { id: 'C3', kind: 'wiring', event: 'PreToolUse',
-        input: { tool_name: 'Edit', tool_input: { file_path: inside, content: 'x' } },
-        expect: { decision: 'deny' } },
-      { id: 'C4', kind: 'near-miss', event: 'PreToolUse',
-        input: { tool_name: 'Write', tool_input: { file_path: `${base}-notes.md`, content: 'x' } },
-        expect: { decision: { not: 'deny' } } },
-      { id: 'C5', kind: 'enforce', event: 'PreToolUse',
-        input: { tool_name: 'Write', tool_input: { file_path: nested, content: 'x' } },
-        expect: { decision: 'deny' } },
-      ...(a.failClosed ? [
-        { id: 'C6', kind: 'fail-posture', event: 'PreToolUse', mutate: 'delete-handler',
-          input: { tool_name: 'Write', tool_input: { file_path: inside, content: 'x' } },
-          expect: { decision: { not: 'allow' } } },
-        { id: 'C7', kind: 'fail-posture', event: 'PreToolUse', mutate: 'crash-handler',
-          input: { tool_name: 'Write', tool_input: { file_path: inside, content: 'x' } },
-          expect: { decision: { not: 'allow' } } },
-      ] : []),
-    ],
-  };
+        expect: { decision: { not: 'allow' } } },
+      { id: `C${n + 2}`, kind: 'fail-posture', event: 'PreToolUse', mutate: 'crash-handler',
+        input: { tool_name: 'Write', tool_input: { file_path: inside, content: 'x' } },
+        expect: { decision: { not: 'allow' } } },
+    );
+  }
+  return { extension: name, mechanism: a.mechanism, requirement, generated_by: 'extension-scaffold', cases };
 }
 
 function handlerSource(glob) {
@@ -286,8 +328,29 @@ function selfTest() {
     'emitting them would make a correct hook fail its own spec');
   check('every spec carries a near-miss, so a deny-everything bundle cannot pass', c2.cases.some((c) => c.kind === 'near-miss'));
   check('every spec carries a wiring case', c2.cases.some((c) => c.kind === 'wiring'));
-  check('the deny rule is emitted as Edit(...), never Write(...)',
-    JSON.stringify(hard).length > 0 && toGlob('infra/') === 'infra/**');
+
+  // Regression: a single-file target must not have "/main.tf" appended, or the
+  // deny rule cannot match its own cases and the bundle fails its own spec.
+  // Found by independent review 2026-08-04; no verify-spec check caught it.
+  const fileHard = A('Never allow modification of `config/prod.secrets.yaml`. This must hold even if the guard crashes.');
+  check('a single-file requirement is still supported', fileHard.supported === true, fileHard.reason || '');
+  check('...and keeps the file as the glob, not a subtree', fileHard.glob === 'config/prod.secrets.yaml', fileHard.glob);
+  const cFile = conformanceFor('x', 'r', fileHard);
+  const paths = cFile.cases.map((c) => c.input.tool_input.file_path);
+  check('SINGLE-FILE REGRESSION: no case appends /main.tf to a file target',
+    !paths.some((p) => p.startsWith('config/prod.secrets.yaml/')), paths.join(' '));
+  check('...every enforce and fail-posture case targets the file itself',
+    cFile.cases.filter((c) => c.kind === 'enforce' || c.kind === 'fail-posture')
+      .every((c) => c.input.tool_input.file_path === 'config/prod.secrets.yaml'));
+  check('...and no nested case is invented for a file', !cFile.cases.some((c) => /nested/.test(c.input.tool_input.file_path)));
+  check('...case ids stay contiguous when the nested case is dropped',
+    cFile.cases.map((c) => c.id).join(',') === 'C1,C2,C3,C4,C5,C6', cFile.cases.map((c) => c.id).join(','));
+
+  console.log('vocabulary:');
+  check('"Never allow modification of X" is recognised as protection',
+    A('Never allow modification of `infra/`.').supported === true);
+  check('"must not be overwritten" is recognised',
+    A('The file `.env` must not be overwritten.').supported === true);
 
   console.log(`\n${f === 0 ? 'SELF-TEST PASS' : `SELF-TEST FAIL (${f})`}`);
   return f === 0 ? 0 : 1;
