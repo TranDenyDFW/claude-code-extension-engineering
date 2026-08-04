@@ -191,6 +191,19 @@ assert. The adjudicator flagged v2.1.199, v2.1.196 and v2.1.208 as candidates wo
 against the changelog before the next run, while noting honestly that arms sharing a base
 model can converge on the same fabrication, so convergence is not proof.
 
+**Every scenario is self-authored, and no public replacement exists.** The 60 scenarios were
+written by agents reading the official documentation, independently of this reference, but
+still inside this project. The obvious criticism is that a benchmark says what its author
+built it to say. A search of the HuggingFace hub on 2026-08-03 found nothing that could serve
+as an external scenario set: the ecosystem has agent execution traces, SFT corpora, and
+tool-CALLING benchmarks, but no dataset asks which extension mechanism should own a behavior.
+The most promising candidate, 32,133 real Claude Code conversation traces, was downloaded and
+mined; of 2,922 prompts in the sampled shard, 26 mentioned an extension mechanism, 14 were
+decision-shaped, and on reading all 14 every one turned out to be a SWE-bench harness prompt
+or a captured Claude Code system prompt, not a user question. Zero usable. The likelier
+external source is GitHub issues and discussions on `anthropics/claude-code`, which has not
+been tried. Until then this limitation stands unfixed, not merely unaddressed.
+
 **Ceiling compression bounds the null.** The three docs arms sit at 87 to 88 percent with four
 of seven fields at 95 percent or above, so the room in which a difference could appear is
 small by construction. "No measurable benefit" is therefore a statement about what this
