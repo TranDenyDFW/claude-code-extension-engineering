@@ -78,7 +78,7 @@ components. This project answers the question that comes before it, and the two 
 
 | Need | plugin-dev | This project |
 |---|---|---|
-| Generate and scaffold plugin components | Primary purpose | No |
+| Generate and scaffold plugin components | Primary purpose | Composes with it, does not replace it |
 | Learn hook, skill, plugin syntax | Strong | Strong |
 | Decide WHICH mechanism should own a behavior | Supporting | Primary purpose |
 | Compare the nearest rejected alternative | Limited | Primary purpose |
@@ -86,9 +86,29 @@ components. This project answers the question that comes before it, and the two 
 | Version gates and changelog-only deltas | Not its pitch | Primary purpose |
 | Enforcement ownership, failure policy, tamper boundary | Per-component | Cross-component model |
 | Published control-vs-treatment benchmark | No | Yes, with limitations stated |
+| **Prove the extension BEHAVES as specified** | **No** | **`extension-prove`, measured** |
 
 Use `plugin-dev` to build it. Use this to decide what should be built, how it composes,
-what it actually guarantees, and which builds support it.
+what it actually guarantees, which builds support it, and then to PROVE the thing you built
+does what you asked for.
+
+### Proving it, which is the part nothing else does
+
+Every shipped checker in this ecosystem asks whether an extension is well-FORMED. None asks
+whether it BEHAVES as specified. `plugin-dev/skills/hook-development/scripts/test-hook.sh`
+ends with `if [ $exit_code -eq 0 ] || [ $exit_code -eq 2 ]`, printing success for both: exit 0
+is allow, exit 2 is deny, and it accepts no expected outcome. It also never reads `hooks.json`,
+so the matcher is never evaluated.
+
+```bash
+node tools/extension-prove.mjs --bundle <dir>     # assert an expected outcome
+node tools/extension-scaffold.mjs --requirement "..." --out <dir>
+```
+
+`extension-scaffold` emits the bundle AND a `conformance.json` that `extension-prove` can
+fail, then runs it and refuses to report done while any case is red. Measured comparison in
+[tests/results-prove-bench.md](tests/results-prove-bench.md): 10 of 10 defects caught versus
+3 of 10, both with zero false positives on a correct control.
 
 ## The 30-second decision guide
 

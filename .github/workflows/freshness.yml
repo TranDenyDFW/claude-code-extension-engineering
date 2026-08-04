@@ -92,6 +92,12 @@ jobs:
         # nothing about the extension; the run prints PROVER IS HOLLOW.
         run: node tools/extension-prove.mjs --prove-fail
 
+      - name: Extension-scaffold self-test
+        # Mechanism selection (guarantee + fail-closed must pick the deny rule,
+        # because a command hook fails open), target extraction, and that an
+        # out-of-family requirement is REFUSED rather than force-fitted.
+        run: node tools/extension-scaffold.mjs --self-test
+
       - name: Prove-bench runner self-test
         # Scoring logic incl. false-positive-on-the-control weighted like a
         # miss and n/a for an uninstalled tool, plus fixture-generator drift.
