@@ -4,7 +4,7 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-08-02 against Claude Code 2.1.220.
+Last reviewed 2026-08-04 against Claude Code 2.1.220.
 
 ---
 
@@ -336,6 +336,46 @@ it had been absent). Consequence for published numbers: the 16 percent trigger r
 measured with an empty description, so it is a floor for name-only discovery, not a
 measurement of the description. Fixed by quoting the description; the gotcha is now
 documented in `references/skills.md` and re-measurement is part of the trigger re-run.
+
+**26. The project shipped a validator but never a prover.**
+Every checker in this ecosystem, ours included, asked whether an extension is well FORMED.
+None asked whether it BEHAVES as specified. Anthropic's own
+`plugin-dev/skills/hook-development/scripts/test-hook.sh` ends with
+`if [ $exit_code -eq 0 ] || [ $exit_code -eq 2 ]`, printing success for both, and accepts no
+expected outcome; it also never reads `hooks.json`, so the matcher is never evaluated.
+**Fixed 2026-08-04** by `tools/extension-prove.mjs` (four case kinds, structural scoring,
+`--prove-fail` against empty and inert controls) and `tests/prove-bench/`
+(10 of 10 versus 3 of 10, zero false positives on a correct control; see
+`tests/results-prove-bench.md`). Five upstream defects filed as
+anthropics/claude-code #83800 to #83804.
+
+**27. `extension-prove` has no fidelity calibration, and that is its load-bearing limit.**
+It asserts conformance to the documented contract as read in `references/hooks.md` and the
+official permissions page. It is NOT Claude Code. No case has been checked against a live
+`claude -p` session, so a misreading of the contract would be invisible. Every case kind
+carries the citation it was derived from, which makes the reading disputable but not verified.
+Until a fidelity number exists this belongs in the headline of any claim, and
+`tests/results-prove-bench.md` states it. Fixing this is the precondition for any Tier 4.
+
+**28. prove-bench is 10 of 10 BY CONSTRUCTION, the same limit as item 24.**
+We authored both the fixtures and the expected outcomes. The measured content is the
+competitor column and the zero false positives on the control, not our own score. A
+third-party fixture set would be the real test, and none exists.
+
+**29. `extension-scaffold` covers exactly one requirement family.**
+Path protection only. Everything else is refused with a pointer to `create-plugin` rather
+than force-fitted. That refusal is asserted by two self-test cases, so the scope cannot widen
+silently. Requirement analysis is regex-based and will misread phrasings nobody has tried yet:
+independent review already found "Never allow modification of X" refused, and a single-file
+target emitting cases the deny rule could not match. Both fixed, both now regression-tested,
+but the class is open.
+
+**30. A requirement combining a conditional exemption with a hard guarantee has NO answer.**
+"Block writes under `infra/` unless the content carries an approval token, and hold even if the
+guard crashes" is unsatisfiable in the current mechanism set: a command hook fails open, a deny
+rule cannot carry allowlist exceptions, and both together means deny always wins. Recorded in
+`tests/results-prove-bench.md`. Short of OS-level sandboxing there is no composition that
+satisfies it, which is worth knowing before promising one.
 
 ---
 
