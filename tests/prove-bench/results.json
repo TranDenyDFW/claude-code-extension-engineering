@@ -1,0 +1,178 @@
+[
+  {
+    "fixture": "allows-what-it-blocks",
+    "control": false,
+    "defect": "The guard tests an unset variable, so it never fires and always allows.",
+    "citation": "test-hook.sh:245-252 treats exit 0 and exit 2 alike, so it cannot see this.",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C1,C3,C5,C6,C7",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 0,
+      "detail": "reported success",
+      "score": "MISS"
+    }
+  },
+  {
+    "fixture": "blocks-the-near-miss",
+    "control": false,
+    "defect": "Matches the bare substring \"infra\", so infrastructure-notes.md is blocked too.",
+    "citation": "A guard that blocks safe work gets disabled, so a false positive is weighted exactly like a miss.",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C4,C6,C7",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 0,
+      "detail": "reported success",
+      "score": "MISS"
+    }
+  },
+  {
+    "fixture": "correct-guard",
+    "control": true,
+    "defect": "none. CONTROL: a permissions deny rule Edit(infra/**), which is harness-owned and survives handler deletion. Both tools must pass this.",
+    "citation": "permissions page: \"Use Edit(docs/**) in place of Write(docs/**)\" and \"An Edit rule covers all file-editing tools\".",
+    "prove": {
+      "exit": 0,
+      "detail": "all cases pass",
+      "score": "clean"
+    },
+    "testHookSh": {
+      "exit": 0,
+      "detail": "reported success",
+      "score": "clean"
+    }
+  },
+  {
+    "fixture": "deny-rule-never-consulted",
+    "control": false,
+    "defect": "Uses Write(infra/**) as the deny rule. Claude Code accepts it and NEVER consults it, so it protects nothing while looking correct.",
+    "citation": "permissions page: \"If you write a path rule for Write, NotebookEdit, Glob, or the legacy MultiEdit tool instead, Claude Code accepts the rule but never consults it.\" (v2.1.210+)",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C1,C3,C5,C6,C7",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 0,
+      "detail": "reported success",
+      "score": "MISS"
+    }
+  },
+  {
+    "fixture": "fails-open-on-crash",
+    "control": false,
+    "defect": "Throws before reaching the guard; a non-zero exit is a non-blocking error, so it fails open.",
+    "citation": "hooks.md: a non-zero exit is indistinguishable from a crash and does not block.",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C1,C3,C5,C6,C7",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 1,
+      "detail": "reported failure",
+      "score": "CATCH"
+    }
+  },
+  {
+    "fixture": "handler-path-missing",
+    "control": false,
+    "defect": "settings.json points at a handler file that does not exist. Command hooks fail OPEN.",
+    "citation": "hooks.md: a missing handler fails open and blocks nothing while looking installed.",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C1,C3,C5,C6,C7",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 1,
+      "detail": "no verdict line",
+      "score": "CATCH"
+    }
+  },
+  {
+    "fixture": "hook-only-no-deny-rule",
+    "control": false,
+    "defect": "A correct hook and nothing else. Passes every live case and fails the fail-posture cases, because a command hook fails OPEN when deleted or crashing.",
+    "citation": "hooks.md: a non-zero exit \"is indistinguishable from a crash\" and does not block. This is the mechanism users reach for and the deny rule they never consider.",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C6,C7",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 0,
+      "detail": "reported success",
+      "score": "MISS"
+    }
+  },
+  {
+    "fixture": "jq-dependency",
+    "control": false,
+    "defect": "Handler shells out to jq, absent on many Windows installs, so it exits non-zero and fails open.",
+    "citation": "hooks.md:125: \"jq is absent on many Windows installs, so the handler exits non-zero, fails open, and silently blocks nothing while looking installed.\"",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C1,C3,C5,C6,C7",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 1,
+      "detail": "reported failure",
+      "score": "CATCH"
+    }
+  },
+  {
+    "fixture": "matcher-wrong-tool",
+    "control": false,
+    "defect": "Handler logic is correct but the matcher is scoped to Write only, so an Edit to infra/ never reaches it.",
+    "citation": "hooks.md: \"Matcher: exact string, list (A|B), or regex (unanchored)\". test-hook.sh never reads hooks.json at all.",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C3,C6,C7",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 0,
+      "detail": "reported success",
+      "score": "MISS"
+    }
+  },
+  {
+    "fixture": "shallow-glob-misses-nested",
+    "control": false,
+    "defect": "Deny rule uses Edit(infra/*), which does not span a directory separator, so nested paths are unprotected.",
+    "citation": "permissions page glob semantics: * does not cross a separator; ** does.",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C5",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 0,
+      "detail": "reported success",
+      "score": "MISS"
+    }
+  },
+  {
+    "fixture": "stdout-theatre",
+    "control": false,
+    "defect": "Prints a convincing BLOCKED banner to stdout but exits 0 with no hookSpecificOutput, so nothing is blocked.",
+    "citation": "hooks.md: \"prefer exit 0 with a JSON decision\". A banner is not a decision.",
+    "prove": {
+      "exit": 1,
+      "detail": "failed C1,C3,C5,C6,C7",
+      "score": "CATCH"
+    },
+    "testHookSh": {
+      "exit": 0,
+      "detail": "reported success",
+      "score": "MISS"
+    }
+  }
+]

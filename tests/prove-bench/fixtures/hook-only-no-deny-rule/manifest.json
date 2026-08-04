@@ -1,0 +1,9 @@
+{
+  "name": "hook-only-no-deny-rule",
+  "control": false,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "A correct hook and nothing else. Passes every live case and fails the fail-posture cases, because a command hook fails OPEN when deleted or crashing.",
+  "citation": "hooks.md: a non-zero exit \"is indistinguishable from a crash\" and does not block. This is the mechanism users reach for and the deny rule they never consider.",
+  "matcher": "Write|Edit",
+  "deny": null
+}

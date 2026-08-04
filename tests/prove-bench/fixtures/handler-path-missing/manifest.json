@@ -1,0 +1,9 @@
+{
+  "name": "handler-path-missing",
+  "control": false,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "settings.json points at a handler file that does not exist. Command hooks fail OPEN.",
+  "citation": "hooks.md: a missing handler fails open and blocks nothing while looking installed.",
+  "matcher": "Write|Edit",
+  "deny": null
+}

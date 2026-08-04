@@ -1,0 +1,122 @@
+{
+  "extension": "matcher-wrong-tool",
+  "mechanism": "hook-or-permission-rule",
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "cases": [
+    {
+      "id": "C1",
+      "kind": "enforce",
+      "event": "PreToolUse",
+      "input": {
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "infra/main.tf",
+          "content": "resource \"aws_s3_bucket\" \"x\" {}"
+        }
+      },
+      "expect": {
+        "decision": "deny"
+      }
+    },
+    {
+      "id": "C2",
+      "kind": "near-miss",
+      "event": "PreToolUse",
+      "input": {
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "src/app.ts",
+          "content": "export const x = 1;"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    },
+    {
+      "id": "C3",
+      "kind": "wiring",
+      "event": "PreToolUse",
+      "input": {
+        "tool_name": "Edit",
+        "tool_input": {
+          "file_path": "infra/main.tf",
+          "content": "resource \"y\" {}"
+        }
+      },
+      "expect": {
+        "decision": "deny"
+      }
+    },
+    {
+      "id": "C4",
+      "kind": "near-miss",
+      "event": "PreToolUse",
+      "input": {
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "infrastructure-notes.md",
+          "content": "notes"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    },
+    {
+      "id": "C5",
+      "kind": "enforce",
+      "event": "PreToolUse",
+      "input": {
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "infra/nested/deep/x.tf",
+          "content": "resource \"z\" {}"
+        }
+      },
+      "expect": {
+        "decision": "deny"
+      }
+    },
+    {
+      "id": "C6",
+      "kind": "fail-posture",
+      "event": "PreToolUse",
+      "mutate": "delete-handler",
+      "input": {
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "infra/main.tf",
+          "content": "resource \"z\" {}"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "allow"
+        }
+      }
+    },
+    {
+      "id": "C7",
+      "kind": "fail-posture",
+      "event": "PreToolUse",
+      "mutate": "crash-handler",
+      "input": {
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "infra/main.tf",
+          "content": "resource \"z\" {}"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "allow"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "deny-rule-never-consulted",
+  "control": false,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "Uses Write(infra/**) as the deny rule. Claude Code accepts it and NEVER consults it, so it protects nothing while looking correct.",
+  "citation": "permissions page: \"If you write a path rule for Write, NotebookEdit, Glob, or the legacy MultiEdit tool instead, Claude Code accepts the rule but never consults it.\" (v2.1.210+)",
+  "matcher": null,
+  "deny": [
+    "Write(infra/**)"
+  ]
+}

@@ -2,3 +2,6 @@ Thumbs.db
 desktop.ini
 .DS_Store
 *.zip
+
+# session-scoped harness state, never committed
+.claude/hooks/.exec-state-*.json

@@ -79,6 +79,24 @@ jobs:
         # diagnostic must never fake a catch), plus fixture-generator drift.
         run: node tests/lint-bench/run-bench.mjs --self-test
 
+      - name: Extension-prove self-test
+        # Matcher semantics, exit-code and stdout-JSON verdict interpretation,
+        # permission-rule evaluation incl. the documented "Write(path) is
+        # accepted but never consulted" silent failure, and the boilerplate
+        # immunity rule (printing BLOCKED with exit 0 is still an allow).
+        run: node tools/extension-prove.mjs --self-test
+
+      - name: Extension-prove is not hollow
+        # Every enforce and wiring case re-run against an empty tree and an
+        # inert always-exit-0 handler. A case that still passes is asserting
+        # nothing about the extension; the run prints PROVER IS HOLLOW.
+        run: node tools/extension-prove.mjs --prove-fail
+
+      - name: Prove-bench runner self-test
+        # Scoring logic incl. false-positive-on-the-control weighted like a
+        # miss and n/a for an uninstalled tool, plus fixture-generator drift.
+        run: node tests/prove-bench/run-bench.mjs --self-test
+
       - name: Tier 3 artifacts match their sources
         # Drift gates, not self-tests. The committed batches must still derive
         # from the scenario set, the blinding map must still match the answers,

@@ -1,0 +1,11 @@
+{
+  "name": "correct-guard",
+  "control": true,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "none. CONTROL: a permissions deny rule Edit(infra/**), which is harness-owned and survives handler deletion. Both tools must pass this.",
+  "citation": "permissions page: \"Use Edit(docs/**) in place of Write(docs/**)\" and \"An Edit rule covers all file-editing tools\".",
+  "matcher": "Write|Edit",
+  "deny": [
+    "Edit(infra/**)"
+  ]
+}
