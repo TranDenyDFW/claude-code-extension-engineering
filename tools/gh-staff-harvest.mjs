@@ -211,6 +211,17 @@ async function main() {
     const { design, versions, stats } = extract(CDIR, known);
     writeFileSync(join(OUT, 'design-statements.json'), JSON.stringify(design, null, 1));
     writeFileSync(join(OUT, 'version-facts.json'), JSON.stringify(versions, null, 1));
+    // Stats MUST be rewritten here too. An audit found --extract-only rewrote both
+    // data files while leaving harvest-stats.json describing the previous run, so
+    // the committed provenance claimed 60 design statements for a file holding 20.
+    const prior = existsSync(join(OUT, 'harvest-stats.json'))
+      ? JSON.parse(readFileSync(join(OUT, 'harvest-stats.json'), 'utf8')) : {};
+    writeFileSync(join(OUT, 'harvest-stats.json'), JSON.stringify({
+      ...prior, threads_on_disk: stats.files, comments: stats.comments,
+      bot_comments: stats.bots, project_authored: stats.staffComments,
+      design_statements: design.length, version_facts: versions.length,
+      last_extract: 'extract-only',
+    }, null, 1));
     console.log(`threads read      : ${stats.files}`);
     console.log(`comments          : ${stats.comments}  (bots ${stats.bots})`);
     console.log(`project-authored  : ${stats.staffComments}`);

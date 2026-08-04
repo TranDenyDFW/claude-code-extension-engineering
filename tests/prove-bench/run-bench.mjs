@@ -63,8 +63,9 @@ function runProve(dir) {
   const r = spawnSync(process.execPath, [join(REPO, 'tools', 'extension-prove.mjs'), '--bundle', dir, '--json'],
     { encoding: 'utf8', windowsHide: true, timeout: 120_000 });
   let failedIds = [];
-  try { failedIds = JSON.parse(r.stdout).cases.filter((c) => !c.ok).map((c) => c.id); } catch { /* keep empty */ }
-  return { exit: r.status, detail: failedIds.length ? `failed ${failedIds.join(',')}` : 'all cases pass' };
+  let parsed = false;
+  try { failedIds = JSON.parse(r.stdout).cases.filter((c) => !c.ok).map((c) => c.id); parsed = true; } catch { /* keep empty */ }
+  return { exit: r.status, failedIds, parsed, detail: failedIds.length ? `failed ${failedIds.join(',')}` : 'all cases pass' };
 }
 
 /**
@@ -108,10 +109,38 @@ function runTestHookSh(dir, shimDir) {
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 
-function score(isControl, exit) {
+/**
+ * Exit-code-only scoring, kept for the competitor because a single verdict is all
+ * it produces. It answers "did the tool flag this bundle as defective".
+ */
+export function score(isControl, exit) {
   if (exit === null) return 'n/a';
   if (isControl) return exit === 0 ? 'clean' : 'FALSE-POS';
   return exit !== 0 ? 'CATCH' : 'MISS';
+}
+
+/**
+ * Diagnosis-level scoring, applied to extension-prove ONLY, which holds it to a
+ * STRICTER bar than the competitor.
+ *
+ * An adversarial audit stubbed `runHandler` so that no extension code executed at
+ * all, and the published 10 of 10 versus 3 of 10 came out BYTE-IDENTICAL, because
+ * exit-code scoring counts any non-zero as a catch, including "everything failed
+ * for the wrong reason". Under that stub `blocks-the-near-miss` passed the very
+ * case that defines its defect.
+ *
+ * So a CATCH now requires the failing case-id set to EQUAL the set the fixture's
+ * defect predicts. Detecting a defect for the wrong reason scores WRONG-DIAGNOSIS,
+ * which is not a catch.
+ */
+export function scoreDiagnosis(isControl, run, expected) {
+  if (run.exit === null) return 'n/a';
+  if (!run.parsed) return 'NO-OUTPUT';
+  const got = [...(run.failedIds || [])].sort().join(',');
+  const want = [...(expected || [])].sort().join(',');
+  if (isControl) return run.exit === 0 && got === '' ? 'clean' : 'FALSE-POS';
+  if (run.exit === 0) return 'MISS';
+  return got === want ? 'CATCH' : 'WRONG-DIAGNOSIS';
 }
 
 function bench() {
@@ -126,7 +155,8 @@ function bench() {
       const thsh = runTestHookSh(dir, shimDir);
       rows.push({
         fixture: man.name, control: !!man.control, defect: man.defect, citation: man.citation,
-        prove: { ...prove, score: score(man.control, prove.exit) },
+        expectedFailures: man.expectedFailures || [],
+        prove: { ...prove, score: scoreDiagnosis(man.control, prove, man.expectedFailures || []) },
         testHookSh: { ...thsh, score: score(man.control, thsh.exit) },
       });
     }
@@ -154,11 +184,14 @@ function report(rows, json) {
   console.log(`${'-'.repeat(w)}  ${'-'.repeat(16)}  ${'-'.repeat(28)}`);
   for (const r of rows) {
     const tag = r.control ? ' (control)' : '';
-    console.log(`${(r.fixture + tag).padEnd(w)}  ${r.prove.score.padEnd(16)}  ${r.testHookSh.score}  [${r.testHookSh.detail}]`);
+    const note = r.prove.score === 'WRONG-DIAGNOSIS' ? `  [expected ${r.expectedFailures.join(',') || 'none'}, got ${r.prove.failedIds.join(',') || 'none'}]` : '';
+    console.log(`${(r.fixture + tag).padEnd(w)}  ${r.prove.score.padEnd(16)}  ${r.testHookSh.score}  [${r.testHookSh.detail}]${note}`);
   }
   const p = tally(rows, 'prove'), t = tally(rows, 'testHookSh');
   console.log('');
-  console.log(`extension-prove : caught ${p.caught}/${p.of} defects, ${p.falsePos} false positive(s) on the control`);
+  const wrong = rows.filter((r) => r.prove.score === 'WRONG-DIAGNOSIS').length;
+  console.log(`extension-prove : caught ${p.caught}/${p.of} defects, ${p.falsePos} false positive(s) on the control${wrong ? `, ${wrong} WRONG-DIAGNOSIS` : ''}`);
+  console.log(`                  (a catch requires the failing case set to MATCH the fixture's declared defect, not merely a non-zero exit)`);
   console.log(`test-hook.sh    : caught ${t.caught}/${t.of} defects, ${t.falsePos} false positive(s) on the control`);
   return 0;
 }
@@ -172,6 +205,19 @@ function selfTest() {
   check('the control with exit 0 is clean', score(true, 0) === 'clean');
   check('FALSE POSITIVE: the control with a non-zero exit is scored, not excused', score(true, 1) === 'FALSE-POS');
   check('an uninstalled tool scores n/a, never a silent CATCH', score(false, null) === 'n/a');
+
+  // Diagnosis scoring. An audit stubbed runHandler so nothing executed and the
+  // old exit-code-only headline came out byte-identical, so a catch now requires
+  // the failing case set to MATCH the fixture's declared defect.
+  const D = (ctrl, exit, got, want) => scoreDiagnosis(ctrl, { exit, parsed: true, failedIds: got }, want);
+  check('CATCH requires the failing set to MATCH the declared defect', D(false, 1, ['C6','C7'], ['C6','C7']) === 'CATCH');
+  check('order does not matter when comparing the sets', D(false, 1, ['C7','C6'], ['C6','C7']) === 'CATCH');
+  check('WRONG-DIAGNOSIS: right that it is broken, wrong about why', D(false, 1, ['C1','C3','C5','C6','C7'], ['C6','C7']) === 'WRONG-DIAGNOSIS');
+  check('a WRONG-DIAGNOSIS is NOT counted as a catch', tally([{ control: false, prove: { score: 'WRONG-DIAGNOSIS' }, testHookSh: { score: 'MISS' } }], 'prove').caught === 0);
+  check('exit 0 on a defective fixture is still a MISS', D(false, 0, [], ['C6','C7']) === 'MISS');
+  check('the control must fail NOTHING to be clean', D(true, 0, [], []) === 'clean');
+  check('the control failing any case is a FALSE-POS', D(true, 1, ['C1'], []) === 'FALSE-POS');
+  check('unparseable output is never a silent catch', scoreDiagnosis(false, { exit: 1, parsed: false, failedIds: [] }, ['C1']) === 'NO-OUTPUT');
   const fake = [
     { control: true, prove: { score: 'clean' }, testHookSh: { score: 'clean' } },
     { control: false, prove: { score: 'CATCH' }, testHookSh: { score: 'MISS' } },
@@ -201,4 +247,4 @@ function main() {
 }
 
 if (IS_MAIN) main();
-export { score, tally };
+export { tally };

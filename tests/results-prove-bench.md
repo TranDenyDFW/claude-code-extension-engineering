@@ -28,6 +28,7 @@ shallow-glob-misses-nested  CATCH             MISS  [reported success]
 stdout-theatre              CATCH             MISS  [reported success]
 
 extension-prove : caught 10/10 defects, 0 false positive(s) on the control
+                  (a catch requires the failing case set to MATCH the fixture's declared defect, not merely a non-zero exit)
 test-hook.sh    : caught 3/10 defects, 0 false positive(s) on the control
 ```
 
@@ -94,6 +95,41 @@ normalising `Path` versus `PATH` in the child environment. Recorded here because
 inflates a competitor's score is as broken as one that deflates it, and this one did the
 former before it was caught.
 
+## An adversarial audit found two BLOCKING defects in this bench, both now fixed
+
+Reported 2026-08-04 by an independent multi-agent audit and reproduced before fixing. Both were
+defects in the EVIDENCE, not in the tool's output on these fixtures, which is the more dangerous
+kind: the numbers were right and the reasons they were right were not established.
+
+**1. The mutation engine had zero gate coverage.** Replacing the body of `applyMutation` with
+`return` left all five gates green while `hook-only-no-deny-rule` flipped from
+"5 passed, 2 failed" to "7 passed, 0 failed". Cause: `--prove-fail` filtered to `enforce` and
+`wiring` cases, so `fail-posture`, the kind that carries the central claim that a command hook
+fails open, was never exercised by any gate.
+*Fixed:* `--self-test` now asserts `applyMutation` really deletes and really rewrites the
+handler, and `--prove-fail` no longer excludes `fail-posture` (66 case-runs became 110).
+*Proven:* gutting `applyMutation` now exits 1 with three specific failures.
+
+**2. The headline was scored on exit code alone.** Stubbing `runHandler` so that NO extension
+code executed at all left every gate green and reproduced "10 of 10 versus 3 of 10"
+BYTE-IDENTICALLY, because any non-zero exit counted as a catch. Under that stub
+`blocks-the-near-miss` passed the very case that defines its defect.
+*Fixed:* every fixture now declares the case set its defect predicts, and a CATCH requires the
+observed failing set to MATCH it. Detecting a defect for the wrong reason scores
+`WRONG-DIAGNOSIS`, which is not a catch. This holds `extension-prove` to a STRICTER bar than the
+competitor, which is only ever scored on its single verdict.
+*Proven:* under the same stub the bench now reports **7 of 10 with 3 WRONG-DIAGNOSIS**, naming
+each expected-versus-observed mismatch.
+
+The headline number is unchanged at 10 of 10. What changed is that it now means the tool
+identified each defect correctly, not merely that it exited non-zero.
+
+Three further audit findings were fixed in the same pass: `--check` used to REPAIR the drift it
+detected (it called the generator over the committed tree, so it could not fail twice and
+silently destroyed the drifted content); `--prove-fail` would print its success message after
+zero case-runs; and the docstring claimed a read-only guarantee that no gate asserted, now
+narrowed to what is actually checked.
+
 ## The fixtures
 
 One shared requirement, one byte-identical conformance spec, and only the implementation
@@ -113,8 +149,17 @@ facts make it the only passing implementation:
 
 `hook-only-no-deny-rule` is the pedagogically important fixture: a perfectly correct hook that
 passes all five live cases and fails both fail-posture cases. It is the mechanism users reach
-for, and the full-population GitHub study found the deny rule went unconsidered in every
-issue where a user wanted a hard guarantee.
+for. In the GitHub study, blind raters named the permissions deny rule as the overlooked
+alternative in **5 of the 9 issues hand-read** for that question, and correctly declined to
+name it for #79959 where deny rules were the user's own proposal.
+
+An earlier version of this sentence said "the full-population GitHub study found the deny rule
+went unconsidered in EVERY issue where a user wanted a hard guarantee". That overstated the
+evidence by two steps: the population was 81,002 issues but this question was never computed
+over it, and the underlying figure is 5 of 9 on a hand-read sample, not all. Corrected after an
+adversarial audit. The backing detail file lived in a deleted harness scratchpad, so neither
+the sample nor the population is re-derivable from this repo; the surviving source is
+`.md/20260803-github-issue-mining-summary.md`.
 
 ### An earlier requirement that was NOT satisfiable
 

@@ -4,6 +4,13 @@
   "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
   "defect": "settings.json points at a handler file that does not exist. Command hooks fail OPEN.",
   "citation": "hooks.md: a missing handler fails open and blocks nothing while looking installed.",
+  "expectedFailures": [
+    "C1",
+    "C3",
+    "C5",
+    "C6",
+    "C7"
+  ],
   "matcher": "Write|Edit",
   "deny": null
 }

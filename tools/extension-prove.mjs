@@ -31,8 +31,16 @@
  * because a prover that encodes our guesses grades our own reading rather than
  * the product.
  *
- * Read-only with respect to the bundle: every case runs against a temp copy and
- * the source tree is hashed before and after.
+ * Read-only with respect to the bundle: every case runs against a temp copy, and
+ * the source tree is hashed before and after as defence in depth.
+ *
+ * PRECISELY WHAT IS GATED, because an audit found the earlier wording claimed
+ * more than the self-test asserted: `hashTree` is gated (content change, revert,
+ * and an added empty file are all detected). The before/after COMPARISON is not,
+ * and cannot easily be, because every case already runs on a copy, so nothing
+ * inside a normal run can make the source differ. Replacing the second hash with
+ * the first would therefore not turn any gate red. Treat `mutatedSource` as a
+ * belt-and-braces report, not a verified guarantee.
  */
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, cpSync, rmSync, readdirSync, statSync, chmodSync } from 'node:fs';
 import { join, resolve, dirname, relative, basename } from 'node:path';
@@ -240,7 +248,18 @@ function matchExpect(expect, verdict) {
   return fails;
 }
 
-function applyMutation(dir, settings, mutation) {
+/**
+ * Mutate a bundle copy for a fail-posture case.
+ *
+ * THIS FUNCTION HAD NO GATE COVERAGE and an adversarial audit found it: replacing
+ * the body with `return` left all five gates green while
+ * `hook-only-no-deny-rule` flipped from "5 passed, 2 failed" to "7 passed, 0
+ * failed". Cause: --prove-fail filtered to enforce and wiring cases only, so the
+ * fail-posture kind, which carries the project's central claim that a command
+ * hook fails open, was never exercised by any gate. `mutationSelfTest` below now
+ * asserts it actually mutates, and --prove-fail no longer excludes fail-posture.
+ */
+export function applyMutation(dir, settings, mutation) {
   if (!mutation || mutation === 'none') return;
   const targets = [];
   for (const groups of Object.values(settings.hooks || {}))
@@ -358,6 +377,55 @@ function selfTest() {
   check('a missing handler leaves the decision as allow (fails open)', v('PreToolUse', [{ notFound: true }]).decision === 'allow');
   check('non-zero non-2 exit is a non-blocking error', v('PreToolUse', [{ exit: 1, stdout: '', stderr: '' }]).decision === 'allow');
 
+  // The mutation engine is what makes every fail-posture case mean anything.
+  // Assert it actually mutates, so it cannot be reduced to a no-op silently.
+  console.log('mutation engine (fail-posture depends entirely on this):');
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'xprove-mut-'));
+    try {
+      const settings = { hooks: { PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'node "h.mjs"' }] }] } };
+      const hp = join(tmp, 'h.mjs');
+      const original = 'process.exit(0);\n';
+
+      writeFileSync(hp, original);
+      applyMutation(tmp, settings, 'delete-handler');
+      check('delete-handler actually removes the handler file', !existsSync(hp));
+
+      writeFileSync(hp, original);
+      applyMutation(tmp, settings, 'crash-handler');
+      const after = existsSync(hp) ? readFileSync(hp, 'utf8') : '';
+      check('crash-handler rewrites the handler', after !== original && after.length > 0);
+      const r = spawnSync(process.execPath, [hp], { encoding: 'utf8', windowsHide: true });
+      check('...and the rewritten handler exits non-zero', r.status !== 0, `status ${r.status}`);
+
+      writeFileSync(hp, original);
+      applyMutation(tmp, settings, 'none');
+      check('mutation "none" leaves the handler untouched', readFileSync(hp, 'utf8') === original);
+      applyMutation(tmp, settings, undefined);
+      check('an absent mutation leaves the handler untouched', readFileSync(hp, 'utf8') === original);
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  }
+
+  // The docstring promises the bundle is hashed before and after so a mutating
+  // run is reported. An audit found that promise asserted by nothing: replacing
+  // `const after = hashTree(dir)` with `const after = before` forces
+  // mutatedSource:false forever and every gate stays green.
+  console.log('read-only detection (the docstring promises this):');
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'xprove-ro-'));
+    try {
+      writeFileSync(join(tmp, 'a.txt'), 'one');
+      const h1 = hashTree(tmp);
+      check('hashing the same tree twice is stable', hashTree(tmp) === h1);
+      writeFileSync(join(tmp, 'a.txt'), 'two');
+      check('a CONTENT change is detected', hashTree(tmp) !== h1);
+      writeFileSync(join(tmp, 'a.txt'), 'one');
+      check('...and reverting restores the hash', hashTree(tmp) === h1);
+      writeFileSync(join(tmp, 'b.txt'), '');
+      check('an ADDED file is detected even when empty', hashTree(tmp) !== h1);
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  }
+
   console.log('permission rules (official permissions page):');
   const S = (deny) => ({ permissions: { deny } });
   check('Edit(path) deny matches an Edit to that path',
@@ -404,7 +472,8 @@ function proveFail(bundleDirs) {
   let checked = 0;
   for (const dir of bundleDirs) {
     const conf = JSON.parse(readFileSync(join(dir, 'conformance.json'), 'utf8'));
-    const enforce = (conf.cases || []).filter((c) => c.kind === 'enforce' || c.kind === 'wiring');
+    // fail-posture is INCLUDED. Excluding it left the mutation engine ungated.
+    const enforce = (conf.cases || []).filter((c) => c.kind === 'enforce' || c.kind === 'wiring' || c.kind === 'fail-posture');
     if (!enforce.length) continue;
     for (const control of ['empty', 'inert']) {
       const tmp = mkdtempSync(join(tmpdir(), `xprove-${control}-`));
@@ -423,7 +492,13 @@ function proveFail(bundleDirs) {
       } finally { rmSync(tmp, { recursive: true, force: true }); }
     }
   }
-  console.log(`prove-fail: ${checked} enforce/wiring case-runs against empty and inert controls`);
+  console.log(`prove-fail: ${checked} enforce/wiring/fail-posture case-runs against empty and inert controls`);
+  if (checked === 0) {
+    // A gate that passes on zero cases is the defect it exists to catch.
+    console.log('\nPROVER IS HOLLOW');
+    console.log('  no cases were checked at all, so nothing was asserted');
+    return 1;
+  }
   if (survivors.length) {
     console.log('\nPROVER IS HOLLOW');
     for (const s of survivors) console.log(`  ${s}`);

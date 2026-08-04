@@ -43,7 +43,8 @@
  *
  * Run with --check to assert committed fixtures match the generator (drift gate).
  */
-import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync, readdirSync, statSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -98,72 +99,72 @@ process.exit(0);
 `;
 
 const FIXTURES = [
-  { name: 'correct-guard', control: true,
+  { name: 'correct-guard', expectedFailures: [], control: true,
     defect: 'none. CONTROL: a permissions deny rule Edit(infra/**), which is harness-owned and survives handler deletion. Both tools must pass this.',
     citation: 'permissions page: "Use Edit(docs/**) in place of Write(docs/**)" and "An Edit rule covers all file-editing tools".',
     matcher: 'Write|Edit', handler: GUARD, deny: ['Edit(infra/**)'] },
 
-  { name: 'hook-only-no-deny-rule',
+  { name: 'hook-only-no-deny-rule', expectedFailures: ['C6', 'C7'],
     defect: 'A correct hook and nothing else. Passes every live case and fails the fail-posture cases, because a command hook fails OPEN when deleted or crashing.',
     citation: 'hooks.md: a non-zero exit "is indistinguishable from a crash" and does not block. This is the mechanism users reach for and the deny rule they never consider.',
     matcher: 'Write|Edit', handler: GUARD },
 
-  { name: 'deny-rule-never-consulted',
+  { name: 'deny-rule-never-consulted', expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
     defect: 'Uses Write(infra/**) as the deny rule. Claude Code accepts it and NEVER consults it, so it protects nothing while looking correct.',
     citation: 'permissions page: "If you write a path rule for Write, NotebookEdit, Glob, or the legacy MultiEdit tool instead, Claude Code accepts the rule but never consults it." (v2.1.210+)',
     matcher: 'Write|Edit', handler: GUARD, deny: ['Write(infra/**)'], noHook: true },
 
-  { name: 'allows-what-it-blocks',
+  { name: 'allows-what-it-blocks', expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
     defect: 'The guard tests an unset variable, so it never fires and always allows.',
     citation: 'test-hook.sh:245-252 treats exit 0 and exit 2 alike, so it cannot see this.',
     matcher: 'Write|Edit',
     handler: GUARD.replace("if (/^infra\\//.test(p)) {", 'if (process.env.NEVER_SET === "1") {') },
 
-  { name: 'matcher-wrong-tool',
+  { name: 'matcher-wrong-tool', expectedFailures: ['C3', 'C6', 'C7'],
     defect: 'Handler logic is correct but the matcher is scoped to Write only, so an Edit to infra/ never reaches it.',
     citation: 'hooks.md: "Matcher: exact string, list (A|B), or regex (unanchored)". test-hook.sh never reads hooks.json at all.',
     matcher: 'Write', handler: GUARD },
 
-  { name: 'stdout-theatre',
+  { name: 'stdout-theatre', expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
     defect: 'Prints a convincing BLOCKED banner to stdout but exits 0 with no hookSpecificOutput, so nothing is blocked.',
     citation: 'hooks.md: "prefer exit 0 with a JSON decision". A banner is not a decision.',
     matcher: 'Write|Edit',
     handler: GUARD.replace(/console\.log\(JSON\.stringify\([^\n]*\n/, "console.log('BLOCKED: infra is protected. Denied.');\n") },
 
-  { name: 'fails-open-on-crash',
+  { name: 'fails-open-on-crash', expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
     defect: 'Throws before reaching the guard; a non-zero exit is a non-blocking error, so it fails open.',
     citation: 'hooks.md: a non-zero exit is indistinguishable from a crash and does not block.',
     matcher: 'Write|Edit',
     handler: "#!/usr/bin/env node\nimport { readFileSync } from 'node:fs';\nreadFileSync(0, 'utf8');\nthrow new Error('boom');\n" },
 
-  { name: 'handler-path-missing',
+  { name: 'handler-path-missing', expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
     defect: 'settings.json points at a handler file that does not exist. Command hooks fail OPEN.',
     citation: 'hooks.md: a missing handler fails open and blocks nothing while looking installed.',
     matcher: 'Write|Edit', handler: GUARD, omitHandlerFile: true },
 
-  { name: 'jq-dependency',
+  { name: 'jq-dependency', expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
     defect: 'Handler shells out to jq, absent on many Windows installs, so it exits non-zero and fails open.',
     citation: 'hooks.md:125: "jq is absent on many Windows installs, so the handler exits non-zero, fails open, and silently blocks nothing while looking installed."',
     matcher: 'Write|Edit',
     handler: "#!/usr/bin/env node\nimport { execFileSync } from 'node:child_process';\nimport { readFileSync } from 'node:fs';\nconst raw = readFileSync(0, 'utf8');\nconst p = execFileSync('jq', ['-r', '.tool_input.file_path'], { input: raw, encoding: 'utf8' }).trim();\nif (/^infra\\//.test(p)) process.exit(2);\nprocess.exit(0);\n" },
 
-  { name: 'blocks-the-near-miss',
+  { name: 'blocks-the-near-miss', expectedFailures: ['C4', 'C6', 'C7'],
     defect: 'Matches the bare substring "infra", so infrastructure-notes.md is blocked too.',
     citation: 'A guard that blocks safe work gets disabled, so a false positive is weighted exactly like a miss.',
     matcher: 'Write|Edit',
     handler: GUARD.replace("/^infra\\//.test(p)", "p.includes('infra')") },
 
-  { name: 'shallow-glob-misses-nested',
+  { name: 'shallow-glob-misses-nested', expectedFailures: ['C5'],
     defect: 'Deny rule uses Edit(infra/*), which does not span a directory separator, so nested paths are unprotected.',
     citation: 'permissions page glob semantics: * does not cross a separator; ** does.',
     matcher: 'Write|Edit', handler: GUARD, deny: ['Edit(infra/*)'], noHook: true },
 ];
 
-function build() {
-  rmSync(OUT, { recursive: true, force: true });
-  mkdirSync(OUT, { recursive: true });
+function buildInto(root) {
+  rmSync(root, { recursive: true, force: true });
+  mkdirSync(root, { recursive: true });
   for (const f of FIXTURES) {
-    const dir = join(OUT, f.name);
+    const dir = join(root, f.name);
     mkdirSync(dir, { recursive: true });
     const handlerName = 'guard.mjs';
     if (!f.omitHandlerFile) writeFileSync(join(dir, handlerName), f.handler);
@@ -177,11 +178,14 @@ function build() {
     writeFileSync(join(dir, 'manifest.json'), JSON.stringify({
       name: f.name, control: !!f.control, requirement: REQUIREMENT,
       defect: f.defect, citation: f.citation,
+      expectedFailures: f.expectedFailures,
       matcher: f.noHook ? null : f.matcher, deny: f.deny || null,
     }, null, 2) + '\n');
   }
-  return FIXTURES.length;
+  return treeHash(root, root);
 }
+
+function build() { buildInto(OUT); return FIXTURES.length; }
 
 /**
  * Hash the fixture tree with line endings NORMALISED.
@@ -193,14 +197,14 @@ function build() {
  * asserts CONTENT drift, which is what it is for, and stays silent about a line
  * ending the checkout chose.
  */
-function treeHash(dir) {
+function treeHash(dir, base = OUT) {
   const h = createHash('sha256');
   const walk = (d) => {
     for (const n of readdirSync(d).sort()) {
       const p = join(d, n);
-      if (statSync(p).isDirectory()) { h.update('D:' + relative(OUT, p).replace(/\\/g, '/')); walk(p); }
+      if (statSync(p).isDirectory()) { h.update('D:' + relative(base, p).replace(/\\/g, '/')); walk(p); }
       else {
-        h.update('F:' + relative(OUT, p).replace(/\\/g, '/'));
+        h.update('F:' + relative(base, p).replace(/\\/g, '/'));
         h.update(readFileSync(p, 'utf8').replace(/\r\n/g, '\n'));
       }
     }
@@ -212,10 +216,20 @@ function treeHash(dir) {
 function main() {
   if (process.argv.includes('--check')) {
     if (!existsSync(OUT)) { console.error('fixtures missing; run without --check'); process.exit(1); }
+    // --check MUST NOT call build(). An adversarial audit found that it did:
+    // build() rmSync's and rewrites the committed fixtures, so the gate REPAIRED
+    // the drift it had just detected. It could not fail twice, and it silently
+    // destroyed the drifted content it was supposed to be reporting. Generate
+    // into a temp tree and compare instead, leaving the committed tree untouched.
     const before = treeHash(OUT);
-    build();
-    const after = treeHash(OUT);
-    if (before !== after) { console.error(`FAIL fixtures drifted\n  on disk:   ${before}\n  generated: ${after}`); process.exit(1); }
+    const tmp = mkdtempSync(join(tmpdir(), 'fixgen-'));
+    let after;
+    try { after = buildInto(tmp); } finally { rmSync(tmp, { recursive: true, force: true }); }
+    if (before !== after) {
+      console.error(`FAIL fixtures drifted\n  on disk:   ${before}\n  generated: ${after}`);
+      console.error('  the committed fixtures were NOT modified; re-run without --check to regenerate');
+      process.exit(1);
+    }
     console.log(`PASS fixtures match generator (${FIXTURES.length} fixtures, sha256 ${after.slice(0, 16)})`);
     process.exit(0);
   }

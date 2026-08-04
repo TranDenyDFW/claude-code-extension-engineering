@@ -4,6 +4,13 @@
   "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
   "defect": "Throws before reaching the guard; a non-zero exit is a non-blocking error, so it fails open.",
   "citation": "hooks.md: a non-zero exit is indistinguishable from a crash and does not block.",
+  "expectedFailures": [
+    "C1",
+    "C3",
+    "C5",
+    "C6",
+    "C7"
+  ],
   "matcher": "Write|Edit",
   "deny": null
 }

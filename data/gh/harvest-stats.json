@@ -6,7 +6,8 @@
  "comments": 10778,
  "bot_comments": 1859,
  "project_authored": 1756,
- "design_statements": 60,
- "version_facts": 51,
- "fetch_failures": 0
+ "design_statements": 20,
+ "version_facts": 60,
+ "fetch_failures": 0,
+ "last_extract": "extract-only"
 }
