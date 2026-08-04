@@ -92,7 +92,7 @@ import { readFileSync } from 'node:fs';
 const raw = readFileSync(0, 'utf8');
 let ev; try { ev = JSON.parse(raw); } catch { process.exit(2); }
 const p = ((ev.tool_input && ev.tool_input.file_path) || '').replace(/\\\\/g, '/');
-if (/^infra\\//.test(p)) {
+if (/(^|\\/)infra\\//.test(p)) {
   console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'infra is protected' } }));
 }
 process.exit(0);
@@ -114,18 +114,18 @@ const FIXTURES = [
     citation: 'permissions page: "If you write a path rule for Write, NotebookEdit, Glob, or the legacy MultiEdit tool instead, Claude Code accepts the rule but never consults it." (v2.1.210+)',
     matcher: 'Write|Edit', handler: GUARD, deny: ['Write(infra/**)'], noHook: true },
 
-  { name: 'allows-what-it-blocks', expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
+  { name: 'allows-what-it-blocks', mutated: true, expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
     defect: 'The guard tests an unset variable, so it never fires and always allows.',
     citation: 'test-hook.sh:245-252 treats exit 0 and exit 2 alike, so it cannot see this.',
     matcher: 'Write|Edit',
-    handler: GUARD.replace("if (/^infra\\//.test(p)) {", 'if (process.env.NEVER_SET === "1") {') },
+    handler: GUARD.replace("if (/(^|\\/)infra\\//.test(p)) {", 'if (process.env.NEVER_SET === "1") {') },
 
   { name: 'matcher-wrong-tool', expectedFailures: ['C3', 'C6', 'C7'],
     defect: 'Handler logic is correct but the matcher is scoped to Write only, so an Edit to infra/ never reaches it.',
     citation: 'hooks.md: "Matcher: exact string, list (A|B), or regex (unanchored)". test-hook.sh never reads hooks.json at all.',
     matcher: 'Write', handler: GUARD },
 
-  { name: 'stdout-theatre', expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
+  { name: 'stdout-theatre', mutated: true, expectedFailures: ['C1', 'C3', 'C5', 'C6', 'C7'],
     defect: 'Prints a convincing BLOCKED banner to stdout but exits 0 with no hookSpecificOutput, so nothing is blocked.',
     citation: 'hooks.md: "prefer exit 0 with a JSON decision". A banner is not a decision.',
     matcher: 'Write|Edit',
@@ -148,17 +148,33 @@ const FIXTURES = [
     matcher: 'Write|Edit',
     handler: "#!/usr/bin/env node\nimport { execFileSync } from 'node:child_process';\nimport { readFileSync } from 'node:fs';\nconst raw = readFileSync(0, 'utf8');\nconst p = execFileSync('jq', ['-r', '.tool_input.file_path'], { input: raw, encoding: 'utf8' }).trim();\nif (/^infra\\//.test(p)) process.exit(2);\nprocess.exit(0);\n" },
 
-  { name: 'blocks-the-near-miss', expectedFailures: ['C4', 'C6', 'C7'],
+  { name: 'blocks-the-near-miss', mutated: true, expectedFailures: ['C4', 'C6', 'C7'],
     defect: 'Matches the bare substring "infra", so infrastructure-notes.md is blocked too.',
     citation: 'A guard that blocks safe work gets disabled, so a false positive is weighted exactly like a miss.',
     matcher: 'Write|Edit',
-    handler: GUARD.replace("/^infra\\//.test(p)", "p.includes('infra')") },
+    handler: GUARD.replace("/(^|\\/)infra\\//.test(p)", "p.includes('infra')") },
 
   { name: 'shallow-glob-misses-nested', expectedFailures: ['C5'],
     defect: 'Deny rule uses Edit(infra/*), which does not span a directory separator, so nested paths are unprotected.',
     citation: 'permissions page glob semantics: * does not cross a separator; ** does.',
     matcher: 'Write|Edit', handler: GUARD, deny: ['Edit(infra/*)'], noHook: true },
 ];
+
+/**
+ * A fixture is defined by mutating GUARD with .replace(). If the target literal
+ * drifts, .replace() silently returns the string unchanged and the fixture ships
+ * WITHOUT its defect, so it passes the bench for the wrong reason. That happened
+ * on 2026-08-04 when the guard regex was widened for real path shapes. Assert
+ * every intended mutation actually changed the text.
+ */
+function assertMutated() {
+  const bad = FIXTURES.filter((f) => f.mutated === true && f.handler === GUARD).map((f) => f.name);
+  if (bad.length) {
+    console.error(`FAIL fixture handler substitution was a NO-OP for: ${bad.join(', ')}`);
+    console.error('  the .replace() target literal no longer matches GUARD, so the fixture has no defect');
+    process.exit(1);
+  }
+}
 
 function buildInto(root) {
   rmSync(root, { recursive: true, force: true });
@@ -185,7 +201,7 @@ function buildInto(root) {
   return treeHash(root, root);
 }
 
-function build() { buildInto(OUT); return FIXTURES.length; }
+function build() { assertMutated(); buildInto(OUT); return FIXTURES.length; }
 
 /**
  * Hash the fixture tree with line endings NORMALISED.

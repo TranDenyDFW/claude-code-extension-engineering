@@ -43,7 +43,7 @@
  * belt-and-braces report, not a verified guarantee.
  */
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, cpSync, rmSync, readdirSync, statSync, chmodSync } from 'node:fs';
-import { join, resolve, dirname, relative, basename } from 'node:path';
+import { join, resolve, dirname, relative, basename, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -127,7 +127,7 @@ export function parseRule(rule) {
   return { tool: m[1].trim(), pattern: m[2].trim() };
 }
 
-function ruleApplies(rule, toolName, toolInput) {
+function ruleApplies(rule, toolName, toolInput, projectDir) {
   const { tool, pattern } = parseRule(rule);
   const toolMatches = tool === '*' || tool === toolName
     || (tool.includes('*') && globToRegex(tool).test(toolName))
@@ -138,17 +138,41 @@ function ruleApplies(rule, toolName, toolInput) {
     return { applies: false, note: `permission rule "${rule}" is accepted but NEVER CONSULTED: only Edit(path) and Read(path) rules are checked for file permissions. Use Edit(${pattern}) instead.` };
   }
   if (!PATH_RULE_CONSULTED.has(tool)) return { applies: false };
-  const p = String((toolInput && toolInput.file_path) || '').replace(/\\/g, '/');
+  // A rule is written project-relative, Edit(infra/**), while the tool_input the
+  // handler sees is absolute. Relativise before matching or the rule never fires.
+  const raw = String((toolInput && toolInput.file_path) || '');
+  const p = projectDir ? toProjectRelative(projectDir, raw) : raw.replace(/\\/g, '/');
   const pat = pattern.replace(/^\.\//, '');
   return { applies: globToRegex(pat).test(p) };
 }
 
-export function permissionDecision(settings, toolName, toolInput) {
+/**
+ * The two path shapes, which are NOT the same and must not be conflated.
+ *
+ * Measured live 2026-08-04 (tests/tier4/fidelity.json, 8 of 8 classes):
+ *   HOOKS receive an ABSOLUTE path with native separators.
+ *   PERMISSION RULES are written project-relative, `Edit(infra/**)`, and are
+ *   matched against the path relative to the project root.
+ * So the harness absolutises for the handler and relativises for the rule.
+ */
+export function toProjectAbsolute(projectDir, filePath) {
+  const p = String(filePath);
+  if (/^([A-Za-z]:[\\/]|\/)/.test(p)) return p;                 // already absolute
+  return join(projectDir, p.split('/').join(sep));
+}
+
+export function toProjectRelative(projectDir, filePath) {
+  const p = String(filePath).replace(/\\/g, '/');
+  const root = String(projectDir).replace(/\\/g, '/').replace(/\/$/, '');
+  return p.startsWith(root + '/') ? p.slice(root.length + 1) : p;
+}
+
+export function permissionDecision(settings, toolName, toolInput, projectDir) {
   const perms = (settings && settings.permissions) || {};
   const notes = [];
   for (const level of ['deny', 'ask', 'allow']) {
     for (const rule of (perms[level] || [])) {
-      const r = ruleApplies(rule, toolName, toolInput);
+      const r = ruleApplies(rule, toolName, toolInput, projectDir);
       if (r.note) notes.push(r.note);
       if (r.applies) return { decision: level === 'allow' ? 'allow' : level, rule, notes };
     }
@@ -296,16 +320,25 @@ export function proveBundle(bundleDir, { onlyKinds = null } = {}) {
       const event = c.event || 'PreToolUse';
       const toolName = (c.input && c.input.tool_name) || '';
       const handlers = resolveHandlers(settings, event, toolName);
+      // Feed the path shape the PRODUCT actually sends. Measured live on
+      // 2026-08-04 (tests/tier4/fidelity.json): a hook receives an ABSOLUTE path
+      // with native separators, e.g. P:\proj\infra\main.tf, not the relative
+      // POSIX form the cases are written in. Feeding the relative form made this
+      // bench's own control handler pass while it would NOT have fired in
+      // production, which is exactly the defect class this tool exists to catch.
       const payload = {
         session_id: 'extension-prove', transcript_path: join(tmp, 't.jsonl'), cwd: tmp,
         hook_event_name: event, ...(c.input || {}),
       };
+      if (payload.tool_input && payload.tool_input.file_path) {
+        payload.tool_input = { ...payload.tool_input, file_path: toProjectAbsolute(tmp, payload.tool_input.file_path) };
+      }
       const results = handlers.map((h) => runHandler(h, payload, tmp));
       const verdict = verdictOf(event, handlers, results);
       // Permission rules are a separate, harness-owned layer. A deny rule holds
       // even when the hook is deleted or crashing, which is exactly why a
       // requirement with a guarantee clause needs one.
-      const perm = permissionDecision(settings, toolName, c.input && c.input.tool_input);
+      const perm = permissionDecision(settings, toolName, payload.tool_input, tmp);
       verdict.notes.push(...perm.notes);
       if (perm.decision === 'deny' || perm.decision === 'ask') {
         verdict.decision = perm.decision;

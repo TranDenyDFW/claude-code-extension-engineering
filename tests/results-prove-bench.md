@@ -189,6 +189,81 @@ two controls: `empty` (nothing installed) and `inert` (valid settings, handler p
 executable, always exit 0). Any case that still passes is asserting nothing about the
 extension, and the run prints `PROVER IS HOLLOW` and exits 1.
 
+## Fidelity calibration against live Claude Code sessions
+
+Run 2026-08-04 against Claude Code 2.1.219. `node tools/tier4-fidelity.mjs --live`.
+Full record in `tests/tier4/fidelity.json`.
+
+This was the project's load-bearing open limit: without it, `extension-prove` asserted
+conformance to OUR READING of the documented contract, and a misreading would have been
+invisible. Eight cases, one per behaviour class, each computed twice: once by the simulator,
+once by a real `claude -p` session. The live observable is GROUND TRUTH ON DISK, whether the
+target file exists and whether the handler's marker appeared, never the model's narration.
+
+```
+F1 stdout-json-deny             AGREE      exit 0 + permissionDecision deny blocks
+F2 exit2-deny                   AGREE      exit 2 blocks on PreToolUse
+F3 matcher-scoping              AGREE      matcher "Bash" does not select for a Write
+F4 matcher-wildcard             AGREE      "*" matches every tool
+F5 fail-open-on-crash           AGREE      a crashing handler blocks NOTHING
+F6 permission-deny-edit         AGREE      Edit(infra/**) blocks a Write
+F7 permission-deny-write-inert  AGREE      Write(infra/**) is accepted and NEVER consulted
+
+fidelity: 8/8 = 100.0%
+```
+
+F7 matters most: the "accepted but never consulted" behaviour was encoded from the docs and had
+never been observed. It holds live.
+
+### The calibration found a real defect that 8 of 8 agreement HID
+
+The live marker recorded the actual input:
+
+```
+FIRED event=PreToolUse tool=Write path=P:\ClaudeExt\...\probe4\infra\main.tf
+```
+
+Claude Code hands a hook an **absolute path with native separators**. Every conformance case
+here fed a relative POSIX path, `infra/main.tf`. The eight outcomes still agreed only because
+the calibration guard was deliberately written to normalise both shapes.
+
+The bench's own CONTROL handler was not. Given the real shape it **allowed** the write:
+
+```
+relative POSIX (what the cases USED to feed)        -> deny
+absolute Windows (what the product ACTUALLY sends)  -> allow      <- would not fire in production
+```
+
+So a handler could pass this bench and be dead in production, which is precisely the failure
+class the project exists to catch, sitting inside its own instrument. Outcome agreement alone
+would never have surfaced it; only recording the real input did.
+
+**Fixed:** `extension-prove` now absolutises `file_path` against the temp project before
+invoking a handler, matching the product. Permission rules are matched against the
+project-RELATIVE form, because a rule is written `Edit(infra/**)`. The two shapes are different
+and are no longer conflated. The fixture guards were corrected from an anchored `^infra/` to a
+substring match, and re-verified against relative POSIX, absolute Windows and absolute POSIX.
+
+A second defect surfaced while fixing the first: widening the guard regex silently broke the
+`.replace()` target that three fixtures use to inject their defect, so they shipped WITHOUT the
+defect and passed for the wrong reason. The generator now asserts every intended substitution
+actually changed the text, and refuses to emit otherwise. Proven by breaking a target literal on
+purpose: `FAIL fixture handler substitution was a NO-OP for: allows-what-it-blocks`, exit 1.
+
+The headline is unchanged at 10 of 10 after both fixes, now measured under the real path shape.
+
+### Honest limits of this calibration
+
+- **n = 1 per class, 8 classes, single pass.** Live sessions are nondeterministic; one agreeing
+  run is not a rate. A defensible fidelity number needs repeated passes per class, and the
+  Tier 4 design called for at least 10 per class. This is 1.
+- **One CLI build, one platform.** 2.1.219 on Windows. Hook behaviour has moved between builds
+  before.
+- **Only the classes listed.** Settings precedence, timeouts, HTTP handlers, `if`-rule filters
+  and every non-PreToolUse event are UNCALIBRATED and remain a reading of the docs.
+- Live runs granted workspace trust by writing `hasTrustDialogAccepted` into `~/.claude.json`,
+  backed up and restored automatically.
+
 ## What this does NOT measure
 
 - **Not usefulness.** A bundle can pass every case and still be a bad thing to ship.
