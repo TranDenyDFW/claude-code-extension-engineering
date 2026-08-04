@@ -75,8 +75,31 @@ export function isStaff(c, known) {
 }
 
 export const MECH = /\b(hooks?|PreToolUse|PostToolUse|UserPromptSubmit|SessionStart|SessionEnd|skills?|SKILL\.md|sub-?agents?|slash commands?|CLAUDE\.md|AGENTS\.md|MCP|plugins?|marketplace|settings\.json|permissions?|output styles?|status-?line|sandbox)\b/i;
-export const DESIGN = /\b(intended behavio\w*|by design|expected behavio\w*|we (generally )?want|you should use|we recommend|not planned|there is no |there's no |your options (are|for)|instead of|deprecated|does not match what we expect)\b/i;
-export const VERSION_FACT = /\b(fixed|shipped|added|released|landed|available|supported) in \*{0,2}v?\d+\.\d+\.\d+/i;
+
+/**
+ * VERSION_FACT is unambiguous: a version number attached to a shipped change.
+ * It is tested FIRST, because many version announcements also contain phrases
+ * like "instead of", which a looser design test would swallow.
+ */
+export const VERSION_FACT = /\b(fixed|shipped|added|released|landed|available|supported|now honou?rs?|now preserves) in \*{0,2}v?\d+\.\d+\.\d+/i;
+
+/**
+ * DESIGN is deliberately NARROW.
+ *
+ * A first version accepted "instead of", "there is no", "we recommend" on their
+ * own. Reading the output showed precision near 1 in 6: it swallowed triage
+ * boilerplate ("we'll need more detail", "closed in favor of #69317"), a
+ * debugging narrative, and version announcements. Counting those as design
+ * statements would repeat the exact error the first harvest made when it
+ * reported 201 "architectural" comments that were mostly release notes.
+ *
+ * A design statement asserts how the product IS SUPPOSED TO BEHAVE, or declines
+ * to change it. That needs an explicit marker, not merely a comparative phrase.
+ */
+export const DESIGN = /\b(intended behavio\w*|by design|working as intended|expected behavio\w*|not planned|won'?t fix|we (generally )?want|you should use|we recommend(?! reading)|the recommended (way|approach)|your options (are|for)|there(?: i|')s no (?:such |way |option|setting|支持)?\w*(?: setting| option| field| flag| way)|deprecated in favou?r of|is not supported|use the .{0,40} instead)\b/i;
+
+/** Triage and support boilerplate that carries no product statement at all. */
+export const TRIAGE = /\b(need(?:s)? more (?:detail|information)|can you (?:share|provide|confirm)|please (?:provide|share|comment|open|file)|closing (?:this )?(?:for now|in favou?r of|as)|closed in favou?r of|duplicate of|triaging|thank you for (?:your report|reporting|taking the time)|we'?ll (?:take a look|investigate|look into)|marking as|reopening)\b/i;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const isSecondary = (e) => /rate limit exceeded|secondary rate limit|abuse detection|\b403\b/i.test(e || '');
@@ -172,8 +195,11 @@ export function extract(dir, known) {
         number: t.number, url: t.url, title: t.title, state: t.state, state_reason: t.state_reason,
         author: c.author, association: c.association, created_at: c.created_at, body,
       };
-      if (DESIGN.test(body)) design.push(rec);
-      else if (VERSION_FACT.test(body)) versions.push(rec);
+      // Version first: it is the unambiguous class, and many version notes also
+      // contain phrasing a design test would otherwise claim.
+      if (VERSION_FACT.test(body)) { versions.push(rec); continue; }
+      // A design marker inside pure triage boilerplate is not a design statement.
+      if (DESIGN.test(body) && !(TRIAGE.test(body) && body.length < 400)) design.push(rec);
     }
   }
   return { design, versions, stats: { files, comments, bots, staffComments } };

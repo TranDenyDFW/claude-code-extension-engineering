@@ -1,0 +1,12 @@
+{
+ "staff_handles": 15,
+ "staff_touched_issues": 3167,
+ "mechanism_mentioning": 1300,
+ "threads_on_disk": 1300,
+ "comments": 10778,
+ "bot_comments": 1859,
+ "project_authored": 1756,
+ "design_statements": 60,
+ "version_facts": 51,
+ "fetch_failures": 0
+}

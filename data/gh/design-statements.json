@@ -1,0 +1,222 @@
+[
+ {
+  "number": 10671,
+  "url": "https://github.com/anthropics/claude-code/issues/10671",
+  "title": "[FEATURE] Please don't remove Output-Styles!",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "bcherny",
+  "association": "COLLABORATOR",
+  "created_at": "2025-11-01T23:36:32Z",
+  "body": "👋 Boris from the Claude Code team here.\n\nOutput styles are now more powerful, and easier to customize. You can add the same instructions you previously put in your output style to your CLAUDE.md, or use hooks to inject them at each turn, or use --system-prompt, --append-system-prompt, or --append-system-prompt-file to append to or fully swap out the system prompt.\n\nRoughly, in order from weakest prompting to strongest prompting:\n\n1. Append instructions to the system prompt with --append-system-prompt or --append-system-prompt-file\n2. Add instructions to your CLAUDE.md\n3. Inject instructions with a SessionStart hook\n4. Swap out the system prompt with --system-prompt\n5. Inject instructions before every turn with a UserPromptSubmit hook, or after every turn with a Stop hook\n\nFor most use cases 1 or 2 are sufficient, but if you want really strong adherence, 3-5 will give even better results.\n\nFor people that previously used the Learning output style, run:\n\n```\n/plugin marketplace add anthropics/claude-code\n/plugin install learning-output-style@anthropics/claude-code\n```\n\nAnd for Explanatory output style, run:\n\n```\n/plugin marketplace add anthropics/claude-code\n/plugin install explanatory-output-style@anthropics/claude-code\n```\n\nWe want to keep Claude Code simple, and are always thinking about how we can generalize features to make them both simpler and more extensible for people using Claude Code.\n\nPlease keep the feedback coming!"
+ },
+ {
+  "number": 11744,
+  "url": "https://github.com/anthropics/claude-code/issues/11744",
+  "title": "[BUG] Status line won't show if \"disableAllHooks\": true",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "dicksontsai",
+  "association": "COLLABORATOR",
+  "created_at": "2025-11-16T19:19:35Z",
+  "body": "I would say this is working as intended. Status line also runs a custom bash command, so the security posture is essentially the same as other hooks.\n\nWhat's your particular use case for disabling hooks, which to me implies that you prefer to keep certain hooks registered?"
+ },
+ {
+  "number": 12176,
+  "url": "https://github.com/anthropics/claude-code/issues/12176",
+  "title": "[BUG] PermissionRequest Hook Race Condition - Dialog Shows Despite Hook Returning \"allow\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "rboyce-ant",
+  "association": "CONTRIBUTOR",
+  "created_at": "2025-11-23T20:09:33Z",
+  "body": "If you want to make a blocking permission decision, you should use the [`PreToolUse` hook](https://code.claude.com/docs/en/hooks#pretooluse-decision-control) instead.\n\nWe asynchronously execute the `PermissionRequest` hook and display the UI to the user while the hook runs. This allows, for example, the hook to send a Slack notification and wait for the user to approve the permission via either the CLI or a Slack response."
+ },
+ {
+  "number": 13003,
+  "url": "https://github.com/anthropics/claude-code/issues/13003",
+  "title": "CLAUDE.md frontmatter is stripped before showing to model",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "author": "dicksontsai",
+  "association": "COLLABORATOR",
+  "created_at": "2025-12-03T21:32:52Z",
+  "body": "We are not planning to support this, since we want to reserve the frontmatter for Claude Code only. (As you can see from Claude Code picking up \"paths\" for certain features.\n\nCan you not use natural language to represent this content? \"Load the skill `skill/subtask`\" is likely more actionable for Claude than `depends: - skill/subtask`. Alternatively, Claude is more familiar with XML tags than YAML for prompts, so if you really need structured data, you can represent it that way."
+ },
+ {
+  "number": 18192,
+  "url": "https://github.com/anthropics/claude-code/issues/18192",
+  "title": "[FEATURE] Recursive skill discovery - scan subdirectories in ~/.claude/skills/",
+  "state": "open",
+  "state_reason": null,
+  "author": "wolffiex",
+  "association": "COLLABORATOR",
+  "created_at": "2026-03-02T21:59:55Z",
+  "body": "@jameskoch this is the intended behavior. it's to save context in environments where different modules in the same repo may be used independently. this is also how CLAUDE.md files work"
+ },
+ {
+  "number": 1966,
+  "url": "https://github.com/anthropics/claude-code/issues/1966",
+  "title": "[BUG] .mcp.json is loaded even --mcp-config is used",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "ashwin-ant",
+  "association": "COLLABORATOR",
+  "created_at": "2025-06-11T19:55:38Z",
+  "body": "This is intended behavior. We're planning to update the MCP settings to offer more configuration around enabling/disabling servers, but this is by design. Servers in `--mcp-config` will take precedence over `.mcp.json` ones if there's a naming collision though."
+ },
+ {
+  "number": 20044,
+  "url": "https://github.com/anthropics/claude-code/issues/20044",
+  "title": "New 'native' installer: Bun/Zig hype train delivers 2010 anti-patterns: no version control, rollbacks, or professional package management",
+  "state": "open",
+  "state_reason": null,
+  "author": "ant-kurt",
+  "association": "COLLABORATOR",
+  "created_at": "2026-01-23T00:17:18Z",
+  "body": "@jhinrichsen thanks for the well-thought-out feedback.\n\nHistorically, Claude Code required installation of both npm (for distribution) and node (for runtime). We want to move everyone to our native executable; in tandem, we have been trying to shift away from npm as we do not believe it is the best way to distribute that executable.\n\nWhere we stand today:\n- The `@anthropic-ai/claude-code` npm package is continuing to be published (for now), containing the node build (for now)\n- Claude Code native executable can be installed via `curl | bash`, homebrew, pacman, nix, and winget\n  - Some developers are comfortable with `curl | bash` installing to `~/.local` and performing auto-updates. Some are not.\n  - For distribution methods other than npm and `curl | bash`, we are currently deferring to the package manager for updates, e.g. a homebrew-installed Claude Code will not auto-update, and will instead recommend the appropriate homebrew command\n\nPotential changes:\n- We are considering a few options for the future of the npm package. One is replacing the contents of the `@anthropic-ai/claude-code` npm package with the native build, allowing developers to continue using npm as a distribution mechanism.\n- Add distribution via dnf, apt, apk\n\nWe're continuing to discuss this internally. What we would appreciate from you, and the rest of the community, is:\n- Continue providing feedback on what distribution scenarios are pain points today\n- Keep using the native executable if possible - otherwise use node (and set env var `DISABLE_INSTALLATION_CHECKS` in settings.json if the warnings are bothering you) and please share what blockers you ran into\n- Is your preference to install Claude Code via npm, a traditional package manager, or curl?\n- Be on the lookout for more updates shared via the CHANGELOG"
+ },
+ {
+  "number": 21151,
+  "url": "https://github.com/anthropics/claude-code/issues/21151",
+  "title": "[FEATURE] No indication of WHICH file for READ tool",
+  "state": "open",
+  "state_reason": null,
+  "author": "bcherny",
+  "association": "COLLABORATOR",
+  "created_at": "2026-02-11T22:21:00Z",
+  "body": "One more fix incoming for subagent output in verbose mode -- almost there. Please keep the feedback coming, we want to hear it and will continue to iterate."
+ },
+ {
+  "number": 224,
+  "url": "https://github.com/anthropics/claude-code/issues/224",
+  "title": "Random Timeout with MCP Servers",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "ashwin-ant",
+  "association": "COLLABORATOR",
+  "created_at": "2025-02-28T20:44:27Z",
+  "body": "I tested using the command you provided and it's working for me consistently. We're going to revisit startup to not block on MCP servers, which will help here, but at the moment this is intended behavior."
+ },
+ {
+  "number": 2814,
+  "url": "https://github.com/anthropics/claude-code/issues/2814",
+  "title": "[BUG] Claude Code Hooks System Issues",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "dicksontsai",
+  "association": "COLLABORATOR",
+  "created_at": "2025-07-28T06:48:02Z",
+  "body": "There's no `\"\"blocking\": true` setting. Your options for blocking tool calls with PreToolUse are either:\n1. Exit code 2\n2. Advanced JSON output that has either `\"permissionDecision\": \"deny\"` or `\"decision\": \"block\"`\n\nRefer to the documentation for what is actually available. https://docs.anthropic.com/en/docs/claude-code/hooks\n\nDo not depend on Claude directly to determine what settings are available. Instead, you can tell Claude to fetch the documentation."
+ },
+ {
+  "number": 2891,
+  "url": "https://github.com/anthropics/claude-code/issues/2891",
+  "title": "Hooks not executing despite following documentation",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "dicksontsai",
+  "association": "COLLABORATOR",
+  "created_at": "2026-01-15T05:44:20Z",
+  "body": "@drouleau-gtvr you should use `CLAUDE_PROJECT_DIR` and not depend on relative paths https://code.claude.com/docs/en/hooks#project-specific-hook-scripts."
+ },
+ {
+  "number": 3422,
+  "url": "https://github.com/anthropics/claude-code/issues/3422",
+  "title": "[BUG] Command permission system doesn't recognize pytest variations as the same   operation",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "author": "rboyce-ant",
+  "association": "CONTRIBUTOR",
+  "created_at": "2025-07-13T01:16:37Z",
+  "body": "Env vars do change the behavior of scripts & programs, so we don't automatically approve commands that include setting an env var. For now, you can manually a rule for each of the env var prefixes (e.g. `Bash(NODE_ENV=test pytest:*)`) or use a hook like you suggested. For permission rules, we want to err on the side of giving users explicit control rather than making unsafe assumptions about which commands the user might have intended to allow. With that said, this is definitely an area that we want to make easier for users, and the feedback is appreciated!"
+ },
+ {
+  "number": 59829,
+  "url": "https://github.com/anthropics/claude-code/issues/59829",
+  "title": "[BUG/FEATURE] PreToolUse hook resolving path",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "author": "dicksontsai",
+  "association": "COLLABORATOR",
+  "created_at": "2026-05-17T09:19:18Z",
+  "body": "This is working as intended. The absolute-path normalization in PreToolUse is a deliberate change, not a regression to revert.\n\nPreToolUse hooks used to receive the raw, model-emitted path. That was changed so that file_path is resolved to an absolute path before hooks see it. The tool operates on the expanded absolute path.\n\nOn the specific use cases:\n\n- Security / path-traversal detection: the resolved absolute path is actually the stronger signal here. A hook deciding whether to block an access should test the resolved path (the real target), not substring-match ../ on the raw string — that heuristic is exactly what's bypassable. Normalization makes security hooks more robust, not less.\n- Logging / recording original intent: the literal model-emitted path is already available, in PostToolUse via tool_response (e.g. tool_response.file.filePath), which preserves the unexpanded value exactly as you noted in your report. So a hook that wants to record original intent can do so at PostToolUse today, with no payload change."
+ },
+ {
+  "number": 66519,
+  "url": "https://github.com/anthropics/claude-code/issues/66519",
+  "title": "[BUG] Keep omn getting the message: Tool result is too large. Maximum size is 1MB.",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "localden",
+  "association": "COLLABORATOR",
+  "created_at": "2026-06-09T13:47:11Z",
+  "body": "Thank you for the report; this doesn't seem related to Claude Code as the popup is driven by the desktop app. If you have any other Claude Desktop MCP-related issues, we recommend opening them in the [claude-ai-mcp](https://github.com/anthropics/claude-ai-mcp/issues) repository."
+ },
+ {
+  "number": 68089,
+  "url": "https://github.com/anthropics/claude-code/issues/68089",
+  "title": "[Bug] `/status` command Config output does not match documentation regarding configuration layers and settings display (re-opening)",
+  "state": "open",
+  "state_reason": null,
+  "author": "sarahdeaton",
+  "association": "COLLABORATOR",
+  "created_at": "2026-06-13T06:48:13Z",
+  "body": "Thanks for the report. The Setting sources line is on the Status tab (the one the dialog opens on), not the Config tab. With the hooks block in your settings.json, the Status tab should show `User settings` or `Project settings` in that line, confirming the file is loaded.\n\nThe Config tab is an editor for a small set of built-in toggles like theme and verbose output — it isn't a view of settings.json, so hooks won't appear there by design. To inspect configured hooks, run `/hooks`.\n\nWe'll reword the docs section to make the tab distinction harder to miss."
+ },
+ {
+  "number": 7304,
+  "url": "https://github.com/anthropics/claude-code/issues/7304",
+  "title": "[Bug] Anthropic API Error: Invalid Model Name \"inherit\" for slash commands",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "author": "dicksontsai",
+  "association": "COLLABORATOR",
+  "created_at": "2025-09-09T07:57:57Z",
+  "body": "`model: inherit` is not supported for slash commands. We can add a fix to ignore this value for slash commands in the next releases, but you should just delete that `model:` line in your custom slash command file's frontmatter. Frontmatter docs: https://docs.anthropic.com/en/docs/claude-code/slash-commands#frontmatter"
+ },
+ {
+  "number": 7645,
+  "url": "https://github.com/anthropics/claude-code/issues/7645",
+  "title": "CRITICAL ISSUE - UNACCEPTABLE BEVIOUR - REPEATED UNAUTHORISED CODE DELETION.",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "author": "dicksontsai",
+  "association": "COLLABORATOR",
+  "created_at": "2025-09-15T15:09:10Z",
+  "body": "Thanks for your feedback, in particular what you identified about deletion vs. debugging. I can forward this to the model training teams.\n\nModel training improvements only come out once per release, so there's nothing else we can do here at the moment, except for you to try prompting Claude Code to debug more thoroughly or add hooks to always ask you before deleting something. Thus closing this as \"not planned\" for the Claude Code team specifically."
+ },
+ {
+  "number": 819,
+  "url": "https://github.com/anthropics/claude-code/issues/819",
+  "title": "[BUG] Claude Repeatedly asks for permission to run commands, even when I've already granted it",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "bcherny",
+  "association": "COLLABORATOR",
+  "created_at": "2026-04-07T23:00:12Z",
+  "body": "The original bug from this report — the permission prompt labeling the rule as `rspec` (dropping `bin/`), so the saved rule could never match `bin/rspec ...` — is fixed. The model-based prefix extractor that stripped the path is no longer used; the local extractors keep the full path, so today the saved rule is `Bash(bin/rspec:*)` (or the exact command), which matches on the next run.\n\nThis thread has accumulated several unrelated follow-ons that have their own trackers (e.g. `~` expansion mismatch, `cd && grep` compound commands, `db:*` not matching `db:migrate` — that last one is working as intended; the legacy `:*` suffix requires a space boundary). See #29967, #29529, #31889, #31735, #38261 for those.\n\nWe'll close this one for the original `bin/rspec` report. Please open a fresh issue if you hit a specific case on a current version."
+ },
+ {
+  "number": 9710,
+  "url": "https://github.com/anthropics/claude-code/issues/9710",
+  "title": "[Bug] Skill autocomplete not displaying user skills when typing slash command",
+  "state": "closed",
+  "state_reason": "completed",
+  "author": "dhollman",
+  "association": "CONTRIBUTOR",
+  "created_at": "2025-10-23T21:49:07Z",
+  "body": "Hey @jkaster! Thank you for your feedback. This is by design—skills are not intended to be user-invoked, so there's currently no autocomplete menu for them. You can mention a skill by name (even in relatively imprecise terms, hopefully) and Claude should load it. If you have examples of this not working, I'd love to see them so we can address them.\n\nWe have discussed adding a separate syntax for autocompleting skills, so if that's something you'd like to see, please put in a feature request! But wherever possible, we'd prefer not to mix user-invocable customizations with agent-invocable ones."
+ },
+ {
+  "number": 9765,
+  "url": "https://github.com/anthropics/claude-code/issues/9765",
+  "title": "IntelliJ Plugin: Diff tab automatically steals focus, causing accidental approvals",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "author": "hackyon-anthropic",
+  "association": "COLLABORATOR",
+  "created_at": "2026-01-20T15:55:53Z",
+  "body": "I understand the frustration, and sorry I can't get this fixed for you. The JetBrains Plugin API just doesn't give us the ability to show a diff without taking focus (their openFile API for focus doesn't work with diff files), so unfortunately this isn't a trivial fix. If you can convince them to add this to the API, we can add this to our end too.\n\nFor those that don't want to steal focus, we recommend\n1. Using auto-accept edits. You can always revert changes with `/rewind` (double-esc)! The auto-accept edits still require permissions for any dangerous bash commands though. Many power users do this already.\n2. Change the `Diff tool setting` in `/config` to terminal, to keep the diff in the terminal and it won't take focus"
+ }
+]
