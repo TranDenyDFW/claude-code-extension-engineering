@@ -125,6 +125,87 @@ D is 0 points over B+, inside the noise floor, so the reference did not add anyt
 Robust across every single-batch drop: B over A.
 
 <!-- tier3-score:end -->
+
+## Three replicates: what the run-to-run wobble actually is
+
+The single-replicate result above discloses that it rests on ONE answering pass. Two more were
+run to measure how much of the 1-point D-versus-B gap was pass-to-pass noise. Every input that
+defines an arm was hash-pinned first: the five arm and grader prompts, arm D's 22-file skill
+tree, and the 20-page documentation revision, each verified before dispatch and re-verified
+after. Sheet ORDER was re-salted per replicate, 60 of 60 scenarios reordered in every pairwise
+comparison, while grading-batch MEMBERSHIP was deliberately held identical, because the
+leave-one-batch-out clause is undefined if a batch means different scenarios in different passes.
+
+replicate 1: 3369 records, 1680 cells, grader agreement 92%
+replicate 2: 3366 records, 1680 cells, grader agreement 93%
+replicate 3: 3360 records, 1680 cells, grader agreement 95%
+batch partition identical across all 3 replicates.
+<!-- tier3-pooled:begin set=v2 -->
+
+Pooled over replicates 1, 2, 3. Rule committed before any replicate data existed: `pooled-per-scenario-mean, all-drops-robust`.
+
+Per-arm overall by replicate. The SPREAD is what three passes buy; a pooled mean alone
+would hide it.
+
+| Arm | Rep 1 | Rep 2 | Rep 3 | Pooled | Spread |
+|---|---|---|---|---|---|
+| a | 71% | 71% | 72% | 71% | 1 pts |
+| b | 89% | 91% | 93% | 91% | 4 pts |
+| bplus | 89% | 92% | 94% | 92% | 5 pts |
+| d | 89% | 91% | 93% | 91% | 4 pts |
+
+D versus B by replicate, then pooled over per-scenario MEAN deltas. n stays at the
+scenario count: pooling averages within a scenario, it does not stack.
+
+| Pass | n | Wins | Losses | Ties | Sign test |
+|---|---|---|---|---|---|
+| Replicate 1 | 60 | 21 | 20 | 19 | p=1.000 |
+| Replicate 2 | 60 | 18 | 21 | 21 | p=0.749 |
+| Replicate 3 | 60 | 14 | 16 | 30 | p=0.856 |
+| **Pooled** | **60** | **23** | **30** | **7** | **p=0.410** |
+
+Grader agreement by replicate: rep 1 92%, rep 2 93%, rep 3 95%.
+
+**Pooled verdict: NEGATIVE.** pooled sign test 23W 30L p=0.4101 (need < 0.05); pooled margin 0 pts (need >= 6); 0/15 drops stay significant (need all)
+
+Robustness drops computed: 15 (3 leave-one-replicate, 6 leave-one-grader, 6 leave-one-batch). 15 of them do not reach p < 0.05.
+
+<!-- tier3-pooled:end -->
+
+**The spread is the finding, not the null.** A single arm moves 4 to 5 points between otherwise
+identical passes. The D-versus-B gap those passes were built to detect is 0, -1 and 0 points.
+The noise is several times the effect, so this instrument cannot resolve a difference of the
+size it was looking for, and no amount of additional grading fixes that: the variance enters at
+the ANSWERING step, upstream of everything the grading design controls.
+
+That converts the published claim from "we did not detect a benefit" into something falsifiable:
+**no effect larger than roughly 4 points is detectable here, and the observed difference is well
+inside that band.** A future run that wants to resolve a smaller effect has to attack answering
+variance, by averaging more passes per arm, not by grading harder.
+
+**Three ways the arms moved that a single pass would have reported as fact.**
+Overall scores rose monotonically across passes for every docs arm, 89 to 91 to 93 for B, so a
+run reporting "official docs score 89 percent" and one reporting 93 percent are both this
+instrument on the same inputs. Arm A's `version_caveat` moved 35, 15, 19 percent, a 20-point
+range on the single field that carries most of the B-over-A margin. And full-point grader splits
+went 9, 6, 0, with exact agreement 92, 93, 95 percent; replicate 3 needed no adjudication at all.
+
+**What three replicates do NOT license.** They remove variance from ONE source, the answering
+pass. Everything else is unchanged and still applies: the 60 scenarios are self-authored inside
+this project and identical in all three passes; three docs arms sit at 89 to 94 percent with
+several fields at or above 95, so ceiling compression bounds the room a difference could appear
+in BY CONSTRUCTION; grading is model grading against keys from the same model family; four keys
+remain filed as defective and unrepaired; and n is 60 in the pooled row, not 180, because pooling
+averages within a scenario rather than stacking passes. Anyone reading 1,680 cells times three as
+the sample size is wrong, and the scorer's self-test asserts exactly that.
+
+**Arm A self-identification got worse, not better.** Sheets containing "from memory" or similar
+went 10, 13, 17 of 60 across the three passes. The arm A prompt is hash-pinned and was not
+touched, so this is the known limitation reproducing and drifting upward. It cuts against
+**B over A**, the one comparison this benchmark reports as robust, in the direction that
+inflates it. Three passes of monotonic increase is harder to set aside than the single
+observation was.
+
 <!-- tier3-score:end -->
 
 ## What this says
@@ -151,12 +232,14 @@ in the page it cited. A benchmark that can report those numbers can be argued wi
 
 ## Limitations, including two that bound the conclusion
 
-**Single replicate.** This is one answer pass per arm. Answer-agent nondeterminism is the
-variance this design cannot see, and it is the main reason not to read the 1-point D-versus-B
-gap as anything but noise. The pooled multi-replicate endpoint is already committed in the
-scorer (`pooledVerdict`, `REPLICATE_RULE`), written before any replicate data existed, so
-replicates 2 and 3 can be added later and pooled without touching the rule. They were
-deferred for budget, not for convenience, and this line is the disclosure.
+**Single replicate. RESOLVED 2026-08-05, and the answer was worse than the caveat.** This
+block is one answer pass per arm. Two further passes were run under the same hash-pinned
+inputs and pooled by the pre-committed rule; see "Three replicates" below. The variance this
+design could not see turns out to be **4 to 5 points per arm**, several times the 1-point
+D-versus-B gap the block reports. The gap is noise, as this paragraph originally suspected,
+but the honest restatement is stronger than a suspicion: no effect smaller than roughly 4
+points is resolvable by this instrument at one pass per arm, and every absolute percentage in
+the table above should be read as plus or minus that.
 
 **S040's key was wrong, and has now been repaired. Read how before reading the result.**
 The key selected an advisory remedy while its OWN `failure_mode` conceded that "a hard

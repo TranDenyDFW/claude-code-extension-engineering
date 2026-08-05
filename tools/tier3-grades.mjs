@@ -211,8 +211,26 @@ function selfTest() {
 
   const d = discover(T3, 'v2', 1);
   check('discovery finds the 12 committed v2 base files', d.base.length === 12, `${d.base.length}`);
-  check('discovery does not confuse replicate 1 with replicate 2',
-    discover(T3, 'v2', 2).base.length === 0, `${discover(T3, 'v2', 2).base.length}`);
+  /**
+   * Replicate discovery must be DISJOINT. The original row asserted that
+   * replicate 2 had no files, which was true when written and stopped being true
+   * the moment replicate 2 ran, so it went red for the wrong reason. The property
+   * that actually matters is that a replicate never picks up another's files, and
+   * that one holds whether or not the later replicates exist yet.
+   */
+  const d1 = discover(T3, 'v2', 1);
+  const d2 = discover(T3, 'v2', 2);
+  const d3 = discover(T3, 'v2', 3);
+  const overlap = (a, b) => a.base.filter(x => b.base.includes(x));
+  check('replicate 1 discovery excludes every later replicate file',
+    overlap(d1, d2).length === 0 && overlap(d1, d3).length === 0,
+    `${overlap(d1, d2).concat(overlap(d1, d3)).join(', ')}`);
+  check('replicates 2 and 3 discover disjoint file sets',
+    overlap(d2, d3).length === 0, `${overlap(d2, d3).join(', ')}`);
+  check('every discovered replicate-1 file is unsuffixed',
+    d1.base.every(f => !/-r\d+-/.test(f)), d1.base.filter(f => /-r\d+-/.test(f)).join(', '));
+  check('a replicate that has not run discovers nothing',
+    discover(T3, 'v2', 99).base.length === 0, `${discover(T3, 'v2', 99).base.length}`);
 
   if (existsSync(d.merged) && d.base.length) {
     const committed = readJsonl(d.merged);

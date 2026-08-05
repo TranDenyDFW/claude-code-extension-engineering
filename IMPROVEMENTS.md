@@ -297,10 +297,17 @@ repaired instrument. Results in `tests/results-tier3.md`; every fix carries its 
   those supplied.
 
 Residues, open:
-- **Single replicate.** Answer-agent nondeterminism is unmeasured. The pooled multi-replicate
-  endpoint (`pooledVerdict`, `REPLICATE_RULE`) is committed in the scorer, written before any
-  replicate data existed, so replicates 2 and 3 can be added and pooled without touching the
-  rule. Deferred for budget.
+- ~~**Single replicate.** Answer-agent nondeterminism is unmeasured.~~ **RESOLVED 2026-08-05.**
+  Replicates 2 and 3 ran under hash-pinned prompts, arm D skill tree and docs revision, with
+  sheet order re-salted per pass (60 of 60 reordered pairwise) and grading-batch membership
+  held identical. Pooled by the pre-committed `REPLICATE_RULE`: 23W 30L over n=60 scenario-mean
+  deltas, p=0.410, margin 0, verdict NEGATIVE, all three passes individually null.
+  **The measurement is worse news than the caveat was.** A single arm moves 4 to 5 points
+  between identical passes, against a D-versus-B gap of 0, -1 and 0 points, so the noise is
+  several times the effect and the variance enters at ANSWERING, upstream of anything the
+  grading design controls. The claim is now falsifiable: no effect larger than roughly 4 points
+  is detectable, and the observed difference sits well inside that band. Resolving anything
+  smaller requires more answering passes per arm, not stricter grading.
 - **S040's key is still wrong and costs every arm equally.** Its primary is an advisory
   remedy while its own `failure_mode` concedes a hard guarantee needs a different mechanism;
   all four arms chose the deny rule and score zero on five of seven fields. The lint rule

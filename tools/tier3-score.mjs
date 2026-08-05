@@ -1100,6 +1100,167 @@ let grades = loadGrades();
 const scenarios = loadScenarios();
 const ids = scenarios.map(s => s.id);
 
+/**
+ * POOLED MULTI-REPLICATE PATH.
+ *
+ * Reuses pooledPerScenarioDeltas, pooledVerdict and REPLICATE_RULE, all of which
+ * were committed on 2026-08-02 before any replicate data existed. Nothing here
+ * decides anything; it loads, gates, and applies that rule.
+ *
+ * Two refusals are load-bearing:
+ *   1. A replicate that does not pass the STRICT completeness gate on its own may
+ *      not enter the pool. A pool that silently absorbs a partial replicate is the
+ *      same defect class as a merged grade file that cannot be re-derived.
+ *   2. The grading-batch partition must be IDENTICAL across replicates. The
+ *      leave-one-batch-out clause drops a batch from the POOLED deltas, so if
+ *      batch 1 meant different scenarios in each pass the drop would remove an
+ *      incoherent set and the robustness clause would assert nothing.
+ */
+if (argv.includes('--replicates')) {
+  const raw = argv[argv.indexOf('--replicates') + 1] || '1,2,3';
+  const reps = raw.split(',').map(s => Number(s.trim())).filter(n => Number.isInteger(n) && n > 0);
+  if (reps.length < 2) { console.log('FAIL: --replicates needs at least two replicate numbers, e.g. 1,2,3'); process.exit(2); }
+
+  const T3 = join(ROOT, 'tests', 'tier3');
+  const loaded = [];
+  const partitions = [];
+  for (const n of reps) {
+    const rs = n > 1 ? `-r${n}` : '';
+    const gPath = join(T3, `grades${SFX}${rs}.jsonl`);
+    const mPath = join(T3, `blinding-map${SFX}${rs}.json`);
+    const pDir = join(T3, `packets${SFX}${rs}`);
+    for (const [label, p] of [['grades', gPath], ['blinding map', mPath], ['packets', pDir]]) {
+      if (!existsSync(p)) { console.log(`FAIL: replicate ${n} has no ${label} at ${p}`); process.exit(1); }
+    }
+    const g = readFileSync(gPath, 'utf8').split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
+    const m = JSON.parse(readFileSync(mPath, 'utf8'));
+
+    // Gate this replicate exactly as --rep N would, before it may be pooled.
+    const agg = aggregateCells(g);
+    if (agg.problems.length) {
+      console.log(`\nREFUSING TO POOL: replicate ${n} has ${agg.problems.length} aggregation problem(s).`);
+      for (const p of agg.problems.slice(0, 10)) console.log(`  ${p}`);
+      process.exit(1);
+    }
+    const probs = completenessProblems(agg.flat, ids, m, false, VALID_AGGREGATED_SCORES);
+    if (probs.length) {
+      console.log(`\nREFUSING TO POOL: replicate ${n} has ${probs.length} completeness problem(s).`);
+      for (const p of probs.slice(0, 10)) console.log(`  ${p}`);
+      console.log('A --partial replicate is diagnostic only and may never enter a pool.');
+      process.exit(1);
+    }
+
+    const part = new Map();
+    for (const f of readdirSync(pDir).filter(x => /^batch-\d+\.json$/.test(x))) {
+      const b = Number(f.match(/\d+/)[0]);
+      for (const s of JSON.parse(readFileSync(join(pDir, f), 'utf8')).scenarios) part.set(s.id, b);
+    }
+    partitions.push({ n, part });
+    // agg.agreement is per-field {field: {n, exact, close}}; roll it up rather than
+    // interpolating the object, which rendered as "[object Object]" on first run.
+    const av = Object.values(agg.agreement);
+    const aPct = av.length
+      ? Math.round(100 * av.reduce((s, f) => s + f.exact, 0) / av.reduce((s, f) => s + f.n, 0))
+      : null;
+    loaded.push({ n, grades: g, map: m, flat: agg.flat, agreement: aPct });
+    console.log(`replicate ${n}: ${g.length} records, ${agg.flat.length} cells, grader agreement ${aPct}%`);
+  }
+
+  const canon = partitions[0];
+  for (const p of partitions.slice(1)) {
+    const differ = [...canon.part.keys()].filter(id => canon.part.get(id) !== p.part.get(id));
+    if (differ.length) {
+      console.log(`\nREFUSING TO POOL: replicate ${p.n}'s grading-batch partition differs from replicate ${canon.n}'s`);
+      console.log(`  ${differ.length} scenario(s) sit in a different batch, e.g. ${differ.slice(0, 5).join(', ')}`);
+      console.log('  The pooled leave-one-batch-out clause is undefined when a batch means different');
+      console.log('  scenarios in different passes.');
+      process.exit(1);
+    }
+  }
+  console.log(`batch partition identical across all ${reps.length} replicates.`);
+
+  const batchOfPooled = id => canon.part.get(String(id).replace(/^r\d+:/, ''))
+    ?? Math.floor((Number(String(id).replace(/^r\d+:/, '').slice(1)) - 1) / 10) + 1;
+
+  // Namespaced merge so one score() call covers every cell, rather than averaging
+  // percentages by hand and quietly reweighting arms with unequal cell counts.
+  const flatAll = loaded.flatMap(r => r.flat.map(c => ({ ...c, scenario: `r${r.n}:${c.scenario}` })));
+  const mapAll = Object.assign({}, ...loaded.map(r =>
+    Object.fromEntries(Object.entries(r.map).map(([id, v]) => [`r${r.n}:${id}`, v]))));
+  const rowsPooled = score(flatAll, mapAll, {});
+  const replicatesArg = loaded.map(r => ({ grades: r.grades, map: r.map }));
+  const pooled = pooledVerdict(replicatesArg, rowsPooled, batchOfPooled);
+  const deltas = pooledPerScenarioDeltas(replicatesArg, 'd', 'b');
+
+  const perRep = loaded.map(r => {
+    const rr = score(r.flat, r.map, {});
+    const dl = pairedComparison(r.flat, r.map, 'd', 'b');
+    return { n: r.n, rows: rr, dl, agreement: r.agreement };
+  });
+
+  const L = [];
+  L.push(`<!-- tier3-pooled:begin set=${SET} -->`);
+  L.push('');
+  L.push(`Pooled over replicates ${reps.join(', ')}. Rule committed before any replicate data existed: \`${REPLICATE_RULE}\`.`);
+  L.push('');
+  L.push('Per-arm overall by replicate. The SPREAD is what three passes buy; a pooled mean alone');
+  L.push('would hide it.');
+  L.push('');
+  L.push(`| Arm | ${reps.map(n => `Rep ${n}`).join(' | ')} | Pooled | Spread |`);
+  L.push(`|---|${reps.map(() => '---').join('|')}|---|---|`);
+  for (const arm of ARMS) {
+    const vals = perRep.map(p => (p.rows.find(r => r.arm === arm) || {}).overall);
+    if (vals.some(v => v === undefined)) continue;
+    const pooledV = (rowsPooled.find(r => r.arm === arm) || {}).overall;
+    L.push(`| ${arm} | ${vals.map(v => `${v}%`).join(' | ')} | ${pooledV}% | ${Math.max(...vals) - Math.min(...vals)} pts |`);
+  }
+  L.push('');
+  L.push('D versus B by replicate, then pooled over per-scenario MEAN deltas. n stays at the');
+  L.push('scenario count: pooling averages within a scenario, it does not stack.');
+  L.push('');
+  L.push('| Pass | n | Wins | Losses | Ties | Sign test |');
+  L.push('|---|---|---|---|---|---|');
+  for (const p of perRep) {
+    L.push(`| Replicate ${p.n} | 60 | ${p.dl.wins} | ${p.dl.losses} | ${p.dl.ties} | p=${signTest(p.dl.wins, p.dl.losses).toFixed(3)} |`);
+  }
+  const pw = deltas.filter(x => x.meanDelta > 0).length;
+  const pl = deltas.filter(x => x.meanDelta < 0).length;
+  L.push(`| **Pooled** | **${deltas.length}** | **${pw}** | **${pl}** | **${deltas.length - pw - pl}** | **p=${signTest(pw, pl).toFixed(3)}** |`);
+  L.push('');
+  L.push(`Grader agreement by replicate: ${perRep.map(p => `rep ${p.n} ${p.agreement}%`).join(', ')}.`);
+  L.push('');
+  L.push(`**Pooled verdict: ${pooled.headline}.** ${pooled.detail}`);
+  L.push('');
+  const failed = pooled.dropPs.filter(x => x.p >= 0.05);
+  L.push(`Robustness drops computed: ${pooled.dropPs.length} (${pooled.dropPs.filter(x => x.kind === 'replicate').length} leave-one-replicate, `
+    + `${pooled.dropPs.filter(x => x.kind === 'grader').length} leave-one-grader, ${pooled.dropPs.filter(x => x.kind === 'batch').length} leave-one-batch). `
+    + `${failed.length} of them do not reach p < 0.05.`);
+  L.push('');
+  L.push(`<!-- tier3-pooled:end -->`);
+  const pooledBlock = L.join('\n');
+
+  if (argv.includes('--markdown')) { console.log(pooledBlock); process.exit(0); }
+
+  if (argv.includes('--check')) {
+    const doc = existsSync(DOC) ? readFileSync(DOC, 'utf8') : '';
+    const B = `<!-- tier3-pooled:begin set=${SET} -->`;
+    const E = '<!-- tier3-pooled:end -->';
+    const i = doc.indexOf(B); const j = doc.indexOf(E, i);
+    if (i < 0 || j < 0) { console.log('FAIL: results-tier3.md carries no pooled block to check.'); process.exit(1); }
+    const onDisk = doc.slice(i, j + E.length).split('\r\n').join('\n').trim();
+    if (onDisk !== pooledBlock.trim()) {
+      console.log('FAIL: the published pooled block does not match what the raw grades derive.');
+      process.exit(1);
+    }
+    console.log('PASS: the published pooled block matches the raw grades exactly.');
+    process.exit(0);
+  }
+
+  console.log('');
+  console.log(pooledBlock);
+  process.exit(0);
+}
+
 if (!grades || !grades.length) {
   console.log('No grades in tests/tier3/grades.jsonl yet.');
   // --check must not pass by virtue of there being nothing to check once the
@@ -1203,6 +1364,23 @@ console.log('');
 console.log(block.replace(BEGIN, '').replace(END, '').trim());
 
 if (argv.includes('--check')) {
+  /**
+   * A REPLICATE ABOVE 1 OWNS NO PUBLISHED BLOCK.
+   *
+   * The `tier3-score:begin set=v2` markers belong to replicate 1. Comparing
+   * replicate 2's derived table against them compared two different passes and
+   * failed for a reason that had nothing to do with drift. What --check can
+   * honestly assert for a later replicate is that it scores cleanly on its own,
+   * which is the precondition for pooling, and every gate that got it here
+   * (aggregation, completeness) has already run above by this point.
+   *
+   * The published pooled block is guarded separately by --replicates --check.
+   */
+  if (REP > 1) {
+    console.log(`\nPASS: replicate ${REP} scores cleanly and owns no published block; the pooled`);
+    console.log('block is guarded by --replicates --check.');
+    process.exit(0);
+  }
   const doc = readFileSync(DOC, 'utf8');
   const i = doc.indexOf(BEGIN), j = doc.indexOf(END);
   if (i === -1 || j === -1) {

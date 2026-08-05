@@ -138,6 +138,16 @@ jobs:
           # into it by hand.
           node tools/tier3-grades.mjs --self-test
           node tools/tier3-grades.mjs --set v2 --check
+          # Each replicate must pass the strict completeness gate on its OWN before
+          # it may be pooled, and the published pooled block must re-derive from the
+          # raw grades of all three. The pooled path refuses a partial replicate and
+          # refuses a differing grading-batch partition, because leave-one-batch-out
+          # is undefined when a batch means different scenarios in different passes.
+          node tools/tier3-grades.mjs --set v2 --rep 2 --check
+          node tools/tier3-grades.mjs --set v2 --rep 3 --check
+          node tools/tier3-score.mjs --set v2 --rep 2 --check
+          node tools/tier3-score.mjs --set v2 --rep 3 --check
+          node tools/tier3-score.mjs --set v2 --replicates 1,2,3 --check
 
       - name: Validate plugin manifest
         run: |
