@@ -44,6 +44,18 @@ jobs:
       - name: Validate-output checker self-test
         run: node tools/check-validate-output.mjs --self-test
 
+      - name: Frozen docs revision is provable
+        # Tier 3 replicate 1 was measured against 20 specific documentation pages.
+        # On 2026-08-03 the mirror collector re-ran, wrote every page over the
+        # canonical tree, and regenerated its own manifest over the old hashes,
+        # destroying both the bytes and the record of them. Recovery was luck.
+        # The self-test is the part CI can actually run: it builds a throwaway
+        # revision, mutates one byte, and asserts the checker goes red, so this
+        # gate has been observed failing. The live 20/20 comparison needs a mirror
+        # and exits 2 (cannot check) on a runner that has none, which is why the
+        # live check is not what the build depends on.
+        run: node tools/docs-revision-check.mjs --self-test
+
       - name: Tier 3 key quality
         # Key defects used to be found by graders AFTER a run and filed as
         # prose. Now they are a gate. The frozen v1 set is expected RED (15
