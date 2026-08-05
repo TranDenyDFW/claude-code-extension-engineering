@@ -857,9 +857,21 @@ export function monitorFindings({ pluginRoot, manifest, manifestPath, project, h
       // that cannot fail. Found by independent review 2026-08-05.
       const expanded = home ? expand(scriptTok).replace(/^~[\\/]/, home + '/') : expand(scriptTok);
       if (!expanded.includes('$')) {
+        // A `cd <path> && ./script.sh` prefix is monitors.md's OWN prescribed
+        // anchoring, so the cd target must be tried FIRST. Resolving only against
+        // the plugin root and the project root turned the documented pattern red
+        // whenever the script sat in a subdirectory the cd names, which is the
+        // shape the docs actually recommend. Found by independent review 2026-08-05.
+        const cdTarget = (() => {
+          const m = command.match(/^\s*cd\s+("([^"]+)"|'([^']+)'|(\S+))\s*&&/);
+          if (!m) return null;
+          const raw = m[2] || m[3] || m[4] || '';
+          const e = expand(raw);
+          return e.includes('$') ? null : e;
+        })();
         const candidates = /^([A-Za-z]:|[\\/])/.test(expanded)
           ? [expanded]
-          : [join(pluginRoot, expanded), join(project, expanded)];
+          : [...(cdTarget ? [join(cdTarget, expanded)] : []), join(pluginRoot, expanded), join(project, expanded)];
         if (!candidates.some(c => existsSync(c))) {
           out.push(F('SILENT', 'monitor-command-missing', where,
             `command script "${scriptTok}" not found (checked ${candidates.join(' and ')}); a monitor that cannot start is indistinguishable from a monitor with nothing to report, because fail-open is the only posture available here`,
@@ -966,9 +978,18 @@ export function channelPolicyFindings(parsedSettings) {
     }
     if (!Array.isArray(list)) continue;
 
-    if (list.length === 0) {
+    // Gated on enabledAnywhere, and that gate is the whole point. This used to
+    // fire unconditionally, which made it WRONG in the channelsEnabled-unset
+    // state twice over: the assertion is false there, because an unset master
+    // switch already blocks everything including the development flag, and the
+    // remediation is ALREADY SATISFIED, so applying the prescribed fix left the
+    // finding in place. A check that returns the same verdict for the defect and
+    // for the config its own fix text prescribes cannot discriminate at all.
+    // Found by independent review 2026-08-05, which also noted the self-test was
+    // pinning the wrong behaviour.
+    if (list.length === 0 && enabledAnywhere) {
       out.push(F('SILENT', 'channel-allowlist-empty', s.file,
-        'allowedChannelPlugins is an empty array; that blocks the Anthropic list but --dangerously-load-development-channels still bypasses it, so the evident intent (no channels) is not achieved',
+        'allowedChannelPlugins is an empty array while channelsEnabled is true; that blocks the Anthropic list but --dangerously-load-development-channels still bypasses it, so the evident intent (no channels) is not achieved',
         'To block channels entirely, including the development flag, leave channelsEnabled UNSET instead.',
         CITE.channelAllowlistEmpty));
     }
@@ -2010,13 +2031,26 @@ function selfTest() {
         && !bad.findings.filter(f => /^monitor-/.test(f.check)).some(f => /channels\[/.test(f.where)));
 
       // ---- allowedChannelPlugins policy ------------------------------------
+      // An EMPTY allowlist is only a defect while channelsEnabled is TRUE. With
+      // the master switch unset, the empty list is harmless and the tool's own
+      // remediation ("leave channelsEnabled UNSET") is already satisfied, so a
+      // finding there would survive its own fix. These two fixtures separate the
+      // states; the earlier version asserted the finding in the wrong one.
       w('home-inert/.claude/settings.json', { allowedChannelPlugins: [] });
       const inert = run('home-inert', 'plain-proj');
-      check('an EMPTY allowlist is reported as not a kill switch',
-        inert.findings.some(f => f.check === 'channel-allowlist-empty' && f.severity === 'SILENT'),
-        inert.findings.map(f => f.check).join(', '));
       check('an allowlist with channelsEnabled absent is reported inert',
         inert.findings.some(f => f.check === 'channel-allowlist-inert' && f.severity === 'SILENT'));
+      check('an empty allowlist with channelsEnabled UNSET is NOT called a broken kill switch',
+        !inert.findings.some(f => f.check === 'channel-allowlist-empty'),
+        inert.findings.map(f => f.check).join(', '));
+
+      w('home-empty-on/.claude/settings.json', { channelsEnabled: true, allowedChannelPlugins: [] });
+      const emptyOn = run('home-empty-on', 'plain-proj');
+      check('an EMPTY allowlist WITH channelsEnabled true is reported as not a kill switch',
+        emptyOn.findings.some(f => f.check === 'channel-allowlist-empty' && f.severity === 'SILENT'),
+        emptyOn.findings.map(f => f.check).join(', '));
+      check('applying the prescribed fix (unset channelsEnabled) CLEARS the finding',
+        !inert.findings.some(f => f.check === 'channel-allowlist-empty'));
       w('home-shape/.claude/settings.json', {
         channelsEnabled: true,
         allowedChannelPlugins: [{ marketplace: 'm' }, { plugin: 'p' }, 'claude-plugins-official/telegram'],
