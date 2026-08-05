@@ -7,8 +7,9 @@ and know exactly what that choice does and does not guarantee. Then run `/extens
 and find out which of your existing extensions are silently broken right now.
 
 An architecture decision and debugging reference covering CLAUDE.md and rules, skills,
-hooks, subagents, context modes, dynamic workflows, agent teams, MCP servers, output
-styles, plugins, LSP, and the programmatic tier (Agent SDK, GitHub Action). Every claim
+hooks, monitors, subagents, context modes, dynamic workflows, agent teams, MCP servers,
+channels, output styles, plugins, LSP, and the programmatic tier (Agent SDK, GitHub
+Action). Every claim
 is evidence-tagged, version-gated, and backed by a machine-checked provenance ledger.
 
 ## The extension doctor
@@ -82,7 +83,7 @@ components. This project answers the question that comes before it, and the two 
 | Learn hook, skill, plugin syntax | Strong | Strong |
 | Decide WHICH mechanism should own a behavior | Supporting | Primary purpose |
 | Compare the nearest rejected alternative | Limited | Primary purpose |
-| Cross-mechanism composition semantics | Component-oriented | 18 composition cards |
+| Cross-mechanism composition semantics | Component-oriented | 24 composition cards |
 | Version gates and changelog-only deltas | Not its pitch | Primary purpose |
 | Enforcement ownership, failure policy, tamper boundary | Per-component | Cross-component model |
 | Published control-vs-treatment benchmark | No | Yes, with limitations stated |
@@ -127,15 +128,18 @@ mechanism pairings are
 standard is applied to this repo itself, and the numbers are published whether or not
 they flatter it.
 
-**Tier 1, deterministic regression: 191 questions (set v2), 100% pass.** Each question
+**Tier 1, deterministic regression: 217 questions (set v2), 100% pass.** Each question
 carries a regex answer key and a source file, run by
 [tests/run-tests.mjs](tests/run-tests.mjs). Near-tautological on the first run since the
 keys derive from the content; it earns its keep as a regression gate and through
-`--prove-fail`, which guts every source file and confirms all 181 positive assertions go
+`--prove-fail`, which guts every source file and confirms all 206 positive assertions go
 red. A suite that stays green against deleted content proves nothing; this one cannot.
 Set v2 (2026-07-31) added coverage for the marketplace-submission facts, the frontmatter
 gotcha, and the measured behaviors, and retired the two known-deficient v1 keys; the
-changelog is in [tests/results.md](tests/results.md).
+2026-08-05 pass added 26 rows for monitors and channels, including one routing-NEGATIVE
+row asserting the skill does not present itself as an observability tool, because
+documenting monitors is exactly what creates that over-trigger risk. The changelog is in
+[tests/results.md](tests/results.md).
 
 **Tier 2, control versus treatment: 135 questions, 44% unaided versus 100% with the
 skill.** Identical model, prompts, and blind adjudicated grading on both arms; the only
@@ -150,13 +154,13 @@ halves of the rubric, so combining them should beat the docs. Three runs later, 
 instrument rebuilt specifically to detect a small effect, it does not.
 
 Measured 2026-08-02 (v2, repaired keys, one answer pass per arm, every cell graded twice):
-unaided 71%, official docs 88%, docs plus a staged decide-then-verify-then-cite procedure
-88%, docs plus that procedure plus this skill 87%. **Combined versus docs alone: 20 scenarios
+unaided 71%, official docs 89%, docs plus a staged decide-then-verify-then-cite procedure
+89%, docs plus that procedure plus this skill 89%. **Combined versus docs alone: 21 scenarios
 to 20, p=1.000.** A dead heat. The pre-committed rule returned NEGATIVE and nothing shipped.
 
 **What survives is what always survived**: documentation beats unaided recall by 18 points,
 48 paired scenarios to 9, p<0.001, robust to dropping any batch. The largest single component
-is `version_caveat`, 35% unaided against 80 to 82% with docs, which is the intuitive result
+is `version_caveat`, 35% unaided against 81 to 83% with docs, which is the intuitive result
 since version gates are exactly what cannot be recalled.
 
 **The instrument is the real product of that work.** v1 could not resolve the question: dead
@@ -234,15 +238,17 @@ are choosing between mechanisms.
 | Need | Open |
 |---|---|
 | Choosing between mechanisms | [selection.md](skills/claude-code-extension-engineering/references/selection.md) |
-| Combining mechanisms (18 cards) | [composition-cards.md](skills/claude-code-extension-engineering/references/composition-cards.md) |
+| Combining mechanisms (24 cards) | [composition-cards.md](skills/claude-code-extension-engineering/references/composition-cards.md) |
 | Hooks | [hooks.md](skills/claude-code-extension-engineering/references/hooks.md) |
 | Hook event contracts (30 events + deltas) | [hook-events.md](skills/claude-code-extension-engineering/references/hook-events.md) |
+| Monitors [EXPERIMENTAL] | [monitors.md](skills/claude-code-extension-engineering/references/monitors.md) |
 | Skills | [skills.md](skills/claude-code-extension-engineering/references/skills.md) |
 | Subagents | [subagents.md](skills/claude-code-extension-engineering/references/subagents.md) |
 | Context modes | [context-modes.md](skills/claude-code-extension-engineering/references/context-modes.md) |
 | Dynamic Workflows | [workflows.md](skills/claude-code-extension-engineering/references/workflows.md) |
 | Agent Teams [EXPERIMENTAL] | [agent-teams.md](skills/claude-code-extension-engineering/references/agent-teams.md) |
 | MCP servers | [mcp.md](skills/claude-code-extension-engineering/references/mcp.md) |
+| Channels [EXPERIMENTAL] | [channels.md](skills/claude-code-extension-engineering/references/channels.md) |
 | Plugins | [plugins.md](skills/claude-code-extension-engineering/references/plugins.md) |
 | LSP / code intelligence | [lsp.md](skills/claude-code-extension-engineering/references/lsp.md) |
 | CLAUDE.md family | [claude-md-family.md](skills/claude-code-extension-engineering/references/claude-md-family.md) |
@@ -264,7 +270,7 @@ are choosing between mechanisms.
 | `[ENGINEERING]` | Engineering judgment |
 | `[COMMUNITY]` | Community practice |
 | `[vX.Y.Z]` | The build a behaviour was introduced in or verified against |
-| `[EXPERIMENTAL]` | Off by default, may change |
+| `[EXPERIMENTAL]` | Not stable: either off by default until a flag is set, or on as soon as it is configured but carrying a manifest schema, flag syntax, or protocol contract that may change between releases |
 
 Verified against Claude Code **2.1.220** on **2026-07-29**. Version gates record when a
 feature appeared, never that an older build is unsupported; check your own build with

@@ -2,7 +2,9 @@
 
 Paste-ready fields for platform.claude.com/plugins/submit (Console form, individual
 authors) or the claude.ai directory form (Team/Enterprise orgs). Numbers below must match
-README.md and tests/results.md at submission time; re-check before pasting.
+README.md, tests/results.md and tests/results-tier3.md at submission time; re-check before
+pasting. The Tier 3 negative result travels with the Tier 2 headline: whenever the 44/100
+figure is quoted here, the dead heat against the docs is quoted next to it.
 
 ## Link to plugin
 
@@ -38,18 +40,33 @@ coordination. Ownership is analyzed past the word "guarantee" into authority, fa
 policy (fail-open, fail-closed, advisory), and tamper boundary (user, project, managed
 policy).
 
-Includes a cross-mechanism selection guide, 18 composition cards, 30 documented
-hook-event contracts plus changelog-only event deltas such as DirectoryAdded, dated
+Includes a cross-mechanism selection guide, 24 composition cards, 31 documented
+hook-event contracts including DirectoryAdded, which the docs gained on 2026-08-03, dated
 build and version gates, platform-specific failure modes, and a machine-checked evidence
 ledger giving every tagged claim a source, retrieval date, and drift detection.
 
-The reference is tested rather than merely asserted. The suite carries 173 deterministic
+The reference is tested rather than merely asserted. The suite carries 191 deterministic
 regression checks with a prove-fail inversion, plus a separate 135-question
 control-versus-treatment evaluation on which the same model scored 44 percent from
 unaided recall and 100 percent with the reference available. Those numbers are
 intentionally scoped: the treatment result demonstrates the information is findable and
-unambiguous, not that every underlying product claim is automatically true. The
-repository publishes the question sets, grading method, per-question results, known
+unambiguous, not that every underlying product claim is automatically true.
+
+The next benchmark up returned NEGATIVE, and it is published beside the good one. On 60
+architecture-decision scenarios, four arms, every cell graded twice: unaided 71 percent,
+official docs 89 percent, docs plus a staged decide-then-verify-then-cite procedure 89
+percent, and docs plus that procedure plus this reference 89 percent. Combined versus docs
+alone is 21 paired scenarios to 20, p=1.000, a dead heat, so the pre-committed rule
+returned negative and nothing shipped on the strength of it. What survives is the
+retrieval result: documentation beats unaided recall by 18 points, 48 paired scenarios to
+9, p<0.001, robust to dropping any grading batch. So the honest claim is the narrow one.
+Having this material locally, organized, and citable beats unaided recall by a wide
+margin; the authored decision layer added nothing MEASURABLE once the official docs were
+already in the arm, on an instrument whose three docs arms sit within one point of each
+other near a ceiling. That is a statement about what this benchmark can resolve, not a
+proof that no benefit exists, and it is stated here rather than left to the reader to find.
+
+The repository publishes the question sets, grading method, per-question results, known
 limitations, and verification gaps, and a daily freshness workflow flags every new
 Claude Code release for re-verification.
 

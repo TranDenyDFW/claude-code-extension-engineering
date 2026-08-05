@@ -23,7 +23,7 @@
  *
  * Ignore-list: claim classes never meant for one-question-per-line coverage.
  */
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -53,6 +53,36 @@ if (DOC_NUMBERS) {
   const qRows = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
     .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
 
+  const SK = join(ROOT, 'skills', 'claude-code-extension-engineering', 'references');
+  // Count the numbered card rows and the event rows from the reference files
+  // themselves, so the manifest is checked against content rather than against
+  // another sentence that could be equally stale.
+  // Count DATA rows of a markdown table, skipping the header and the |---| rule.
+  // `skipCol1` drops values that are themselves column headings: hook-events.md
+  // holds two tables, and the second one's "Field" header would otherwise count as
+  // a 32nd hook event. Getting this wrong makes the gate cry wolf, which this
+  // file's own header warns is worse than having no gate.
+  // Count DATA rows of ONE table, the one whose header row starts with `header`,
+  // stopping at the first non-table line. Scoping to a single table matters:
+  // hook-events.md holds several, and counting every pipe row in the file gave 36
+  // against a real 31. A gate that miscounts cries wolf, which this file's own
+  // header warns is worse than having no gate at all.
+  const tableRows = (file, header) => {
+    if (!existsSync(join(SK, file))) return 0;
+    const lines = readFileSync(join(SK, file), 'utf8').split(/\r?\n/);
+    const start = lines.findIndex((l) => l.startsWith(`| ${header} `) || l.startsWith(`| ${header}|`));
+    if (start < 0) return 0;
+    const seen = new Set();
+    for (let i = start + 1; i < lines.length; i++) {
+      if (!lines[i].startsWith('|')) break;
+      const col1 = (lines[i].split('|')[1] || '').trim().replace(/`/g, '');
+      if (!col1 || /^-+$/.test(col1)) continue;
+      seen.add(col1);
+    }
+    return seen.size;
+  };
+  const cardCount = tableRows('composition-cards.md', 'Pairing');
+  const eventCount = tableRows('hook-events.md', 'Event');
   const FACTS = [
     { label: 'checker fixtures', live: (checker.match(/^\s+name:/gm) || []).length, re: /(?:grown to\s+)?(\w+)\s+fixtures/gi },
     { label: 'ledger claims', live: claims.length, re: /(\d+)\s+source assignments/gi },
@@ -62,11 +92,22 @@ if (DOC_NUMBERS) {
     // quote does not say "questions (set v2)" or "all N positive assertions".
     { label: 'suite rows', live: qRows.length, re: /(\d+)\s+questions \(set v2\)/gi },
     { label: 'positive assertions', live: qRows.filter(r => r.answer_key && !r.must_not_match).length, re: /all\s+(\d+)\s+positive assertions/gi },
+    // Added 2026-08-05 after independent review found .claude-plugin/plugin.json
+    // advertising "18 composition cards, 30 hook-event contracts" against a live 24
+    // and 31, while this gate reported "none disagree". The gate was real; it simply
+    // did not scan the manifest, which is the FIRST surface a marketplace reader sees.
+    { label: 'composition cards', live: cardCount, re: /(\d+)\s+composition cards/gi },
+    { label: 'hook-event contracts', live: eventCount, re: /(\d+)\s+hook-event contracts/gi },
   ];
   const WORDS = { six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13 };
 
-  const docs = ['README.md', 'IMPROVEMENTS.md', ...readdirSync(join(ROOT, 'tests'))
-    .filter(f => /^results.*\.md$/.test(f)).map(f => join('tests', f))];
+  // docs/SUBMISSION.md and .claude-plugin/plugin.json are the two MARKETPLACE-FACING
+  // surfaces, and both were omitted here until 2026-08-05. A drift gate that skips the
+  // listing copy protects the document nobody reads first.
+  const docs = ['README.md', 'IMPROVEMENTS.md', 'docs/SUBMISSION.md', '.claude-plugin/plugin.json',
+    ...readdirSync(join(ROOT, 'tests'))
+      .filter(f => /^results.*\.md$/.test(f)).map(f => join('tests', f))]
+    .filter(rel => existsSync(join(ROOT, rel)));
 
   console.log('Live values re-derived from the artifacts:');
   for (const f of FACTS) console.log(`  ${f.label.padEnd(22)}${f.live}`);

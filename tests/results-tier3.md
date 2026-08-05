@@ -130,11 +130,11 @@ Robust across every single-batch drop: B over A.
 ## What this says
 
 **Combining the reference with the documentation produces no measurable benefit.** D versus
-B is 20 wins, 20 losses, p=1.000. Not a small effect the instrument struggled to see: a dead
+B is 21 wins, 20 losses, p=1.000. Not a small effect the instrument struggled to see: a dead
 heat, on an instrument specifically rebuilt to detect a small effect. The verdict by the rule
 committed before any v2 answer existed is NEGATIVE.
 
-**The staged procedure also produces nothing.** B+ over B is 19 to 16, p=0.736. The v1 run's
+**The staged procedure also produces nothing.** B+ over B is 20 to 16, p=0.618. The v1 run's
 retracted headline claimed the procedure was the effect; with repaired keys, two graders per
 cell, and equalized documentation, it is not.
 
@@ -239,7 +239,7 @@ or a captured Claude Code system prompt, not a user question. Zero usable. The l
 external source is GitHub issues and discussions on `anthropics/claude-code`, which has not
 been tried. Until then this limitation stands unfixed, not merely unaddressed.
 
-**Ceiling compression bounds the null.** The three docs arms sit at 87 to 88 percent with four
+**Ceiling compression bounds the null.** The three docs arms all sit at 89 percent with four
 of seven fields at 95 percent or above, so the room in which a difference could appear is
 small by construction. "No measurable benefit" is therefore a statement about what this
 instrument can resolve at this difficulty, not a proof that no benefit exists anywhere. A
