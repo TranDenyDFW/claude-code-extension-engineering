@@ -49,16 +49,18 @@ side in [key-repairs-v2.md](tier3/key-repairs-v2.md); the unseeded values shippe
 
 ## Results
 
+Grades: 1680  scenarios in set: 60  arms: a, b, bplus, d
+Completeness gate: PASS, every scenario, sheet and field graded exactly once.
 <!-- tier3-score:begin set=v2 -->
 
 Overall = mean across all seven fields, partial counted as half.
 
 | Arm | Overall | Primary (strict) | Primary | Rejected alt | Owner | Context | Lifecycle | Failure | Version |
 |---|---|---|---|---|---|---|---|---|---|
-| A: unaided (calibration) | 71% | 34/60 | 69% | 61% | 90% | 95% | 79% | 66% | 35% |
-| B: official docs | 88% | 57/60 | 96% | 67% | 95% | 97% | 95% | 87% | 82% |
-| B+: docs, staged procedure, no skill | 88% | 57/60 | 96% | 68% | 96% | 97% | 96% | 85% | 80% |
-| D: docs + skill, staged procedure | 87% | 57/60 | 96% | 64% | 95% | 98% | 95% | 85% | 80% |
+| A: unaided (calibration) | 71% | 35/60 | 71% | 61% | 90% | 96% | 80% | 67% | 35% |
+| B: official docs | 89% | 58/60 | 98% | 66% | 95% | 98% | 97% | 88% | 83% |
+| B+: docs, staged procedure, no skill | 89% | 58/60 | 98% | 67% | 97% | 98% | 98% | 87% | 81% |
+| D: docs + skill, staged procedure | 89% | 58/60 | 98% | 64% | 96% | 99% | 97% | 86% | 81% |
 
 VERIFIED-quote rate: the share of the four factual fields whose citation carries a quote that
 appears VERBATIM in the cited mirror page, checked mechanically. Fields with no citation count
@@ -78,9 +80,9 @@ reported only: the pre-committed margin above is what decides the outcome.
 
 | Comparison | Scenarios | Wins | Losses | Ties | Mean delta | Sign test |
 |---|---|---|---|---|---|---|
-| D vs B | 60 | 20 | 20 | 20 | -1 pts | p=1.000 |
-| D vs BPLUS | 60 | 14 | 16 | 30 | -1 pts | p=0.856 |
-| BPLUS vs B | 60 | 19 | 16 | 25 | +0 pts | p=0.736 |
+| D vs B | 60 | 21 | 20 | 19 | +0 pts | p=1.000 |
+| D vs BPLUS | 60 | 15 | 16 | 29 | -1 pts | p=1.000 |
+| BPLUS vs B | 60 | 20 | 16 | 24 | +0 pts | p=0.618 |
 | B vs A | 60 | 48 | 9 | 3 | +18 pts | p=0.000 |
 
 Ties are reported because they dominate: a split like 22 to 7 describes only the
@@ -97,13 +99,13 @@ the two scores nor which arm produced the sheet.
 | primary | 240 | 99% | 100% |
 | rejected_alternative | 240 | 87% | 100% |
 | enforcement_owner | 240 | 97% | 100% |
-| context_boundary | 240 | 97% | 100% |
+| context_boundary | 240 | 99% | 100% |
 | lifecycle | 240 | 93% | 100% |
 | failure_mode | 240 | 85% | 100% |
 | version_caveat | 240 | 85% | 96% |
 | **all fields** | **1680** | **92%** | **99%** |
 
-Disagreements of any size: 137 of 1680 cells. Full-point splits requiring adjudication: 9.
+Disagreements of any size: 133 of 1680 cells. Full-point splits requiring adjudication: 9.
 
 Leave-one-batch-out. Every comparison is recomputed with each grading batch removed in
 turn, because a batch that behaves unlike the rest can manufacture across ten scenarios
@@ -111,17 +113,18 @@ what looks like a finding across sixty. This is what caught the retracted v1 hea
 
 | Comparison | All 60 | Worst single-batch drop | Verdict |
 |---|---|---|---|
-| D vs B | 20W 20L, p=1.000 | drop batch 1: 16W 16L, p=1.000 | not significant to begin with |
-| D vs BPLUS | 14W 16L, p=0.856 | drop batch 4: 11W 11L, p=1.000 | not significant to begin with |
-| BPLUS vs B | 19W 16L, p=0.736 | drop batch 5: 14W 13L, p=1.000 | not significant to begin with |
+| D vs B | 21W 20L, p=1.000 | drop batch 1: 16W 16L, p=1.000 | not significant to begin with |
+| D vs BPLUS | 15W 16L, p=1.000 | drop batch 2: 14W 15L, p=1.000 | not significant to begin with |
+| BPLUS vs B | 20W 16L, p=0.618 | drop batch 6: 16W 15L, p=1.000 | not significant to begin with |
 | B vs A | 48W 9L, p=0.000 | drop batch 4: 40W 8L, p=0.000 | robust |
 
-**Verdict, by the rule committed before the run: NEGATIVE.** D does not beat B (-1 points). Publish the negative.
+**Verdict, by the rule committed before the run: NEGATIVE.** D does not beat B (0 points). Publish the negative.
 
-D is -1 points over B+, inside the noise floor, so the reference did not add anything measurable on top of the procedure.
+D is 0 points over B+, inside the noise floor, so the reference did not add anything measurable on top of the procedure.
 
 Robust across every single-batch drop: B over A.
 
+<!-- tier3-score:end -->
 <!-- tier3-score:end -->
 
 ## What this says
@@ -155,14 +158,46 @@ scorer (`pooledVerdict`, `REPLICATE_RULE`), written before any replicate data ex
 replicates 2 and 3 can be added later and pooled without touching the rule. They were
 deferred for budget, not for convenience, and this line is the disclosure.
 
-**At least one key is still wrong, and it costs every arm equally.** S040's key selects an
-advisory remedy while the key's OWN `failure_mode` field concedes that "a hard guarantee
-needs a different mechanism entirely, such as a permissions deny rule, a PreToolUse hook, or
-denying Agent(Explore)". All four arms independently chose the deny rule, so all four score
-zero on primary and on the four fields derived from it. That is roughly 20 zero-scores from
-one arguable key. It does not bias D against B, but it depresses every absolute number, and
-the keys-lint does not yet catch the class "the key's own failure_mode names a better primary
-than the key's primary". Adding that rule is tracked work, not a mid-run edit.
+**S040's key was wrong, and has now been repaired. Read how before reading the result.**
+The key selected an advisory remedy while its OWN `failure_mode` conceded that "a hard
+guarantee needs a different mechanism entirely, such as a permissions deny rule, a PreToolUse
+hook, or denying Agent(Explore)". All four arms independently chose the deny rule, so all four
+scored zero on primary and on the fields derived from it, roughly 20 zero-scores from one key.
+It never biased D against B; it depressed every absolute number.
+
+Repairing an expected key AFTER a run is normally the practice that invalidates a benchmark,
+so the full procedure is recorded in `tests/tier3/key-repairs-v2.md`. In short: the defect and
+the repair DIRECTION were published in git on 2026-08-04, before any repair; the lint rule that
+catches the class landed before the key was touched, and produces 1 true positive per set with
+0 false positives across all 120 committed keys; the WORDING was authored by an agent that
+never read an answer sheet, a grade file or this document, verified by a directional 7-shingle
+check; and the arithmetic bound was **published before the re-grade ran**.
+
+That bound said the D-versus-B margin could only land in [-2, +1] against a `DECISION_MARGIN`
+of 6, and the sign test could only move from 20W/20L to at worst 21W/20L or 20W/21L, both
+p=1.0000, because reaching p < 0.05 at n=41 needs 28W/13L and one scenario cannot travel eight
+wins. **The observed outcome was 21W/20L at a margin of 0 points.** The bound held. The
+verdict is NEGATIVE, exactly as before the repair, and it was incapable of being anything else.
+
+What did change is that S040 became gradeable at all: per-arm totals moved from a flat
+{a 2.00, b 1.75, b+ 1.75, d 1.75} out of 7 to {a 5.75, b 5.50, b+ 6.00, d 7.00}. The absolute
+numbers rose accordingly, which is what "it depresses every absolute number" predicted.
+
+**Test-retest reliability, measured for the first time.** The re-grade gave both graders the
+full batch-1 packet rather than a one-scenario packet, because a ten-scenario packet is a
+different grading task. Only the 56 S040 records were used; the other 504 cells are the same
+graders scoring the same sheets against the same unchanged keys a second time. They agreed
+with themselves on **90.5% of cells exactly (456 of 504) and 100% within half a point**. That
+is a bound on grader self-consistency this benchmark previously had no measurement of, and it
+is published whether or not it flatters the instrument. Raw records in `tests/tier3/retest-v2/`.
+
+**The re-grade surfaced four more key defects, which are recorded and NOT repaired.** Both
+graders independently flagged that S018's `rejected_alternative` names the status quo the
+scenario says has already failed twice, so the field discriminates nothing, and that S018,
+S023 and S045 assert `version_caveat: none` while the answers cite concrete version-gated
+facts. They are filed in `tests/tier3/key-defects.jsonl`. Repairing them now would be a second
+post-hoc key change without pre-registration, which is the discipline this section exists to
+maintain. They belong to the next instrument revision.
 
 **Arm A identifies itself in 10 of its 60 sheets**, writing phrases like "unaided", "from
 memory" or "I recall" in the answer text. Zero such phrases appear in B, B+ or D. Blinding
