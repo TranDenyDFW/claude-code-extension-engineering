@@ -673,7 +673,21 @@ export function pluginSkillNames(pluginRoot, manifest) {
     if (f && typeof f.name === 'string' && f.name.trim()) add(f.name);
     add(fallback);
   };
-  const addCommandDir = dir => { for (const f of listFiles(dir, /\.md$/i)) add(f.replace(/\.md$/i, '')); };
+  /**
+   * A command directory holds flat `<name>.md` files AND `<name>/SKILL.md`
+   * subdirectories; plugins-reference.md documents the latter as a valid
+   * command-directory layout. Listing only the flat files made this function
+   * return the EMPTY set for a plugin that ships its skill as
+   * commands/<name>/SKILL.md, so an on-skill-invoke monitor pointing at a real
+   * skill was reported BROKEN with exit 1, and the finding text asserted "no
+   * skills at all" about a plugin that ships one. Found by independent review
+   * 2026-08-05; it is exactly the under-collection this function's own header
+   * warns manufactures false positives.
+   */
+  const addCommandDir = dir => {
+    for (const f of listFiles(dir, /\.md$/i)) add(f.replace(/\.md$/i, ''));
+    addSkillTree(dir);
+  };
 
   addSkillTree(join(pluginRoot, 'skills'));
   addCommandDir(join(pluginRoot, 'commands'));
@@ -754,7 +768,7 @@ export function loadPluginMonitors(pluginRoot, manifest, manifestPath) {
 const commandTokens = command => command.replace(/["']/g, '').split(/\s+/).filter(Boolean);
 
 /** The 8 monitor checks for ONE plugin. */
-export function monitorFindings({ pluginRoot, manifest, manifestPath, project }) {
+export function monitorFindings({ pluginRoot, manifest, manifestPath, project, home }) {
   const out = [];
   const loaded = loadPluginMonitors(pluginRoot, manifest, manifestPath);
 
@@ -836,7 +850,12 @@ export function monitorFindings({ pluginRoot, manifest, manifestPath, project })
     // tool cannot expand, and guessing at it would be a false positive.
     const scriptTok = tokens.find(t => /\.(mjs|cjs|js|py|sh|ps1)$/i.test(t));
     if (scriptTok) {
-      const expanded = expand(scriptTok);
+      // Expand a leading "~" the way the sibling hook-handler-missing check
+      // already does. Without it the candidate paths carry a literal "~" segment
+      // that can never resolve, so the check returned the same verdict whether
+      // the script existed or not: a check that cannot pass is as useless as one
+      // that cannot fail. Found by independent review 2026-08-05.
+      const expanded = home ? expand(scriptTok).replace(/^~[\\/]/, home + '/') : expand(scriptTok);
       if (!expanded.includes('$')) {
         const candidates = /^([A-Za-z]:|[\\/])/.test(expanded)
           ? [expanded]
@@ -1232,7 +1251,7 @@ export function runChecks({ home, project, assumeVersion = null, strictUnknown =
         CITE.versionPin));
     }
     const pluginRoot = dirname(dirname(pj));
-    findings.push(...monitorFindings({ pluginRoot, manifest, manifestPath: pj, project }));
+    findings.push(...monitorFindings({ pluginRoot, manifest, manifestPath: pj, project, home }));
     findings.push(...channelFindings({ pluginRoot, manifest, manifestPath: pj }));
   }
 
