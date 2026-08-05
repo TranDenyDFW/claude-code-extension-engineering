@@ -1,0 +1,286 @@
+{
+  "arm": "bplus",
+  "batch": 3,
+  "answers": [
+    {
+      "id": "S021",
+      "primary": "An MCP server: add the vendor's remote error-tracking endpoint as an HTTP-transport server (claude mcp add --transport http, or a checked-in .mcp.json entry) and have each engineer complete the vendor's browser OAuth flow from /mcp. Claude then queries live issues and stack traces as MCP tools instead of receiving pasted text.",
+      "rejected_alternative": "A skill that shells out to the vendor's REST API with a stored API key. It loses because the credential would be one long-lived shared secret in the environment rather than a per-engineer browser sign-in, and it gives Claude prose instructions instead of typed tools.",
+      "enforcement_owner": "The harness. Claude Code owns the OAuth handshake, secure token storage and refresh, and the resulting tool surface; the model only decides which tool to call.",
+      "context_boundary": "The server runs out of process and its tool results land in the main session context window. The credential never enters the context, only the returned issue and stack-trace payloads do.",
+      "lifecycle": "The server connects at session start and stays connected for the session. The browser sign-in happens once per engineer and the stored token is refreshed silently until it is revoked or cleared from the /mcp menu.",
+      "failure_mode": "Fails closed and visibly: an unauthenticated or expired connection makes the server's tools unavailable and flags it in /mcp rather than silently returning stale data. In non-interactive runs there is no /mcp panel, so the tools simply stay unavailable until someone signs in from an interactive session.",
+      "version_caveat": "OAuth works on HTTP (and SSE) transports only, never stdio. Signing in from the shell with claude mcp login requires v2.1.186 or later; earlier versions must use the in-session /mcp panel.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "mcp.md",
+          "quote": "Many cloud-based MCP servers require authentication. Claude Code supports OAuth 2.0 for secure connections."
+        },
+        "lifecycle": {
+          "page": "mcp.md",
+          "quote": "Authentication tokens are stored securely and refreshed automatically"
+        },
+        "failure_mode": {
+          "page": "mcp.md",
+          "quote": "For a server you haven't signed in to, either status code flags it in `/mcp` so you can complete the OAuth flow."
+        },
+        "version_caveat": {
+          "page": "mcp.md",
+          "quote": "From v2.1.186, `claude mcp login <name>` runs a configured server's OAuth flow directly from your shell"
+        }
+      }
+    },
+    {
+      "id": "S022",
+      "primary": "An LSP server contributed by a plugin: install the official typescript-lsp marketplace plugin, or ship your own .lsp.json mapping .ts/.tsx to typescript-language-server. Claude Code then injects compiler diagnostics after each edit and exposes go to definition, find references, and hover.",
+      "rejected_alternative": "A PostToolUse hook running tsc --noEmit after every Write and Edit. It loses because it re-typechecks the whole project on every edit and offers no symbol navigation, so the grep-for-symbol-names half of the request stays unsolved.",
+      "enforcement_owner": "The harness. Claude Code runs the language server process and pushes diagnostics into context itself; the per-server diagnostics flag defaults to true, and the model does not choose when to look.",
+      "context_boundary": "The language server is a separate long-lived process attached to the main session. Only diagnostics and navigation results cross into the session context window, not the server's internal index.",
+      "lifecycle": "The server starts when the plugin is enabled and the workspace is trusted, delivers diagnostics on every edit for the whole session, and stops at session end. A mid-session plugin update keeps the old path until /reload-plugins is run.",
+      "failure_mode": "Fails open and quietly: the plugin configures the connection but does not ship the binary, so a machine without typescript-language-server only shows an error in the /plugin Errors tab while Claude falls back to grepping. If two enabled plugins both claim .ts, the first registered wins and the other never starts.",
+      "version_caveat": "restartOnCrash and shutdownTimeout require v2.1.205 or later; before that, setting either one made Claude Code skip that LSP server entirely, visible only under claude --debug. The LSP tool stays inactive until a code intelligence plugin is installed.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "plugins-reference.md",
+          "quote": "Whether to push diagnostics into Claude's context after edits (default `true`)"
+        },
+        "lifecycle": {
+          "page": "plugins-reference.md",
+          "quote": "**Instant diagnostics**: Claude sees errors and warnings immediately after each edit"
+        },
+        "failure_mode": {
+          "page": "plugins-reference.md",
+          "quote": "If you see `Executable not found in $PATH` in the `/plugin` Errors tab, install the required binary for your language."
+        },
+        "version_caveat": {
+          "page": "plugins-reference.md",
+          "quote": "`restartOnCrash` and `shutdownTimeout` require Claude Code v2.1.205 or later."
+        }
+      }
+    },
+    {
+      "id": "S023",
+      "primary": "A plugin published through a marketplace: bundle the review subagents, commands and skills, hooks, and .mcp.json into one plugin, host it in a git or GitHub marketplace repository, and register that marketplace in each repository's .claude/settings.json via extraKnownMarketplaces alongside enabledPlugins.",
+      "rejected_alternative": "Committing loose .claude/agents, .claude/commands, .claude/hooks and .mcp.json files into every repository. It loses because the same content must be copied and re-synced per repo, and there is no update channel when the platform team publishes a change.",
+      "enforcement_owner": "The harness. Claude Code reads extraKnownMarketplaces when the folder is trusted, offers the marketplace and its plugins, and performs the install and later updates; the engineer consents and may decline.",
+      "context_boundary": "Distribution happens outside any conversation. Once installed, the plugin's skills, agents and hooks load into each session in that repository, and the subagents it ships each get their own separate context window.",
+      "lifecycle": "It fires the first time an engineer trusts the repository folder, and again in the background after startup when autoUpdate is set on the marketplace entry. It stops applying once the engineer skips the marketplace or disables the plugin, which is recorded in user settings.",
+      "failure_mode": "Advisory rather than enforced: it is an offer, so anyone who declines silently diverges from the standard set with no signal that they did. Project settings may only supply enabledPlugins and extraKnownMarketplaces, so a repository cannot push plugin configuration values along with it.",
+      "version_caveat": "Shipping a plugin installed but disabled via defaultEnabled requires v2.1.154 or later; earlier versions ignore the field and enable on install. skipLfs on a marketplace source needs v2.1.153, and from v2.1.207 pluginConfigs is no longer read from project or local settings.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "settings.md",
+          "quote": "Team members are prompted to install the marketplace when they trust the folder"
+        },
+        "lifecycle": {
+          "page": "settings.md",
+          "quote": "Set `\"autoUpdate\": true` alongside `source` to make Claude Code refresh that marketplace and update its installed plugins in the background after startup."
+        },
+        "failure_mode": {
+          "page": "settings.md",
+          "quote": "Users can skip unwanted marketplaces or plugins (stored in user settings)"
+        },
+        "version_caveat": {
+          "page": "plugins-reference.md",
+          "quote": "This requires Claude Code v2.1.154 or later. Earlier versions ignore the field and enable the plugin on install."
+        }
+      }
+    },
+    {
+      "id": "S024",
+      "primary": "A plugin bin/ directory: ship the compiled deployment binary, or a thin wrapper that execs it, as an executable file in the shared toolkit plugin's bin/, installed at user scope. Claude Code puts that directory on the Bash tool's PATH, so the CLI is a bare command composable with grep and jq in any project.",
+      "rejected_alternative": "An MCP server wrapping each subcommand as a tool. It loses because MCP tool calls are not shell commands, so the binary could never be piped into grep or jq inside an ordinary Bash pipeline.",
+      "enforcement_owner": "The harness. Claude Code adds the plugin's bin/ to the PATH of every Bash tool call while the plugin is enabled; the model simply types the command name.",
+      "context_boundary": "The binary runs in the Bash tool's subprocess, outside the model's context. Only its stdout and stderr, as the Bash tool truncates them, cross back into the session context window.",
+      "lifecycle": "It applies for the whole of every session in which the plugin is enabled, in every project, and stops the moment the plugin is disabled or uninstalled.",
+      "failure_mode": "Fails open at the shell level: if the plugin is disabled, the file lacks the executable bit, or the shipped binary is wrong for the host platform, the bare command reports command not found or an exec error and Claude may improvise a different route. A wrapper that reaches outside the plugin root also breaks, because paths traversing outside the plugin directory are not copied into the plugin cache.",
+      "version_caveat": "The mirror documents bin/ with no minimum version marker, so the real gate is enablement rather than a release: shipping the toolkit disabled by default via defaultEnabled requires v2.1.154 or later, and earlier versions enable it on install regardless.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "plugins.md",
+          "quote": "Executables added to the Bash tool's `PATH` while the plugin is enabled"
+        },
+        "lifecycle": {
+          "page": "plugins-reference.md",
+          "quote": "Files here are invokable as bare commands in any Bash tool call while the plugin is enabled"
+        },
+        "failure_mode": {
+          "page": "plugins-reference.md",
+          "quote": "Paths that traverse outside the plugin root (such as `../shared-utils`) will not work after installation because those external files are not copied to the cache."
+        },
+        "version_caveat": {
+          "page": "plugins-reference.md",
+          "quote": "This requires Claude Code v2.1.154 or later. Earlier versions ignore the field and enable the plugin on install."
+        }
+      }
+    },
+    {
+      "id": "S025",
+      "primary": "A plugin distributed from a git-hosted marketplace with no version field: omit version from both plugin.json and the marketplace entry so Claude Code falls back to the git commit SHA as the update cache key, and set autoUpdate true on the marketplace entry.",
+      "rejected_alternative": "Explicit semantic versioning in plugin.json with tagged releases. It loses because every publish would require bumping that field, which is exactly the release bookkeeping the team wants to eliminate.",
+      "enforcement_owner": "The harness. Claude Code computes the current version, compares it against the installed cache entry, and performs the background refresh; nobody has to run an update command.",
+      "context_boundary": "Updating happens outside any conversation, in the plugin cache on disk. The newly installed version's components enter session context only at the next session start, or after /reload-plugins.",
+      "lifecycle": "An update check runs in the background after startup for marketplaces with autoUpdate on, installing whatever commit is at the marketplace git head. It stops when the plugin is uninstalled or autoUpdate is turned off.",
+      "failure_mode": "Fails closed and silently in the opposite direction from what you expect: if anyone adds a version field to plugin.json, teammates stop receiving commits and /plugin update reports that they are already at the latest version, with no error to notice. Commit-SHA versioning also means a bad commit reaches everyone immediately, with no release gate.",
+      "version_caveat": "autoUpdate is not on by default for a team marketplace: official Anthropic marketplaces default to true and all others default to false, so the flag must be set explicitly. npm sources and local directories outside a git repository resolve to version unknown and never get commit-based updates.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "plugins-reference.md",
+          "quote": "Claude Code uses the plugin's version as the cache key that determines whether an update is available."
+        },
+        "lifecycle": {
+          "page": "plugins-reference.md",
+          "quote": "Users get updates on every new commit to the plugin's git source"
+        },
+        "failure_mode": {
+          "page": "plugins-reference.md",
+          "quote": "If you set `version` in `plugin.json`, you must bump it every time you want users to receive changes."
+        },
+        "version_caveat": {
+          "page": "settings.md",
+          "quote": "When omitted, official Anthropic marketplaces default to `true` and all other marketplaces default to `false`."
+        }
+      }
+    },
+    {
+      "id": "S026",
+      "primary": "An MCP server entry using headersHelper: configure the internal service as an HTTP-transport MCP server and point headersHelper at the SSO helper command, which prints a JSON object of headers carrying a freshly minted bearer token.",
+      "rejected_alternative": "A static headers.Authorization value expanded from an environment variable. It loses because the token is captured once at config load and expires mid-session with no mechanism to re-mint it.",
+      "enforcement_owner": "The harness. Claude Code executes the helper, merges its stdout into the connection headers, and re-runs it on an auth failure; the model has no part in minting or refreshing the token.",
+      "context_boundary": "The helper runs in a shell subprocess from the session working directory, or the plugin root for a plugin-provided server, and its output never enters the model's context. Only MCP tool results cross the boundary.",
+      "lifecycle": "The helper runs fresh at every connection, meaning session start and each reconnect, with no caching, and again automatically when a call returns 401 or 403. It stops applying when the server entry is removed or the plugin providing it is disabled.",
+      "failure_mode": "Fails closed with exactly one automatic retry: on 401 or 403 Claude Code re-runs the helper, reconnects with fresh headers, retries the call once, and only then marks the server as needing authentication. The helper has a 10 second shell timeout, so a slow SSO round trip breaks the connection instead of blocking.",
+      "version_caveat": "Automatic helper re-run and single retry on 401 or 403 requires v2.1.193 or later. A plugin-provided relative headersHelper path resolving against the plugin root requires v2.1.195, and from v2.1.207 headersHelper no longer substitutes ${user_config.*} values.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "mcp.md",
+          "quote": "use `headersHelper` to generate request headers at connection time. Claude Code runs the command and merges its output into the connection headers."
+        },
+        "lifecycle": {
+          "page": "mcp.md",
+          "quote": "The helper runs fresh on each connection, at session start and on reconnect. There is no caching, so your script is responsible for any token reuse."
+        },
+        "failure_mode": {
+          "page": "mcp.md",
+          "quote": "Claude Code marks the server as needing authentication in `/mcp` only if that retry also fails."
+        },
+        "version_caveat": {
+          "page": "mcp.md",
+          "quote": "As of v2.1.193, if a tool call returns `401 Unauthorized` or `403 Forbidden`, Claude Code automatically re-runs the helper"
+        }
+      }
+    },
+    {
+      "id": "S027",
+      "primary": "A plugin background monitor: declare an entry in the toolkit plugin's monitors/monitors.json running tail -F on the application error log, with when left at always, so Claude Code starts it at session start and delivers each new stdout line to Claude as a notification.",
+      "rejected_alternative": "A SessionStart hook that launches a background tail. It loses because a hook returns once and has no channel for streaming later output into the session; it can seed context at startup but cannot push new lines as they appear.",
+      "enforcement_owner": "The harness. Claude Code starts the monitor process automatically whenever the plugin is active and routes every stdout line into the session as a notification, without the model asking for it.",
+      "context_boundary": "The tail process runs unsandboxed outside the model's context, in the session working directory. Each emitted line crosses into the main session context as a notification, which is also why a chatty log is expensive here.",
+      "lifecycle": "With when set to always it starts at session start and on plugin reload, runs for the lifetime of the session, and stops when the session ends. Disabling the plugin mid-session does not stop a monitor that is already running.",
+      "failure_mode": "Fails open and silently: monitors run only in interactive CLI sessions and are skipped on hosts where the Monitor tool is unavailable, so a headless or unsupported host gets no notifications and no error. They also run unsandboxed at hook trust level, and a project-scope skills-directory plugin does not load them at all.",
+      "version_caveat": "Monitors are an experimental plugin component whose manifest schema may change between releases, and declaring them at the top level instead of under experimental.monitors already warns in claude plugin validate. From v2.1.207 a monitor command may not reference ${user_config.*} values.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "plugins-reference.md",
+          "quote": "Plugins can declare background monitors that Claude Code starts automatically when the plugin is active."
+        },
+        "lifecycle": {
+          "page": "plugins-reference.md",
+          "quote": "`\"always\"` starts it at session start and on plugin reload, and is the default"
+        },
+        "failure_mode": {
+          "page": "plugins-reference.md",
+          "quote": "They run only in interactive CLI sessions, run unsandboxed at the same trust level as [hooks](#hooks), and are skipped on hosts where the Monitor tool is unavailable."
+        },
+        "version_caveat": {
+          "page": "plugins-reference.md",
+          "quote": "Components under the `experimental` key, `themes` and `monitors`, have a manifest schema that may change between releases while they stabilize."
+        }
+      }
+    },
+    {
+      "id": "S028",
+      "primary": "A remote HTTP MCP server with oauth.scopes pinned: set the oauth object's scopes string in the server's config to the vendor's read scopes only, so the authorization request, and therefore the token stored on each engineer's machine, never carries write or admin scope.",
+      "rejected_alternative": "Permission deny rules on the server's write tools. It loses because it only stops the assistant from calling those tools; the stored credential would remain write-capable, which is precisely the guarantee security asked for.",
+      "enforcement_owner": "Split, and the security-relevant half is not the harness: Claude Code sends the pinned scope parameter, but the vendor's authorization server is what actually issues the narrowed token. The model has no say at any point.",
+      "context_boundary": "The authorization flow runs in the browser and the token lives in the OS keychain or credentials file, entirely outside the model's context. Only tool results cross into the session context window.",
+      "lifecycle": "The pinned scopes apply during the authorization flow, take precedence over authServerMetadataUrl and any /.well-known discovery, and persist for the life of the stored token including refreshes. Widening requires editing oauth.scopes and re-authenticating.",
+      "failure_mode": "Fails closed: a tool needing an unpinned scope gets a 403 insufficient_scope and Claude Code re-authenticates with the same pinned set rather than escalating, so the call keeps failing until someone deliberately widens the config. The residual risk is a vendor whose read scope is coarser than advertised.",
+      "version_caveat": "oauth.scopes is the supported mechanism and its value must be a single space-separated string. As of v2.1.196 an unset oauth.scopes no longer requests the full scopes_supported catalog, and offline_access is appended automatically when the authorization server advertises it.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "mcp.md",
+          "quote": "This is the supported way to restrict an MCP server to a security-team-approved subset when the upstream authorization server advertises more scopes than you want to grant."
+        },
+        "lifecycle": {
+          "page": "mcp.md",
+          "quote": "Set `oauth.scopes` to pin the scopes Claude Code requests during the authorization flow."
+        },
+        "failure_mode": {
+          "page": "mcp.md",
+          "quote": "If the server later returns a 403 `insufficient_scope` for a tool call, Claude Code re-authenticates with the same pinned scopes."
+        },
+        "version_caveat": {
+          "page": "mcp.md",
+          "quote": "As of v2.1.196, when `oauth.scopes` isn't set, Claude Code requests the scope provided by the server's `WWW-Authenticate` header or its protected resource metadata"
+        }
+      }
+    },
+    {
+      "id": "S029",
+      "primary": "A project-scoped MCP server: add the staging-database tool service with claude mcp add --scope project so it is written into .mcp.json at the repository root, and commit that file. Every clone picks it up and no other repository sees it.",
+      "rejected_alternative": "A user-scoped server added with --scope user. It loses because it lives in ~/.claude.json, applies to every project on the machine, and is not picked up from a fresh clone.",
+      "enforcement_owner": "The harness. Claude Code discovers .mcp.json at the project root, prompts each person for approval before first use, and records the decision; the model never sees an unapproved server's tools.",
+      "context_boundary": "Scoped to sessions started in that repository. The server process runs out of process and only its tool results cross into the session context window.",
+      "lifecycle": "It loads on every session in that project once approved, with the approval prompt happening once per person. Approvals persist until reset with claude mcp reset-project-choices, and a rejection is recorded in disabledMcpjsonServers.",
+      "failure_mode": "Fails closed: an unapproved server sits pending, shows as pending approval in claude mcp list, and contributes no tools, so a teammate who never runs an interactive session simply has no database tools rather than an unnoticed unauthorized connection.",
+      "version_caveat": "Scope names shifted between releases: what is now called local was called project in older versions, and what is now user was called global, so an older client interprets --scope project differently. Nothing else about this arrangement is version-gated in the mirror.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "mcp.md",
+          "quote": "For security reasons, Claude Code prompts for approval before using project-scoped servers from `.mcp.json` files."
+        },
+        "lifecycle": {
+          "page": "mcp.md",
+          "quote": "Check `.mcp.json` into version control so everyone on your team gets the same MCP tools and services."
+        },
+        "failure_mode": {
+          "page": "mcp.md",
+          "quote": "Project-scoped servers from `.mcp.json` that are awaiting your approval appear in `claude mcp list`"
+        },
+        "version_caveat": {
+          "page": "mcp.md",
+          "quote": "`local` (default): available only to you in the current project. Older versions called this scope `project`"
+        }
+      }
+    },
+    {
+      "id": "S030",
+      "primary": "A SessionStart hook in the plugin that installs into ${CLAUDE_PLUGIN_DATA}: compare the bundled package.json against a copy kept in the persistent data directory and run npm install there when they differ, then point the plugin's scripts at the result with NODE_PATH.",
+      "rejected_alternative": "A Setup hook. It loses because Setup fires only with --init-only, or with --init or --maintenance under -p, and never on a normal launch, so first run in an ordinary session would find no modules installed.",
+      "enforcement_owner": "The harness runs the hook at session start, but correctness of the install-if-changed logic belongs to the plugin author; Claude Code does not manage plugin dependencies itself.",
+      "context_boundary": "The install runs in a hook subprocess outside the model's context, and nothing but hook output crosses into the session. The modules live in ~/.claude/plugins/data/<id>/ rather than in the versioned plugin cache directory.",
+      "lifecycle": "It runs on every session start, doing real work only on the first run and after an update that changed package.json. The data directory outlives plugin updates and is removed when the plugin is uninstalled from its last remaining scope.",
+      "failure_mode": "Fails open but self-healing: a failed npm install deletes the copied manifest so the next session retries, yet until then the plugin's scripts run against missing modules. The trap to avoid is writing state under ${CLAUDE_PLUGIN_ROOT}, which changes on every update and is cleaned up roughly two weeks later.",
+      "version_caveat": "The mirror states no minimum version for ${CLAUDE_PLUGIN_DATA}, so the operative gate is a flag rather than a release: the data directory is deleted by default when the plugin is uninstalled from its last scope unless --keep-data is passed, and a mid-session update keeps hooks on the old plugin root until /reload-plugins.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "plugins-reference.md",
+          "quote": "This `SessionStart` hook installs `node_modules` on the first run and again whenever a plugin update includes a changed `package.json`:"
+        },
+        "lifecycle": {
+          "page": "plugins-reference.md",
+          "quote": "The `diff` exits nonzero when the stored copy is missing or differs from the bundled one, covering both first run and dependency-changing updates."
+        },
+        "failure_mode": {
+          "page": "plugins-reference.md",
+          "quote": "If `npm install` fails, the trailing `rm` removes the copied manifest so the next session retries."
+        },
+        "version_caveat": {
+          "page": "plugins-reference.md",
+          "quote": "By default, uninstalling from the last remaining scope also deletes the plugin's `${CLAUDE_PLUGIN_DATA}` directory. Use `--keep-data` to preserve it"
+        }
+      }
+    }
+  ]
+}

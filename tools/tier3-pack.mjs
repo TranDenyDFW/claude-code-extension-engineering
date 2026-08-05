@@ -453,22 +453,33 @@ console.log('PASS: no packet carries an arm label, and every scenario has one sh
  * above 1 and a replicate-1 map exists, the orderings must actually differ.
  */
 if (REP > 1) {
-  const baseMap = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}.json`);
-  if (existsSync(baseMap)) {
-    const base = JSON.parse(readFileSync(baseMap, 'utf8'));
+  // Compare against EVERY prior replicate, not just replicate 1. A first version
+  // checked replicate 1 alone, which would have passed a replicate 3 that
+  // accidentally reproduced replicate 2's ordering: the salt would look applied
+  // while two of the three passes shared a position-to-arm table, and pooling
+  // would treat a shared bias as independent evidence.
+  let compared = 0;
+  for (let prior = 1; prior < REP; prior++) {
+    const pSfx = prior > 1 ? `-r${prior}` : '';
+    const priorMap = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}${pSfx}.json`);
+    if (!existsSync(priorMap)) {
+      console.log(`Salt: no replicate-${prior} map at ${priorMap}, cannot compare orderings.`);
+      continue;
+    }
+    compared++;
+    const base = JSON.parse(readFileSync(priorMap, 'utf8'));
     const shared = Object.keys(map).filter(id => id in base);
     const moved = shared.filter(id => JSON.stringify(base[id]) !== JSON.stringify(map[id]));
-    console.log(`Salt: ${moved.length}/${shared.length} scenarios reordered versus replicate 1.`);
+    console.log(`Salt: ${moved.length}/${shared.length} scenarios reordered versus replicate ${prior}.`);
     if (moved.length < shared.length * 0.75) {
-      console.log('\nFAIL: the replicate salt did not apply. This replicate would carry replicate 1\'s');
-      console.log('sheet ordering, so any position-dependent grader bias would land on the same arm');
-      console.log('in both passes and accumulate instead of averaging out. Pooling that reports a');
-      console.log('systematic error with a tighter interval is worse than a single replicate.');
+      console.log(`\nFAIL: this replicate shares replicate ${prior}'s sheet ordering. Any`);
+      console.log('position-dependent grader bias would land on the same arm in both passes and');
+      console.log('accumulate instead of averaging out, so pooling would report a systematic error');
+      console.log('with a tighter interval, which is strictly worse than a single replicate.');
       process.exit(1);
     }
-  } else {
-    console.log(`Salt: no replicate-1 map at ${baseMap}, cannot compare orderings.`);
   }
+  if (!compared) console.log('Salt: no prior replicate map found; ordering independence is UNVERIFIED.');
 }
 
 if (CHECK_ONLY) {
