@@ -29,9 +29,23 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const SET = process.argv.includes('--set') ? process.argv[process.argv.indexOf('--set') + 1] : 'v1';
 const SFX = SET === 'v2' ? '-v2' : '';
-const ANSWER_DIR = join(ROOT, 'tests', 'tier3', `answers${SFX}`);
-const PACKET_DIR = join(ROOT, 'tests', 'tier3', `packets${SFX}`);
-const MAP_PATH = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}.json`);
+
+/**
+ * REPLICATES. --rep N packs an independent answering pass over the same scenario
+ * set. Replicate 1 reads and writes the ORIGINAL unsuffixed paths byte for byte,
+ * because packets-v2/ and blinding-map-v2.json are committed and drift-gated.
+ */
+const REP = (() => {
+  const i = process.argv.indexOf('--rep');
+  if (i < 0) return 1;
+  const n = Number(process.argv[i + 1]);
+  if (!Number.isInteger(n) || n < 1) { console.log('FAIL: --rep must be an integer >= 1'); process.exit(2); }
+  return n;
+})();
+const RSFX = REP > 1 ? `-r${REP}` : '';
+const ANSWER_DIR = join(ROOT, 'tests', 'tier3', `answers${SFX}${RSFX}`);
+const PACKET_DIR = join(ROOT, 'tests', 'tier3', `packets${SFX}${RSFX}`);
+const MAP_PATH = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}${RSFX}.json`);
 
 /**
  * v2 grading batches are a SEEDED SHUFFLE of the scenario ids instead of the
@@ -40,6 +54,15 @@ const MAP_PATH = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}.json`);
  * perfectly confounded; one grader's batch manufactured the retracted
  * headline. Shuffling breaks the confound; the fixed seed keeps the packing
  * reproducible and --check-able.
+ */
+/**
+ * DELIBERATELY NOT SALTED BY REPLICATE, and it must stay that way.
+ *
+ * Sheet ORDER must vary across replicates; batch MEMBERSHIP must not.
+ * pooledVerdict's leave-one-batch-out clause drops a batch from the POOLED
+ * per-scenario deltas, so if batch 1 meant different scenarios in each replicate
+ * the drop would remove an incoherent set and the robustness clause would assert
+ * nothing. The two look symmetric, which is exactly why this is written down.
  */
 export function shuffledBatches(ids, size = 10) {
   let h = 0x9e3779b9;
@@ -85,14 +108,41 @@ function allPermutations(n) {
 
 const PERMUTATIONS = allPermutations(ARMS.length);
 
-/** FNV-1a over the scenario id. Deterministic across runs and machines. */
-export function permutationFor(id) {
+/**
+ * FNV-1a over the scenario id, SALTED BY REPLICATE. Deterministic across runs and
+ * machines.
+ *
+ * Replicate 1 hashes the BARE id, byte-identically to the pre-replicate function,
+ * because blinding-map.json and blinding-map-v2.json are committed and --check
+ * compares against them.
+ *
+ * Why the salt is not optional. If the position-to-arm table were frozen across
+ * replicates, any position-dependent grader bias (primacy on sheet 1, anchoring
+ * the rest to whatever was read first) would land on the SAME arm all three times.
+ * It would accumulate instead of averaging out, and pooling would then report a
+ * systematic error with a tighter confidence interval, which is strictly worse
+ * than one replicate because it dresses a bias as precision. The replicates are
+ * meant to be independent draws of the whole pipeline; freezing a stage
+ * understates the pooled variance, which is the exact quantity they were
+ * commissioned to measure.
+ */
+export function permutationFor(id, rep = 1) {
+  const text = rep === 1 ? String(id) : `${id}#r${rep}`;
   let h = 0x811c9dc5;
-  for (const ch of String(id)) {
+  for (const ch of text) {
     h ^= ch.charCodeAt(0);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
   return PERMUTATIONS[h % PERMUTATIONS.length];
+}
+
+/**
+ * How many of `ids` get a DIFFERENT sheet order between two replicates.
+ * Exported and parameterised on the permuter so the self-test can point it at a
+ * deliberately rep-ignoring function and watch the divergence assertion go red.
+ */
+export function orderingDivergence(ids, repA, repB, perm = permutationFor) {
+  return ids.filter(id => perm(id, repA).join('') !== perm(id, repB).join('')).length;
 }
 
 /**
@@ -139,7 +189,7 @@ export function blindingProblems(packet) {
   return [...new Set(problems)];
 }
 
-export function pack(scenarios, answersByArm, regroup = null) {
+export function pack(scenarios, answersByArm, regroup = null, rep = 1) {
   const byBatch = new Map();
   const map = {};
 
@@ -170,7 +220,7 @@ export function pack(scenarios, answersByArm, regroup = null) {
     for (const [id, perArm] of [...byBatch.get(batch).entries()].sort()) {
       const scenario = scenarios.find(s => s.id === id);
       if (!scenario) throw new Error(`answer references unknown scenario ${id}`);
-      const order = permutationFor(id).map(i => ARMS[i]).filter(a => perArm[a]);
+      const order = permutationFor(id, rep).map(i => ARMS[i]).filter(a => perArm[a]);
       const sheets = order.map((arm, i) => {
         const src = perArm[arm];
         // Exactly these keys, in this order, for every arm. Citations are
@@ -267,6 +317,44 @@ function selfTest() {
   // scenario put the same arm in slot 1, blinding would be decorative.
   const slot1 = new Set(Object.values(map).map(m => m['1']));
   check('slot 1 is not always the same arm across the set', slot1.size > 1, `slot-1 arms: ${[...slot1].join(', ')}`);
+
+  // ---- replicate salting ----------------------------------------------------
+  const repIds = Array.from({ length: 60 }, (_, i) => `S${String(i + 1).padStart(3, '0')}`);
+
+  check('replicate 1 is byte-identical to the unsalted permutation',
+    repIds.every(id => permutationFor(id).join('') === permutationFor(id, 1).join('')));
+
+  const d12 = orderingDivergence(repIds, 1, 2);
+  const d13 = orderingDivergence(repIds, 1, 3);
+  const d23 = orderingDivergence(repIds, 2, 3);
+  // Floor of 45 states "substantially different" without memorizing the figure.
+  // Independent draws over 24 orderings would average about 57.5 of 60.
+  check('replicates 1, 2 and 3 order sheets differently',
+    d12 >= 45 && d13 >= 45 && d23 >= 45, `r1/r2 ${d12}, r1/r3 ${d13}, r2/r3 ${d23} of 60`);
+
+  /**
+   * MUST FAIL. A salt that silently no-ops would make three replicates identical
+   * and therefore worthless, while every other check in this file still passed.
+   * This row proves the divergence assertion above can actually go red.
+   */
+  check('MUST FAIL: a rep-IGNORING permuter shows zero divergence',
+    orderingDivergence(repIds, 1, 2, id => permutationFor(id)) === 0);
+
+  check('every replicate still uses many distinct orderings',
+    [1, 2, 3].every(r => new Set(repIds.map(id => permutationFor(id, r).join(''))).size >= 20),
+    [1, 2, 3].map(r => new Set(repIds.map(id => permutationFor(id, r).join(''))).size).join('/') + ' of 24');
+
+  const slot1For = r => {
+    const p = pack(scenarios, answers, null, r);
+    return Object.values(p.map).map(m => m['1']);
+  };
+  const s1a = slot1For(1); const s1b = slot1For(2);
+  check('the slot-1 arm moves for many scenarios between replicates',
+    s1a.filter((a, i) => a !== s1b[i]).length >= Math.min(3, Math.floor(s1a.length / 3)),
+    `${s1a.filter((a, i) => a !== s1b[i]).length} of ${s1a.length} moved`);
+
+  check('the batch PARTITION does not move between replicates',
+    JSON.stringify(shuffledBatches(repIds)) === JSON.stringify(shuffledBatches(repIds)));
 
   const leaky = JSON.parse(JSON.stringify(packets[0]));
   leaky.scenarios[0].sheets[0].arm = 'd';
