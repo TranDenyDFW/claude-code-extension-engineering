@@ -66,14 +66,42 @@ export function manifestPages(raw) {
  * Pure over the filesystem it is handed, so the self-test can point it at a
  * deliberately corrupted temp tree and watch it go red.
  */
+/**
+ * Where a page lives inside a revision directory.
+ *
+ * TWO LAYOUTS EXIST AND BOTH ARE LEGITIMATE, which an independent review caught
+ * before the first guarded collect run shipped:
+ *
+ *   flat     rev/<date>/<slug>.md              produced by the 2026-08-05 recovery,
+ *                                              which restored only the 20 pages a
+ *                                              benchmark depends on
+ *   namespaced rev/<date>/docs/md/<slug>.md    produced by collect.mjs, which mirrors
+ *                                              the full sources/ tree so the md, html
+ *                                              and pdf variants of a page stay distinct
+ *
+ * Resolving only the flat form would mean the FIRST revision written by the guarded
+ * collector reported every page MISSING, which is a gate that stops guarding while
+ * still exiting non-zero for the wrong reason. Resolving only the namespaced form
+ * would fail on the recovered revision the benchmark actually cites. So resolve both,
+ * and report which layout was found so a reader is never guessing.
+ */
+export function resolvePage(revDir, slug) {
+  for (const rel of [`${slug}.md`, join('docs', 'md', `${slug}.md`)]) {
+    const file = join(revDir, rel);
+    if (existsSync(file)) return { file, layout: rel.includes('docs') ? 'namespaced' : 'flat' };
+  }
+  return null;
+}
+
 export function checkRevision(pages, revDir) {
   const rows = [];
   for (const p of pages) {
-    const file = join(revDir, `${p.slug}.md`);
-    if (!existsSync(file)) {
+    const found = resolvePage(revDir, p.slug);
+    if (!found) {
       rows.push({ slug: p.slug, status: 'MISSING', expected: p.sha256, actual: null, bytes: null });
       continue;
     }
+    const file = found.file;
     const buf = readFileSync(file);
     const actual = sha256(buf);
     if (actual !== p.sha256) {
@@ -83,7 +111,7 @@ export function checkRevision(pages, revDir) {
       // it ever fires the hashing itself is wrong and that must not read as a pass.
       rows.push({ slug: p.slug, status: 'IMPOSSIBLE', expected: p.sha256, actual, bytes: buf.length, expectedBytes: p.bytes });
     } else {
-      rows.push({ slug: p.slug, status: 'OK', expected: p.sha256, actual, bytes: buf.length });
+      rows.push({ slug: p.slug, status: 'OK', expected: p.sha256, actual, bytes: buf.length, layout: found.layout });
     }
   }
   const ok = rows.filter((r) => r.status === 'OK').length;
@@ -179,6 +207,30 @@ function selfTest() {
     // An empty manifest must not report a vacuous pass. 0 of 0 matching is exactly
     // the shape of a gate that has quietly stopped checking anything.
     check('an empty page set is NOT intact', !checkRevision([], revDir).intact);
+
+    /**
+     * THE LAYOUT THE COLLECTOR ACTUALLY WRITES. Found by independent review before
+     * the first guarded collect run: writeRevisioned mirrors the sources/ tree, so a
+     * page lands at rev/<date>/docs/md/<slug>.md, while the recovered revision on disk
+     * is flat. A checker that resolved only one of those would report the other's
+     * pages MISSING, and a gate that reports everything missing has stopped guarding.
+     */
+    const nested = join(tmp, 'nested');
+    mkdirSync(join(nested, 'docs', 'md'), { recursive: true });
+    writeFileSync(join(nested, 'docs', 'md', 'alpha.md'), bodyA);
+    writeFileSync(join(nested, 'docs', 'md', 'beta.md'), bodyB);
+    const nres = checkRevision(pages, nested);
+    check('the COLLECTOR layout (docs/md/<slug>.md) verifies', nres.intact,
+      nres.rows.map((r) => `${r.slug}:${r.status}`).join(' '));
+    check('the collector layout is reported as namespaced',
+      nres.rows.every((r) => r.layout === 'namespaced'));
+    check('the recovery layout is still reported as flat',
+      checkRevision(pages, revDir).rows.every((r) => r.layout === 'flat'));
+    writeFileSync(join(nested, 'docs', 'md', 'alpha.md'), bodyA + 'x');
+    check('MUST FAIL: drift in the COLLECTOR layout is caught too',
+      !checkRevision(pages, nested).intact);
+    check('resolvePage returns null when a page is in neither layout',
+      resolvePage(nested, 'nonexistent') === null);
 
     let threw = false;
     try { manifestPages({ nothing: 'here' }); } catch { threw = true; }
