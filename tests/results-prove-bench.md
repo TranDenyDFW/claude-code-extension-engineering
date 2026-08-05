@@ -252,11 +252,62 @@ purpose: `FAIL fixture handler substitution was a NO-OP for: allows-what-it-bloc
 
 The headline is unchanged at 10 of 10 after both fixes, now measured under the real path shape.
 
+### Round 2: the classes round 1 left uncalibrated
+
+Run 2026-08-04, 7 classes x 2 passes = 14 live sessions. Record in
+`tests/tier4/fidelity-round2.json`. Two result kinds are kept strictly apart, because
+counting unmodelled behaviour as agreement would be the same self-certifying defect this
+project exists to catch:
+
+| class | what the product ACTUALLY does |
+|---|---|
+| `timeout-fails-open` | a handler that exceeds its timeout **FAILS OPEN**. The marker proved it ran; the write proceeded anyway |
+| `timeout-within-budget` | the same handler with a generous timeout denies correctly |
+| `settings-scope-merge` | `settings.json` and `settings.local.json` hooks **MERGE**, both fire. Order is not guaranteed: two runs gave `["B","A"]` and `["A","B"]` |
+| `if-filter-matches` | a handler with `if: "Bash(git *)"` fires for `git status` |
+| `if-filter-excludes` | the same handler does NOT fire for `echo HELLO` |
+| `http-handler-unreachable` | an unreachable HTTP gate **FAILS OPEN**, as documented |
+| `user-prompt-submit-exit2` | exit 2 on `UserPromptSubmit` blocks the **whole turn**, so nothing is written |
+
+Every one was stable across both passes.
+
+**Three of these changed a verdict, so they were implemented rather than merely recorded:**
+the timeout fail-open (previously the simulator would report a deny where the product
+allows), the `if` filter (previously ignored entirely, so a filtered handler fired on every
+call and produced a false deny), and the HTTP handler (now reported as unsimulated and
+failing open rather than silently treated as absent). Eleven new self-test assertions gate
+them. After implementing, a re-run scored **5 of 5 modelled classes agreeing**, with
+`settings-scope-merge` and `user-prompt-submit-exit2` still recorded as MEASURED rather than
+claimed.
+
+Two corrections made during round 2, both caught before they reached a published number:
+
+- The `user-prompt-submit-exit2` expectation was written backwards. I predicted the write
+  would proceed; it does not, because exit 2 blocks the turn. The live run said DIVERGES and
+  the expectation was wrong, not the product.
+- `settings-scope-merge` first reported `["A","A"]`, which cannot distinguish "both handlers
+  fired" from "one fired twice". Root cause: the second handler was derived with a
+  `.replace()` whose target carried one backslash too many, so it silently no-opped and both
+  handlers wrote the same marker. The case proved nothing until the second handler was
+  written out in full. That is the third backslash-escaping failure of the day and the same
+  no-op-substitution class the fixture generator now guards against.
+
+### Still NOT calibrated, with the reason
+
+Listing these is the point: an unlisted gap reads as covered.
+
+| class | why not |
+|---|---|
+| PostToolUse exit 2 | the tool has already run, so disk state cannot distinguish blocked from allowed. The only signal is model narration |
+| SessionStart additionalContext | observable only by asking the model to echo injected text, which measures the model, not the harness |
+| Managed-settings precedence | requires writing the platform managed-settings path, an administrator surface, out of scope for a test harness |
+| PreCompact, SubagentStop, Stop | each needs a session shaped to reach the event; not reachable from one headless turn with a disk-visible outcome |
+
 ### Honest limits of this calibration
 
-- **n = 1 per class, 8 classes, single pass.** Live sessions are nondeterministic; one agreeing
-  run is not a rate. A defensible fidelity number needs repeated passes per class, and the
-  Tier 4 design called for at least 10 per class. This is 1.
+- **n is small.** Round 1 is 8 classes at ONE pass each; round 2 is 7 classes at TWO passes
+  each and every case was stable. The Tier 4 design called for at least 10 passes per class.
+  This is 1 and 2. Stability across two passes is evidence, not a rate.
 - **One CLI build, one platform.** 2.1.219 on Windows. Hook behaviour has moved between builds
   before.
 - **Only the classes listed.** Settings precedence, timeouts, HTTP handlers, `if`-rule filters

@@ -180,12 +180,16 @@ export function permissionDecision(settings, toolName, toolInput, projectDir) {
   return { decision: null, rule: null, notes };
 }
 
-export function resolveHandlers(settings, event, toolName) {
+export function resolveHandlers(settings, event, toolName, toolInput) {
   const groups = (settings && settings.hooks && settings.hooks[event]) || [];
   const out = [];
   for (const g of groups) {
     if (!matcherMatches(g.matcher, toolName)) continue;
-    for (const h of (g.hooks || [])) out.push({ ...h, matcher: g.matcher });
+    for (const h of (g.hooks || [])) {
+      // The `if` filter is a SECOND gate after the matcher. Measured G4/G5.
+      if (!ifFilterAdmits(h.if, toolName, toolInput)) continue;
+      out.push({ ...h, matcher: g.matcher });
+    }
   }
   return out;
 }
@@ -205,7 +209,32 @@ function hashTree(dir) {
   return h.digest('hex');
 }
 
+/**
+ * Does a handler's `if` permission-rule filter admit this call?
+ *
+ * MEASURED LIVE 2026-08-04 (tests/tier4/fidelity-round2.json, G4 and G5, 2 passes
+ * each): a handler carrying `if: "Bash(git *)"` fired for `git status` and did
+ * NOT fire for `echo HELLO`. Before this, the field was ignored entirely, so a
+ * filtered handler fired on every call and produced a false deny.
+ */
+export function ifFilterAdmits(rule, toolName, toolInput) {
+  if (!rule) return true;
+  const { tool, pattern } = parseRule(rule);
+  if (tool !== '*' && tool !== toolName) return false;
+  if (pattern === null) return true;
+  const subject = String(
+    (toolInput && (toolInput.command ?? toolInput.file_path)) || '',
+  );
+  return globToRegex(pattern).test(subject);
+}
+
 function runHandler(handler, payload, cwd) {
+  // MEASURED LIVE (G6): an http handler whose endpoint is unreachable FAILS OPEN.
+  // The simulator supports only type=command, so rather than silently treating an
+  // http handler as absent it reports the documented fail-open explicitly.
+  if (handler.type === 'http' || handler.url) {
+    return { exit: null, stdout: '', stderr: '', httpUnsupported: true };
+  }
   const cmd = String(handler.command || '');
   if (!cmd) return { exit: null, stdout: '', stderr: '', error: 'handler has no command' };
   // Split a quoted interpreter-plus-path command form, the shape hooks.md calls
@@ -225,7 +254,12 @@ function runHandler(handler, payload, cwd) {
     // harness failure. Record it as such.
     return { exit: null, stdout: '', stderr: String(r.error.message), notFound: true };
   }
-  return { exit: r.status, stdout: r.stdout || '', stderr: r.stderr || '', timedOut: r.signal === 'SIGTERM' };
+  // MEASURED LIVE (G1, 2 passes): a handler that exceeds its timeout FAILS OPEN.
+  // The marker proved it ran; the write proceeded anyway. Report it as a timeout
+  // rather than letting a late decision on stdout count.
+  const timedOut = r.signal === 'SIGTERM' || r.error?.code === 'ETIMEDOUT';
+  if (timedOut) return { exit: null, stdout: '', stderr: String(r.stderr || ''), timedOut: true };
+  return { exit: r.status, stdout: r.stdout || '', stderr: r.stderr || '', timedOut: false };
 }
 
 /**
@@ -240,6 +274,8 @@ export function verdictOf(event, handlers, results) {
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
     if (r.notFound) { notes.push(`handler missing: ${handlers[i].command}`); continue; }
+    if (r.timedOut) { notes.push(`handler exceeded its timeout and FAILED OPEN (measured live, fidelity G1)`); continue; }
+    if (r.httpUnsupported) { notes.push(`http handler not simulated; an unreachable http gate FAILS OPEN (measured live, fidelity G6)`); continue; }
     fired++;
     let json = null;
     const t = (r.stdout || '').trim();
@@ -319,7 +355,7 @@ export function proveBundle(bundleDir, { onlyKinds = null } = {}) {
       applyMutation(tmp, settings, c.mutate);
       const event = c.event || 'PreToolUse';
       const toolName = (c.input && c.input.tool_name) || '';
-      const handlers = resolveHandlers(settings, event, toolName);
+      const handlers = resolveHandlers(settings, event, toolName, (c.input || {}).tool_input);
       // Feed the path shape the PRODUCT actually sends. Measured live on
       // 2026-08-04 (tests/tier4/fidelity.json): a hook receives an ABSOLUTE path
       // with native separators, e.g. P:\proj\infra\main.tf, not the relative
@@ -458,6 +494,28 @@ function selfTest() {
       check('an ADDED file is detected even when empty', hashTree(tmp) !== h1);
     } finally { rmSync(tmp, { recursive: true, force: true }); }
   }
+
+  // Behaviours MEASURED live in round 2 and implemented from those measurements.
+  console.log('live-measured behaviours (tests/tier4/fidelity-round2.json):');
+  check('G4: an `if` filter admits a matching call', ifFilterAdmits('Bash(git *)', 'Bash', { command: 'git status' }));
+  check('G5: an `if` filter EXCLUDES a non-matching call', !ifFilterAdmits('Bash(git *)', 'Bash', { command: 'echo HELLO' }));
+  check('an `if` filter naming another tool never admits', !ifFilterAdmits('Bash(git *)', 'Write', { file_path: 'x' }));
+  check('no `if` filter admits everything', ifFilterAdmits(undefined, 'Write', { file_path: 'x' }));
+  check('a bare-tool `if` filter admits any call to that tool', ifFilterAdmits('Bash', 'Bash', { command: 'anything' }));
+  check('the `if` filter is a SECOND gate: matcher passes but filter excludes',
+    resolveHandlers({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'x', if: 'Bash(git *)' }] }] } },
+      'PreToolUse', 'Bash', { command: 'echo hi' }).length === 0);
+  check('...and admits when both pass',
+    resolveHandlers({ hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'x', if: 'Bash(git *)' }] }] } },
+      'PreToolUse', 'Bash', { command: 'git log' }).length === 1);
+  check('G1: a timed-out handler does NOT count as fired and leaves the decision allow',
+    verdictOf('PreToolUse', [{ command: 'x' }], [{ timedOut: true }]).decision === 'allow');
+  check('...and says so in the notes rather than silently',
+    verdictOf('PreToolUse', [{ command: 'x' }], [{ timedOut: true }]).notes.some((n) => /timeout/i.test(n)));
+  check('G6: an http handler is reported as unsimulated and fails OPEN',
+    verdictOf('PreToolUse', [{ type: 'http' }], [{ httpUnsupported: true }]).decision === 'allow');
+  check('...and is NOT silently treated as absent',
+    verdictOf('PreToolUse', [{ type: 'http' }], [{ httpUnsupported: true }]).notes.some((n) => /http/i.test(n)));
 
   console.log('permission rules (official permissions page):');
   const S = (deny) => ({ permissions: { deny } });
