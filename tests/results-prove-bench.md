@@ -303,11 +303,64 @@ Listing these is the point: an unlisted gap reads as covered.
 | Managed-settings precedence | requires writing the platform managed-settings path, an administrator surface, out of scope for a test harness |
 | PreCompact, SubagentStop, Stop | each needs a session shaped to reach the event; not reachable from one headless turn with a disk-visible outcome |
 
+### n = 10 per class: the Tier 4 bar, met
+
+Run 2026-08-04/05 against Claude Code 2.1.219, 4 workers, ~97s per session.
+Consolidated record in `tests/tier4/fidelity-n10-final.json`.
+
+```
+modelled classes fully agreeing : 13/13
+unmodelled measured consistently: 2/2
+nondeterministic classes        : none
+```
+
+Every one of the 15 classes is 10 of 10 and deterministic across all ten passes. The Tier 4
+design asked for at least 10 per class; this meets it. Nothing flipped, which is the result
+ten passes exists to be able to say.
+
+### THREE HARNESS BUGS IN THIS SWEEP, AND THE DIAGNOSTIC THAT CAUGHT THEM
+
+The first sweep reported "9 of 13 modelled classes agreeing". **That number was wrong and was
+never published**, because four classes came back **0 of 10 with `deterministic: yes`**.
+
+That combination is diagnostic. Genuine product nondeterminism looks like 7 of 10. A clean
+0 of 10 repeated ten times means the instrument is measuring the wrong thing. In each case the
+correlation with a single input flag confirmed it in one command:
+
+1. **Marker filename.** Round-1 handlers write `hook-fired.log`; round-2 handlers write
+   `MARKER.log`. The pool runner only checked the latter, so "did the hook fire" was always
+   false for round 1. Every class expecting a fire scored 0/10; every class expecting NO fire
+   scored 10/10. Perfect correlation with `expectFired`.
+2. **Hardcoded target.** The runner always looked for `infra/main.tf`, so the `near-miss`
+   class, whose entire point is that it writes `src/app.ts` OUTSIDE the guarded path, scored
+   0/10 even after fix 1.
+3. **Temporal dead zone.** `const OUT` was declared below the `mkdirSync(dirname(OUT))` that
+   reads it, so **40 completed live sessions were discarded by a ReferenceError at the final
+   step**. That is roughly 17 minutes of paid model calls lost to a variable ordering.
+
+**Root cause of all three: the pool runner reimplemented observation logic that the round-1
+and round-2 runners already had correct.** The three symptoms were downstream of one decision
+to duplicate rather than share.
+
+**Four classes were re-measured even though their original numbers were right.**
+`matcher-scoping`, `fail-open-on-crash`, `permission-deny-edit` and `permission-deny-write-inert`
+all expect NO marker, so the broken observer would have scored them 10/10 whether the product
+worked or not. A pass obtained from a known-broken instrument is not evidence. Only results
+from the fixed observer are admitted to the consolidated record, and each class carries the
+batch it came from.
+
+**Process correction that worked:** after the TDZ loss, every subsequent run was smoke-tested
+with a single session to confirm the write path before committing to the full sweep. That
+caught bug 2 at one session instead of forty.
+
+**Cost correction:** the runner's built-in estimate assumed 25s per session. Actual is ~97s at
+4 workers. A 15-class, 10-pass sweep is ~60 minutes of wall clock, not 16. The estimate in
+`tier4-fidelity-pool.mjs` is still the optimistic one and should be read as a lower bound.
+
 ### Honest limits of this calibration
 
-- **n is small.** Round 1 is 8 classes at ONE pass each; round 2 is 7 classes at TWO passes
-  each and every case was stable. The Tier 4 design called for at least 10 passes per class.
-  This is 1 and 2. Stability across two passes is evidence, not a rate.
+- **n = 10 per class, 15 classes, all deterministic.** This meets the Tier 4 bar. It is still
+  one CLI build on one platform, and the classes listed as not observable remain uncovered.
 - **One CLI build, one platform.** 2.1.219 on Windows. Hook behaviour has moved between builds
   before.
 - **Only the classes listed.** Settings precedence, timeouts, HTTP handlers, `if`-rule filters
