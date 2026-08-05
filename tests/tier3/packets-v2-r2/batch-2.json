@@ -1,0 +1,575 @@
+{
+  "batch": 2,
+  "scenarios": [
+    {
+      "id": "S003",
+      "focus": "enforcement",
+      "scenario": "Running our test suite prints tens of thousands of lines. I want the suite run and only the failing tests with their error messages reported back, and the raw output must never enter the conversation I am working in.",
+      "key": {
+        "primary": "One subagent: delegate the test run so the verbose output stays in the subagent's own context and only the failure summary returns",
+        "rejected_alternative": "A dynamic workflow",
+        "rejection_reason": "This is a single self-contained side task where only the result matters, the exact case the subagent docs name under 'isolate high-volume operations'. A workflow adds a launch approval prompt, a background runtime, and generated script scaffolding to run what is effectively one agent; the workflow docs reserve the mechanism for jobs that outgrow a handful of subagents or need the plan held in code. Scale machinery buys nothing here.",
+        "enforcement_owner": "harness",
+        "context_boundary": "isolated context (subagent transcript is a separate file and window; only the final report returns to the caller)",
+        "lifecycle": "model-decided delegation matched from the task description, or guaranteed for one task with an @-mention",
+        "failure_mode": "The returned report still lands in the main context, so a poorly instructed subagent can return a huge result and defeat the isolation; background subagents (the default) also run with a reduced built-in tool set.",
+        "version_caveat": "none for subagent delegation itself; the background-by-default run mode and its smaller built-in tool set are gated: as of v2.1.198 subagents run in the background by default, on earlier versions Claude chooses foreground or background per call"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A subagent: a test-runner definition in .claude/agents/ with Bash plus read tools whose body says to run the suite and report only failing tests with their error messages. It burns the tens of thousands of lines in its own context window and returns a short report.",
+          "rejected_alternative": "Running the suite in the main conversation and filtering the output with a skill or a PostToolUse hook. It loses because the raw stdout has already entered the main context by the time anything can filter it; a separate context window is the only thing that keeps it out.",
+          "enforcement_owner": "Split, and the weak half is the model. The harness owns the isolation, giving the subagent its own window and returning only its final report, while the model owns what that report contains, so 'only the failures' is an instruction rather than an enforced filter.",
+          "context_boundary": "The subagent's fresh window holds the full test output and it does not see your conversation history. Only the final summary text crosses back, and from v2.1.210 that report is scanned and may be annotated, never truncated or rewritten.",
+          "lifecycle": "It runs when Claude delegates on a description match, an @-mention, or your explicit request, and ends when it returns its report. Every invocation is a new instance with fresh context, and each one counts against the 200-subagent session budget that /clear resets.",
+          "failure_mode": "Fails open and silently. The agent can over-summarize and drop a failing test, or an API error can cut it off so the Agent tool hands back partial output with a note; either way you receive a short, plausible list rather than a loud failure, and you cannot re-read the raw log because it was discarded with the subagent's context.",
+          "version_caveat": "No version gate on named subagents themselves, but from v2.1.198 they run in the background by default with a reduced built-in tool set; Bash and PowerShell survive that filter so a suite runner still works. From v2.1.208 a tools list that resolves to nothing refuses to launch instead of running toolless, and report scanning needs v2.1.210 or later."
+        },
+        {
+          "sheet": 2,
+          "primary": "A subagent: delegate the suite run to a test-runner subagent defined in .claude/agents/ with Bash plus read-only search tools and a system prompt that says to report only failing tests and their error messages. The tens of thousands of lines stay in the subagent's own context window and only its final summary returns.",
+          "rejected_alternative": "A skill holding the same instructions, rejected because a skill runs in the main conversation context, so the raw suite output would land in the very window you are trying to protect.",
+          "enforcement_owner": "Split, and worth being honest about: the harness owns the context isolation, because a subagent gets a fresh isolated context and a separate transcript file and only its final report is returned. The model owns the filtering, so the promise that only failures come back is an instruction, not a guarantee.",
+          "context_boundary": "The subagent starts with its own system prompt, the delegation message, CLAUDE.md and a git status snapshot, and it does not see your conversation history. The raw stdout lives only in its context and its transcript file under the session directory; only the final report crosses back, after subagent output scanning.",
+          "lifecycle": "It runs each time Claude delegates to it, by description match or @-mention, and ends when it returns its report. The definition file persists on disk and is hot-reloaded within seconds of an edit; a finished instance can be resumed later with SendMessage.",
+          "failure_mode": "Fails open on the thing you care about second: the isolation holds, but nothing stops the subagent from pasting large blocks of raw output into its summary or from silently truncating or mis-summarizing failures. If the run is cut off by an API error you get partial output with a note, and a background subagent's result only reaches Claude as a completion notification in a later turn.",
+          "version_caveat": "As of v2.1.198 subagents run in the background by default and background subagents get a reduced built-in tool set (Bash, Read, Grep, Glob, Edit, Write and a few others survive), so a definition can resolve to different tools in foreground and background; set CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 to keep it synchronous. Also from v2.1.198 /agents no longer opens a creation wizard, so write the file or ask Claude to; output scanning of the returned report requires v2.1.210 or later."
+        },
+        {
+          "sheet": 3,
+          "primary": "A subagent. Delegate the suite run to a subagent, ideally a reusable test-runner definition with Bash plus read tools, that executes the tests in its own context window and returns only the failing test names with their error messages.",
+          "rejected_alternative": "A skill. Skill instructions run in the main conversation's context, so the tens of thousands of raw output lines would land in exactly the window you are trying to protect.",
+          "enforcement_owner": "Split, but the harness owns the part that matters here: it gives the subagent its own context window, so the raw output structurally cannot enter yours. The model owns what the returned summary contains, so the completeness of the failure list is judgment, not enforcement.",
+          "context_boundary": "The suite invocation and its full output live in the subagent's separate context window; only the subagent's final report crosses back into your conversation, and that report is scanned before Claude reads it.",
+          "lifecycle": "It runs when Claude delegates the task, or immediately when you @-mention the subagent, and stops when it returns its result. Nothing persists afterwards, though the same instance can be resumed by name or agent ID within the session.",
+          "failure_mode": "Advisory on content and fails open: nothing prevents the subagent from pasting long excerpts of the raw output into its report, and if a rate limit or server error cuts the run short the Agent tool hands back whatever partial output exists, so you can get a truncated failure list that reads as complete.",
+          "version_caveat": "As of v2.1.198 subagents run in the background by default, and background subagents keep only a reduced built-in tool set (Read, Grep, Glob, Bash, PowerShell, Edit, Write and a few others), so the same definition can resolve to different tools in background versus foreground."
+        },
+        {
+          "sheet": 4,
+          "primary": "A subagent (a test-runner agent defined in the project's agents directory, with Bash allowed) that executes the suite inside its own context and returns only the failing test identifiers with their error messages, ideally invoked through a slash command so the shape is fixed.",
+          "rejected_alternative": "Running the suite in the main thread with the output piped through a filter or a PostToolUse hook that truncates Bash results, rejected because a byte-level filter cannot tell a failing assertion from noise, and one mistaken invocation still dumps the full log into my window.",
+          "enforcement_owner": "Split: the harness owns the boundary, because a subagent transcript is structurally separate and its tool results never enter the parent window, while the model owns fidelity, because it decides what counts as a failure worth reporting.",
+          "context_boundary": "The tens of thousands of lines live and die inside the subagent's context. Only the subagent's final message, the failure list, crosses into my conversation; the raw log does not, and does not survive the subagent.",
+          "lifecycle": "Runs on each explicit invocation of the runner and ends when the report is returned; it imposes nothing between invocations, and the isolated context is discarded with the run.",
+          "failure_mode": "Fails open on completeness rather than on volume: the subagent can paraphrase, merge or drop failures and I have no way to notice, because the evidence it summarized is gone. If the suite fails in hundreds of tests, the summary itself can be large enough to flood the parent, and nothing prevents me from running the suite directly in the main thread unless a hook denies that command there.",
+          "version_caveat": "Subagents with per-agent tool allowlists and model selection are a stable, broadly available mechanism with no plan gate that I am aware of; I cannot state the exact release that introduced the frontmatter fields, so treat specific field names as needing verification against the installed version."
+        }
+      ]
+    },
+    {
+      "id": "S009",
+      "focus": "enforcement",
+      "scenario": "Before committing to a design for a new developer tool, I want it explored from three angles at once, user experience, technical architecture, and a devil's advocate, with the perspectives reacting to each other's arguments as they form, and I want to jump into any one explorer mid-flight and redirect it.",
+      "key": {
+        "primary": "Agent team: three teammates with distinct perspectives who message each other directly, each a full session the user can open and steer while it works",
+        "rejected_alternative": "A dynamic workflow that drafts the design from several independent angles and weighs them",
+        "rejection_reason": "Workflows explicitly support drafting a plan from several angles and weighing them against each other, which makes this the near-miss, but workflow agents never converse and the run accepts no mid-run user input, so neither the live cross-perspective argument nor the mid-flight redirection is possible. This three-perspective exploration with a devil's advocate is the team docs' own first-team example, and direct teammate interaction is the capability teams uniquely add.",
+        "enforcement_owner": "model",
+        "context_boundary": "independent sessions",
+        "lifecycle": "explicit spawn request describing the three roles; requires the experimental env flag at session start",
+        "failure_mode": "An unattended team drifts and wastes effort (docs: monitor and steer, letting a team run too long unattended increases wasted work); the lead may synthesize before teammates finish and must sometimes be told to wait.",
+        "version_caveat": "Experimental and disabled by default; requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "An agent team. Spawn three teammates from the lead session, one on user experience, one on technical architecture, one playing devil's advocate, letting them message each other as arguments form, and select any of them in the agent panel to open its transcript and redirect it.",
+          "rejected_alternative": "A dynamic workflow. A workflow would explore the three angles in parallel too, but the plan lives in a script that takes no mid-run user input, so the perspectives could not react to each other as they form and you could not steer one explorer mid-flight.",
+          "enforcement_owner": "The model. The lead decides how the exploration is divided and when the design discussion is settled, and the teammates decide what to challenge; the harness only carries the messages and the shared task list.",
+          "context_boundary": "Each explorer is a separate Claude Code session with its own context window, loading CLAUDE.md, MCP servers and skills but none of the lead's history. Spawn prompts, teammate-to-teammate messages, your direct messages and the lead's synthesis are what cross.",
+          "lifecycle": "The team exists from the first teammate spawn until the session ends or you have each teammate shut down; teammates keep running while you interrupt or redirect them, and the team config directory is cleaned up on session exit.",
+          "failure_mode": "Fails open and quietly: Claude sometimes spawns plain subagents instead of forming a team, and because they appear in the same panel you can believe you have three debating explorers when you actually have three isolated workers reporting only to the lead.",
+          "version_caveat": "Experimental and disabled by default. Without CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 no team is created at all, and viewing each explorer in its own pane additionally requires tmux or iTerm2 with the it2 CLI."
+        },
+        {
+          "sheet": 2,
+          "primary": "An agent team of three teammates, one on user experience, one on technical architecture and one playing devil's advocate, told in their spawn prompts to message each other and react to the arguments as they form, with the lead synthesizing the design decision at the end.",
+          "rejected_alternative": "A dynamic workflow that drafts the design from several angles and weighs them against each other, rejected because a workflow run takes no mid-run user input, so you could not jump into one explorer mid-flight and redirect it.",
+          "enforcement_owner": "The model. The lead spawns, names and synthesizes, and the explorers decide what to challenge; the harness contributes the mailbox, the agent panel and the shared task list.",
+          "context_boundary": "Each explorer is a separate session with its own context window loading project CLAUDE.md, skills and MCP servers but not the lead's history. Crossing the boundary: the spawn prompt, inter-teammate messages, the messages you type directly into a teammate's transcript, and the findings the lead pulls together.",
+          "lifecycle": "It starts when you request the team and confirm, and each explorer runs until it goes idle or you shut it down by name; the team is scoped to this session and its config directory is removed when the session ends.",
+          "failure_mode": "Advisory. The debate is a prompt, not a mechanism, so three teammates can converge on the same comfortable answer; the lead may synthesize before the exploration is finished; and token usage is roughly three independent sessions. An explorer whose row disappeared has only been hidden after going idle, which reads as a crash if you do not know the rule.",
+          "version_caveat": "Experimental and requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Redirecting one explorer works in the default in-process mode by selecting its row and pressing Enter, but while you are viewing a teammate built-in slash commands still run in the lead's session, and /model and /fast only ever change the lead (from v2.1.199 you at least get a notice); idle row hiding changed in v2.1.181 and again in v2.1.199."
+        },
+        {
+          "sheet": 3,
+          "primary": "An agent team: the lead spawns three named teammates, one on user experience, one on technical architecture, one playing devil's advocate, and they message each other as arguments form. You select any of them in the agent panel and press Enter to open its session and redirect it mid-flight.",
+          "rejected_alternative": "Three parallel subagents exploring the angles. They lose because subagents report only to the caller and cannot react to each other's arguments while those arguments are still forming, and steering one mid-run means going through the main agent instead of talking to it.",
+          "enforcement_owner": "The model. The lead spawns the perspectives, populates the shared task list and synthesizes the result; whether the three actually engage with each other is a property of the spawn prompt, not something the harness checks.",
+          "context_boundary": "Three independent sessions with their own context windows, each loading CLAUDE.md, MCP servers and skills but none of the lead's conversation history. Arguments cross as peer messages, and the lead's synthesis is what reaches you unless you open a teammate's transcript directly.",
+          "lifecycle": "The team exists from the first spawn until the session ends, when the team config directory is removed; teammates keep running through an interruption of the lead's turn. One team per session, no nesting, and the lead cannot be reassigned.",
+          "failure_mode": "Advisory. The lead can decide the exploration is finished before it is, an idle teammate's row hides from the panel after 30 seconds so your redirect target looks gone when it is only hidden, and three full sessions cost meaningfully more than one. For a design exploration with no file partition, the realistic failure is expensive agreement rather than genuine challenge.",
+          "version_caveat": "Experimental and off by default behind CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. Teammates do not inherit the lead's /model selection unless you set Default teammate model in /config, a teammate's model and fast mode are fixed at spawn, and in-process display (the default since v2.1.179) is what makes the drop-in work without tmux or iTerm2."
+        },
+        {
+          "sheet": 4,
+          "primary": "An agent team of three explorers (user experience, technical architecture, devil's advocate) launched as peers with inter-agent messaging so each can react to arguments as the others form them, and individually addressable so I can attach to one mid-flight and redirect it.",
+          "rejected_alternative": "Three parallel subagents, rejected because isolated contexts can only be compared after all three finish, which produces three parallel monologues plus a post-hoc merge, not perspectives reacting to each other, and offers no way to steer one while it runs.",
+          "enforcement_owner": "The model owns the outcome. The harness only supplies the separate windows, the message routing and the ability to direct my input at one member; the quality of the exploration, and whether the devil's advocate actually bites, is entirely model behaviour.",
+          "context_boundary": "Each explorer reasons in its own window with its own accumulating argument. Arguments cross between them as messages, and my redirection crosses into one of them; my conversation sees the synthesis unless I attach, and nothing is durable unless a design document is explicitly written to disk.",
+          "lifecycle": "Runs from team launch until a design direction is chosen and the team is stopped. Because it is pre-commitment exploration it stops applying the moment the design is settled, and it leaves no artifact behind by default.",
+          "failure_mode": "Advisory throughout. The characteristic failure is convergence theatre: with live messaging the two constructive explorers anchor on one design and the devil's advocate either capitulates or degenerates into generic objections, and the transcript reads as having stress-tested a design it merely rehearsed. Cost is three concurrent contexts plus a debate that has no natural stopping point.",
+          "version_caveat": "Agent teams and mid-flight addressing of a single member are recent and, to my knowledge, opt-in or experimental; I cannot state the version, setting or plan tier that enables them. If the installed build lacks live addressing, the fallback is sequential rounds of subagents with a human-relayed critique, which loses the reacting-as-they-form property."
+        }
+      ]
+    },
+    {
+      "id": "S013",
+      "focus": "knowledge",
+      "scenario": "There is a scripted workflow that drops and reseeds the shared staging database. The team wants the steps encoded once and runnable on demand with a single short command, but the assistant must never decide on its own that a reseed is warranted, no matter how relevant the conversation looks.",
+      "key": {
+        "primary": "A skill with disable-model-invocation: true in its frontmatter, run only when the user types /reseed-staging",
+        "rejected_alternative": "A normal skill whose description says 'only run when the user explicitly asks'",
+        "rejection_reason": "By default Claude can invoke any skill whose description matches, and a warning inside the description is only advisory text. disable-model-invocation: true removes the skill from Claude's listing and blocks Skill-tool invocation entirely; the docs recommend it precisely for side-effect workflows like /deploy where the user must control timing.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context",
+        "lifecycle": "Loads only when the user types the slash command; the description is not placed in Claude's context otherwise",
+        "failure_mode": "The flag gates skill invocation, not the underlying commands: if the model reconstructs the same destructive steps outside the skill, nothing blocks them (that requires a PreToolUse hook or permission deny rules)",
+        "version_caveat": "none for the core flag; from v2.1.196 it also blocks the skill from running when a scheduled task fires with it as the prompt"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A custom slash command, a markdown file at .claude/commands/reseed-staging.md holding the encoded steps, invoked only when a human types /reseed-staging.",
+          "rejected_alternative": "A skill, rejected precisely because skills are model-invoked: Claude could judge the conversation relevant and pull the reseed procedure in unprompted, which is the one thing the team forbids.",
+          "enforcement_owner": "The harness owns the invocation gate, since a command only expands when the user types it and the model has no way to trigger it. The model owns execution once the steps are in context.",
+          "context_boundary": "The command file's contents are expanded into the current session's context as a user turn at invoke time; nothing is resident before that, and the work then runs with the main session's tools and permissions.",
+          "lifecycle": "Runs only on explicit user invocation and ends when the procedure completes; it has no presence or effect on any other turn of any session.",
+          "failure_mode": "Fails closed for auto-invocation, but it is not a guard on the underlying action: nothing prevents the model from running the same drop-and-reseed commands through Bash without the command. If the real requirement is that a reseed can never happen unbidden, pair the command with a PreToolUse deny hook or a permissions deny rule on the destructive command itself.",
+          "version_caveat": "Custom slash commands from .claude/commands are stable and long-standing with no plan gate. Namespacing by subdirectory and the argument placeholder syntax have evolved across versions, and I am not certain which argument forms the installed version supports."
+        },
+        {
+          "sheet": 2,
+          "primary": "A skill carrying disable-model-invocation: true in its frontmatter, for example .claude/skills/reseed-staging/SKILL.md, which encodes the drop-and-reseed steps once and is reachable only by typing /reseed-staging.",
+          "rejected_alternative": "A plain model-invocable skill. It encodes the steps identically, but Claude could decide the conversation warrants a reseed and load it on its own, which is the single behaviour the team ruled out.",
+          "enforcement_owner": "The harness for the invocation gate: the flag removes the skill from what is listed to Claude, so the model cannot select it. The model still owns carrying out the steps once a human invokes it.",
+          "context_boundary": "The main conversation, inline. The description is not placed in Claude's context at all, and the body enters context only on the turn the user invokes it.",
+          "lifecycle": "Only a user typing the slash command starts it. There is no automatic trigger and no relevance matching; the loaded body then persists for the session, while any allowed-tools grant clears with the next user message.",
+          "failure_mode": "Fails closed against auto-invocation, but it is not a guard on the destructive action itself. The flag governs skill invocation only, so Claude can still issue the equivalent drop and seed commands directly through Bash unless permission deny rules block them.",
+          "version_caveat": "The flag is long-standing and carries no plan restriction. Two dated details: as of v2.1.196 it also prevents a scheduled task from firing the skill as its prompt, and before v2.1.218 the frontmatter accepted only true and false, so spellings such as yes or on require v2.1.218 or later."
+        },
+        {
+          "sheet": 3,
+          "primary": "A user-invocable skill at .claude/skills/reseed-staging/SKILL.md with `disable-model-invocation: true`, encoding the drop-and-reseed steps once and run as `/reseed-staging`, with `allowed-tools` scoped narrowly to the specific reseed script rather than to Bash generally.",
+          "rejected_alternative": "An MCP server tool wrapping the reseed script. Any tool exposed to the model is a tool the model can decide to call on its own, so you would immediately need a separate permission rule to hold the same line the frontmatter flag holds for free.",
+          "enforcement_owner": "Split, and the split is the point. The harness owns the invocation gate: with `disable-model-invocation: true` the skill's description is kept out of Claude's context and the Skill tool cannot reach it, so the assistant cannot elect to reseed. The model still owns faithful execution of the steps once you trigger it.",
+          "context_boundary": "Nothing about this skill occupies the main context until you type the command. On invocation the rendered body enters the main conversation and stays for the session; it is also excluded from being preloaded into subagents.",
+          "lifecycle": "Only your explicit `/reseed-staging` starts it. The flag also prevents it from running when a scheduled task fires with the skill as its prompt. It stops applying if someone removes the flag, or if `skillOverrides` or permission rules change its visibility.",
+          "failure_mode": "Fails closed on triggering, which is the desired direction: the worst case is that Claude will not offer or start a reseed even when one is genuinely wanted, and a human has to type the command. The destructive steps themselves remain advisory once invoked, so back them with an `ask` or `deny` permission rule on the actual drop command if an accidental invocation would be costly.",
+          "version_caveat": "The frontmatter flag blocking scheduled-task firing requires Claude Code v2.1.196 or later. Frontmatter booleans other than `true`/`false` (yes/no/on/off/1/0) are only accepted from v2.1.218. As an alternative that needs no file edit, `skillOverrides` can set the skill to `user-invocable-only` from .claude/settings.local.json."
+        },
+        {
+          "sheet": 4,
+          "primary": "A skill with disable-model-invocation: true in its frontmatter, at .claude/skills/reseed-staging/SKILL.md, invoked only as /reseed-staging. The flag is the load-bearing part: it removes the skill from Claude's context entirely, so the model has nothing to invoke.",
+          "rejected_alternative": "The same skill left in its default invocation mode, discovered by description match. It would encode the steps just as well, but Claude could load and act on it whenever the conversation looked relevant, which is the one outcome this scenario forbids.",
+          "enforcement_owner": "Split, and the half that matters is the harness: Claude Code never puts this skill's description in the model's context, so self-invocation is structurally impossible rather than merely discouraged. Executing the steps after a human types the command is the model's job.",
+          "context_boundary": "The main session context window, inline, and only on demand. Nothing about the skill crosses the boundary until you invoke it; the description is withheld, and the rendered SKILL.md enters as one message at invocation.",
+          "lifecycle": "Fires only when a person types /reseed-staging. No conversational trigger reaches it, and from v2.1.196 a scheduled task naming the skill will not fire it either. Once loaded it stays in context for the rest of that session.",
+          "failure_mode": "Fails closed on the thing that matters: no self-invocation, no reseed the team did not ask for. The realistic defect is reaching for user-invocable: false instead, which only hides the entry from the / menu and leaves the Skill tool able to call it, so the guarantee is silently lost.",
+          "version_caveat": "disable-model-invocation is stable and needs no flag, but two extensions of it are gated: it only blocks a scheduled task firing the skill as its prompt from v2.1.196, and boolean spellings other than true/false (yes, no, on, off, 1, 0) require v2.1.218."
+        }
+      ]
+    },
+    {
+      "id": "S014",
+      "focus": "knowledge",
+      "scenario": "The API package has strict conventions (every endpoint validates input, uses the standard error envelope, carries OpenAPI comments) that only matter when someone touches src/api/. The root instructions file is already near its useful size limit and adherence is slipping.",
+      "key": {
+        "primary": "A path-scoped rules file: .claude/rules/api.md with paths frontmatter such as [\"src/api/**/*.ts\"]",
+        "rejected_alternative": "A nested CLAUDE.md inside src/api/ that loads on demand when Claude reads files in that subtree",
+        "rejection_reason": "A nested CLAUDE.md scopes by directory only: it fires for any file read under src/api/ and cannot target just the TypeScript sources the way the rule's paths globs such as src/api/**/*.ts can. It is also weaker after compaction: nested CLAUDE.md files are not re-injected automatically after /compact, reloading only on the next read in that subdirectory.",
+        "enforcement_owner": "model",
+        "context_boundary": "main context",
+        "lifecycle": "Rule content is injected when Claude reads files matching the paths globs, not at launch and not on every tool use; rules without a paths field load at launch instead",
+        "failure_mode": "The rule never fires when Claude creates a brand-new API file without first reading an existing matching file, so fresh endpoints can miss the conventions entirely",
+        "version_caveat": "none for the core feature; edge cases have version floors (an invalid bracket pattern matches nothing instead of breaking Read only from v2.1.207; large brace expansions are budget-bounded from v2.1.217)"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A path-scoped rule: .claude/rules/api-conventions.md with paths frontmatter such as \"src/api/**/*.ts\", holding the input-validation, standard-error-envelope and OpenAPI-comment conventions. The section leaves the root CLAUDE.md entirely, which also relieves the size pressure that is eroding adherence.",
+          "rejected_alternative": "Appending the conventions to the root CLAUDE.md. It would load them everywhere, including the sessions that never touch src/api/, and growing an already oversized always-on file is the direct cause of the slipping adherence being complained about.",
+          "enforcement_owner": "The model. A rule is instruction text in the same family as CLAUDE.md: it shapes behavior, and unlike a settings rule it is not a hard enforcement layer.",
+          "context_boundary": "The main session context window, conditionally. The rule text crosses the boundary the first time Claude reads a file matching the glob, and nothing at all enters context in sessions that never open src/api/.",
+          "lifecycle": "Loads on demand when Claude reads a matching file, then stays for the rest of the session; a rule with no paths field would instead load at launch alongside .claude/CLAUDE.md. It stops applying if the file is removed or project is excluded from --setting-sources.",
+          "failure_mode": "Advisory and fails open, twice over. Matching is keyed to Claude reading a matching file, not to every tool use, so work that writes a new endpoint without first reading one under src/api/ can proceed with the rule never loaded; and a malformed glob matches nothing at all with no error.",
+          "version_caveat": "Path-scoped rules need no enabling flag, but the behavior around them is versioned: symlinked-checkout matching requires v2.1.198, before v2.1.207 one invalid bracket pattern made the Read tool fail for every file the rule was evaluated against, and before v2.1.217 a paths value with many brace groups could stall or crash the CLI at startup."
+        },
+        {
+          "sheet": 2,
+          "primary": "A path-scoped rule at .claude/rules/api.md whose frontmatter sets paths to a glob such as \"src/api/**/*.ts\", carrying the input-validation, standard-error-envelope and OpenAPI-comment conventions. The root instructions file stops growing and the conventions load only where they apply.",
+          "rejected_alternative": "A nested CLAUDE.md at src/api/CLAUDE.md. It also scopes by directory, but it cannot be narrowed by extension or glob, and it is not re-injected after compaction, so the conventions silently vanish mid-session.",
+          "enforcement_owner": "The model. A rule is memory-style context like CLAUDE.md, so nothing verifies that an endpoint actually validates input or carries OpenAPI comments; only a hook or a lint gate would.",
+          "context_boundary": "The main session context, but only from the moment Claude reads a matching file onward. Moving the conventions out of the root file is what buys back adherence, because the rule text is absent from sessions that never touch src/api/.",
+          "lifecycle": "Loads when Claude reads a file matching the paths patterns, not on every tool use, and then stays for the rest of the session. It stops applying when no matching file is touched, when project is excluded from --setting-sources, or when the rule file is removed.",
+          "failure_mode": "Advisory and fails open, silently. If Claude edits under src/api/ without first reading a matching file, or the glob is written badly, the rule never enters context and nothing warns anyone; an invalid bracket pattern simply matches nothing while the rule's other patterns keep working.",
+          "version_caveat": "Requires a build that supports .claude/rules/ with paths frontmatter. Symlinked-checkout matching arrived in v2.1.198; before v2.1.211 on-demand rules loaded even when project was excluded from --setting-sources; and before v2.1.217 a paths value with many brace groups could stall or crash the CLI at startup."
+        },
+        {
+          "sheet": 3,
+          "primary": "A nested CLAUDE.md at src/api/CLAUDE.md holding only the API conventions (input validation, standard error envelope, OpenAPI comments), so the rules travel with the directory they govern and the root file stays at its current size.",
+          "rejected_alternative": "Appending the conventions to the root CLAUDE.md, rejected because that file is already at its useful size limit and further growth is the direct cause of the adherence slipping.",
+          "enforcement_owner": "The model, advisory. If the requirement is hard, that an endpoint must never merge without the error envelope, the enforcement belongs in a PostToolUse hook or in CI, not in a memory file.",
+          "context_boundary": "The main session context, but loaded lazily: the subtree file enters context when the session works with files under src/api/, so sessions elsewhere in the monorepo never pay for those tokens.",
+          "lifecycle": "Comes into scope when Claude touches a file in that subtree and then remains in context for the rest of that session; it never applies to a session that stays outside src/api/.",
+          "failure_mode": "Fails open, and in one specific way worth naming: if Claude creates a new handler file without first reading anything in the directory, the subtree memory may not have been pulled in at all and the conventions are simply absent rather than ignored. Adherence also decays after compaction.",
+          "version_caveat": "Nested subdirectory CLAUDE.md support exists in Claude Code, but I am not certain from memory whether the installed version discovers it by directory scan at session start or on first file access in that subtree. That trigger detail decides whether the failure above is real, so it should be verified."
+        },
+        {
+          "sheet": 4,
+          "primary": "A path-scoped rule file at .claude/rules/api-conventions.md with `paths: [\"src/api/**/*.ts\"]` frontmatter, carrying the input-validation, standard-error-envelope and OpenAPI-comment requirements so they load only when Claude touches that package.",
+          "rejected_alternative": "Another section appended to the root CLAUDE.md. It is already at its useful size limit, and more always-resident text is precisely what is eroding adherence for everything else in the file.",
+          "enforcement_owner": "The model. Rules are the same class of thing as CLAUDE.md, context injected into the conversation, not configuration the client enforces.",
+          "context_boundary": "Main conversation only, and it loads lazily: the rule enters context the first time Claude reads a file matching the glob, not on every tool call, so sessions that never open src/api pay nothing for it.",
+          "lifecycle": "Triggers on the first matching file read and then stays available for the rest of the session. It stops applying if `project` is excluded from `--setting-sources`, if the file is caught by `claudeMdExcludes`, or if the glob stops matching after a directory move.",
+          "failure_mode": "Advisory and fails open, with a specific gap: if Claude creates a brand-new endpoint file without first reading an existing file under src/api, the rule may never load at all. A malformed glob, for example an unescaped `[`, matches nothing silently while the rule's other patterns keep working.",
+          "version_caveat": "Path matching through a symlinked checkout requires v2.1.198 or later. Brace expansion in `paths` shares a 1,000-pattern / 4 MiB budget and oversized lists were a startup stall or crash before v2.1.217; an invalid bracket pattern broke the Read tool for every evaluated file before v2.1.207; and before v2.1.211 on-demand rules loaded even when `project` was excluded from setting sources."
+        }
+      ]
+    },
+    {
+      "id": "S016",
+      "focus": "knowledge",
+      "scenario": "Claude keeps rediscovering the same repo quirks across sessions: which test target is flaky, that the dev server needs a Redis container, corrections the team repeats in chat. Nobody wants to maintain a document by hand; the knowledge should accumulate as a side effect of working.",
+      "key": {
+        "primary": "Auto memory (on by default): Claude writes a MEMORY.md index plus topic files under ~/.claude/projects/<project>/memory/",
+        "rejected_alternative": "Diligently curating the project CLAUDE.md after every session",
+        "rejection_reason": "CLAUDE.md is written by humans and requires exactly the manual upkeep the team wants to avoid. Auto memory is the mechanism the docs define for Claude-written learnings from its own discoveries and your corrections, with the MEMORY.md index loaded automatically each session and detail moved to topic files read on demand.",
+        "enforcement_owner": "model",
+        "context_boundary": "main context (not loaded into subagents except conversation forks)",
+        "lifecycle": "Claude saves and recalls notes during sessions; the first 200 lines or 25KB of MEMORY.md load at every session start, topic files load on demand",
+        "failure_mode": "Memory is machine-local and per-repository, so it never reaches teammates, other machines, or cloud sessions, and index content past the 200-line/25KB limit is dropped from startup loading",
+        "version_caveat": "none for auto memory itself, which is on by default with no min-version in memory.md; the post-write MEMORY.md limit check that warns and errors on an oversized index requires v2.1.210 or later, and from v2.1.211 the check measures only the content that loads"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A hook-driven capture loop: a session-end hook that has a cheap subagent distill the session's durable findings into an append-only notes file under .claude/, plus a session-start hook that injects that file into each new session. The knowledge accrues as a byproduct of working and nobody edits a document by hand.",
+          "rejected_alternative": "The interactive memory-add shortcut into CLAUDE.md, rejected because it still requires a human to notice the lesson and type it, which is exactly the manual maintenance the team refuses to do.",
+          "enforcement_owner": "The harness owns that capture and re-injection happen at all, since hooks fire deterministically. The model owns whether what gets written is worth keeping.",
+          "context_boundary": "Distillation runs in a separate subagent context so the raw transcript never re-enters the main window; only the short distilled note crosses back to disk, and only that note is loaded into the next session's main context.",
+          "lifecycle": "Fires at the end of every session and again at the start of the next one. A captured fact keeps applying until someone prunes it, which is the part that needs a scheduled review.",
+          "failure_mode": "Unbounded growth and stale contradictions: a note saying a test target is flaky outlives the fix, and the file eventually costs more context than it saves. The capture step fails closed (the hook runs or it does not), but the resulting knowledge is advisory once injected.",
+          "version_caveat": "Session-start and session-end hook events exist in recent Claude Code, and session start supports adding context, but I am not certain of the exact event names, the JSON field used to inject context, or the minimum version. This design should be checked against the installed hooks reference before it is built."
+        },
+        {
+          "sheet": 2,
+          "primary": "Auto memory, the built-in per-repository memory directory at ~/.claude/projects/<project>/memory/ with a MEMORY.md index plus topic files. Claude writes the flaky test target, the Redis container requirement and repeated corrections itself while working, which is exactly the 'no hand-maintained document' requirement.",
+          "rejected_alternative": "A hand-curated project CLAUDE.md. It holds the same facts, but someone has to notice each quirk and write it down, which is the maintenance burden the team explicitly refuses.",
+          "enforcement_owner": "The model. Claude decides what is worth remembering and when to recall it; the harness only supplies the directory, loads the index, and enforces its size limits.",
+          "context_boundary": "The main session context: the first 200 lines or 25KB of MEMORY.md, whichever comes first, loads at every session start, and topic files are read on demand. The main conversation's auto memory is not loaded into subagents.",
+          "lifecycle": "On by default; Claude reads and writes memory files throughout each session, and the index reloads at the start of every later session in the same repository. It stops when autoMemoryEnabled is set to false or CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 is set.",
+          "failure_mode": "Advisory, non-deterministic and fails open twice over: Claude may never save a given quirk, and what it does save is machine-local, so a teammate's sessions never see it. Content past the index limit is silently dropped on the next load.",
+          "version_caveat": "Auto memory needs no enabling flag and no plan tier. Dated details: the modified frontmatter timestamp requires v2.1.214 or later, the over-limit rewrite error arrived in v2.1.210, and from v2.1.211 frontmatter and block-level HTML comments no longer count toward the index limits."
+        },
+        {
+          "sheet": 3,
+          "primary": "Auto memory, the notes Claude writes for itself. It is on by default, so the shape is to leave autoMemoryEnabled on and let the flaky test target, the Redis requirement for the dev server and the repeated corrections accumulate under ~/.claude/projects/<project>/memory/, with MEMORY.md as a one-line-per-entry index and detail pushed into topic files.",
+          "rejected_alternative": "A hand-maintained project CLAUDE.md. It holds the same facts and has the advantage of being shared through git, but it only stays current if a human writes and prunes it, which is the explicit non-requirement here.",
+          "enforcement_owner": "The model. Claude decides what is worth saving and when to read a topic file back; the harness only guarantees that the truncated MEMORY.md index is loaded at the start of each conversation.",
+          "context_boundary": "The main session context window, scoped per repository. Only the first 200 lines or 25KB of MEMORY.md cross the boundary at session start; topic files stay on disk until Claude reads them, and the main conversation's auto memory is not loaded into subagents, except a fork.",
+          "lifecycle": "Runs continuously as a side effect of working: Claude writes notes mid-session and the index reloads at the start of each new one. It stops when autoMemoryEnabled is set to false in user or project settings, or CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 is set.",
+          "failure_mode": "Fails open and quietly, in two ways. It is machine-local, so nothing accumulated on one developer's box reaches a teammate and two machines can hold divergent notions of which target is flaky; and anything past the 200-line or 25KB index limit is simply dropped on the next load unless Claude moves it into topic files.",
+          "version_caveat": "Auto memory needs no enabling flag on current builds since it is on by default, but the surrounding behavior is versioned: the modified frontmatter timestamp requires v2.1.214 or later, the over-limit index error arrived at v2.1.210, and from v2.1.211 frontmatter and HTML comments are stripped before the index is measured."
+        },
+        {
+          "sheet": 4,
+          "primary": "Auto memory, left enabled so Claude writes its own notes to ~/.claude/projects/<project>/memory/, keeping a concise MEMORY.md index and pushing detail into topic files like flaky-tests.md and dev-environment.md; audit and prune it with `/memory`.",
+          "rejected_alternative": "A CLAUDE.md that the team maintains by hand. It would hold exactly the same facts, but it requires a human to write, update and prune it, which is the explicit thing nobody wants to do.",
+          "enforcement_owner": "The model. Claude decides what is worth remembering, when to write it, and when to read a topic file back; the harness only supplies the directory and the load limits.",
+          "context_boundary": "Main conversation only. The first 200 lines or 25 KB of MEMORY.md, whichever comes first, is loaded at every session start; topic files are read on demand with normal file tools. The main conversation's auto memory is not passed to subagents, except a fork; a subagent needs its own `memory` field for a separate directory.",
+          "lifecycle": "Writes happen mid-session whenever Claude judges something reusable, prompted by your corrections. It loads at the start of every session for that git repository and is shared across all its worktrees and subdirectories. It stops if `autoMemoryEnabled` is set to false or CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 is set.",
+          "failure_mode": "Advisory and fails open, and it is machine-local: the accumulated knowledge never reaches teammates, CI, or cloud sessions. It can also record a fact that was true once and keep asserting it, and anything past the 200-line / 25 KB index limit is silently dropped at load unless MEMORY.md is kept trimmed.",
+          "version_caveat": "The near-limit reminder and over-limit rewrite error require v2.1.210; excluding frontmatter and HTML comments from that measurement requires v2.1.211; and the `modified` ISO 8601 timestamp on memory files requires v2.1.214. An `autoMemoryDirectory` set in a project's settings is honored only after you accept that folder's workspace trust dialog."
+        }
+      ]
+    },
+    {
+      "id": "S021",
+      "focus": "delegation",
+      "scenario": "Engineers keep pasting stack traces and issue details from our SaaS error-tracking service into the conversation by hand. We want Claude to query that service's live data directly, with each engineer signing in through the vendor's browser-based login instead of sharing a long-lived API key.",
+      "key": {
+        "primary": "Remote HTTP MCP server (claude mcp add --transport http) with OAuth 2.0 sign-in completed via /mcp or claude mcp login",
+        "rejected_alternative": "A helper shell script or bundled executable that calls the vendor's REST API with a stored personal API key through the Bash tool",
+        "rejection_reason": "The docs designate MCP as the integration path for external tools and data sources, with built-in OAuth 2.0: Claude Code runs the browser flow, stores tokens securely, refreshes them automatically, retries once after a refresh, and flags the server in /mcp when re-authentication is needed. A curl wrapper requires plaintext credential handling and provides none of that, and it exposes no typed tools, resources, or prompts.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context",
+        "lifecycle": "server connects at session start; the model invokes its tools on demand (discovered via tool search by default); OAuth flow runs when the user authenticates via /mcp or claude mcp login",
+        "failure_mode": "large tool outputs eat context (25,000-token default cap, warning at 10,000), and in non-interactive runs an unauthenticated server's tools stay unavailable until someone completes the OAuth flow in an interactive session",
+        "version_caveat": "none for the HTTP transport and OAuth sign-in via /mcp; authenticating from the shell with claude mcp login requires v2.1.186 or later, and the startup notice flagging servers that need authentication requires v2.1.193 or later"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "MCP server: add the vendor's remote error-tracking server over HTTP transport (claude mcp add --transport http <name> <url>) and have each engineer authenticate through the browser OAuth flow from /mcp or claude mcp login. Configure it at user scope so every engineer holds their own token and the live issue and stack-trace data arrives as MCP tool results instead of pasted text.",
+          "rejected_alternative": "A skill that wraps the vendor's REST API through Bash and curl. It loses on the credential axis: it needs one long-lived API key shared across the team, sitting in env or committed config, with no per-engineer identity and no governed auth boundary.",
+          "enforcement_owner": "The harness. Claude Code owns the OAuth flow, the callback, and secure token storage and refresh, and the vendor's server owns what that token may read; the model only calls the tools it is offered.",
+          "context_boundary": "The server connects out of process; tool names load into the main session (schemas deferred through tool search) and only the JSON tool result crosses back into whichever window made the call, main session or subagent. Output warns at 10,000 tokens and is capped at 25,000 by default, so a large trace should be paged rather than dumped.",
+          "lifecycle": "Claude Code attempts the connection at session start; the first use raises the browser sign-in, after which the stored token is refreshed automatically. It stops applying when the engineer runs Clear authentication in /mcp, runs claude mcp logout, or removes the server entry.",
+          "failure_mode": "Fails open. If the server is unreachable or the engineer has never signed in, the tools are simply absent and the session continues; with tool search enabled Claude is told which server failed, but an absent tool is otherwise indistinguishable from a tool that declined, so this is never a policy gate.",
+          "version_caveat": "OAuth applies to HTTP and SSE transports only and has no effect on stdio servers. Signing in from the shell with claude mcp login requires v2.1.186 or later, the no-browser URL-paste path requires v2.1.191, and the startup notice naming servers that need authentication requires v2.1.193."
+        },
+        {
+          "sheet": 2,
+          "primary": "A remote HTTP MCP server for the error-tracking vendor, added with `claude mcp add --transport http <name> <url>` and authenticated per engineer through the server's own OAuth 2.0 flow (`/mcp` inside a session, or `claude mcp login <name>` from the shell). Check the entry into a project-scoped `.mcp.json` so everyone shares the endpoint while each person's token is minted and stored individually. Claude then reads stack traces and issues as tools instead of engineers pasting them, which is the exact case the docs give for connecting a server.",
+          "rejected_alternative": "An HTTP server configured with a static `Authorization: Bearer` header holding a long-lived API key, the shape the docs use for GitHub. Rejected because it is one shared non-expiring credential, and because a rejected static header makes Claude Code report the connection as failed rather than falling back to OAuth.",
+          "enforcement_owner": "The harness. Claude Code performs OAuth discovery, opens the browser flow, stores the token in the system keychain or credentials file, refreshes it, and retries once on a 401. The model's only role is choosing which tool to call.",
+          "context_boundary": "The main session. With tool search on by default only tool names and server instructions load at session start, and schemas are pulled in on demand; the stack traces themselves land in the main conversation as tool results, warned at 10,000 tokens and capped at 25,000 unless `MAX_MCP_OUTPUT_TOKENS` is raised. The credential never crosses into context, but vendor-supplied text does, so treat it as untrusted input.",
+          "lifecycle": "The server connects at session start wherever its scope applies and reconnects with exponential backoff if it drops mid-session. The OAuth token refreshes silently until the refresh token itself is rejected, at which point `/mcp` offers Re-authenticate. It stops applying when toggled off in `/mcp`, cleared with `claude mcp logout`, or removed with `claude mcp remove`.",
+          "failure_mode": "Fails closed: an unauthenticated server simply has no tools and shows `Needs authentication`, so Claude cannot silently proceed on stale pasted data. The practical break is non-interactive use, since `claude -p` and Agent SDK runs have no `/mcp` panel and cannot run the browser flow, so every engineer must sign in from an interactive session first.",
+          "version_caveat": "`claude mcp login` requires v2.1.186 or later, and its no-browser URL fallback v2.1.191; the startup notice naming servers that need sign-in requires v2.1.193; telling Claude in `-p` or SDK runs that a server's tools are unavailable until authorized requires v2.1.196 plus tool search. Use `--transport http`, since the SSE transport is deprecated."
+        },
+        {
+          "sheet": 3,
+          "primary": "A remote MCP server connection to the vendor's hosted endpoint over the HTTP (streamable) transport, using the MCP OAuth authorization-code flow so each engineer signs in through their own browser and the client stores a per-user token. Registered once (for example via a committed project-scoped config or a plugin-bundled MCP entry) so every engineer gets the same server definition but their own credential.",
+          "rejected_alternative": "A local stdio MCP server (or a Bash-invoked vendor CLI wrapped in a skill) reading a shared long-lived API key from an environment variable, which is exactly the shared-secret model the team wants to avoid.",
+          "enforcement_owner": "The harness. The MCP client owns transport, the OAuth handshake, token storage and refresh, and it decides which tools are exposed; the model only sees tool schemas and results and cannot bypass or forge the credential.",
+          "context_boundary": "The server runs as a remote process outside the session. Tool definitions and tool results cross into the main session context window; the browser sign-in and the resulting token never appear in the transcript, so pasted stack traces are replaced by scoped tool responses.",
+          "lifecycle": "The server is loaded at session start once its config is present and trusted; the first tool use (or an explicit /mcp authenticate step) triggers the browser login, after which the connection lives for the session and the token persists across sessions until it expires or is revoked. It stops applying when the server entry is removed or the plugin/project config is disabled.",
+          "failure_mode": "Fails closed on authentication: an unauthenticated or expired token turns every call into a tool error, and the model may fall back to guessing or to asking for a pasted trace. The practical risk is context flooding, since raw error-tracker payloads are large and a single unfiltered query can consume much of the window.",
+          "version_caveat": "Remote MCP over HTTP with OAuth is a comparatively recent capability and the older SSE transport has been superseded by streamable HTTP; I cannot state the exact minimum Claude Code version or the precise config key names from model knowledge alone. Hosted third-party connectors can also be plan- or admin-gated in managed deployments."
+        },
+        {
+          "sheet": 4,
+          "primary": "An MCP server, specifically a remote `http`-transport server pointed at the vendor's hosted MCP endpoint and added once with `claude mcp add --transport http <name> <url>`. Each engineer authenticates through Claude Code's built-in OAuth 2.0 browser flow via `/mcp` or `claude mcp login`, so every person holds their own token and no shared long-lived key exists.",
+          "rejected_alternative": "A local stdio MCP server (or a Bash-wrapped vendor CLI) carrying a static API key in `headers.Authorization` or an environment variable. It reaches the same data, but it reintroduces exactly the long-lived shared credential the team wants to eliminate and gives no per-engineer identity in the vendor's audit log.",
+          "enforcement_owner": "The harness. Claude Code detects that the server needs authentication, drives the browser flow, stores the token and refreshes it automatically; the model never sees or handles the credential.",
+          "context_boundary": "The main session context window. The server's tool schemas load there (through tool search by default) and tool results, the stack traces and issue records, cross back in. The OAuth token stays entirely on the harness side and never enters the transcript.",
+          "lifecycle": "Connection is attempted at session start; the browser sign-in is a one-time per-engineer step whose token is then reused and refreshed silently, including a reconnect-and-retry on a 401. It stops applying when the server is removed or toggled off, or when the engineer clears authentication in `/mcp`.",
+          "failure_mode": "Fails closed at the boundary: without a completed sign-in the server's tools are unavailable rather than returning stale or partial data. The sharp edge is headless use, where the browser flow cannot be presented, so sign-in must be completed beforehand from an interactive session.",
+          "version_caveat": "OAuth works on the HTTP transport, not on `ws`. `claude mcp login <name>` requires v2.1.186 or later, the startup notice naming servers that need sign-in requires v2.1.193, and before v2.1.206 a transient refresh failure flagged the server as needing authentication for the rest of the session."
+        }
+      ]
+    },
+    {
+      "id": "S036",
+      "focus": "orchestration",
+      "scenario": "When we delegate endpoint implementation to a specialized worker, it keeps ignoring our API-conventions guide even though the main session has that guidance loaded. Every run of the worker must start with the full conventions text already in front of it, guaranteed, not merely discoverable.",
+      "key": {
+        "primary": "The subagent's 'skills' frontmatter field, which injects the full content of the listed skills into the subagent's context at startup.",
+        "rejected_alternative": "Listing 'Skill' in the subagent's tools field so the worker can load the conventions skill itself.",
+        "rejection_reason": "The docs call this out directly: to preload skills, use the skills field rather than listing Skill in tools. Listing the Skill tool only lets the subagent invoke skills on demand, leaving discovery to its judgment, which is exactly the failure observed; a fresh subagent context also never sees skills the main conversation already invoked.",
+        "enforcement_owner": "harness",
+        "context_boundary": "isolated context",
+        "lifecycle": "injection happens at subagent startup, before the delegated task begins",
+        "failure_mode": "Preloaded content costs tokens on every spawn even when irrelevant to the specific task; a listed skill that is missing, disabled, or marked disable-model-invocation: true is skipped with only a debug-log warning.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "Add a skills: field to the endpoint worker's subagent frontmatter listing the api-conventions skill, so its full text is injected into the agent's context at startup instead of being left to discovery through the Skill tool.",
+          "rejected_alternative": "Leaving the conventions to CLAUDE.md plus the main session's already-loaded guidance. A non-fork subagent does not see the conversation or the skills already invoked in it, so the guidance the main session holds simply is not there when the worker starts.",
+          "enforcement_owner": "The harness. Injection happens when the subagent is constructed, before its first turn, so presence of the text does not depend on any model decision. Compliance with the text, of course, remains model-owned.",
+          "context_boundary": "The conventions text is copied into the subagent's own window at startup, alongside its system prompt, the delegation message, the CLAUDE.md hierarchy and the git-status snapshot. Nothing of the main conversation's own skill state crosses the boundary.",
+          "lifecycle": "Applies at every spawn of that agent and lasts for that invocation only; the agent returns and the instance is gone. The next invocation is a fresh instance and re-injects the skill, so the guarantee repeats per run rather than persisting.",
+          "failure_mode": "Fails open silently on the packaging side: a skill that is missing, renamed or disabled is skipped with only a debug-log warning, so the worker launches looking fine and ignoring conventions exactly as before. Preloading guarantees presence, never adherence.",
+          "version_caveat": "You cannot preload a skill that sets disable-model-invocation: true, since preloading draws from the same set Claude can invoke; as of v2.1.215 that also excludes the bundled /verify and /code-review skills. Plugin-supplied subagents additionally ignore hooks, mcpServers and permissionMode."
+        },
+        {
+          "sheet": 2,
+          "primary": "The worker's subagent definition should list the guide in its skills frontmatter field, for example skills: [api-conventions]. That injects the full skill content into the subagent's context at startup rather than leaving it to be discovered, which is the documented difference between preloaded and discoverable.",
+          "rejected_alternative": "Naming the conventions in the subagent's system prompt body and telling it to invoke the skill through the Skill tool, rejected because that keeps the guidance merely discoverable: the model decides whether to load it, which is exactly the behavior that is failing today.",
+          "enforcement_owner": "Split by layer: the harness guarantees the text is present at startup, the model owns compliance with it. Preloading removes the discovery failure but cannot make the worker obey the conventions.",
+          "context_boundary": "The subagent runs in its own fresh context window; the skill's full content, the CLAUDE.md hierarchy and git status load at startup, but the main conversation's history and the skills you invoked there do not cross the boundary. Only the worker's result comes back.",
+          "lifecycle": "Injected at spawn, every time this subagent type is spawned, and present for the whole of that instance's run; it does not persist to the next invocation except that resuming the same agent keeps its existing context.",
+          "failure_mode": "Fails open on the outcome and, worse, quietly: if the named skill is missing, disabled, or sets disable-model-invocation: true, Claude Code skips it and only logs a warning to the debug log, so the worker launches without the conventions and looks the same from outside. Large preloaded guides also consume the worker's context budget on every run.",
+          "version_caveat": "Bundled skills such as /verify and /code-review cannot be preloaded as of v2.1.215, and no skill with disable-model-invocation: true can be. If the same definition is reused as an agent team teammate, the skills and mcpServers fields are not applied on that path, so the guarantee does not carry over to teammates."
+        },
+        {
+          "sheet": 3,
+          "primary": "The endpoint worker's subagent definition should list the conventions skill in its `skills` frontmatter field, which injects the full skill content into the subagent's context at startup rather than leaving it to be found.",
+          "rejected_alternative": "Leaving the conventions as an ordinary skill the worker can invoke through the Skill tool during its run. That is exactly the current failure: the guidance is discoverable, so whether it loads depends on the model choosing to load it, which is the behaviour being complained about.",
+          "enforcement_owner": "The harness. Claude Code injects the full text of each listed skill into the subagent's startup context, so its presence is not a model decision. Whether the worker then obeys the conventions is still the model's job; preloading guarantees availability, not compliance.",
+          "context_boundary": "The worker runs in its own context window. Crossing in at spawn: the agent's markdown body as system prompt, the delegation message, the CLAUDE.md hierarchy, and the complete preloaded skill text (not just its description). Crossing out: only the worker's final report.",
+          "lifecycle": "Applies at the start of every spawn of that subagent type and stays in its context for the whole run. It ends with the subagent; nothing carries into the next invocation, and there is no mid-run re-trigger to worry about.",
+          "failure_mode": "Fails open, and quietly. If the named skill is missing, renamed or disabled, Claude Code skips it and writes a warning only to the debug log, so the worker runs with no conventions in front of it and your session shows no sign that the guarantee lapsed. Preloading also spends the full skill's tokens on every spawn.",
+          "version_caveat": "A skill that sets `disable-model-invocation: true` cannot be preloaded at all, because preloading draws from the same pool Claude can invoke; as of v2.1.215 that exclusion also covers the bundled `/verify` and `/code-review` skills. So the conventions skill must stay model-invocable to be preloadable."
+        },
+        {
+          "sheet": 4,
+          "primary": "Embed the full API-conventions text verbatim in the subagent's own definition file, so it forms part of that agent's system prompt on every spawn. Presence then costs nothing to the model's discretion: the conventions are already in the window before the first token of the task.",
+          "rejected_alternative": "A skill containing the conventions that the worker is told to invoke, rejected because skill loading is progressive and model-discretionary; that makes the guidance discoverable rather than guaranteed, which is exactly the failure already being observed.",
+          "enforcement_owner": "Split, and the split is the whole point: the harness guarantees the text is present, the model still owns compliance with it. Guaranteed presence is not guaranteed obedience.",
+          "context_boundary": "The conventions live in the subagent's context from spawn. The parent's loaded copy does not cross the boundary; only the task prompt goes in and the implementation report comes out.",
+          "lifecycle": "Applies on every invocation of that agent, for the whole run, and stops when the run ends. A change to the conventions requires editing the agent definition and reloading it, typically at the next session or agent load.",
+          "failure_mode": "Advisory at the compliance layer: the worker can read the conventions and still deviate, and nothing checks the output against them, so a verification hook or reviewer is still needed if conformance must be guaranteed. The duplicated text also drifts from the canonical guide, and if it is long it both taxes every invocation and risks being diluted in the middle of the prompt.",
+          "version_caveat": "No plan or flag gate applies. The relevant caveat is that whether a subagent automatically inherits project-level memory such as CLAUDE.md has varied across releases and I cannot state the current behaviour with confidence, which is precisely why inheritance should not be relied on and the text should be inlined."
+        }
+      ]
+    },
+    {
+      "id": "S038",
+      "focus": "orchestration",
+      "scenario": "We ship a long-running autonomous cleanup routine that users launch by name. While it is running, it must be impossible for it to interrupt the user with clarifying questions, and that capability should come back automatically once the user sends their next message.",
+      "key": {
+        "primary": "Skill frontmatter 'disallowed-tools: AskUserQuestion': the tool is removed from Claude's available pool while the skill is active, and the restriction clears on the next user message.",
+        "rejected_alternative": "Skill frontmatter 'allowed-tools' listing every tool the routine should use, expecting unlisted tools to be unavailable.",
+        "rejection_reason": "allowed-tools is a permission pre-approval, not a restriction: the docs state it does not restrict which tools are available and every tool remains callable. Only disallowed-tools removes tools from the pool, and the docs name exactly this use case: autonomous skills that should never call AskUserQuestion.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context",
+        "lifecycle": "restriction applies from the turn that invokes the skill and clears when the user sends their next message; re-invocation re-applies it",
+        "failure_mode": "The restriction is turn-scoped, so a workflow spanning multiple user messages silently regains the tool unless the skill is re-invoked; the field also cannot remove EndConversation while any other tool remains.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A skill that users invoke by name, carrying disallowed-tools: AskUserQuestion in its frontmatter (with disable-model-invocation: true so only a person can start it). That field removes the tool from Claude's available pool while the skill is active, and the doc names exactly this case, an autonomous background loop that should never ask.",
+          "rejected_alternative": "A permissions.deny rule for AskUserQuestion in settings.json, rejected because it is session-wide and permanent: it would silence every other turn in the session too, and it does not restore itself when the user speaks again.",
+          "enforcement_owner": "The harness. Claude Code removes the tool from the pool for the duration, so the routine cannot call it even if the model decides it needs clarification.",
+          "context_boundary": "Everything runs in the invoking conversation's own context window; the skill's rendered content enters as a message and stays there for the rest of the session. Nothing is delegated, so no boundary is crossed and there is no summary to return.",
+          "lifecycle": "The restriction begins when the skill is invoked and clears automatically when the user sends their next message, which is precisely the requested restore behavior. Note the asymmetry: the instructions persist in context after the enforcement lapses, since Claude Code does not re-read the skill file on later turns.",
+          "failure_mode": "Fails closed for the tool but is advisory for the intent: with AskUserQuestion gone the model can still stall by asking in plain prose and waiting, which interrupts the user just as effectively without tripping any guard. The field also cannot remove EndConversation while other tools remain.",
+          "version_caveat": "No plan or experimental gate applies to disallowed-tools, but two adjacent details matter: disable-model-invocation: true also blocks the skill from being preloaded into subagents and, as of v2.1.196, from running when a scheduled task fires with it as the prompt. If the routine instead ran with context: fork, the point would be moot, since AskUserQuestion is stripped from every subagent regardless."
+        },
+        {
+          "sheet": 2,
+          "primary": "A skill that users launch by name, whose frontmatter sets `disallowed-tools: AskUserQuestion` (paired with `disable-model-invocation: true` so it is only ever launched deliberately). The tool is removed from Claude's pool while the skill is active, which is precisely the documented use for autonomous background loops.",
+          "rejected_alternative": "A PreToolUse hook denying the AskUserQuestion tool. It loses because a hook has no natural notion of the routine being in progress: it would need its own state file to know when to deny, and nothing would restore the capability on the user's next message, so the auto-restore half of the requirement would have to be hand-built.",
+          "enforcement_owner": "The harness. `disallowed-tools` removes the tool from the pool Claude Code hands the model, so the model cannot call it at all; this is not a refusal the model has to remember to honour.",
+          "context_boundary": "The routine runs inline in the invoking session's own context window (no fork is implied), so the skill body and everything the cleanup does are visible in the main conversation. Nothing crosses a context boundary; the only thing that changes is the tool schema for that stretch of the session.",
+          "lifecycle": "Takes effect when the user invokes the skill by name and stays in force while the skill is active; the restriction clears when the user sends their next message, which is exactly the requested automatic restoration. Note the skill's text itself stays in context for the rest of the session even after the tool restriction lapses.",
+          "failure_mode": "Fails closed on the tool and advisory around it. The model can still end its turn and ask the question in plain prose, which interrupts the user just as effectively. And because the restriction is scoped to the current turn, a long routine that is still running when the user types anything at all loses the guard mid-run.",
+          "version_caveat": "The mirror documents no version gate on `disallowed-tools` itself. If the routine also uses boolean frontmatter such as `disable-model-invocation: yes`, note the parsing gate: forms like yes/no/on/off only work from v2.1.218, and before that only `true` and `false` were recognized."
+        },
+        {
+          "sheet": 3,
+          "primary": "A user-invoked skill for the cleanup routine with disallowed-tools: AskUserQuestion in its frontmatter (plus disable-model-invocation: true so it only ever starts by name). The docs name this exact use: an autonomous skill that should never call certain tools, such as AskUserQuestion for a background loop.",
+          "rejected_alternative": "A PreToolUse hook denying AskUserQuestion. It is harness-owned too, but its scope is the session rather than the run, so it keeps blocking after the routine ends and has to be unwired by hand instead of lifting on the user's next message.",
+          "enforcement_owner": "The harness. The tool is removed from Claude's available pool while the skill is active, so the routine cannot call it whatever the model decides mid-run; this is a pool edit, not an instruction the model reads.",
+          "context_boundary": "Everything runs in the invoking session's own context window: the rendered SKILL.md enters as a single message and stays, while the tool-pool edit applies to the turn that invoked it. No separate context is created and nothing has to cross a boundary.",
+          "lifecycle": "Starts when the user runs the skill by name and applies while the skill is active; the restriction clears when the user sends their next message, which is exactly the automatic restore requested. Invoking the skill again re-applies it.",
+          "failure_mode": "Fails closed for the tool call itself, but the weakness is scope rather than strength: the restriction is turn-scoped, so a routine that survives past a user message regains the tool, and the model can still stall by asking a question in prose instead. A hard, always-on block needs deny rules in permission settings instead.",
+          "version_caveat": "The mirror states no version gate for disallowed-tools itself. The gate that bites a long autonomous routine is nearby: if you also give the skill context: fork and want background: false so the caller waits, that field requires Claude Code v2.1.218 or later."
+        },
+        {
+          "sheet": 4,
+          "primary": "A dynamic workflow launched by name that runs the cleanup in the session with a tool set that excludes the user-question tool, so the routine has no channel to interrupt with and the restriction lapses on its own at the user's next message. I am describing the intended shape rather than a file format I can confirm, since I cannot state the workflow definition syntax from model knowledge alone.",
+          "rejected_alternative": "A PreToolUse hook that denies the question tool, rejected on lifecycle rather than on enforcement: a hook is session-wide and has no notion of \"until the user speaks again\", so restoring the capability would require the routine to toggle state on disk, which is exactly the manual re-enable the requirement rules out.",
+          "enforcement_owner": "The harness, which decides what tools are in the turn's schema; the model cannot re-grant itself an interruption channel that the harness withheld.",
+          "context_boundary": "Runs inside the invoking session's context, which is what lets it use the user's working state, and everything it does is recorded in the main transcript rather than isolated away.",
+          "lifecycle": "Starts on the named launch, holds for the autonomous run, and the restriction is released automatically when the user's next message arrives, without any explicit teardown step.",
+          "failure_mode": "Removing the question channel does not remove the ambiguity: the routine resolves an unclear case by guessing and proceeds, so a cleanup can delete or rewrite the wrong thing silently. It fails open with respect to correctness, since the safe behaviour would be to halt and the enforced behaviour is to continue, and because it runs in the main context its output also crowds the session.",
+          "version_caveat": "Dynamic workflows are a newer and still-evolving mechanism; I cannot state the introducing version, the definition file format, whether an enabling flag or setting is required, or whether the auto-restore-at-next-user-message behaviour is configurable, so all of that must be checked against the installed build before shipping this to users."
+        }
+      ]
+    },
+    {
+      "id": "S047",
+      "focus": "integration",
+      "scenario": "Whenever a new issue is opened in our GitHub repository, we want it triaged automatically: labeled, checked against likely duplicates, and given a first-response comment, with no human at a terminal anywhere in the loop.",
+      "key": {
+        "primary": "The Claude Code GitHub Action (anthropics/claude-code-action@v1) in a workflow triggered on issues: [opened], with the triage instructions in the prompt input (automation mode)",
+        "rejected_alternative": "A hook, on the theory that hooks are the event-driven automation mechanism",
+        "rejection_reason": "Hooks fire on Claude Code lifecycle events inside a running session (PreToolUse, SessionStart, Stop, and so on); no session exists when a GitHub issue is opened, so there is no event to hook. The GitHub Action is the documented mechanism for repo-event automation: it works with any GitHub event trigger and runs immediately when a prompt is supplied.",
+        "enforcement_owner": "external",
+        "context_boundary": "independent sessions",
+        "lifecycle": "GitHub webhook (issues: opened) starts a workflow run; each run is a fresh non-interactive Claude Code execution on a CI runner",
+        "failure_mode": "Runs as an autonomous one-shot in the CI pipeline, so it cannot fail into a human: the docs note such a task runs autonomously and can't ask clarifying questions, so ambiguous triage instructions get resolved unilaterally instead of paused for a person; a run that errors fails closed for that issue, which simply stays untriaged until another repo event retriggers the workflow, with the failure visible only in the pipeline, never in any local Claude Code session.",
+        "version_caveat": "Use action @v1: the beta inputs (mode:, direct_prompt:, custom_instructions:) were removed in v1.0; mode is auto-detected and CLI options move into claude_args"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A Claude Code GitHub Action: workflow YAML in .github/workflows triggered on issues: opened, running claude-code-action with the repo's secret and a prompt that labels the issue, searches open issues for duplicates and posts the first response, with issues: write permission granted in the workflow.",
+          "rejected_alternative": "A bespoke Agent SDK service listening to GitHub webhooks. It is the layer the Action is built on, so it can do the same job, but it means hosting, securing and monitoring a service to reproduce checkout, secret handling and repo permissions that the Action already provides beside the workflow config.",
+          "enforcement_owner": "Split: the harness side is GitHub, which owns the trigger, the runner and the token scope, so the run happens whether or not any model judges it worthwhile; the model owns the triage content itself (which label, which duplicate, what the comment says). The mirror has no GitHub Actions page, so this split is reasoned from the mechanism rather than quoted, apart from where the run lives.",
+          "context_boundary": "A fresh, non-interactive context window per issue event, inside the CI runner. Only the event payload, the checked-out repo and whatever the prompt fetches cross in; nothing from anyone's local session or settings does, and nothing persists to the next event.",
+          "lifecycle": "Starts when GitHub fires the issues: opened event (or a cron schedule, in the same file), runs once to completion and exits. It stops applying when the workflow file is removed, disabled, or the trigger no longer matches.",
+          "failure_mode": "Fails closed as automation (a failed job posts nothing and the issue sits untriaged) but fails open on quality: the run is autonomous with no one to ask, so a wrong label or a confidently wrong duplicate link is published to the issue and only a human reviewer would catch it. Treat write actions as the risky half and keep the token scope minimal.",
+          "version_caveat": "Not confirmable from this mirror: the 20 mirrored pages contain no GitHub Actions page, only a pointer to /docs/en/github-actions, so no version gate, plan restriction or action tag can be pinned here. The one durable constraint is structural rather than versioned: in CI the permission model is the workflow's and the credentials are repository secrets, so local permission rules and hooks do not apply."
+        },
+        {
+          "sheet": 2,
+          "primary": "A GitHub Action in the repository's workflow config, triggered on issues: opened, running Claude Code non-interactively against the issue payload to apply labels, search for duplicates and post the first-response comment. The scheduling comparison in the docs assigns exactly this class of work (tasks tied to repo events like opened PRs, living alongside your workflow config) to GitHub Actions rather than to anything that needs a local session.",
+          "rejected_alternative": "A routine running on Anthropic-managed infrastructure. It can trigger on GitHub events as well as a schedule, but it puts the trigger, the credentials and the audit trail outside the repository, whereas an Action keeps them versioned next to the code the triage depends on.",
+          "enforcement_owner": "Split. The harness (CI) owns the trigger and the fact that a run happens on every new issue; the model owns the triage quality, the label choice and the duplicate judgment, none of which are enforceable.",
+          "context_boundary": "A fresh headless session per workflow run, with no local user session and no carry-over between issues. The issue title, body and repo checkout cross in; labels and a comment cross out through the GitHub API or an MCP server. Nothing persists to the next run.",
+          "lifecycle": "Starts on the issues: opened webhook and ends when the job exits. It stops applying if the workflow file is removed, the event filter changes, or the credential secret expires.",
+          "failure_mode": "Fails open: a failed or skipped job leaves the issue untriaged with nobody at a terminal to notice, so an explicit failure notification is required. The substantive risk is that the issue body is untrusted attacker-controlled text being fed to an agent that holds repo write, so the run should have narrowly scoped permissions and deny rules rather than broad tokens. Duplicate detection also produces false positives that no human reviews.",
+          "version_caveat": "I cannot state the action's own version requirements, required token scopes or workflow permissions from my permitted inputs: the documentation mirror I have contains only the row in the scheduling comparison pointing at the GitHub Actions page, and that page is not included. Treat the action version, its authentication method and any plan requirement as unverified here."
+        },
+        {
+          "sheet": 3,
+          "primary": "A GitHub Action in the repository's workflow config, triggered on the issues: opened event, running Claude Code headlessly with a triage prompt and a token scoped to label, search and comment on issues.",
+          "rejected_alternative": "The GitHub MCP server driven from an interactive Claude Code session. It loses because an MCP server only acts when a session is open and a human is prompting it; the requirement is explicitly that nobody is at a terminal.",
+          "enforcement_owner": "The harness, in the form of the CI runner: GitHub decides the run happens when the issue-opened event fires, and the workflow file is the contract. The model owns only the triage judgment (which label, which duplicates, what the first reply says).",
+          "context_boundary": "Each triage runs in its own fresh, short-lived context window on the CI runner, unrelated to any developer session. The issue body and whatever the run fetches (candidate duplicates, label list) cross in; the labels and the posted comment cross out to GitHub.",
+          "lifecycle": "Starts on the repository event and ends when the workflow job exits; there is no persistence between issues. It stops applying if the workflow is disabled, the trigger is narrowed, or the API credential expires.",
+          "failure_mode": "Advisory in substance and fails open operationally: nobody is present to answer a clarifying question, so an ambiguous issue gets a confidently wrong label or a wrong-duplicate comment posted publicly, and a failed job is a red check nobody may read rather than a blocked action. Write the prompt to state explicitly what success looks like and what to do with results.",
+          "version_caveat": "Unknown from the permitted mirror: it contains no github-actions page, so no version floor, plan restriction, or enabling flag for the GitHub Action can be confirmed here and none should be assumed. The mirror does note that Anthropic-managed Routines are an alternative that can also trigger on GitHub events, configured on claude.ai rather than in the repo."
+        },
+        {
+          "sheet": 4,
+          "primary": "A GitHub Action workflow triggered on issues: opened, running Claude Code headlessly in the runner with a prompt that labels the issue, searches open issues for likely duplicates, and posts the first-response comment through the GitHub API.",
+          "rejected_alternative": "A hook or a subagent inside an interactive session, rejected because both presuppose a human-opened session; the requirement is explicitly that nobody is at a terminal.",
+          "enforcement_owner": "Split. The harness side, meaning the workflow trigger and the token scopes, owns whether the run happens at all and what it is permitted to touch. The model owns the triage quality: the label chosen, the duplicate judgement and the tone of the comment are all unverified.",
+          "context_boundary": "A fresh, ephemeral context per issue event. The issue title and body, plus whatever repo state the job fetches, cross in; the label and comment API calls cross out. Nothing carries over between runs, so the bot has no memory of a similar issue triaged yesterday unless it re-queries.",
+          "lifecycle": "Starts on the issues-opened webhook and ends when the job exits. It stops applying when the workflow is disabled, the branch it lives on changes, or the API credential is revoked.",
+          "failure_mode": "Fails open and silently from the user's perspective: a failed or skipped job means the issue simply sits untriaged, and nobody notices without alerting on workflow failures. The sharper risk is that issue bodies are attacker-controlled text arriving on a public endpoint, so a crafted issue can try to steer the run; scope the token to labels and comments only, never to code or secrets, and treat the issue text as data. Cost and rate limits also scale with issue volume, including spam.",
+          "version_caveat": "This needs credentials in repository secrets and a supported non-interactive auth path (an API key, or a subscription-auth mechanism if the org uses one). The published Claude Code GitHub Action is versioned independently of the CLI and its input names have changed between releases, so pin the action to a tag; I cannot state which tag from model knowledge alone."
+        }
+      ]
+    },
+    {
+      "id": "S055",
+      "focus": "crosscut",
+      "scenario": "Before the agent ends its turn and declares work complete, the test suite must have actually been run and passed during that turn; if not, the agent should be sent back to keep working. This must hold even when the model simply forgets to test.",
+      "key": {
+        "primary": "Stop hook that verifies tests ran and passed, and on failure exits 2 (or returns decision \"block\" with a reason) so Claude must continue working",
+        "rejected_alternative": "A PostToolUse hook on Edit that reminds Claude to run the tests",
+        "rejection_reason": "PostToolUse fires per tool call and cannot gate the end of the turn; it never fires at all when the model declares completion without making another tool call. Stop is the documented event for enforcing validation before accepting a response: its block decision prevents Claude from stopping and feeds the reason back so the conversation continues.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context",
+        "lifecycle": "Stop event fires when Claude finishes responding; exit code 2 or decision \"block\" prevents the turn from ending and injects the reason",
+        "failure_mode": "A hook that blocks unconditionally traps the agent in an infinite continue loop; the script needs a termination condition (such as checking the repeat-invocation flag in the hook input) or the session never ends.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A Stop hook that checks the just-finished turn for real evidence the suite ran and passed (a fresh results artifact it verifies, or the hook running the suite itself) and returns {\"decision\": \"block\", \"reason\": \"...\"} when that evidence is absent, sending the agent back to work.",
+          "rejected_alternative": "A skill or CLAUDE.md rule instructing the model to test before declaring completion. It loses because the stated failure is the model forgetting, and an instruction cannot detect its own omission; only a harness-run gate at turn end can.",
+          "enforcement_owner": "The harness owns the gate, the model owns the remediation. Claude Code refuses to end the turn on the hook's verdict, then the model does the work described in the reason string.",
+          "context_boundary": "The hook runs out of process with stop_hook_active, last_assistant_message, background_tasks and the transcript path on stdin. Only the reason string crosses back into the model's context, and the conversation continues in the same window rather than a fresh one.",
+          "lifecycle": "Fires when the main agent has finished responding, once per turn, for the whole session. It does not fire when the stoppage was a user interrupt, and API errors route to StopFailure instead. It stops applying at session end or once the continuation cap trips.",
+          "failure_mode": "Fails closed for the turn but has a hard escape hatch: Claude Code overrides the hook and ends the turn after 8 consecutive blocks, so a condition that never resolves eventually lets an untested turn through. If the hook infers \"tests ran\" from a weak proxy such as message text or a stale results file, it either loops until the cap or waves through a false claim. A crashed hook exiting 1 is non-blocking, so a broken gate fails open.",
+          "version_caveat": "No version gate on Stop hooks or decision: \"block\". If the suite runs as a background task, the background_tasks and session_crons arrays that let the hook distinguish \"session is done\" from \"waiting on the test run\" are available only in Claude Code v2.1.145 or later; on older versions the hook must infer that state from the transcript."
+        },
+        {
+          "sheet": 2,
+          "primary": "A Stop hook, command handler, that checks for evidence of a passing test run in the just-finished turn (a marker file written by a PostToolUse hook on the test command, or a scan of transcript_path) and returns {\"decision\": \"block\", \"reason\": ...} when no such evidence exists. Reserve the milder hookSpecificOutput.additionalContext form for guidance, and use decision block when the gate must read as a failure.",
+          "rejected_alternative": "A skill such as a verification-before-completion procedure, which is exactly the advisory shape that fails here: the model must choose to consult and follow it, and the scenario's premise is that it forgets.",
+          "enforcement_owner": "The harness. Claude Code fires Stop when the turn ends and enforces the returned decision, so the model cannot end the turn over the hook's objection.",
+          "context_boundary": "The handler runs outside the context window and receives stop_hook_active, last_assistant_message and transcript_path on stdin; the reason string is what crosses back and becomes the model's next instruction inside the same session.",
+          "lifecycle": "It runs when the main agent has finished responding, on every turn, and continues to gate turns until the hook is removed. It does not run when the user interrupts, and API failures route to StopFailure instead.",
+          "failure_mode": "Fails open on handler error, since any exit code other than 2 lets the turn end with a hook-error notice, and a crash is indistinguishable from a deliberate pass. The block is also bounded: after 8 consecutive blocks Claude Code overrides the hook and ends the turn anyway, so a hook that cannot be satisfied degrades to advisory rather than looping forever; guard on stop_hook_active to avoid that path.",
+          "version_caveat": "A command Stop hook needs no version gate. The tempting alternative, an agent-type Stop hook that runs the suite itself, is documented as experimental and may change, so it is the wrong choice for a hard gate; the background_tasks and session_crons inputs used to tell \"done\" from \"waiting\" need v2.1.145 or later."
+        },
+        {
+          "sheet": 3,
+          "primary": "A Stop hook that checks for evidence that the suite ran and passed during this turn, and returns a blocking decision with a reason when it did not, sending the agent back to work. The evidence is produced deterministically by a companion PostToolUse hook that writes a per-session marker (test command, exit code, timestamp) whenever a test command actually executes, so the Stop hook verifies a fact rather than trusting a claim.",
+          "rejected_alternative": "A verification skill or a CLAUDE.md checklist telling the agent to run tests before declaring completion, rejected because the stated failure is the model forgetting, and advisory text cannot catch its own omission.",
+          "enforcement_owner": "The harness owns the gate: it will not let the turn end while the hook blocks. The model owns only the remediation, which is to go run the tests.",
+          "context_boundary": "The hook executes outside the context window and reads state from disk. What crosses back in is the block reason string, which is injected as the continuation instruction, so the reason text should be short and directive.",
+          "lifecycle": "Fires whenever the main agent attempts to end its turn, and it stops blocking as soon as a passing run is recorded for that turn. The marker must be scoped and cleared per turn or the gate goes stale and starts passing on yesterday's green run.",
+          "failure_mode": "The characteristic failure is a loop: a hook that blocks unconditionally can pin the agent in a cycle, which is why the payload flag indicating the stop hook is already active must be honoured to break out. It fails open when the evidence check is naive, since running one trivial passing test satisfies a marker that only records that some test command ran. It also adds full-suite latency to every turn boundary, which pushes people to disable it.",
+          "version_caveat": "This depends on the Stop hook event supporting a structured blocking decision plus the re-entrancy flag in its payload, and on SubagentStop existing if the same rule must cover subagents. I cannot confirm the exact JSON field names or the minimum version from model knowledge alone. Note also that a user-initiated interrupt does not run the same path, so the gate does not cover an abandoned turn."
+        },
+        {
+          "sheet": 4,
+          "primary": "A Stop hook of type \"command\" that checks for evidence the suite ran and passed during this turn (for example a marker file with the session id and turn timestamp, written by a PostToolUse hook on Bash when the test command exits 0) and returns {\"decision\": \"block\", \"reason\": \"...\"} when that evidence is absent, so Claude is sent back to keep working.",
+          "rejected_alternative": "An agent-type Stop hook that spawns a subagent to run the suite itself. It removes the marker plumbing, but agent hooks are explicitly experimental, cost a model call plus a full test run at every turn end, and return a judgment rather than a recorded exit code.",
+          "enforcement_owner": "The harness owns the outcome: Claude Code decides whether the turn may end, and the model only reacts to the reason string it is handed. The model forgetting to test is precisely what this removes from the model's hands.",
+          "context_boundary": "The hook is a subprocess receiving the Stop event JSON (including stop_hook_active and last_assistant_message) on stdin, outside the model's context window. Only the reason string, or hookSpecificOutput.additionalContext, crosses back into the conversation, so the turn resumes with a short instruction rather than raw test output unless the hook chooses to include it.",
+          "lifecycle": "Fires every time the main agent finishes responding, not only when work is genuinely complete, and applies until the turn is allowed to end. It must read stop_hook_active and exit early when true, or it will keep blocking a condition that will never resolve.",
+          "failure_mode": "Fails open at the edges: Claude Code overrides the hook after 8 consecutive blocks and ends the turn anyway, Stop hooks do not fire on user interrupts (an API error fires StopFailure instead), and any exit code other than 2 from a crashed script or a missing jq lets the turn finish with only a hook-error notice. It also fires on purely conversational turns, so the check has to tolerate turns where nothing was edited or it becomes noise.",
+          "version_caveat": "Stop hooks are generally available and need no flag; raise the eight-block ceiling with the CLAUDE_CODE_STOP_HOOK_BLOCK_CAP environment variable if convergence legitimately needs more iterations. Agent-type hooks are experimental and may change, and /goal is a built-in session-scoped prompt Stop hook if you want the judgment-based variant without writing configuration."
+        }
+      ]
+    }
+  ]
+}

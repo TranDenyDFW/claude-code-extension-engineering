@@ -428,7 +428,7 @@ if (!armsPresent.length) {
 }
 
 const regroup = SET === 'v2' ? shuffledBatches(scenarios.map(s => s.id)) : null;
-const { packets, map } = pack(scenarios, answersByArm, regroup);
+const { packets, map } = pack(scenarios, answersByArm, regroup, REP);
 const problems = packets.flatMap(blindingProblems);
 
 console.log(`Arms: ${armsPresent.join(', ')}  packets: ${packets.length}  scenarios: ${packets.reduce((n, p) => n + p.scenarios.length, 0)}`);
@@ -438,6 +438,38 @@ if (problems.length) {
   process.exit(1);
 }
 console.log('PASS: no packet carries an arm label, and every scenario has one sheet per arm present.');
+
+/**
+ * ARTIFACT-LEVEL SALT GATE, and it exists because the unit test was not enough.
+ *
+ * permutationFor and pack were both threaded for `rep` and both covered by
+ * self-tests, including a must-fail row proving the divergence assertion could go
+ * red. The CLI then called pack(scenarios, answers, regroup) WITHOUT the fourth
+ * argument, so replicate 2 silently packed with replicate 1's ordering: 0 of 60
+ * scenarios reordered, an identical map, and every other check still green.
+ *
+ * The self-test passed the rep explicitly, so it exercised the FUNCTION and never
+ * the WIRING. This check looks at the artifact instead: if this is a replicate
+ * above 1 and a replicate-1 map exists, the orderings must actually differ.
+ */
+if (REP > 1) {
+  const baseMap = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}.json`);
+  if (existsSync(baseMap)) {
+    const base = JSON.parse(readFileSync(baseMap, 'utf8'));
+    const shared = Object.keys(map).filter(id => id in base);
+    const moved = shared.filter(id => JSON.stringify(base[id]) !== JSON.stringify(map[id]));
+    console.log(`Salt: ${moved.length}/${shared.length} scenarios reordered versus replicate 1.`);
+    if (moved.length < shared.length * 0.75) {
+      console.log('\nFAIL: the replicate salt did not apply. This replicate would carry replicate 1\'s');
+      console.log('sheet ordering, so any position-dependent grader bias would land on the same arm');
+      console.log('in both passes and accumulate instead of averaging out. Pooling that reports a');
+      console.log('systematic error with a tighter interval is worse than a single replicate.');
+      process.exit(1);
+    }
+  } else {
+    console.log(`Salt: no replicate-1 map at ${baseMap}, cannot compare orderings.`);
+  }
+}
 
 if (CHECK_ONLY) {
   if (!existsSync(MAP_PATH)) {

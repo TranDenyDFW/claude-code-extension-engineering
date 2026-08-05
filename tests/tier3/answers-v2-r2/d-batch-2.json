@@ -1,0 +1,286 @@
+{
+  "arm": "d",
+  "batch": 2,
+  "answers": [
+    {
+      "id": "S011",
+      "primary": "A project CLAUDE.md at the repo root (./CLAUDE.md or ./.claude/CLAUDE.md), committed to version control, holding exactly these always-on facts: the pnpm build:all command, the local Postgres requirement for tests, and the src/api/handlers/ layout. Keep it short and concrete, well inside the 200-line target, because it is resident in every session.",
+      "rejected_alternative": "A skill. A skill body loads only when it is invoked or its description matches, so these facts would be missing from the sessions that most need them; they are standing facts, not a procedure.",
+      "enforcement_owner": "The model. The harness guarantees the file is loaded into every session, but nothing enforces that Claude acts on what it read: the content is delivered as context, not as enforced configuration.",
+      "context_boundary": "The main session context window. The full file text crosses in at launch for any session started in the repo or a subdirectory of it, and it is inherited by subagents that load CLAUDE.md, but not by the Explore or Plan agents, which skip it.",
+      "lifecycle": "Loads automatically at the start of every session in the repo, and the project-root file is re-read from disk and re-injected after /compact. It stops applying only when the file is deleted or skipped via claudeMdExcludes.",
+      "failure_mode": "Advisory, fails open. Claude may skim or ignore an entry and adherence degrades as the file grows or entries conflict; a wrong build command is never blocked, only unlearned.",
+      "version_caveat": "No version gate applies to project CLAUDE.md itself; it works on every current build and on every plan. The adjuncts are gated: the /doctor trim proposal for a checked-in CLAUDE.md requires v2.1.206 or later, and the interactive multi-phase /init needs CLAUDE_CODE_NEW_INIT=1.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "memory.md",
+          "quote": "Claude treats them as context, not enforced configuration."
+        },
+        "lifecycle": {
+          "page": "memory.md",
+          "quote": "Project-root CLAUDE.md survives compaction: after `/compact`, Claude re-reads it from disk and re-injects it into the session."
+        },
+        "failure_mode": {
+          "page": "memory.md",
+          "quote": "Claude reads it and tries to follow it, but there's no guarantee of strict compliance"
+        },
+        "version_caveat": {
+          "page": "memory.md",
+          "quote": "The trim check requires Claude Code v2.1.206 or later."
+        }
+      }
+    },
+    {
+      "id": "S012",
+      "primary": "A skill, at .claude/skills/release-notes/SKILL.md, committed with the project and normally invoked as /release-notes. SKILL.md carries the 30 steps; the fixed template, the changelog query script and the formatting conventions sit beside it as supporting files that SKILL.md points to, so the bulk stays on disk until it is needed.",
+      "rejected_alternative": "Project CLAUDE.md. It is loaded in full into every session, so a 30-step weekly procedure would pay a resident token cost every day and dilute the instructions around it; a procedure that only matters once a week is exactly what belongs in a skill instead.",
+      "enforcement_owner": "The model. A skill is instructions Claude reads and chooses to follow; if you need a step to happen deterministically you have to back it with a hook rather than stronger wording.",
+      "context_boundary": "The main session context window, inline. Only the skill description is resident by default; on invocation the rendered SKILL.md crosses in as a single message, while the template and the query script stay on disk until Claude reads or executes them.",
+      "lifecycle": "Runs when you type /release-notes, or when the description matches the conversation. Once invoked the content stays in context for the rest of the session, and auto-compaction re-attaches the most recent invocation within a token budget.",
+      "failure_mode": "Advisory, fails open. Claude can drift off the 30 steps or silently skip the template partway through a long run, and editing SKILL.md mid-session does not repair it because the file is not re-read on later turns.",
+      "version_caveat": "The mechanism itself has no version gate; custom commands were merged into skills, so a legacy .claude/commands/ file is the older shape of the same thing. If you pre-approve the changelog script with allowed-tools: Bash(${CLAUDE_SKILL_DIR}/...), that substitution requires v2.1.129 or later, and ${CLAUDE_PROJECT_DIR} requires v2.1.196.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "skills.md",
+          "quote": "Strengthen the skill's `description` and instructions so the model keeps preferring it, or use [hooks](/docs/en/hooks) to enforce behavior deterministically."
+        },
+        "lifecycle": {
+          "page": "skills.md",
+          "quote": "When you or Claude invoke a skill, the rendered `SKILL.md` content enters the conversation as a single message and stays there for the rest of the session."
+        },
+        "failure_mode": {
+          "page": "skills.md",
+          "quote": "If a skill seems to stop influencing behavior after the first response, the content is usually still present and the model is choosing other tools or approaches."
+        },
+        "version_caveat": {
+          "page": "skills.md",
+          "quote": "The `allowed-tools` substitution for `${CLAUDE_SKILL_DIR}` requires Claude Code v2.1.129 or later."
+        }
+      }
+    },
+    {
+      "id": "S013",
+      "primary": "A skill with disable-model-invocation: true in its frontmatter, at .claude/skills/reseed-staging/SKILL.md, invoked only as /reseed-staging. The flag is the load-bearing part: it removes the skill from Claude's context entirely, so the model has nothing to invoke.",
+      "rejected_alternative": "The same skill left in its default invocation mode, discovered by description match. It would encode the steps just as well, but Claude could load and act on it whenever the conversation looked relevant, which is the one outcome this scenario forbids.",
+      "enforcement_owner": "Split, and the half that matters is the harness: Claude Code never puts this skill's description in the model's context, so self-invocation is structurally impossible rather than merely discouraged. Executing the steps after a human types the command is the model's job.",
+      "context_boundary": "The main session context window, inline, and only on demand. Nothing about the skill crosses the boundary until you invoke it; the description is withheld, and the rendered SKILL.md enters as one message at invocation.",
+      "lifecycle": "Fires only when a person types /reseed-staging. No conversational trigger reaches it, and from v2.1.196 a scheduled task naming the skill will not fire it either. Once loaded it stays in context for the rest of that session.",
+      "failure_mode": "Fails closed on the thing that matters: no self-invocation, no reseed the team did not ask for. The realistic defect is reaching for user-invocable: false instead, which only hides the entry from the / menu and leaves the Skill tool able to call it, so the guarantee is silently lost.",
+      "version_caveat": "disable-model-invocation is stable and needs no flag, but two extensions of it are gated: it only blocks a scheduled task firing the skill as its prompt from v2.1.196, and boolean spellings other than true/false (yes, no, on, off, 1, 0) require v2.1.218.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "skills.md",
+          "quote": "**Hide individual skills** by adding `disable-model-invocation: true` to their frontmatter. This removes the skill from Claude's context entirely."
+        },
+        "lifecycle": {
+          "page": "skills.md",
+          "quote": "Description not in context, full skill loads when you invoke"
+        },
+        "failure_mode": {
+          "page": "skills.md",
+          "quote": "The `user-invocable` field only controls menu visibility, not Skill tool access. Use `disable-model-invocation: true` to block programmatic invocation."
+        },
+        "version_caveat": {
+          "page": "skills.md",
+          "quote": "As of v2.1.196, also prevents the skill from running when a [scheduled task](/docs/en/scheduled-tasks) fires with the skill as its prompt."
+        }
+      }
+    },
+    {
+      "id": "S014",
+      "primary": "A path-scoped rule: .claude/rules/api-conventions.md with paths frontmatter such as \"src/api/**/*.ts\", holding the input-validation, standard-error-envelope and OpenAPI-comment conventions. The section leaves the root CLAUDE.md entirely, which also relieves the size pressure that is eroding adherence.",
+      "rejected_alternative": "Appending the conventions to the root CLAUDE.md. It would load them everywhere, including the sessions that never touch src/api/, and growing an already oversized always-on file is the direct cause of the slipping adherence being complained about.",
+      "enforcement_owner": "The model. A rule is instruction text in the same family as CLAUDE.md: it shapes behavior, and unlike a settings rule it is not a hard enforcement layer.",
+      "context_boundary": "The main session context window, conditionally. The rule text crosses the boundary the first time Claude reads a file matching the glob, and nothing at all enters context in sessions that never open src/api/.",
+      "lifecycle": "Loads on demand when Claude reads a matching file, then stays for the rest of the session; a rule with no paths field would instead load at launch alongside .claude/CLAUDE.md. It stops applying if the file is removed or project is excluded from --setting-sources.",
+      "failure_mode": "Advisory and fails open, twice over. Matching is keyed to Claude reading a matching file, not to every tool use, so work that writes a new endpoint without first reading one under src/api/ can proceed with the rule never loaded; and a malformed glob matches nothing at all with no error.",
+      "version_caveat": "Path-scoped rules need no enabling flag, but the behavior around them is versioned: symlinked-checkout matching requires v2.1.198, before v2.1.207 one invalid bracket pattern made the Read tool fail for every file the rule was evaluated against, and before v2.1.217 a paths value with many brace groups could stall or crash the CLI at startup.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "memory.md",
+          "quote": "CLAUDE.md instructions shape Claude's behavior but are not a hard enforcement layer."
+        },
+        "lifecycle": {
+          "page": "memory.md",
+          "quote": "Rules load into context every session or when matching files are opened."
+        },
+        "failure_mode": {
+          "page": "memory.md",
+          "quote": "Path-scoped rules trigger when Claude reads files matching the pattern, not on every tool use."
+        },
+        "version_caveat": {
+          "page": "memory.md",
+          "quote": "Before v2.1.207, one invalid pattern made the Read tool fail for every file the rule was evaluated against, instead of matching nothing."
+        }
+      }
+    },
+    {
+      "id": "S015",
+      "primary": "User-scope memory on that engineer's machine: ~/.claude/CLAUDE.md, optionally split into topic files under ~/.claude/rules/ for the diff-review flow. The 2-space indentation, the conventional-commit convention and the review preference live there and touch no repository.",
+      "rejected_alternative": "A project CLAUDE.md. It would carry the same three preferences, but it is committed and reaches teammates through source control, which is precisely the outcome being avoided.",
+      "enforcement_owner": "The model. These are personal instructions delivered as context; Claude weighs them like any other instruction, and nothing in the harness makes a 2-space indent happen.",
+      "context_boundary": "The main session context window of every session this user starts, in any directory on this machine. The user file's text crosses in at launch, ahead of any project instructions, and never leaves the machine.",
+      "lifecycle": "Loads at the start of every session in every project on that machine, and stops applying only if the engineer edits or deletes the file, or excludes the user scope via --setting-sources.",
+      "failure_mode": "Advisory, fails open, with a precedence trap on top: files load broadest scope first, so a repository whose own CLAUDE.md mandates 4-space indentation is read after the personal preference and usually wins, silently, rather than raising a conflict.",
+      "version_caveat": "No version gate, experimental status or plan restriction applies to user-scope CLAUDE.md and ~/.claude/rules/. The nuance worth knowing is trust scope rather than version: imports from user-scope memory load without the external-import approval dialog that project-level imports trigger, because they are files the user wrote.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "memory.md",
+          "quote": "Claude treats them as context, not enforced configuration."
+        },
+        "lifecycle": {
+          "page": "memory.md",
+          "quote": "CLAUDE.md files are loaded into the context window at the start of every session"
+        },
+        "failure_mode": {
+          "page": "memory.md",
+          "quote": "so a project instruction appears in context after a user instruction"
+        },
+        "version_caveat": {
+          "page": "memory.md",
+          "quote": "Imports in user-scope memory files, such as `~/.claude/CLAUDE.md` and `~/.claude/rules/`, are files you wrote yourself, so they load without the dialog"
+        }
+      }
+    },
+    {
+      "id": "S016",
+      "primary": "Auto memory, the notes Claude writes for itself. It is on by default, so the shape is to leave autoMemoryEnabled on and let the flaky test target, the Redis requirement for the dev server and the repeated corrections accumulate under ~/.claude/projects/<project>/memory/, with MEMORY.md as a one-line-per-entry index and detail pushed into topic files.",
+      "rejected_alternative": "A hand-maintained project CLAUDE.md. It holds the same facts and has the advantage of being shared through git, but it only stays current if a human writes and prunes it, which is the explicit non-requirement here.",
+      "enforcement_owner": "The model. Claude decides what is worth saving and when to read a topic file back; the harness only guarantees that the truncated MEMORY.md index is loaded at the start of each conversation.",
+      "context_boundary": "The main session context window, scoped per repository. Only the first 200 lines or 25KB of MEMORY.md cross the boundary at session start; topic files stay on disk until Claude reads them, and the main conversation's auto memory is not loaded into subagents, except a fork.",
+      "lifecycle": "Runs continuously as a side effect of working: Claude writes notes mid-session and the index reloads at the start of each new one. It stops when autoMemoryEnabled is set to false in user or project settings, or CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 is set.",
+      "failure_mode": "Fails open and quietly, in two ways. It is machine-local, so nothing accumulated on one developer's box reaches a teammate and two machines can hold divergent notions of which target is flaky; and anything past the 200-line or 25KB index limit is simply dropped on the next load unless Claude moves it into topic files.",
+      "version_caveat": "Auto memory needs no enabling flag on current builds since it is on by default, but the surrounding behavior is versioned: the modified frontmatter timestamp requires v2.1.214 or later, the over-limit index error arrived at v2.1.210, and from v2.1.211 frontmatter and HTML comments are stripped before the index is measured.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "memory.md",
+          "quote": "It decides what's worth remembering based on whether the information would be useful in a future conversation."
+        },
+        "lifecycle": {
+          "page": "memory.md",
+          "quote": "The first 200 lines of `MEMORY.md`, or the first 25KB, whichever comes first, are loaded at the start of every conversation."
+        },
+        "failure_mode": {
+          "page": "memory.md",
+          "quote": "Auto memory is machine-local. All worktrees and subdirectories within the same git repository share one auto memory directory. Files are not shared across machines or cloud environments."
+        },
+        "version_caveat": {
+          "page": "memory.md",
+          "quote": "The `modified` field requires Claude Code v2.1.214 or later."
+        }
+      }
+    },
+    {
+      "id": "S017",
+      "primary": "A custom output style: a markdown file in ~/.claude/output-styles/ (or the project or managed-policy equivalent) selected under /config, carrying the calm runbook voice and the fixed incident-comms structure. Leave keep-coding-instructions unset so it defaults to false and Claude Code's built-in software-engineering instructions are left out of the system prompt.",
+      "rejected_alternative": "A CLAUDE.md instruction describing the voice. It can add guidance but cannot remove anything: it arrives as a user message after the system prompt, so the built-in coding instructions that keep steering answers toward code would still be there, competing with it every turn.",
+      "enforcement_owner": "Split, with the harness owning the decisive half: Claude Code assembles the system prompt, so the built-in coding instructions are genuinely absent rather than argued down. Producing the runbook structure in each individual reply is still the model's job.",
+      "context_boundary": "The main conversation's system prompt. The style text is appended to the system prompt at session start and shapes every response in that session; a subagent runs its own system prompt and is unaffected, with a fork the exception since it inherits the parent's.",
+      "lifecycle": "Takes effect when the style is selected, but only from the next /clear or new session, because the system prompt is read once at session start. It applies to every turn until the style is switched back, or a plugin style with force-for-plugin overrides the setting.",
+      "failure_mode": "Advisory drift rather than a hard failure: adherence reminders are injected but the model can still slip toward code-shaped answers on a long thread. The scope surprise is the sharper risk here: any work that gets delegated to a subagent reverts to the default voice.",
+      "version_caveat": "No experimental status or plan restriction, but the entry point moved: the standalone /output-style command was deprecated in v2.1.73 and removed in v2.1.91, so use /config or set outputStyle directly. Nearest-directory resolution when nested project directories define the same style name requires v2.1.178.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "output-styles.md",
+          "quote": "Output styles directly modify Claude Code's system prompt."
+        },
+        "lifecycle": {
+          "page": "output-styles.md",
+          "quote": "Output style is part of the system prompt, which Claude Code reads once at session start. Changes take effect after `/clear` or a new session."
+        },
+        "failure_mode": {
+          "page": "output-styles.md",
+          "quote": "Output styles apply to the main conversation only: a [subagent runs its own system prompt](/docs/en/sub-agents#what-loads-at-startup), so styles don't change how subagents respond."
+        },
+        "version_caveat": {
+          "page": "output-styles.md",
+          "quote": "The standalone `/output-style` command was deprecated in v2.1.73 and removed in v2.1.91."
+        }
+      }
+    },
+    {
+      "id": "S018",
+      "primary": "A PreToolUse hook with matcher Bash and an if condition narrowing to git push, whose handler inspects the resolved remote and branch and returns permissionDecision \"deny\" (or exits 2) for the protected main. Ship it in managed policy settings, and back it with a permissions.deny rule in the same managed file, so no developer can switch it off.",
+      "rejected_alternative": "The strongly worded instruction file, CLAUDE.md or a .claude/rules entry. It has already failed twice, and the post-compaction failure is diagnostic rather than bad luck: instruction text is context the model weighs, not a gate the push has to pass.",
+      "enforcement_owner": "The harness. The hook runs at a fixed lifecycle point on the tool call itself regardless of what the model concluded, and because it is configuration rather than conversation, compaction cannot weaken it the way it weakened the instruction file.",
+      "context_boundary": "Outside any context window. The hook runs as a separate process fed event JSON on stdin; only its decision and the permissionDecisionReason string cross back into the model's context. It fires the same way for tool calls made inside subagents.",
+      "lifecycle": "Fires before every matching Bash tool call, in the main session and in subagents, in this and every future session on that machine. It stops applying only if the settings entry is removed, or if disableAllHooks is set at a level that can reach it, which for a managed hook means managed settings only.",
+      "failure_mode": "Fails closed when written correctly, but fails open on every ordinary mistake: only exit code 2 blocks, so a handler that exits 1, crashes, or has a missing interpreter lets the push through with a non-blocking error notice. It also only covers pushes Claude Code makes, not a push the engineer types in their own terminal.",
+      "version_caveat": "PreToolUse itself needs no version gate, but two things do. Exit 2 alongside schema-invalid JSON only blocks from v2.1.214; before that the combination was treated as a non-blocking error and the action proceeded. Tamper resistance requires the managed tier, since disableAllHooks from user, project or local settings cannot disable managed hooks, and allowManagedHooksOnly is managed-only.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "memory.md",
+          "quote": "Hooks execute as shell commands at fixed lifecycle events and apply regardless of what Claude decides to do."
+        },
+        "lifecycle": {
+          "page": "hooks.md",
+          "quote": "Before a tool call executes. Can block it"
+        },
+        "failure_mode": {
+          "page": "hooks.md",
+          "quote": "Claude Code treats exit code 1 as a non-blocking error and proceeds with the action, even though 1 is the conventional Unix failure code."
+        },
+        "version_caveat": {
+          "page": "hooks.md",
+          "quote": "Before v2.1.214, Claude Code treated that combination as a non-blocking error and the action proceeded."
+        }
+      }
+    },
+    {
+      "id": "S019",
+      "primary": "A skill with user-invocable: false and a billing-focused description, at .claude/skills/legacy-billing-context/SKILL.md. SKILL.md stays a short navigational summary of the states, invariants and traps, with the long explainer split into supporting files it names, so only the description is ever resident.",
+      "rejected_alternative": "A path-scoped rule under .claude/rules/. It also loads on demand, but its trigger is Claude reading a file matching a glob, whereas the requirement here is the topic coming up in conversation; and a rule has no way to hide itself from view or to defer bulk into secondary files.",
+      "enforcement_owner": "The model. Whether the background knowledge ever arrives is decided by Claude matching the conversation against the description; the harness only enforces the narrow part, keeping the entry out of the / menu.",
+      "context_boundary": "The main session context window. Only the description is resident; the SKILL.md body crosses in when Claude invokes it, and the long reference files cross in only if Claude then reads them. A session that never mentions billing pays nothing.",
+      "lifecycle": "The description is in context from session start and the body loads the moment Claude judges billing relevant; once loaded it persists for the rest of the session and is re-attached within budget after compaction. It never fires from the command menu because users cannot invoke it.",
+      "failure_mode": "Fails open and silently. If the description misses the vocabulary the team actually uses, Claude answers about billing from its own assumptions and no missing-skill error is ever shown. With many skills installed the listing budget can also truncate this description and strip exactly the keywords it needed to match.",
+      "version_caveat": "user-invocable needs no version gate, flag or plan on current builds. The caveat to hold is scope rather than version: the field governs menu visibility only, not Skill tool access, so it hides the command without being any kind of access control; blocking programmatic invocation would need disable-model-invocation, which is the opposite of what is wanted here.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "skills.md",
+          "quote": "the `description` helps Claude decide when to load the skill automatically"
+        },
+        "lifecycle": {
+          "page": "skills.md",
+          "quote": "Description always in context, full skill loads when invoked"
+        },
+        "failure_mode": {
+          "page": "skills.md",
+          "quote": "if you have many skills, Claude Code shortens descriptions to fit the listing's character budget, which can strip the keywords Claude needs to match your request"
+        },
+        "version_caveat": {
+          "page": "skills.md",
+          "quote": "The `user-invocable` field only controls menu visibility, not Skill tool access."
+        }
+      }
+    },
+    {
+      "id": "S020",
+      "primary": "A managed-policy CLAUDE.md, deployed by IT to the managed path for each OS (C:\\Program Files\\ClaudeCode\\CLAUDE.md, /Library/Application Support/ClaudeCode/CLAUDE.md, /etc/claude-code/CLAUDE.md) through MDM, Group Policy or Ansible, or equivalently the claudeMd key inside managed-settings.json. Data-handling reminders and coding-style guidance are exactly the content class this tier is for.",
+      "rejected_alternative": "A user-level ~/.claude/CLAUDE.md pushed to each machine. It reaches every repository too, but it lives in a file the developer owns and can edit, delete or exclude, so the no-opt-out requirement fails at the first motivated engineer.",
+      "enforcement_owner": "Split by layer. The harness owns loading, since a managed-policy CLAUDE.md cannot be excluded by any user, project or local setting; the model still owns whether it honors the reminders once they are in context.",
+      "context_boundary": "The main session context window of every session on the machine. The managed text crosses in at launch ahead of user and project CLAUDE.md, in every repository, and it is byte-identical for every developer in the organization.",
+      "lifecycle": "Loads at the start of every Claude Code session on the machine, in every repository, and stops applying only when IT removes the file or the claudeMd key from managed settings. Individual developers have no lever, including claudeMdExcludes.",
+      "failure_mode": "Loading is guaranteed; compliance is not. This fails open on behavior, because it is still advisory context that can be skimmed or outweighed by a conflicting project instruction. Anything that must actually be blocked belongs in permissions.deny or sandbox settings in the same managed file, not in the managed CLAUDE.md.",
+      "version_caveat": "No version gate or plan restriction on the managed CLAUDE.md file itself, but placement is load-bearing: claudeMd is honored only in managed and policy settings and has no effect in user, project or local settings. The adjacent lockdowns that stop developers routing around it, such as allowManagedHooksOnly and allowManagedPermissionRulesOnly, are likewise read only from managed settings.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "memory.md",
+          "quote": "Managed policy CLAUDE.md files cannot be excluded. This ensures organization-wide instructions always apply regardless of individual settings."
+        },
+        "lifecycle": {
+          "page": "memory.md",
+          "quote": "**Scope**: every Claude Code session on the machine, in every repository."
+        },
+        "failure_mode": {
+          "page": "memory.md",
+          "quote": "Settings rules are enforced by the client regardless of what Claude decides to do. CLAUDE.md instructions shape Claude's behavior but are not a hard enforcement layer."
+        },
+        "version_caveat": {
+          "page": "memory.md",
+          "quote": "**Where it's honored**: managed and policy settings only. Setting `claudeMd` in user, project, or local settings has no effect."
+        }
+      }
+    }
+  ]
+}
