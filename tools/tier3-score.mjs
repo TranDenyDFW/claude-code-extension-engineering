@@ -34,9 +34,28 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const SET = process.argv.includes('--set') ? process.argv[process.argv.indexOf('--set') + 1] : 'v1';
 const SFX = SET === 'v2' ? '-v2' : '';
-const GRADES = join(ROOT, 'tests', 'tier3', `grades${SFX}.jsonl`);
-const MAP_PATH = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}.json`);
-const ANSWER_DIR = join(ROOT, 'tests', 'tier3', `answers${SFX}`);
+
+/**
+ * REPLICATES. --rep N scores one independent answering pass on its own, which is
+ * a PRECONDITION for pooling: a replicate must pass the strict completeness gate
+ * by itself before it may enter --replicates. A pool that silently absorbs an
+ * incomplete replicate is the same defect class as a merged grade file that
+ * cannot be re-derived.
+ *
+ * Replicate 1 reads the ORIGINAL unsuffixed paths, byte for byte, because those
+ * artifacts are committed and drift-gated.
+ */
+const REP = (() => {
+  const i = process.argv.indexOf('--rep');
+  if (i < 0) return 1;
+  const n = Number(process.argv[i + 1]);
+  if (!Number.isInteger(n) || n < 1) { console.log('FAIL: --rep must be an integer >= 1'); process.exit(2); }
+  return n;
+})();
+const RSFX = REP > 1 ? `-r${REP}` : '';
+const GRADES = join(ROOT, 'tests', 'tier3', `grades${SFX}${RSFX}.jsonl`);
+const MAP_PATH = join(ROOT, 'tests', 'tier3', `blinding-map${SFX}${RSFX}.json`);
+const ANSWER_DIR = join(ROOT, 'tests', 'tier3', `answers${SFX}${RSFX}`);
 const DOC = join(ROOT, 'tests', 'results-tier3.md');
 const MIRROR = process.argv.includes('--mirror') ? process.argv[process.argv.indexOf('--mirror') + 1] : null;
 
