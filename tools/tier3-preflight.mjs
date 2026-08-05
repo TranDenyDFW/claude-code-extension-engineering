@@ -39,6 +39,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const PROMPT_DIR = join(ROOT, 'tests', 'tier3', 'prompts');
 const PIN = join(ROOT, 'tests', 'tier3', 'prompt-hashes.json');
+// Arm D read THIS tree in replicate 1. The repo skill has since moved on.
+const STAGED_SKILL = 'P:/ClaudeExt/QuestionExtension/tmp/t3full-v2/d/skill';
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
@@ -54,6 +56,33 @@ export function hashPrompts(dir) {
     const text = readFileSync(join(dir, name), 'utf8').split('\r\n').join('\n');
     out[name] = sha256(Buffer.from(text, 'utf8'));
   }
+  return out;
+}
+
+/**
+ * Arm D's treatment is the SKILL TREE, so it is an independent variable exactly
+ * like the arm prompts, and it must be pinned exactly like them.
+ *
+ * This gap was found on 2026-08-05, after the skill had already drifted under an
+ * unrelated work item: 2 files added and 7 changed, only 15 of 22 identical to
+ * what replicate 1 read. Pre-flight passed anyway, because it checked prompts and
+ * documentation and simply did not know arm D had a third input. A replicate run
+ * would have silently compared a different D arm and reported the difference as
+ * nondeterminism.
+ */
+export function hashSkillTree(dir) {
+  const out = {};
+  if (!existsSync(dir)) return out;
+  const walk = (d, prefix) => {
+    for (const e of readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const p = join(d, e.name);
+      const rel = prefix ? `${prefix}/${e.name}` : e.name;
+      if (e.isDirectory()) { walk(p, rel); continue; }
+      const text = readFileSync(p, 'utf8').split('\r\n').join('\n');
+      out[rel] = sha256(Buffer.from(text, 'utf8'));
+    }
+  };
+  walk(dir, '');
   return out;
 }
 
@@ -75,14 +104,21 @@ function run() {
       console.error(`refusing to overwrite ${PIN}; the pin is the record of what replicate 1 ran`);
       return 2;
     }
+    const skill = hashSkillTree(STAGED_SKILL);
     writeFileSync(PIN, JSON.stringify({
       pinned: new Date().toISOString().slice(0, 10),
-      note: 'Arm and grader prompts as run for replicate 1. These are the independent variable. '
-        + 'Editing one between replicates does not improve the run, it destroys the comparison. '
-        + 'Hashes are over LF-normalised text so a CRLF checkout does not report false drift.',
+      note: 'Arm and grader prompts, and arm D\'s skill tree, as run for replicate 1. These are '
+        + 'the independent variables. Editing one between replicates does not improve the run, it '
+        + 'destroys the comparison. Hashes are over LF-normalised text so a CRLF checkout does not '
+        + 'report false drift.',
+      skillSource: STAGED_SKILL,
+      skillNote: 'The repo skill has moved on since replicate 1. Arm D must read THIS tree, not '
+        + 'skills/claude-code-extension-engineering, or the replicates differ by more than '
+        + 'answer-agent nondeterminism and the pooled rule does not apply.',
       prompts: actual,
+      skill,
     }, null, 2));
-    console.log(`pinned ${Object.keys(actual).length} prompt file(s) -> ${PIN}`);
+    console.log(`pinned ${Object.keys(actual).length} prompt file(s) and ${Object.keys(skill).length} skill file(s) -> ${PIN}`);
     return 0;
   }
 
@@ -100,6 +136,21 @@ function run() {
     console.log(`${r.ok ? 'PASS' : 'FAIL'} prompts: ${Object.keys(pinned).length} pinned, `
       + `${r.drifted.length} drifted, ${r.missing.length} missing, ${r.added.length} added`);
     if (!r.ok) code = 1;
+
+    const pin = JSON.parse(readFileSync(PIN, 'utf8'));
+    if (pin.skill) {
+      const s = comparePins(pin.skill, hashSkillTree(STAGED_SKILL));
+      for (const k of s.drifted) console.log(`  DRIFTED  skill/${k}  arm D's treatment changed since replicate 1`);
+      for (const k of s.missing) console.log(`  MISSING  skill/${k}`);
+      for (const k of s.added) console.log(`  ADDED    skill/${k}`);
+      console.log(`${s.ok ? 'PASS' : 'FAIL'} arm D skill: ${Object.keys(pin.skill).length} pinned, `
+        + `${s.drifted.length} drifted, ${s.missing.length} missing, ${s.added.length} added`);
+      console.log(`  source: ${STAGED_SKILL}`);
+      if (!s.ok) code = 1;
+    } else {
+      console.log('no skill pin recorded; re-run --pin --force to add one');
+      code = 2;
+    }
   }
 
   // The docs revision is checked by its own tool, which owns that manifest.
