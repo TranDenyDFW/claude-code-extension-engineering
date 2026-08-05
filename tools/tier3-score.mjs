@@ -972,6 +972,96 @@ function selfTest() {
     return v.headline !== 'SHIP';
   })());
 
+  // ---- pooled replicate path -------------------------------------------------
+  // pooledPerScenarioDeltas, pooledVerdict and REPLICATE_RULE shipped with ZERO
+  // coverage. They are the rule the replicate run will be judged by, so they are
+  // exactly the code that must not be trusted untested.
+  {
+    // Two scenarios, four sheets each, one field. Sheet 1 is d and sheet 2 is b in
+    // every replicate, so the expected deltas are arithmetic rather than guessed.
+    // EIGHT scenarios, not two. A sign test needs at least 6 unanimous wins to
+    // reach p < 0.05 (2 * 0.5^6 = 0.031), so a two-scenario fixture caps at
+    // p = 0.5 and SHIP is unreachable by arithmetic rather than by rule. A
+    // fixture that cannot exercise the positive branch would leave the ship path
+    // permanently untested while every row still read green.
+    const PIDS = Array.from({ length: 12 }, (_, i) => `P${String(i + 1).padStart(3, '0')}`);
+    // Three batches of four. A single-batch fixture makes leave-one-batch-out
+    // remove every scenario, so the robustness clause could never pass and the
+    // ship path would look broken when only the fixture was.
+    const pbatch = id => Math.ceil(Number(id.slice(1)) / 4);
+    const pmap = Object.fromEntries(PIDS.map(id => [id, { 1: 'd', 2: 'b' }]));
+    const rep = (dScore, bScore, ids = PIDS) => ({
+      map: pmap,
+      grades: ids.flatMap(id => [
+        { scenario: id, sheet: 1, field: 'primary', score: dScore, grader: 'g1' },
+        { scenario: id, sheet: 1, field: 'primary', score: dScore, grader: 'g2' },
+        { scenario: id, sheet: 2, field: 'primary', score: bScore, grader: 'g1' },
+        { scenario: id, sheet: 2, field: 'primary', score: bScore, grader: 'g2' },
+      ]),
+    });
+
+    const three = [rep(1, 0), rep(1, 0), rep(1, 0)];
+    const pooled = pooledPerScenarioDeltas(three, 'd', 'b');
+
+    /**
+     * THE SINGLE MOST IMPORTANT ROW IN THIS FILE.
+     *
+     * Pooling AVERAGES within a scenario; it does not stack. n stays at the number
+     * of scenarios no matter how many replicates are pooled. A pooled endpoint that
+     * treated three replicates of 60 scenarios as n = 180 would manufacture
+     * significance out of nothing, and every downstream p-value would be a lie.
+     */
+    check('POOLING AVERAGES, IT DOES NOT STACK: n stays at the scenario count',
+      pooled.length === 12, `n=${pooled.length}, expected 12 not 36`);
+    check('each pooled scenario records how many replicates fed it',
+      pooled.every(x => x.reps === 3));
+
+    const mixed = pooledPerScenarioDeltas([rep(1, 0), rep(1, 0), rep(0, 1)], 'd', 'b');
+    check('the pooled delta is a MEAN of the replicate deltas',
+      Math.abs(mixed[0].meanDelta - (1 + 1 - 1) / 3) < 1e-9, `${mixed[0].meanDelta}`);
+    const tied = pooledPerScenarioDeltas([rep(1, 0), rep(0, 1)], 'd', 'b');
+    check('equal and opposite replicate deltas pool to a TIE, not a win',
+      tied[0].meanDelta === 0);
+
+    // A scenario missing from one replicate must still pool, on fewer replicates,
+    // rather than being silently dropped from n.
+    const withGap = pooledPerScenarioDeltas([rep(1, 0), rep(1, 0, PIDS.slice(0, 11)), rep(1, 0)], 'd', 'b');
+    check('a scenario absent from one replicate still pools, on fewer reps',
+      withGap.length === 12 && withGap.find(x => x.id === 'P012').reps === 2,
+      `n=${withGap.length}, P012 reps=${withGap.find(x => x.id === 'P012')?.reps}`);
+
+    check('pooling identical replicates reproduces the single-run comparison',
+      (() => {
+        const one = pairedComparison(aggregateCellsLenient(rep(1, 0).grades), pmap, 'd', 'b');
+        const p3 = pooledPerScenarioDeltas([rep(1, 0), rep(1, 0), rep(1, 0)], 'd', 'b');
+        return one.wins === p3.filter(x => x.meanDelta > 0).length
+          && one.losses === p3.filter(x => x.meanDelta < 0).length;
+      })());
+
+    // The rule must be able to say BOTH things. A rule that can only refuse is not
+    // a rule, and a rule that cannot refuse is decoration.
+    const vWin = pooledVerdict(three, [{ arm: 'd', overall: 99 }, { arm: 'b', overall: 90 }], pbatch);
+    check('the pooled rule CAN ship when every clause holds', vWin.headline === 'SHIP', vWin.detail);
+    const vMargin = pooledVerdict(three, [{ arm: 'd', overall: 91 }, { arm: 'b', overall: 90 }], pbatch);
+    check('the pooled rule refuses on margin alone even when p is significant',
+      vMargin.headline !== 'SHIP', vMargin.detail);
+    const vNeg = pooledVerdict([rep(0, 1), rep(0, 1), rep(0, 1)],
+      [{ arm: 'd', overall: 80 }, { arm: 'b', overall: 90 }], pbatch);
+    check('a pooled loss reads NEGATIVE', vNeg.headline === 'NEGATIVE', vNeg.detail);
+
+    check('leave-one-replicate drops appear once per replicate',
+      vWin.dropPs.filter(x => x.kind === 'replicate').length === 3);
+    check('leave-one-grader drops span every replicate, 2 graders each',
+      vWin.dropPs.filter(x => x.kind === 'grader').length === 6
+      && vWin.dropPs.some(x => x.dropped === 'r3:g2'),
+      vWin.dropPs.filter(x => x.kind === 'grader').map(x => x.dropped).join(','));
+    check('a single replicate produces NO leave-one-replicate drop',
+      pooledVerdict([rep(1, 0)], [{ arm: 'd', overall: 99 }, { arm: 'b', overall: 90 }], pbatch)
+        .dropPs.filter(x => x.kind === 'replicate').length === 0);
+    check('REPLICATE_RULE is the pre-committed string',
+      REPLICATE_RULE === 'pooled-per-scenario-mean, all-drops-robust');
+  }
+
   console.log(bad
     ? `SELF-TEST FAIL: ${bad} check(s) failed`
     : 'SELF-TEST PASS: the gate catches every incomplete shape, un-blinding is correct, and the verdict rule is mechanical.');
