@@ -130,6 +130,14 @@ jobs:
           # column is regenerated only when a mirror is present locally, and the
           # committed block carries the rates it was published with.
           node tools/tier3-score.mjs --set v2 --check
+          # The merged grade file is DERIVED, not authored. It used to be neither:
+          # it carried 3369 records while its twelve inputs carried 3360, and the 9
+          # adjudication records existed nowhere else. A published result resting on
+          # a file that cannot be re-derived is a result taken on trust, and it
+          # would have become permanent the moment a repaired key was re-graded
+          # into it by hand.
+          node tools/tier3-grades.mjs --self-test
+          node tools/tier3-grades.mjs --set v2 --check
 
       - name: Validate plugin manifest
         run: |
