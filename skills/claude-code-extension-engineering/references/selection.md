@@ -41,6 +41,10 @@ Answer the axis questions in order, then open the matching mechanism reference. 
 - **Behaviour tied to a lifecycle moment?**
   - Yes → Hook (before/after tool, prompt submit, session start/end, stop, compaction, ...).
   - go to: [Hooks](hooks.md)
+- **Behaviour tied to an outside process emitting lines for as long as the session lives?**
+  - Report every occurrence of something happening off to the side, and never gate it → Monitor, a plugin-declared shell command whose every stdout line is delivered to Claude as a notification. "Tell me when X finishes" is a background task; "tell me every time X happens" is a monitor.
+  - go to: [Monitors](monitors.md)
+  - Caveat: enforcement ownership is NOT A CHOICE on this branch. A monitor has no block or deny contract and no timeout field, so fail-open is the only available posture; if the requirement ends "and then it must stop something", the monitor is the SENSOR and a hook is the GATE. The context boundary is the MAIN window, since every line is admitted there and every later request re-reads it, so filter in the command rather than in the model's judgment. Lifecycle is the whole session and nothing shorter: disabling the plugin mid-session does NOT stop it, a plugin update strands it on the OLD path until a full session restart, and it does not load at all from a project-scope `@skills-dir` plugin, so a monitor checked into the repo reaches nobody.
 - **Distribution, versioning, or rollback needed?**
   - Yes → Plugin (marketplace, pinned version).
   - go to: [Plugins](plugins.md)
@@ -50,6 +54,11 @@ Answer the axis questions in order, then open the matching mechanism reference. 
 - **Need external data or actions behind an authenticated boundary?**
   - Use MCP when Claude needs a governed connection to an external service.
   - go to: [MCP servers](mcp.md)
+  - Caveat: MCP is PULL-ONLY. Claude asks and the server answers, and nothing in that contract lets the server speak first; the enforcement point is the per-server permission prompt, which only exists because the model initiated the call. If the requirement is the SERVER initiating, that is the channel branch below, and it is the same server with one capability key added rather than a different mechanism.
+- **Need an outside system to PUSH an event into a live session?**
+  - Yes → Channel, an MCP server that emits `notifications/claude/channel`, so everything on the MCP branch above still applies unchanged.
+  - go to: [Channels](channels.md)
+  - Caveat: research preview, and the failure policy is the weakest on this page. It fails OPEN AND SILENT at three separate points: the `await` on `mcp.notification()` resolves when the message reaches the TRANSPORT and not when Claude has processed it, an unregistered or policy-blocked channel has its events dropped with no error returned to your server, and `/mcp` reports the server healthy in exactly that case because the tools still work. Enablement is an AND of four gates (the capability key in your code, the config entry, `--channels` at launch, and the allowlist with `channelsEnabled`), and the last of those is MANAGED-TIER ONLY, so the tamper boundary sits with the ORG and it owns availability rather than you. Enforcement ownership inverts too: an ungated channel is a PROMPT INJECTION VECTOR, the harness performs no sender check, and the only gate is application code you write, on SENDER identity (`message.from.id`) and never room identity (`message.chat.id`), because in a group chat those differ.
 - **Need to fan work out across tens or hundreds of agents?**
   - go to: [Dynamic Workflows](workflows.md)
   - go to: [Subagents](subagents.md)

@@ -1,0 +1,14 @@
+{
+  "name": "watch-tools",
+  "description": "Streams the application error log into the session as notifications.",
+  "experimental": {
+    "monitors": [
+      {
+        "name": "error-log",
+        "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/tail-errors.sh\"",
+        "description": "Application error log",
+        "when": "always"
+      }
+    ]
+  }
+}

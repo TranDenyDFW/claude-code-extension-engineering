@@ -1,0 +1,14 @@
+[
+  {
+    "name": "queue-watch",
+    "command": "cd \"${CLAUDE_PLUGIN_ROOT}\" && node \"${CLAUDE_PLUGIN_ROOT}/scripts/depth.mjs\"",
+    "description": "Queue depth crossing the alert threshold",
+    "when": "always"
+  },
+  {
+    "name": "queue-watch",
+    "command": "cd \"${CLAUDE_PLUGIN_ROOT}\" && node \"${CLAUDE_PLUGIN_ROOT}/scripts/workers.mjs\"",
+    "description": "Worker process health",
+    "when": "always"
+  }
+]

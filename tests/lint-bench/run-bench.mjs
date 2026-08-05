@@ -315,10 +315,32 @@ export function fileAnchored(diags) {
   return diags.filter(d => /\.(md|json|mjs|js|cjs|ts|toml|ya?ml|sh|ps1)$/i.test(d.file || ''));
 }
 
+/**
+ * Kinds on which ANY finding is a false positive. negative-control joins clean
+ * here because the scoring rule is identical; it stays a separate KIND because
+ * "the clean tree" is a specific published concept in the results matrix, and
+ * folding a second tree into it would change what that published table counts
+ * without anyone editing the table.
+ */
+const ZERO_FINDING_KINDS = new Set(['clean', 'negative-control']);
+
+/** Kinds scored against a signal regex. late-failure-mode is scored exactly
+ *  like failure-mode and TOTALLED separately: see renderMatrix. */
+const SIGNAL_KINDS = new Set(['failure-mode', 'late-failure-mode', 'control']);
+
 export function scoreCell(manifest, run) {
   if (run.notApplicable) return 'n/a';
   if (run.spawnError || run.timedOut) return 'crash';
-  if (manifest.kind === 'clean') return run.findings > 0 ? 'FALSE-POS' : 'clean';
+  if (ZERO_FINDING_KINDS.has(manifest.kind)) return run.findings > 0 ? 'FALSE-POS' : 'clean';
+  // A kind this runner does not know about must be LOUD. Falling through would
+  // score it against manifest.signal, and a zero-finding fixture carries signal
+  // null, so the failure mode is `new RegExp(null)` matching the string "null"
+  // in some tool's output and crediting a catch on a tree that must find
+  // nothing. Adding a kind is a two-file change; this makes forgetting the
+  // second file impossible instead of merely unlikely.
+  if (!SIGNAL_KINDS.has(manifest.kind)) {
+    throw new Error(`scoreCell: unknown fixture kind ${JSON.stringify(manifest.kind)}; add it to SIGNAL_KINDS or ZERO_FINDING_KINDS rather than letting it fall through to signal scoring`);
+  }
   // Scoring text, strictest available first:
   //   1. structured diagnostics, file-anchored only (a tool that parsed the
   //      config and reported ZERO violations scores miss no matter what its
@@ -337,23 +359,37 @@ export function scoreCell(manifest, run) {
   return re.test(text) ? 'catch' : 'miss';
 }
 
+const KIND_SUFFIX = {
+  control: ' (control)',
+  clean: ' (clean)',
+  'negative-control': ' (negative control)',
+  'late-failure-mode': ' (late)',
+};
+
 export function renderMatrix(results) {
   const tools = results.tools.filter(t => t.version);
   const L = [];
   L.push(`| Fixture | ${tools.map(t => t.label).join(' | ')} |`);
   L.push(`|---|${tools.map(() => '---').join('|')}|`);
   for (const f of results.fixtures) {
-    L.push(`| ${f.id}${f.kind === 'control' ? ' (control)' : f.kind === 'clean' ? ' (clean)' : ''} | ${tools.map(t => f.cells[t.id] ?? 'skip').join(' | ')} |`);
+    L.push(`| ${f.id}${KIND_SUFFIX[f.kind] || ''} | ${tools.map(t => f.cells[t.id] ?? 'skip').join(' | ')} |`);
   }
   L.push('');
+  // Two caught columns, not one. The published competitor numbers were measured
+  // on the 12 original failure modes; the late cohort landed afterwards and no
+  // competitor has ever been run against it. Summing them would restate an
+  // unmeasured denominator as though it had been measured.
   const modes = results.fixtures.filter(f => f.kind === 'failure-mode');
-  L.push(`| Tool | Caught (of ${modes.length} failure modes) | Clean-tree false positives | Crashes |`);
-  L.push('|---|---|---|---|');
+  const late = results.fixtures.filter(f => f.kind === 'late-failure-mode');
+  L.push(`| Tool | Caught (of ${modes.length} published failure modes) | Caught (of ${late.length} late failure modes) | Clean-tree false positives | Negative-control false positives | Crashes |`);
+  L.push('|---|---|---|---|---|---|');
   for (const t of tools) {
     const caught = modes.filter(f => f.cells[t.id] === 'catch').length;
+    const caughtLate = late.filter(f => f.cells[t.id] === 'catch').length;
     const fp = results.fixtures.filter(f => f.kind === 'clean' && f.cells[t.id] === 'FALSE-POS').length;
+    const fpNeg = results.fixtures.filter(f => f.kind === 'negative-control' && f.cells[t.id] === 'FALSE-POS').length;
     const crash = results.fixtures.filter(f => f.cells[t.id] === 'crash').length;
-    L.push(`| ${t.label} | ${caught} | ${fp} | ${crash} |`);
+    L.push(`| ${t.label} | ${caught} | ${caughtLate} | ${fp} | ${fpNeg} | ${crash} |`);
   }
   return L.join('\n');
 }
@@ -371,6 +407,22 @@ function selfTest() {
   check('clean tree with findings scores FALSE-POS', scoreCell({ kind: 'clean' }, { out: 'x', findings: 3 }) === 'FALSE-POS');
   check('clean tree with zero findings scores clean', scoreCell({ kind: 'clean' }, { out: 'ok', findings: 0 }) === 'clean');
   check('not-applicable stays n/a', scoreCell(m, { notApplicable: true, out: '' }) === 'n/a');
+
+  // negative-control scores by the CLEAN rule, not the signal rule. Its
+  // manifest carries signal null, so a scorer that fell through to the signal
+  // branch would throw on new RegExp(null) or, worse, credit a catch; both
+  // failures are pinned here.
+  check('negative-control with findings scores FALSE-POS',
+    scoreCell({ kind: 'negative-control', signal: null }, { out: 'x', findings: 2 }) === 'FALSE-POS');
+  check('negative-control with zero findings scores clean',
+    scoreCell({ kind: 'negative-control', signal: null }, { out: 'all names resolve', findings: 0 }) === 'clean');
+  check('an unknown fixture kind THROWS rather than falling through to signal scoring', (() => {
+    try { scoreCell({ kind: 'made-up-kind', signal: null }, { out: 'null', findings: 0 }); return false; }
+    catch (e) { return /unknown fixture kind/.test(e.message); }
+  })());
+  check('a late failure mode is scored by its signal, exactly like a failure mode',
+    scoreCell({ kind: 'late-failure-mode', signal: 'cwd|working director' }, { out: 'resolved against the session working directory', findings: 1 }) === 'catch'
+    && scoreCell({ kind: 'late-failure-mode', signal: 'cwd|working director' }, { out: 'no problems found', findings: 0 }) === 'miss');
 
   // The fake-catch defect the first agnix pass exposed: run-level boilerplate
   // whose text collides with a signal must not score a catch.
@@ -421,22 +473,59 @@ function selfTest() {
       { id: 't1', label: 'fake-catcher', version: '1.0.0' },
       { id: 't2', label: 'fake-absent', version: null },
     ],
+    // DELIBERATELY ASYMMETRIC: 2 published (1 caught) against 3 late (2 caught),
+    // and one crash. A symmetric fake was tried first and could not fail: with
+    // equal counts on both sides, a summary that read the WRONG cohort produced
+    // the same row as one that read the right one, and the mutant that swapped
+    // them stayed green. Every number below is distinct from every other.
     fixtures: [
       { id: 'a', kind: 'failure-mode', cells: { t1: 'catch' } },
       { id: 'b', kind: 'failure-mode', cells: { t1: 'miss' } },
+      { id: 'c', kind: 'late-failure-mode', cells: { t1: 'catch' } },
+      { id: 'd', kind: 'late-failure-mode', cells: { t1: 'catch' } },
+      { id: 'e', kind: 'late-failure-mode', cells: { t1: 'crash' } },
       { id: 'clean', kind: 'clean', cells: { t1: 'FALSE-POS' } },
+      { id: 'neg', kind: 'negative-control', cells: { t1: 'clean' } },
     ],
   };
   const md = renderMatrix(fake);
   check('matrix includes installed tools only', md.includes('fake-catcher') && !md.includes('fake-absent'));
-  check('matrix totals caught count correctly', md.includes('| fake-catcher | 1 | 1 | 0 |'), md.split('\n').pop());
+  check('matrix totals caught, late, clean-FP, negative-control-FP and crashes separately',
+    md.includes('| fake-catcher | 1 | 2 | 1 | 0 | 1 |'), md.split('\n').pop());
+  check('the published failure-mode denominator counts ONLY the failure-mode kind',
+    md.includes('Caught (of 2 published failure modes)') && md.includes('Caught (of 3 late failure modes)'),
+    md.split('\n').find(l => l.includes('Caught')));
+  check('a negative-control false positive is counted in its OWN column',
+    renderMatrix({ ...fake, fixtures: fake.fixtures.map(f => f.id === 'neg' ? { ...f, cells: { t1: 'FALSE-POS' } } : f) })
+      .includes('| fake-catcher | 1 | 2 | 1 | 1 | 1 |'));
+  check('a late fixture is labelled in the matrix, so no reader mistakes it for a published cell',
+    md.includes('| c (late) |') && md.includes('| neg (negative control) |'));
 
   const fixtures = loadFixtures();
-  check('all 15 fixtures load with manifests', fixtures.length === 15, `${fixtures.length}`);
-  check('every failure-mode manifest carries a signal', fixtures.filter(f => f.manifest.kind === 'failure-mode').every(f => f.manifest.signal));
+  const byKind = k => fixtures.filter(f => f.manifest.kind === k).length;
+  check('all 21 fixtures load with manifests', fixtures.length === 21, `${fixtures.length}`);
+  check('every signal-scored manifest carries a signal',
+    fixtures.filter(f => SIGNAL_KINDS.has(f.manifest.kind)).every(f => f.manifest.signal));
   check('every signal compiles as a regex', fixtures.every(f => { if (!f.manifest.signal) return true; try { new RegExp(f.manifest.signal, 'i'); return true; } catch { return false; } }));
-  check('exactly one clean fixture', fixtures.filter(f => f.manifest.kind === 'clean').length === 1);
-  check('exactly two controls', fixtures.filter(f => f.manifest.kind === 'control').length === 2);
+  check('exactly 12 published failure modes, the cohort the competitor matrix was measured over',
+    byKind('failure-mode') === 12, `${byKind('failure-mode')}`);
+  check('exactly 5 late failure modes', byKind('late-failure-mode') === 5, `${byKind('late-failure-mode')}`);
+  check('exactly one clean fixture', byKind('clean') === 1);
+  check('exactly one negative control', byKind('negative-control') === 1, `${byKind('negative-control')}`);
+  check('exactly two controls', byKind('control') === 2);
+  check('every fixture kind is one this runner scores',
+    fixtures.every(f => SIGNAL_KINDS.has(f.manifest.kind) || ZERO_FINDING_KINDS.has(f.manifest.kind)),
+    fixtures.filter(f => !SIGNAL_KINDS.has(f.manifest.kind) && !ZERO_FINDING_KINDS.has(f.manifest.kind)).map(f => f.id).join(', '));
+  // The zero-finding fixtures must carry signal null: a signal on a tree that
+  // must produce nothing is a contradiction that would never be read again.
+  check('zero-finding fixtures carry no signal',
+    fixtures.filter(f => ZERO_FINDING_KINDS.has(f.manifest.kind)).every(f => f.manifest.signal === null));
+  // The pin from make-fixtures: the two version-sensitive trees must carry
+  // their own build marker, or their verdict is the host's, not the fixture's.
+  for (const [id, v] of [['unresolvable-subagent-tools', '2.1.220'], ['future-tool-unverified', '2.1.222']]) {
+    check(`${id} pins the build in-fixture (${v})`,
+      existsSync(join(FIXTURES, id, 'home', '.local', 'share', 'claude', 'versions', v, 'marker')));
+  }
 
   const gen = spawnSync(process.execPath, [join(HERE, 'make-fixtures.mjs'), '--check'], { encoding: 'utf8', windowsHide: true });
   check('fixtures match their generator (no drift)', gen.status === 0, (gen.stdout || '').trim().split(/\r?\n/).pop());

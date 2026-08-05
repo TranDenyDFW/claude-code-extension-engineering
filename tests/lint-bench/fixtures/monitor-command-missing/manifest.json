@@ -1,0 +1,7 @@
+{
+  "id": "monitor-command-missing",
+  "kind": "late-failure-mode",
+  "defect": "a monitor command names a script that is not in the plugin; fail-open is the only posture a monitor has, so a monitor that cannot start is indistinguishable from a monitor with nothing to report",
+  "citation": "monitors.md No block or deny contract [ENGINEERING]: fail-open is the only posture available here",
+  "signal": "not found|missing|does not exist|no such file|script"
+}

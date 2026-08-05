@@ -1,7 +1,7 @@
 {
   "id": "unresolvable-subagent-tools",
   "kind": "failure-mode",
-  "defect": "an agent frontmatter tools list names a tool that does not exist; since v2.1.208 an unresolvable list refuses to spawn",
-  "citation": "subagents.md tools resolution [OFFICIAL] [v2.1.208]",
+  "defect": "an agent frontmatter tools list names a tool that does not exist; since v2.1.208 an unresolvable list refuses to spawn. The build is PINNED to 2.1.220 in-fixture, the build the capability catalog enumerates, because absence from a catalog is proof of nonexistence only on a build that catalog covers; without the pin this row would assert whatever the host has installed and would flip from BROKEN to UNVERIFIED on any box a release ahead",
+  "citation": "subagents.md tools resolution [OFFICIAL] [v2.1.208]; data/capabilities/catalog.json versionAwareness (catalogVersion 2.1.220)",
   "signal": "tool|FrobnicateTool|unresolv|unknown|invalid"
 }

@@ -1,0 +1,7 @@
+{
+  "id": "monitor-cwd-assumption",
+  "kind": "late-failure-mode",
+  "defect": "a monitor command addresses its OWN bundled script through a relative path. Monitors run in the SESSION working directory, so the command only works when the user happens to start Claude Code inside the plugin. The co-presence is the whole point: poll.sh EXISTS under the plugin root, which is what separates this from the documented tail -F ./logs/error.log example, where the relative path legitimately means \"the session cwd\"",
+  "citation": "monitors.md Lifecycle and working directory [OFFICIAL]: cwd is the SESSION working directory, NOT the plugin directory",
+  "signal": "cwd|working director|relative path|session"
+}

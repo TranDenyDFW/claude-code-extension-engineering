@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "DirectoryAdded": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/on-dir-added.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

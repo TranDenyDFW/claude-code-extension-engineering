@@ -5,10 +5,28 @@
  *   node tests/lint-bench/make-fixtures.mjs           write fixtures/
  *   node tests/lint-bench/make-fixtures.mjs --check   re-derive and verify
  *
- * Fifteen cases: the twelve failure modes this repo's references document, two
- * positive controls that the incumbent linter documents catching (they verify
- * the RUNNER, not the tools), and one clean tree on which any finding at all
- * counts against a tool exactly like a miss.
+ * Twenty-one cases in five kinds:
+ *
+ *   failure-mode       12  the failure modes this repo's references document,
+ *                          and the ONLY cohort the published competitor matrix
+ *                          in tests/results-lint-bench.md was measured over
+ *   late-failure-mode   5  monitor and channel failure modes added 2026-08-05,
+ *                          after that competitor run. Scored exactly like a
+ *                          failure mode, counted SEPARATELY, because "12 of 12"
+ *                          is a published measurement and silently moving its
+ *                          denominator would rewrite a number nobody re-measured
+ *   control             2  positive controls the incumbent linter documents
+ *                          catching; they verify the RUNNER, not the tools
+ *   clean               1  a correctly authored tree on which any finding at all
+ *                          counts against a tool exactly like a miss
+ *   negative-control    1  a correctly authored tree whose names sit in the
+ *                          version-asymmetry blind spot (build NEWER than the
+ *                          capability catalog). Zero findings required, same as
+ *                          clean. It is a separate kind rather than a second
+ *                          clean tree because "the clean tree" is a specific
+ *                          published concept in the results matrix, and
+ *                          overloading it would change what that table means
+ *                          without anyone editing the table.
  *
  * Every fixture is a home/ + project/ pair so scope-aware tools can see both
  * sides of a cross-scope defect. manifest.json carries the defect, the
@@ -17,12 +35,24 @@
  * deliberately loose (concept words, not exact messages) so a tool is credited
  * for catching the DEFECT in its own vocabulary, not for phrasing.
  *
+ * VERSION PINNING. Two fixtures carry a marker under
+ * home/.local/share/claude/versions/<version>/ so the build a scope-aware tool
+ * detects comes from the FIXTURE, not from the machine running the bench. A
+ * FILE inside a version-named directory, because git does not track empty
+ * directories and a fixture that vanishes on clone is not a fixture.
+ * unresolvable-subagent-tools pins 2.1.220, the build the capability catalog
+ * covers, so its verdict stays BROKEN; future-tool-unverified pins 2.1.222 so
+ * its verdict is taken in the regime where absence from the catalog proves
+ * nothing.
+ *
  * Committed rather than gitignored so the bench is reproducible byte for byte;
  * --check is wired into the runner so drift fails rather than lurks.
  */
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
+import { tmpdir } from 'os';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, 'fixtures');
@@ -73,6 +103,28 @@ process.stdin.on('end', () => { process.exit(0); });
 // Long but under-cap description for the clean tree's realism.
 const DESC_1300 = ('Reviewing pull requests for the payments service: check idempotency keys, ' +
   'retry semantics, ledger balancing, and the four invariants in docs/invariants.md. ').repeat(9).slice(0, 1300);
+
+/**
+ * A build marker inside home/. The installer's own store is
+ * home/.local/share/claude/versions/<version>/, so the key is a FILE under a
+ * version-named directory: git tracks files, not empty directories, and a
+ * marker that disappeared on clone would silently hand the verdict back to
+ * whatever build the CI box happens to have installed.
+ */
+const VERSION_MARKER = v => [`home/.local/share/claude/versions/${v}/marker`,
+  `Fixture build pin. Present so a scope-aware tool detects ${v} from this tree instead of from the host.\n`];
+
+/** A monitor script that EXISTS, so command-missing stays quiet and the check under test is isolated. */
+const WATCH_SCRIPT = `#!/usr/bin/env node
+// Prints one line per interesting event. Nothing here is under test; the file
+// exists so "the script is missing" is not what a fixture accidentally proves.
+process.stdout.write('ready\\n');
+`;
+
+const CHANNEL_SERVER = `#!/usr/bin/env node
+// Stand-in channel server. Every check reads CONFIG, never this file's contents.
+process.stdin.resume();
+`;
 
 const FIXTURES = [
   {
@@ -195,10 +247,11 @@ Body intentionally short.
   },
   {
     id: 'unresolvable-subagent-tools',
-    defect: 'an agent frontmatter tools list names a tool that does not exist; since v2.1.208 an unresolvable list refuses to spawn',
-    citation: 'subagents.md tools resolution [OFFICIAL] [v2.1.208]',
+    defect: 'an agent frontmatter tools list names a tool that does not exist; since v2.1.208 an unresolvable list refuses to spawn. The build is PINNED to 2.1.220 in-fixture, the build the capability catalog enumerates, because absence from a catalog is proof of nonexistence only on a build that catalog covers; without the pin this row would assert whatever the host has installed and would flip from BROKEN to UNVERIFIED on any box a release ahead',
+    citation: 'subagents.md tools resolution [OFFICIAL] [v2.1.208]; data/capabilities/catalog.json versionAwareness (catalogVersion 2.1.220)',
     signal: 'tool|FrobnicateTool|unresolv|unknown|invalid',
     files: {
+      [VERSION_MARKER('2.1.220')[0]]: VERSION_MARKER('2.1.220')[1],
       'project/.claude/agents/checker.md': `---
 name: checker
 description: "Cross-checks generated reports against their source data and flags mismatched totals."
@@ -251,6 +304,127 @@ Check every total in the report against the raw rows.
       'project/my-plugin/commands/deploy-verify.md': '---\ndescription: Verify the staging deploy end to end\n---\n\nRun the verify script and report PASS or FAIL.\n',
     },
   },
+  // ------------------------------------------------- late failure modes (5) --
+  // Monitor and channel defects, added 2026-08-05 with the checks that catch
+  // them. Only the checks that need a TREE to express live here: a defect that
+  // is visible in one JSON blob is cheaper and sharper as a doctor unit
+  // assertion, and a fixture tree that adds nothing over a unit test is upkeep
+  // with no evidence attached to it.
+  {
+    id: 'monitor-user-config-ref',
+    late: true,
+    defect: 'a plugin monitor command interpolates ${user_config.*}; since v2.1.207 Claude Code REJECTS that monitor with an error instead of substituting, so this one component never starts while the rest of the plugin loads and looks healthy',
+    citation: 'monitors.md Secrets and ${user_config.*} [OFFICIAL] [v2.1.207]; errors.md plugin-command-references-user-config',
+    signal: 'user_config|substitut|reject',
+    files: {
+      'project/deploy-tools/.claude-plugin/plugin.json': J({
+        name: 'deploy-tools',
+        description: 'Watches the deploy pipeline and reports status changes into the session.',
+        experimental: {
+          monitors: [{
+            name: 'deploy-status',
+            command: 'node "${CLAUDE_PLUGIN_ROOT}/scripts/poll-deploy.mjs" --token "${user_config.api_token}"',
+            description: 'Deployment status changes',
+            when: 'always',
+          }],
+        },
+      }),
+      'project/deploy-tools/scripts/poll-deploy.mjs': WATCH_SCRIPT,
+    },
+  },
+  {
+    id: 'monitor-command-missing',
+    late: true,
+    defect: 'a monitor command names a script that is not in the plugin; fail-open is the only posture a monitor has, so a monitor that cannot start is indistinguishable from a monitor with nothing to report',
+    citation: 'monitors.md No block or deny contract [ENGINEERING]: fail-open is the only posture available here',
+    signal: 'not found|missing|does not exist|no such file|script',
+    files: {
+      'project/watch-tools/.claude-plugin/plugin.json': J({
+        name: 'watch-tools',
+        description: 'Streams the application error log into the session as notifications.',
+        experimental: {
+          monitors: [{
+            name: 'error-log',
+            command: 'sh "${CLAUDE_PLUGIN_ROOT}/scripts/tail-errors.sh"',
+            description: 'Application error log',
+            when: 'always',
+          }],
+        },
+      }),
+      // scripts/tail-errors.sh intentionally absent: that absence IS the defect.
+      'project/watch-tools/README.md': 'The monitor script was renamed and the manifest was not updated.\n',
+    },
+  },
+  {
+    id: 'monitor-cwd-assumption',
+    late: true,
+    defect: 'a monitor command addresses its OWN bundled script through a relative path. Monitors run in the SESSION working directory, so the command only works when the user happens to start Claude Code inside the plugin. The co-presence is the whole point: poll.sh EXISTS under the plugin root, which is what separates this from the documented tail -F ./logs/error.log example, where the relative path legitimately means "the session cwd"',
+    citation: 'monitors.md Lifecycle and working directory [OFFICIAL]: cwd is the SESSION working directory, NOT the plugin directory',
+    signal: 'cwd|working director|relative path|session',
+    files: {
+      'project/log-tools/.claude-plugin/plugin.json': J({
+        name: 'log-tools',
+        description: 'Polls the build queue and reports each state change into the session.',
+        experimental: {
+          monitors: [{
+            name: 'build-queue',
+            command: 'sh poll.sh --interval 30',
+            description: 'Build queue state changes',
+            when: 'always',
+          }],
+        },
+      }),
+      // Present under the plugin root, addressed as if the cwd were the plugin.
+      'project/log-tools/poll.sh': '#!/bin/sh\necho ready\n',
+    },
+  },
+  {
+    id: 'monitor-duplicate-name',
+    late: true,
+    defect: 'two monitor entries share one name in monitors/monitors.json; name is the dedup key, so a plugin reload or a repeat skill dispatch spawns duplicate processes instead of reusing one. Declared in the default FILE rather than inline, so the file-loading path is exercised by something',
+    citation: 'monitors.md Configuration [OFFICIAL] [v2.1.105]: name is the identifier unique within the plugin and is the dedup key',
+    signal: 'duplicate|same name|dedup|twice|two',
+    files: {
+      'project/queue-tools/.claude-plugin/plugin.json': J({
+        name: 'queue-tools',
+        description: 'Reports queue depth and worker health into the session as they change.',
+      }),
+      'project/queue-tools/monitors/monitors.json': J([
+        {
+          name: 'queue-watch',
+          command: 'cd "${CLAUDE_PLUGIN_ROOT}" && node "${CLAUDE_PLUGIN_ROOT}/scripts/depth.mjs"',
+          description: 'Queue depth crossing the alert threshold',
+          when: 'always',
+        },
+        {
+          name: 'queue-watch',
+          command: 'cd "${CLAUDE_PLUGIN_ROOT}" && node "${CLAUDE_PLUGIN_ROOT}/scripts/workers.mjs"',
+          description: 'Worker process health',
+          when: 'always',
+        },
+      ]),
+      'project/queue-tools/scripts/depth.mjs': WATCH_SCRIPT,
+      'project/queue-tools/scripts/workers.mjs': WATCH_SCRIPT,
+    },
+  },
+  {
+    id: 'channel-server-unbound',
+    late: true,
+    defect: 'a plugin channel binds to an mcpServers key the plugin does not declare (one transposed character); with no entry Claude Code spawns no subprocess, so the listener never binds and the declaration binds to nothing',
+    citation: 'channels.md The four gates [OFFICIAL] gate 2; plugins-reference Channels: the server field is required and must match a key in the plugin mcpServers',
+    signal: 'channel|server|unbound|not a key|binds to nothing|mcpServers',
+    files: {
+      'project/alert-bridge/.claude-plugin/plugin.json': J({
+        name: 'alert-bridge',
+        description: 'Pushes alerts from the on-call webhook into the running session.',
+        mcpServers: {
+          alerts: { command: 'node', args: ['./servers/alerts.mjs'] },
+        },
+        channels: [{ server: 'alert' }],
+      }),
+      'project/alert-bridge/servers/alerts.mjs': CHANNEL_SERVER,
+    },
+  },
   // ---------------------------------------------------------------- controls --
   {
     id: 'control-array-matcher',
@@ -288,7 +462,7 @@ description: "Formats release notes from the merged PR list."
   {
     id: 'clean',
     clean: true,
-    defect: 'NONE. Valid settings with one working hook whose handler exists, one valid skill under every cap, one valid agent with resolvable tools, one MCP server at one scope. Any finding from any tool on this tree is a false positive',
+    defect: 'NONE. Valid settings with one working hook whose handler exists, one valid skill under every cap, one valid agent with resolvable tools, one MCP server at one scope, and one VALID plugin carrying a well-formed experimental.monitors array (unique names, every required field, an existing ${CLAUDE_PLUGIN_ROOT}-anchored script, a cd prefix, an on-skill-invoke naming a skill the plugin ships) plus a channels entry bound to a real mcpServers key. Any finding from any tool on this tree is a false positive',
     citation: 'n/a',
     signal: null,
     files: {
@@ -301,16 +475,81 @@ description: "Formats release notes from the merged PR list."
           docs: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', './docs'] },
         },
       }),
+      // The legitimate shape of everything the monitor and channel checks look
+      // at. Without it those checks are only ever fed defects, the first live
+      // run is the first time they meet a correct plugin, and the repo repeats
+      // the false-positive history it already paid for once.
+      'project/ops-tools/.claude-plugin/plugin.json': J({
+        name: 'ops-tools',
+        description: 'Watches the deploy pipeline and the build queue, and bridges on-call alerts into the session.',
+        experimental: {
+          monitors: [
+            {
+              name: 'deploy-status',
+              command: 'cd "${CLAUDE_PLUGIN_ROOT}" && node "${CLAUDE_PLUGIN_ROOT}/scripts/poll-deploy.mjs"',
+              description: 'Deployment status changes',
+              when: 'always',
+            },
+            {
+              name: 'build-queue',
+              command: 'cd "${CLAUDE_PLUGIN_ROOT}" && node "${CLAUDE_PLUGIN_ROOT}/scripts/poll-queue.mjs"',
+              description: 'Build queue depth crossing the alert threshold',
+              when: 'on-skill-invoke:deploy-check',
+            },
+          ],
+        },
+        mcpServers: {
+          alerts: { command: 'node', args: ['./servers/alerts.mjs'] },
+        },
+        channels: [{ server: 'alerts' }],
+      }),
+      'project/ops-tools/scripts/poll-deploy.mjs': WATCH_SCRIPT,
+      'project/ops-tools/scripts/poll-queue.mjs': WATCH_SCRIPT,
+      'project/ops-tools/servers/alerts.mjs': CHANNEL_SERVER,
+      'project/ops-tools/skills/deploy-check/SKILL.md': GOOD_SKILL('deploy-check', 'Checking a deploy before and after it lands, including the queue drain and the health endpoint.'),
+    },
+  },
+  {
+    id: 'future-tool-unverified',
+    negativeControl: true,
+    defect: 'NONE, and that is the point. The build marker says 2.1.222, NEWER than the capability catalog, which is the regime where absence from the catalog proves nothing. Every name here is real: Read, PowerShell and ReportFindings are current tools, DirectoryAdded is a current hook event. Any finding is a false positive of exactly the class that shipped on 2026-08-02, when a hand-typed name list called 14 real tool names and 1 real hook event broken',
+    citation: 'data/capabilities/catalog.json [GENERATED] versionAwareness; tools-reference.md PowerShell/ReportFindings rows; hooks.md DirectoryAdded section',
+    signal: null,
+    files: {
+      [VERSION_MARKER('2.1.222')[0]]: VERSION_MARKER('2.1.222')[1],
+      'home/.claude/settings.json': J({
+        hooks: {
+          DirectoryAdded: [
+            { hooks: [{ type: 'command', command: 'node .claude/hooks/on-dir-added.mjs' }] },
+          ],
+        },
+      }),
+      'home/.claude/hooks/on-dir-added.mjs': AUDIT_HOOK,
+      'project/.claude/agents/windows-helper.md': `---
+name: windows-helper
+description: "Runs Windows-native maintenance commands and reports the code-review findings it produces."
+tools: ["Read", "PowerShell", "ReportFindings"]
+---
+
+Run the requested maintenance command and report what changed.
+`,
     },
   },
 ];
+
+export const kindOf = f =>
+  f.clean ? 'clean'
+  : f.negativeControl ? 'negative-control'
+  : f.control ? 'control'
+  : f.late ? 'late-failure-mode'
+  : 'failure-mode';
 
 function build() {
   const out = new Map();
   for (const f of FIXTURES) {
     out.set(join(f.id, 'manifest.json'), J({
       id: f.id,
-      kind: f.clean ? 'clean' : f.control ? 'control' : 'failure-mode',
+      kind: kindOf(f),
       defect: f.defect,
       citation: f.citation,
       signal: f.signal,
@@ -324,31 +563,68 @@ function build() {
 
 const derived = build();
 
+const walk = d => readdirSync(d, { withFileTypes: true }).flatMap(e =>
+  e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]);
+
+/** Materialize the derived map under `root`. The only writer in this file. */
+function materialize(root) {
+  for (const [rel, content] of derived) {
+    const p = join(root, rel);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, content);
+  }
+}
+
+/** Content fingerprint of a tree, used to PROVE --check wrote nothing into it. */
+function fingerprint(dir) {
+  if (!existsSync(dir)) return 'ABSENT';
+  const h = createHash('sha256');
+  for (const p of walk(dir).sort()) {
+    h.update(p.slice(dir.length + 1).replace(/\\/g, '/'));
+    h.update(readFileSync(p));
+  }
+  return h.digest('hex');
+}
+
 if (CHECK) {
+  // --check BUILDS INTO A TEMP DIR and compares. Two reasons it is not an
+  // in-memory string compare: the temp build exercises the same writer the
+  // committed tree came from, so a bug in the writer cannot hide behind a
+  // comparison that never calls it; and the committed tree is read-only here by
+  // construction, since the only write path points somewhere else. A drift gate
+  // that can repair the drift it detects reports nothing but its own last run.
+  const before = fingerprint(OUT);
+  const tmp = join(tmpdir(), `lint-bench-check-${process.pid}-${Date.now()}`);
   let bad = 0;
-  for (const [rel, want] of derived) {
-    const p = join(OUT, rel);
-    if (!existsSync(p)) { console.log(`FAIL missing ${rel}`); bad++; continue; }
-    const got = readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
-    if (got !== want.replace(/\r\n/g, '\n')) { console.log(`FAIL drift ${rel}`); bad++; }
-  }
-  // Anything on disk the generator does not derive is drift too.
-  const walk = d => readdirSync(d, { withFileTypes: true }).flatMap(e =>
-    e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]);
-  if (existsSync(OUT)) {
-    for (const p of walk(OUT)) {
-      const rel = p.slice(OUT.length + 1);
-      if (!derived.has(rel)) { console.log(`FAIL extra file ${rel}`); bad++; }
+  try {
+    materialize(tmp);
+    const built = new Map();
+    for (const p of walk(tmp)) built.set(p.slice(tmp.length + 1), readFileSync(p, 'utf8').replace(/\r\n/g, '\n'));
+
+    for (const [rel, want] of built) {
+      const p = join(OUT, rel);
+      if (!existsSync(p)) { console.log(`FAIL missing ${rel}`); bad++; continue; }
+      const got = readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
+      if (got !== want) { console.log(`FAIL drift ${rel}`); bad++; }
     }
+    // Anything on disk the generator does not derive is drift too.
+    if (existsSync(OUT)) {
+      for (const p of walk(OUT)) {
+        const rel = p.slice(OUT.length + 1);
+        if (!built.has(rel)) { console.log(`FAIL extra file ${rel}`); bad++; }
+      }
+    }
+    if (fingerprint(OUT) !== before) {
+      console.log('FAIL --check MUTATED the committed fixtures; a drift gate must never repair the drift it detects');
+      bad++;
+    }
+    console.log(bad ? `${bad} problem(s)` : `PASS: ${built.size} fixture files match the generator.`);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
   }
-  console.log(bad ? `${bad} problem(s)` : `PASS: ${derived.size} fixture files match the generator.`);
   process.exit(bad ? 1 : 0);
 }
 
 if (existsSync(OUT)) rmSync(OUT, { recursive: true, force: true });
-for (const [rel, content] of derived) {
-  const p = join(OUT, rel);
-  mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, content);
-}
+materialize(OUT);
 console.log(`Wrote ${derived.size} files across ${FIXTURES.length} fixtures to tests/lint-bench/fixtures/.`);

@@ -1,8 +1,19 @@
 # Lint bench: what existing tools catch, and what the extension doctor adds
 
-Run 2026-08-02 on Windows, Node v24.14.1. Raw per-cell outputs in
-[lint-bench/results.json](lint-bench/results.json); fixtures generated deterministically by
+Competitor run 2026-08-02 on Windows, Node v24.14.1. Doctor column re-run 2026-08-05 on the
+same machine after the monitor and channel checks landed. Raw per-cell outputs in
+[lint-bench/results.json](lint-bench/results.json), which holds the 2026-08-02 run;
+fixtures generated deterministically by
 [lint-bench/make-fixtures.mjs](lint-bench/make-fixtures.mjs) and drift-gated in CI.
+
+**Read the two dates as two runs, not one.** The competitor columns were measured on
+2026-08-02 and have NOT been re-measured. Two fixtures changed afterwards, so the
+2026-08-02 cells for those two trees describe trees that no longer exist byte for byte:
+`clean` gained a valid monitors-and-channels plugin, and `unresolvable-subagent-tools`
+gained an in-fixture build marker. Neither change makes a competitor's verdict wrong (no
+surveyed tool reads monitors, channels, or the version store at all), but "not wrong as
+far as we can tell" is not "measured", and the distinction is the whole point of this
+document.
 
 ## The question
 
@@ -31,10 +42,35 @@ machine's real config. Each copy was hashed before and after every run.
 
 ## Fixtures
 
-Fifteen committed trees: twelve failure modes this repo's references document, two positive
-controls the incumbent documents catching (they verify the RUNNER, not the tools), and one
-clean tree on which any finding counts against a tool exactly like a miss. Each carries a
-manifest naming the defect, the citation behind it, and a concept-word signal regex.
+Twenty-one committed trees in five kinds. Each carries a manifest naming the defect, the
+citation behind it, and a concept-word signal regex.
+
+| Kind | n | What it is |
+|---|---|---|
+| failure-mode | 12 | The failure modes this repo's references document. **The only cohort the competitor columns were measured over.** |
+| late-failure-mode | 5 | Monitor and channel failure modes, added 2026-08-05 with the checks that catch them. Scored identically, counted separately. |
+| control | 2 | Positive controls the incumbent documents catching. They verify the RUNNER, not the tools. |
+| clean | 1 | A correctly authored tree. Any finding counts against a tool exactly like a miss. |
+| negative-control | 1 | A correctly authored tree whose names sit in the version-asymmetry blind spot. Zero findings required, same rule as clean. |
+
+Two design decisions in that table are load-bearing.
+
+**The late cohort is a separate kind so the published 12 stays 12.** Folding five new trees
+into `failure-mode` would have turned "12 of 12" into "17 of 17" without anyone re-running
+a competitor, restating an unmeasured denominator as a measured one. The runner's own
+self-test pins the split, and a mutant that merges the cohorts turns it red.
+
+**The negative control is a separate kind for the same reason.** Its scoring rule is
+identical to clean's, so the cheap move was a second clean tree. But "the clean tree" is a
+specific published concept in the matrix below, and a second one would silently change what
+the clean-tree column counts. A new kind changes the table visibly instead.
+
+The negative control is the fixture this stage most needed and did not have. It pins a
+build marker of 2.1.222, NEWER than the capability catalog, which is the regime where
+absence from the catalog proves nothing, and then declares only real names: `Read`,
+`PowerShell` and `ReportFindings` in a subagent tools list, and a `DirectoryAdded` hook.
+Every one of those was called broken by the doctor as shipped on 2026-08-02. Round five
+below is what that cost.
 
 ## The matrix
 
@@ -56,15 +92,28 @@ manifest naming the defect, the citation behind it, and a concept-word signal re
 | control-bad-skill-name | catch | miss | miss | miss | n/a | catch | catch |
 | clean tree | clean | FALSE-POS | clean | clean | n/a | clean | clean |
 
-| Tool | Caught (of 12) | Clean-tree false positives | Crashes | Wrote during a run |
-|---|---|---|---|---|
-| agnix (bare) | 3 | 0 | 0 | no |
-| claude-code-templates | 1 | 1 | 0 | no |
-| cclint | 0 | 0 | 0 | no |
-| claude-skill-validator | 0 | 0 | 0 | no |
-| claude plugin validate | 0 | 0 | 0 | **yes** |
-| extension-doctor (bare) | 12 | 0 | 0 | no |
-| extension-doctor + agnix | 12 | 0 | 0 | no |
+Late cohort, added 2026-08-05. Doctor column measured that day through the same runner
+(`run-bench.mjs --only doctor`); no competitor has ever been run against these trees, and
+`not run` is written rather than `miss` because an unrun cell is not a measurement:
+
+| Fixture (late) | agnix | cct | cclint | skill-validator | plugin validate | doctor (bare) | doctor + agnix |
+|---|---|---|---|---|---|---|---|
+| monitor-user-config-ref | not run | not run | not run | not run | not run | catch | not run |
+| monitor-command-missing | not run | not run | not run | not run | not run | catch | not run |
+| monitor-cwd-assumption | not run | not run | not run | not run | not run | catch | not run |
+| monitor-duplicate-name | not run | not run | not run | not run | not run | catch | not run |
+| channel-server-unbound | not run | not run | not run | not run | not run | catch | not run |
+| future-tool-unverified (negative control) | not run | not run | not run | not run | not run | clean | not run |
+
+| Tool | Caught (of 12 published) | Caught (of 5 late) | Clean-tree false positives | Negative-control false positives | Crashes | Wrote during a run |
+|---|---|---|---|---|---|---|
+| agnix (bare) | 3 | not run | 0 | not run | 0 | no |
+| claude-code-templates | 1 | not run | 1 | not run | 0 | no |
+| cclint | 0 | not run | 0 | not run | 0 | no |
+| claude-skill-validator | 0 | not run | 0 | not run | 0 | no |
+| claude plugin validate | 0 | not run | 0 | not run | 0 | **yes** |
+| extension-doctor (bare) | 12 | 5 | 0 | 0 | 0 | no |
+| extension-doctor + agnix | 12 | not run | 0 | not run | 0 | no |
 
 Cell-level notes, each verified against the raw output rather than the score:
 
@@ -87,9 +136,11 @@ Cell-level notes, each verified against the raw output rather than the score:
 - **The doctor's 12 of 12 is by construction and is NOT the headline.** The fixtures encode
   exactly the failure modes the doctor was built to catch, and its self-test enforces the
   mapping. The measured content of this bench is the competitor columns, the false-positive
-  column, and the clean-tree discipline, not our own perfect score.
+  column, and the clean-tree discipline, not our own perfect score. The 5 of 5 on the late
+  cohort is by construction in exactly the same way, and even less interesting: those trees
+  and those checks were written in the same week by the same author.
 
-## Four rounds of scoring hardening, disclosed because each one changed the numbers
+## Five rounds of scoring hardening, disclosed because each one changed the numbers
 
 The first scoring pass matched signals against raw tool output and produced agnix 9 of 12.
 Reading the raw outputs showed the extra five were fake: agnix prints a run-level VER-001
@@ -113,9 +164,37 @@ without attesting it. Fix: the agnix adapter scores error-level diagnostics only
 also exactly how the extension doctor consumes agnix when delegating, with a must-fail
 self-test case pinning it. agnix: 4 to 3.
 
-The lesson is the repo's recurring one, now four times over: a benchmark's first output
+The fifth round is the worst of the five, and it is not about scoring at all. It is about
+the fixture SET, and it was found by an external review after this document had already
+published "ZERO false positives" as a headline. The doctor as shipped on 2026-08-02
+resolved subagent tool names and hook event names against a HAND-TYPED list. That list was
+missing 14 real tool names (`CronCreate`, `CronDelete`, `CronList`, `EndConversation`,
+`EnterWorktree`, `ExitWorktree`, `LSP`, `PowerShell`, `PushNotification`, `RemoteTrigger`,
+`ReportFindings`, `ScheduleWakeup`, `ShareOnboardingGuide`, `WaitForMcpServers`) and 1 real
+hook event (`DirectoryAdded`). Every one of them was reported BROKEN on a correctly
+authored config. `PowerShell` alone had shipped in v2.1.84, six months before the list was
+typed.
+
+The clean-tree column stayed at 0 through all of it, and honestly so: the clean tree
+contained none of those 15 names. **The claim "ZERO false positives" was true on these
+fixtures and false in general**, and no gate in this repo could tell the difference,
+because the fixture set and the checker were written by the same author from the same
+mental model. A checker cannot be wrong about a name its fixtures never mention.
+
+Two things changed as a result. The name lists were replaced by
+[data/capabilities/catalog.json](../data/capabilities/catalog.json), generated from the
+official docs mirror with per-name provenance and an explicit `catalogVersion`, so absence
+from the catalog is treated as proof of nonexistence ONLY on a build the catalog covers and
+as UNVERIFIED otherwise. And the fixture set gained the `future-tool-unverified` negative
+control, which puts three of the previously-broken names and the previously-broken hook
+event in a tree pinned to a build NEWER than the catalog, where zero findings are required.
+That fixture would have gone red on the 2026-08-02 build.
+
+The lesson is the repo's recurring one, now five times over: a benchmark's first output
 flatters everyone, reading the raw evidence deflates it, and the reading must be done by
-someone who did not write the scorer.
+someone who did not write the scorer. Round five extends it. The reviewer must also be free
+to write their own INPUTS, because a fixture set authored alongside the checker cannot
+falsify the checker's blind spots; it shares them.
 
 ## Decision rule, committed in the plan before the bench ran
 
@@ -157,7 +236,17 @@ Final live run: 2 findings, both true, zero noise.
 
 - **We authored both the fixtures and the doctor.** The competitor columns are the
   measurement; our column is a self-test restated. An independent reviewer constructs their
-  own fixtures as part of verification.
+  own fixtures as part of verification. Round five above is what happens when nobody does:
+  a MEASURED false-positive class of 14 tool names and 1 hook event, present in the shipped
+  doctor, invisible to a fixture set that never named them, and found by external review
+  rather than by us.
+- **The two runs are dated separately and only one is current.** The competitor columns are
+  from 2026-08-02 and were never re-run; the doctor column was re-measured 2026-08-05. Two
+  fixtures changed between those dates. Nothing here should be read as a same-day
+  head-to-head across all 21 trees.
+- **The late cohort has one column in it.** Five trees, one tool, written the same week by
+  the same author. It demonstrates that the monitor and channel checks fire on a tree and
+  stay quiet on a correct one. It demonstrates nothing comparative.
 - **Signals are concept-word regexes.** A tool detecting a defect in vocabulary far from the
   signal would be under-credited. Mitigated by reading raw outputs for every surprising
   cell, both directions, and recording them in results.json.

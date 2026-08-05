@@ -1,0 +1,7 @@
+{
+  "id": "channel-server-unbound",
+  "kind": "late-failure-mode",
+  "defect": "a plugin channel binds to an mcpServers key the plugin does not declare (one transposed character); with no entry Claude Code spawns no subprocess, so the listener never binds and the declaration binds to nothing",
+  "citation": "channels.md The four gates [OFFICIAL] gate 2; plugins-reference Channels: the server field is required and must match a key in the plugin mcpServers",
+  "signal": "channel|server|unbound|not a key|binds to nothing|mcpServers"
+}

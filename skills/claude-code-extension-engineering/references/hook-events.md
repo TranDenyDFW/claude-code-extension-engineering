@@ -3,7 +3,7 @@
 > Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
 
 
-30 events. The fields below are identical across every event and are stated here once rather than repeated in each row.
+31 events. The fields below are identical across every event and are stated here once rather than repeated in each row.
 
 - **Plain text:** Exit-0 plain stdout is context for SessionStart/UserPromptSubmit/UserPromptExpansion; otherwise command stdout is normally diagnostic. HTTP 2xx plain text and non-JSON MCP text are handled as documented context.
 - **Async:** command handlers only; async output cannot block or return a decision.
@@ -12,7 +12,7 @@
   - see the per-handler defaults on the Contract branch; synchronous by default. Bound latency explicitly.
 - **Compatibility:** current documentation. Verify this event and handler type on your installed Claude Code build before relying on it.
 
-- 30 documented events; matcher, output, and blocking are event-specific [OFFICIAL]
+- 31 documented events; matcher, output, and blocking are event-specific [OFFICIAL]
 - The event list and capability contracts below were verified against the current Hooks reference.
 - Never infer one event's behavior from another event.
 
@@ -20,7 +20,8 @@
 
 The documented event set and the shipped event set are not the same thing: events can land in the changelog before the Hooks reference records them, so the table below tracks the reference and this section tracks the gap.
 
-- DirectoryAdded: introduced by changelog v2.1.219, fires after /add-dir or the SDK register_repo_root control request registers a new working directory mid-session. Re-checked 2026-07-29: the full Hooks reference page still contains zero occurrences of DirectoryAdded, so its matcher, handler set, and blocking contract remain undocumented. Treat every property of this event as unverified until the reference catches up or a live test pins it down.  [OFFICIAL]  [v2.1.219]
+- CLOSED 2026-08-05, DirectoryAdded. Introduced by changelog v2.1.219 and, on 2026-07-29, absent from the Hooks reference: zero occurrences on the whole page, so its matcher, handler set and blocking contract were all unverified and the event was tracked here instead of in the table. Re-checked 2026-08-05: the reference now carries a full "### DirectoryAdded" section, so the event moved INTO the table above with its matcher values (slash_command, register_repo_root), its handler set (command, http, mcp_tool) and its no-decision-control contract, and the count went from 30 to 31. The lag from changelog to reference was ten days  [OFFICIAL]  [v2.1.219]
+- The closure is what the section is FOR. A gap recorded and then quietly deleted teaches nothing; a gap recorded, dated, and closed with the date says how long this documentation set takes to catch up, which is the only number that tells you how much to trust a fresh changelog entry  [ENGINEERING]
 - Re-check the changelog after every release; this section is where the next delta lands.
 
 
@@ -47,6 +48,7 @@ The documented event set and the shipped event set are not the same thing: event
 | StopFailure | error type | command, http, mcp_tool | API failure type and details | none | No; output ignored |
 | ConfigChange | configuration source | command, http, mcp_tool | Changed configuration source | top-level block | Yes except policy settings |
 | CwdChanged | none | command, http, mcp_tool | Previous and new working directory | none | No |
+| DirectoryAdded | slash_command\|register_repo_root | command, http, mcp_tool | Added directory and how it was added; fires AFTER sandbox and permission state refresh, and not for --add-dir at startup (SessionStart covers those) | none | No; the add already completed |
 | FileChanged | literal filenames | command, http, mcp_tool | Watched file and change | none | No |
 | WorktreeCreate | none | command, http, mcp_tool | Requested worktree context | path return | Yes; any nonzero fails creation |
 | WorktreeRemove | none | command, http, mcp_tool | Worktree path and cleanup context | none | No; debug log only |

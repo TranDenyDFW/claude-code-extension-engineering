@@ -4,7 +4,10 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-08-04 against Claude Code 2.1.220.
+Last reviewed 2026-08-05 against Claude Code 2.1.220, the build in `evidence/VERIFIED_VERSION`.
+That pass reconciled items 20 to 23, 25 and 27 against their own artifacts and re-ran their
+gates. It did no new version check, so the verified build is unchanged from the 2026-08-04
+review.
 
 ---
 
@@ -168,7 +171,10 @@ retry until the hypothesis is checked.
 not answer it.** The idea was that the reference and the docs solve different halves of the
 rubric, so combining them should beat docs alone. The run does not support that: docs 90
 percent, docs plus a staged procedure 93, docs plus procedure plus this reference 92, and no
-comparison among those three survives dropping a single grader's batch. So item 15 is no
+comparison among those three survives dropping a single grader's batch. Those three figures
+are the V1 tables, frozen as published; the repaired v2 instrument re-asked the same question
+and returned the same verdict on different numbers, 88, 88 and 87, with combined versus docs
+alone a 20-to-20 dead heat at p=1.000. See item 25. So item 15 is no
 longer "which content moves failure_mode". Nothing in this reference showed a measurable
 effect once the documentation was present, and nothing showed harm either; the instrument
 cannot resolve differences that small. A further content push would be answering a question
@@ -181,8 +187,9 @@ total record count independently of the per-cell sweep, and has a self-test that
 of those failures and requires the gate to reject them. The historical 59-scenario figure is
 left as published rather than backfilled.
 
-**20. Twenty-seven expected-key defect records covering at least 36 of the 60 Tier 3
-scenarios.** Graders in the 2026-08-02 run were required to grade to the key and record
+**20. ~~Twenty-seven expected-key defect records covering at least 36 of the 60 Tier 3
+scenarios.~~ RESOLVED 2026-08-02 in the v2 set; see item 25. Gates re-verified 2026-08-05.**
+Graders in the 2026-08-02 run were required to grade to the key and record
 disagreements rather than adjust scores. They reported 27 records, listed in
 `tests/tier3/key-defects.jsonl`: `rejected_alternative` 9, `version_caveat` 8,
 `enforcement_owner` 4, `context_boundary` 3, `failure_mode` 2, `lifecycle` 1.
@@ -203,7 +210,18 @@ Keys stayed frozen for comparability. Repairing them is its own task with its ow
 after, and it would break comparability with every table published so far, so it needs a
 deliberate decision rather than a quiet edit.
 
-**21. Documentation access was unequal across the Tier 3 docs arms.**
+That decision was taken the same day and went the honest way: v1 stays frozen and published,
+v2 carries the repaired keys, and both are published side by side rather than one quietly
+replacing the other. `tools/tier3-keys-lint.mjs` is the gate. Re-run 2026-08-05: `--set v1`
+reports 15 errors and 51 warnings, `--set v2` reports 0 errors and 43 warnings, so the frozen
+set is RED under the same lint the shipped set passes. The schema hole named above, no rule
+forcing one scenario id per defect record, is closed too: `--defects` reports
+`key-defects.jsonl schema clean`, and the linter's `--self-test` includes the known-bad case
+"defect record with a range id is an ERROR", so the check is observed failing on bad input
+rather than assumed.
+
+**21. ~~Documentation access was unequal across the Tier 3 docs arms.~~ RESOLVED 2026-08-02
+by construction in the v2 run; see item 25.**
 WebFetch returned an unusable oversized page dump instead of an answer for the largest doc
 pages, and anchors did not reduce the payload. Failures per arm: B 11, B+ 22, D 18. B+ is
 the control that decides whether a gain is attributed to the reference or to the procedure,
@@ -220,8 +238,17 @@ reviewer found the URL counts do not reconcile with the citations present in the
 Instrumenting the fetch path so failures are recorded rather than narrated is part of the
 same fix.
 
-**22. One grader per batch confounds grader effect with scenario focus, and it produced a
-published claim that was wrong.** Each of the six Tier 3 graders scored ten consecutive
+Fixed by removing the fetch path rather than instrumenting it. The v2 run staged a local
+mirror: pages fetched once as raw markdown, sha256 per page, byte-identical into every docs
+arm, no web access at answering time. `tests/tier3/docs-manifest.json` records 20 pages
+fetched 2026-08-02, each with its sha256, which makes the mirror reproducible without
+committing copyrighted content. With no per-arm fetching there is no per-arm degradation and
+no self-report left to reconcile.
+
+**22. ~~One grader per batch confounds grader effect with scenario focus, and it produced a
+published claim that was wrong.~~ RESOLVED 2026-08-02: detector shipped, then the design
+itself was replaced in the v2 run; see item 25.** Each of the six Tier 3 graders scored ten
+consecutive
 scenarios alone, and each batch is exactly one focus area, so grader strictness and topic
 difficulty cannot be separated. Batch 6 rated B+ fifteen points above B while the other five
 batches ranged from -1.4 to +2.9. That single batch produced the entire apparent effect, and
@@ -232,12 +259,23 @@ Fixed mechanically: `tier3-score.mjs` now recomputes every paired comparison wit
 removed in turn and labels any comparison whose significance depends on one batch as
 RESTS ON ONE GRADER. It has a self-test with both a fragile fixture and a robust one.
 
-Not fixed: the design itself. Two or three graders per batch, or rotating graders across
-scenarios instead of assigning whole batches, is the real answer and costs proportionally
-more grading. Until then this benchmark cannot resolve differences of a few points, which is
-exactly the size of the differences it was built to detect.
+Not fixed at the time of writing: the design itself. Two or three graders per batch, or
+rotating graders across scenarios instead of assigning whole batches, is the real answer and
+costs proportionally more grading.
+
+The v2 run paid that cost and the design is now fixed: seeded-shuffle batches that mix focus
+areas, TWO independent graders per cell, blind adjudication of full-point splits, and a
+completeness gate that refuses to score unless every cell carries exactly two base grades
+from different graders. `tests/results-tier3.md` reports the first reliability number this
+benchmark has ever had: 1,680 double-graded cells, 92 percent exact agreement, 99 percent
+within half a point, 137 disagreements of any size and 9 full-point splits needing
+adjudication. The leave-one-batch-out detector stays in place as the tripwire; on the v2
+numbers no comparison among the docs arms was significant to begin with, so none of them
+rests on one grader.
 
 **25. Items 20 to 23 are FIXED and re-measured, 2026-08-02 (v2 run).**
+Those four entries are struck above and point here. What stays OPEN from that work is the
+residue list at the end of this item, not the four defects themselves.
 All four Tier 3 instrument defects were repaired and the four-arm question re-asked on the
 repaired instrument. Results in `tests/results-tier3.md`; every fix carries its own gate:
 
@@ -265,9 +303,15 @@ Residues, open:
   rule. Deferred for budget.
 - **S040's key is still wrong and costs every arm equally.** Its primary is an advisory
   remedy while its own `failure_mode` concedes a hard guarantee needs a different mechanism;
-  all four arms chose the deny rule and score zero on five of seven fields. keys-lint does
-  not yet catch the class "the key's own failure_mode names a better primary than the key's
-  primary". That rule is the next lint addition.
+  all four arms chose the deny rule and score zero on five of seven fields. The lint rule
+  called "the next addition" here has since shipped: `tier3-keys-lint.mjs` now flags the class
+  where a key's own `failure_mode` or `rejection_reason` names a harness-owned mechanism the
+  primary does not, while `enforcement_owner` calls that primary advisory or model-owned.
+  Re-run 2026-08-05: it fires on S040 and on no other key, one hit in each of the 60-key v1
+  and v2 sets, and its `--self-test` carries both the must-fire shape and four must-stay-silent
+  shapes so the selectivity is observed rather than assumed. It fires as a WARN, and the KEY
+  itself is still unrepaired under the same freeze-for-comparability decision as item 20. So
+  the residue is now a known-bad key the linter can see, not a defect class nothing can detect.
 - **More "none" version_caveat collisions** reported by v2 graders (candidates: v2.1.199,
   v2.1.196, v2.1.208). Needs a changelog check before the next run, with the caveat that arms
   sharing a base model can converge on the same fabrication.
@@ -292,13 +336,22 @@ Still open from that work:
 - cct's health checker validates hook events against a four-event allowlist and its clean
   tree column is machine-sensitive; both were measured, neither reported upstream yet.
 
-**23. The Tier 3 citation rate measures format, not verification.** It reports the share of
+**23. ~~The Tier 3 citation rate measures format, not verification.~~ RESOLVED 2026-08-02 in
+the v2 run; see item 25.** It reported the share of
 factual fields carrying a well-formed URL, and both staged arms hit 100 percent. Cross-checked
 against the run's own fetch-failure reports, 27 percent of B+ citations and 20 percent of D
 citations point at pages those same arms reported as returning unusable dumps. The arms say
 they re-sourced the facts from smaller sibling pages while citing the canonical page, which is
 defensible and unverifiable from the artifacts. Either the metric should be renamed to what it
 measures, or citations should be checked against what the arm actually fetched.
+
+The second option was taken. In v2 the metric is the share of the four factual fields whose
+citation carries a quote appearing VERBATIM in the cited mirror page, checked mechanically
+against the staged bytes, and a field with NO citation counts against the rate rather than
+being skipped, which is what turns it from a formatting check into a verification check.
+`tests/tier3/verified-quote-rates-v2.json` records 98 for B+ and 99 for D, with zero
+non-verifying quotes among those supplied. Arms A and B were not asked for citations, so they
+carry no rate.
 
 **16. ~~Trigger recall is 16% in a crowded environment.~~ RESOLVED 2026-07-31, recall 96%.**
 The 16% run had measured an EMPTY description (the frontmatter defect, item 19). With the
@@ -322,10 +375,14 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 268 source assignments in `claims.jsonl` were made by subagents with stated rules,
+The 383 source assignments in `claims.jsonl` were made by subagents with stated rules,
 not independently double-checked. The integrity gate catches structural drift, not a
 wrong-but-plausible source id. A second blind attribution pass with disagreement
-reporting would harden it.
+reporting would harden it. The 2026-08-05 monitors and channels pass is a worked example
+of the risk and of one cheap mitigation: 117 claims needed attribution, and checking each
+one against the page it named turned up a claim whose source page was not in the ledger
+at all (the plugin context-cost model, which traces to `discover-plugins`, added as
+`SRC_DISCOVER_PLUGINS`). A wrong-but-plausible id would have passed the gate silently.
 
 **19. ~~The skill's own frontmatter was unparseable from birth.~~ RESOLVED 2026-07-30.**
 The description contained an unquoted colon-space, so the YAML frontmatter failed to
@@ -349,13 +406,38 @@ expected outcome; it also never reads `hooks.json`, so the matcher is never eval
 `tests/results-prove-bench.md`). Five upstream defects filed as
 anthropics/claude-code #83800 to #83804.
 
-**27. `extension-prove` has no fidelity calibration, and that is its load-bearing limit.**
-It asserts conformance to the documented contract as read in `references/hooks.md` and the
-official permissions page. It is NOT Claude Code. No case has been checked against a live
-`claude -p` session, so a misreading of the contract would be invisible. Every case kind
-carries the citation it was derived from, which makes the reading disputable but not verified.
-Until a fidelity number exists this belongs in the headline of any claim, and
-`tests/results-prove-bench.md` states it. Fixing this is the precondition for any Tier 4.
+**27. ~~`extension-prove` has no fidelity calibration, and that is its load-bearing limit.~~
+RESOLVED 2026-08-04/05 at n = 10 per class.**
+The limit was real: the prover asserted conformance to OUR READING of `references/hooks.md`
+and the official permissions page, so a misreading of the contract would have been invisible.
+It has now been measured against the product. Fifteen behaviour classes, each computed twice,
+once by the simulator and once by a real `claude -p` session, ten passes per class: 150 live
+sessions against Claude Code 2.1.219. The observable is ground truth on disk, whether the
+target file exists and whether the handler's marker appeared, never the model's narration.
+Consolidated record in `tests/tier4/fidelity-n10-final.json`: `modelled` 13 classes with 13
+fully agreeing, `unmodelled` 2 classes measured consistently, `nondeterministic: []`. Every
+class is 10 of 10 and nothing flipped across ten passes, which is the result ten passes exists
+to be able to state.
+
+The calibration earned its cost by finding a defect that outcome agreement alone HID. Claude
+Code hands a hook an absolute path with native separators; every conformance case had been
+feeding a relative POSIX path, and the eight round-1 outcomes still agreed only because the
+guard normalised both shapes. The bench's own control handler did not: given the real shape it
+ALLOWED the write. A handler could have passed this bench and been dead in production, which
+is precisely the failure class the project exists to catch, sitting inside its own instrument.
+`extension-prove` now absolutises `file_path` against the temp project the way the product
+does, and matches permission rules against the project-relative form, because a rule is written
+`Edit(infra/**)`. Three harness bugs in the n = 10 sweep (a marker-filename mismatch, a
+hardcoded target, and a temporal dead zone that discarded 40 completed live sessions) were
+caught by the 0-of-10-with-deterministic-yes signature; four classes whose original numbers
+were RIGHT were re-measured anyway, because a pass obtained from a known-broken observer is
+not evidence. Only fixed-observer results are admitted to the record.
+
+Open residue, and it is the reason this is not a general fidelity guarantee: one CLI build on
+one platform (2.1.219, Windows), and only the fifteen classes with a disk-visible outcome.
+PostToolUse exit 2, SessionStart `additionalContext`, managed-settings precedence, PreCompact,
+SubagentStop and Stop remain a reading of the docs, each listed with its reason in
+`tests/results-prove-bench.md` so an unlisted gap cannot read as covered.
 
 **28. prove-bench is 10 of 10 BY CONSTRUCTION, the same limit as item 24.**
 We authored both the fixtures and the expected outcomes. The measured content is the

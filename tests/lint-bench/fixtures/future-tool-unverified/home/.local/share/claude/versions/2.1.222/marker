@@ -1,0 +1,1 @@
+Fixture build pin. Present so a scope-aware tool detects 2.1.222 from this tree instead of from the host.

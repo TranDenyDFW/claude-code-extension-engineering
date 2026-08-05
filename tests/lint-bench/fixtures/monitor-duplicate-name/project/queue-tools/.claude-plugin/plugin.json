@@ -1,0 +1,4 @@
+{
+  "name": "queue-tools",
+  "description": "Reports queue depth and worker health into the session as they change."
+}

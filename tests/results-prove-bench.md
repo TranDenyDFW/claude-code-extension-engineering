@@ -363,8 +363,13 @@ caught bug 2 at one session instead of forty.
   one CLI build on one platform, and the classes listed as not observable remain uncovered.
 - **One CLI build, one platform.** 2.1.219 on Windows. Hook behaviour has moved between builds
   before.
-- **Only the classes listed.** Settings precedence, timeouts, HTTP handlers, `if`-rule filters
-  and every non-PreToolUse event are UNCALIBRATED and remain a reading of the docs.
+- **Only the fifteen classes listed.** Round 2 brought timeouts, `if`-rule filters, the HTTP
+  handler, `settings.json` plus `settings.local.json` merging, and `UserPromptSubmit` exit 2
+  inside the calibrated set, so they are no longer a reading of the docs. What stays outside it
+  is the "Still NOT calibrated" table above: PostToolUse exit 2, SessionStart
+  `additionalContext`, MANAGED-settings precedence (distinct from the scope merge, which was
+  measured), and PreCompact, SubagentStop and Stop. Those, and any behaviour no case covers,
+  remain uncalibrated.
 - Live runs granted workspace trust by writing `hasTrustDialogAccepted` into `~/.claude.json`,
   backed up and restored automatically.
 
@@ -374,8 +379,14 @@ caught bug 2 at one session instead of forty.
 - **Not triggering.** Whether a generated skill is discovered and invoked is a different
   question, and `skill-creator/scripts/run_eval.py` already measures it properly with real
   `claude -p` sessions and a stratified train/test split.
-- **Not the real harness.** `extension-prove` evaluates conformance to the documented contract
-  as written in `references/hooks.md` and the official permissions page. It is not Claude
-  Code, and no fidelity calibration against live sessions has been done. Every case kind
-  carries the citation it was derived from so the reading can be disputed.
+- **Not the real harness, and the calibration is not a general fidelity guarantee.**
+  `extension-prove` evaluates conformance to the documented contract as written in
+  `references/hooks.md` and the official permissions page. It is not Claude Code. Fifteen
+  behaviour classes have been calibrated against live `claude -p` sessions at n = 10 per class
+  (section above): 13 of 13 modelled classes agreed on every pass, 2 unmodelled classes were
+  measured consistently, none was nondeterministic. That bounds the reading on those fifteen
+  classes, on one CLI build and one platform. It says nothing about the rest. Everything in
+  "Still NOT calibrated" above, and every behaviour no case covers, remains OUR READING of the
+  documented contract; each case kind carries the citation it was derived from so the reading
+  can be disputed.
 - **Not generalisation.** A finite input set. Passing is evidence about those inputs.

@@ -1,0 +1,14 @@
+{
+  "name": "deploy-tools",
+  "description": "Watches the deploy pipeline and reports status changes into the session.",
+  "experimental": {
+    "monitors": [
+      {
+        "name": "deploy-status",
+        "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/poll-deploy.mjs\" --token \"${user_config.api_token}\"",
+        "description": "Deployment status changes",
+        "when": "always"
+      }
+    ]
+  }
+}

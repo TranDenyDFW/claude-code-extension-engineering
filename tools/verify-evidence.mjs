@@ -85,6 +85,21 @@ for (const f of fresh) {
 }
 
 // 4. observations
+//
+// EXPIRY. An observation records what was true on a date. When the world moves,
+// the record is marked expired rather than deleted: deleting it destroys the
+// only evidence of how long the gap lasted, and a repo that quietly drops its
+// superseded observations cannot tell anyone how fast its sources change.
+// `expired` is the ISO date the record stopped being current and `expiredBy`
+// says what closed it and how that was verified, so an expired record is
+// readable as history and unusable as current evidence. Both fields or neither:
+// an `expired` with no `expiredBy` is a claim with no evidence behind it, which
+// is the exact failure the ledger exists to prevent.
+//
+// The walk is deliberately NON-RECURSIVE and expired records stay in this
+// directory. Moving them to observations/expired/ would drop them out of
+// validation entirely, and an unvalidated record is worse than a deleted one:
+// it looks like it is being checked.
 const obsDir = join(EV, 'observations');
 if (existsSync(obsDir)) {
   for (const f of readdirSync(obsDir).filter(x => x.endsWith('.json'))) {
@@ -92,6 +107,21 @@ if (existsSync(obsDir)) {
       const o = JSON.parse(readFileSync(join(obsDir, f), 'utf8'));
       for (const field of ['id', 'claim', 'build', 'observed', 'method', 'reproduction']) {
         if (!o[field]) errors.push(`observations/${f}: missing ${field}`);
+      }
+      const hasExpired = o.expired !== undefined;
+      const hasExpiredBy = o.expiredBy !== undefined;
+      if (hasExpired || hasExpiredBy) {
+        if (!hasExpired) errors.push(`observations/${f}: expiredBy without expired; an expiry needs the date it happened`);
+        if (!hasExpiredBy) errors.push(`observations/${f}: expired without expiredBy; an expiry with no stated cause is an unevidenced claim`);
+        if (hasExpired && !/^\d{4}-\d{2}-\d{2}$/.test(String(o.expired))) {
+          errors.push(`observations/${f}: expired is not an ISO date: ${JSON.stringify(o.expired)}`);
+        }
+        if (hasExpired && hasExpiredBy && String(o.expired) < String(o.observed)) {
+          errors.push(`observations/${f}: expired ${o.expired} precedes observed ${o.observed}`);
+        }
+        if (hasExpiredBy && String(o.expiredBy).trim().length < 40) {
+          errors.push(`observations/${f}: expiredBy is too short to be evidence (needs what closed it and how that was checked)`);
+        }
       }
     } catch (e) { errors.push(`observations/${f}: ${e.message}`); }
   }

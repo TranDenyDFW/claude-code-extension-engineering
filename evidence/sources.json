@@ -402,5 +402,121 @@
         "supported": true
       }
     ]
+  },
+  {
+    "id": "SRC_CHANNELS",
+    "title": "Claude Code Channels",
+    "url": "https://code.claude.com/docs/en/channels",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-05, whole page returned. Rendered title is 'Push events into a running session with channels'. Covers the supported plugins (Telegram, Discord, iMessage, fakechat), the pairing bootstrap, the enterprise controls table, the research-preview terms, and the how-channels-compare table. The builder-facing contract lives on channels-reference (SRC_CHANNELS_REF), not here.",
+    "spot_checks": [
+      {
+        "claim": "channels.md Managed settings and availability: channelsEnabled and allowedChannelPlugins are managed tier only and users cannot override them",
+        "supported": true
+      },
+      {
+        "claim": "channels.md Managed settings and availability: an EMPTY allowedChannelPlugins array is not a kill switch because --dangerously-load-development-channels still bypasses it, and leaving channelsEnabled UNSET is what blocks channels entirely",
+        "supported": true
+      },
+      {
+        "claim": "channels.md Fails open and silent: with the organization setting disabled or unset the MCP server still connects and its tools work, but channel messages do not arrive",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_CHANNELS_REF",
+    "title": "Claude Code Channels reference",
+    "url": "https://code.claude.com/docs/en/channels-reference",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-05, whole page returned. The builder contract: Server options table, notification format, reply tool, sender gating, permission relay including the request_id alphabet and the 2.1.211 sanitization rules, the development-flag testing path, and the curl-succeeded-versus-refused diagnosis fork.",
+    "spot_checks": [
+      {
+        "claim": "channels.md The four gates: capabilities.experimental['claude/channel'] is required, is always {}, and its PRESENCE is what registers the notification listener",
+        "supported": true
+      },
+      {
+        "claim": "channels.md Notification contract: meta keys must be identifiers (letters, digits, underscores) and keys containing hyphens or other characters are silently dropped",
+        "supported": true
+      },
+      {
+        "claim": "channels.md Permission relay: request_id is five lowercase letters drawn from a to z without l, and the local terminal dialog does not display it",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_TOOLS_REF",
+    "title": "Claude Code Tools reference",
+    "url": "https://code.claude.com/docs/en/tools-reference",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-05, whole page returned. The authoritative list of built-in tool NAMES, which the page states are the exact strings used in permission rules, subagent tool lists and hook matchers. This is the page whose absence from a hand-typed name list produced the doctor's measured false-positive class of 14 tool names; data/capabilities/catalog.json now derives 43 current tools from it.",
+    "spot_checks": [
+      {
+        "claim": "tools-reference.md: PowerShell is a listed current tool, 'Executes PowerShell commands natively'",
+        "supported": true
+      },
+      {
+        "claim": "tools-reference.md: ReportFindings is a listed current tool that reports code-review findings as a structured list",
+        "supported": true
+      },
+      {
+        "claim": "monitors.md Two different things are called Monitor: the Monitor TOOL runs a command in the background and feeds each output line back to Claude, and takes timeout_ms, persistent and TaskStop, none of which exist in the plugin monitor schema",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_ERRORS",
+    "title": "Claude Code Error reference",
+    "url": "https://code.claude.com/docs/en/errors",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified-partial",
+    "notes": "Fetched live 2026-08-05. Rendered title is 'Error reference'. PARTIAL BY MEASUREMENT, recorded rather than glossed: two separate fetches on the retrieval date returned the early message-index rows but not the tail of the page, so claims resting on late-page content were NOT confirmed live and are attributed to the docs mirror instead. Specifically, the 'legacy MultiEdit(path)' bullet the mirror carries at errors.md:1635 did not appear in either fetch, so the capability catalog's MultiEdit legacy provenance rests on the mirror, not on this row.",
+    "spot_checks": [
+      {
+        "claim": "monitors.md Secrets and user_config: the error index carries the row 'Monitor \"<name>\" from plugin <plugin> references ${user_config.*} in its command' routing to the Plugin errors section",
+        "supported": true
+      },
+      {
+        "claim": "monitors.md Secrets and user_config: sibling rows exist for shell-form hook commands and for the MCP headersHelper, so the rejection is a family of three fields rather than a monitor-only rule",
+        "supported": true
+      },
+      {
+        "claim": "This row is a PARTIAL live retrieval: the page tail (mirror line 1635, the legacy MultiEdit bullet) was absent from both fetches on the retrieval date, so no claim in this ledger depends on late-page content from this fetch",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_DISCOVER_PLUGINS",
+    "title": "Claude Code Discover and install prebuilt plugins",
+    "url": "https://code.claude.com/docs/en/discover-plugins",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-05, whole page returned. Added because monitors.md's context-cost claim traces here and nowhere else in the mirror: this is the page carrying the append-after-the-conversation cost model for newly loaded plugin components. It was not one of the four pages this stage set out to add; it was found while checking that no claim was being attributed to a page that does not carry it.",
+    "spot_checks": [
+      {
+        "claim": "monitors.md Context cost: newly loaded components announce themselves in content appended to the conversation while the existing history still reads from the prompt cache, and MCP servers are the exception that invalidates it",
+        "supported": true
+      },
+      {
+        "claim": "monitors.md Context cost: plugins that contribute a theme, output style, monitor, or workflow are never listed as unused, since those deliver value without an invocation to track",
+        "supported": true
+      }
+    ]
   }
 ]

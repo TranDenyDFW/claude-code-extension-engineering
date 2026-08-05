@@ -1,7 +1,7 @@
 {
   "id": "clean",
   "kind": "clean",
-  "defect": "NONE. Valid settings with one working hook whose handler exists, one valid skill under every cap, one valid agent with resolvable tools, one MCP server at one scope. Any finding from any tool on this tree is a false positive",
+  "defect": "NONE. Valid settings with one working hook whose handler exists, one valid skill under every cap, one valid agent with resolvable tools, one MCP server at one scope, and one VALID plugin carrying a well-formed experimental.monitors array (unique names, every required field, an existing ${CLAUDE_PLUGIN_ROOT}-anchored script, a cd prefix, an on-skill-invoke naming a skill the plugin ships) plus a channels entry bound to a real mcpServers key. Any finding from any tool on this tree is a false positive",
   "citation": "n/a",
   "signal": null
 }

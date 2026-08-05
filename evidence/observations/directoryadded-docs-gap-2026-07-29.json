@@ -6,5 +6,7 @@
   "method": "Fetched https://code.claude.com/docs/en/hooks in full (242,078 bytes) and searched for DirectoryAdded, add-dir, and register_repo_root: zero matches. Fetched https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md: the 2.1.219 entry lists the DirectoryAdded hook.",
   "reproduction": "Fetch both URLs; grep the hooks page for DirectoryAdded (expect 0) and the changelog 2.1.219 section for DirectoryAdded (expect 1). The observation expires the day the reference page catches up.",
   "caveat": "Time-sensitive by nature. The freshness CI does not re-check this; re-verify manually when the hooks page changes.",
-  "cited_by": ["skills/claude-code-extension-engineering/references/hook-events.md"]
+  "cited_by": ["skills/claude-code-extension-engineering/references/hook-events.md"],
+  "expired": "2026-08-05",
+  "expiredBy": "The gap CLOSED. The Hooks reference now carries a full '### DirectoryAdded' section at hooks.md:2462 with the matcher table (slash_command, register_repo_root), the input fields (directory, source), the no-decision-control contract, and the per-source output routing; the page holds 13 occurrences of the name across 244,625 bytes, against 0 on 2026-07-29. Verified 2026-08-05 against the docs mirror at P:/ClaudeExt/CCX-Extension-Research/sources/docs/md/hooks.md. references/hook-events.md moved DirectoryAdded out of 'Changelog-only event deltas' and into the event table, 30 events becoming 31. The record is kept rather than deleted: what it now documents is the ten-day lag between a changelog entry and its reference page, which is the number that says how far to trust the next fresh changelog entry. An expired observation must never be cited as current evidence; it is history."
 }
