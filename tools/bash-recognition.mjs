@@ -149,8 +149,18 @@ export const RECOGNIZED_WRITE_SHAPES = loadTable();
 function loadTable() {
   if (!existsSync(MEASUREMENT)) return new Map();
   const m = JSON.parse(readFileSync(MEASUREMENT, 'utf8'));
+  /**
+   * THE RIG CONTROLS ARE NOT SHAPES, and admitting them would be a category
+   * error with a real edge. `CTL-positive-write-tool` drives the Edit TOOL, not
+   * a Bash command, and `CTL-negative-outside` writes a path outside the
+   * protected tree. Neither is anything `classifyBashWrite` can ever return, so
+   * they sit in the table inert while inflating the calibrated count from eight
+   * to ten. Their job is to prove the RIG, and that is asserted below in
+   * `rigVerdict`, not by being looked up as coverage.
+   */
   const out = new Map();
   for (const r of (m.shapes || [])) {
+    if (r.control) continue;
     if (r.verdict !== 'DENIED' && r.verdict !== 'ALLOWED') continue;   // INCONCLUSIVE stays absent
     out.set(r.shape, {
       denied: r.verdict === 'DENIED',
@@ -159,6 +169,30 @@ function loadTable() {
     });
   }
   return out;
+}
+
+/**
+ * Is the measurement usable at all?
+ *
+ * The positive control drives the Edit tool against the protected path and MUST
+ * come back DENIED; if it does not, the deny rule was not live and no DENIED row
+ * in the file is attributable to it. The negative control writes the same shape
+ * to a path OUTSIDE the tree and MUST come back ALLOWED; if it does not, the rig
+ * is measuring the model declining rather than the rule denying, and every row
+ * is suspect in the other direction.
+ *
+ * Both are required. One alone cannot distinguish "the rule denied everything"
+ * from "nothing ever ran".
+ */
+export function rigVerdict(m) {
+  const pos = (m.shapes || []).find((r) => r.shape === 'CTL-positive-write-tool');
+  const neg = (m.shapes || []).find((r) => r.shape === 'CTL-negative-outside');
+  const problems = [];
+  if (!pos) problems.push('the positive control is missing from the measurement');
+  else if (pos.verdict !== 'DENIED') problems.push(`the positive control read ${pos.verdict}, so the deny rule was not live and no DENIED row is attributable`);
+  if (!neg) problems.push('the negative control is missing from the measurement');
+  else if (neg.verdict !== 'ALLOWED') problems.push(`the negative control read ${neg.verdict}, so the rig may be measuring the model declining rather than the rule denying`);
+  return { ok: problems.length === 0, problems, pos, neg };
 }
 
 export function shapeVerdict(command) {
@@ -230,9 +264,25 @@ function selfTest() {
   for (const [k, v] of saved) RECOGNIZED_WRITE_SHAPES.set(k, v);
   check('...and the table is restored afterwards', RECOGNIZED_WRITE_SHAPES.size === saved.size);
 
+  /**
+   * The rig gate, fed a known-bad input. A measurement whose controls failed
+   * must be REJECTED, not read: its DENIED rows are unattributable and its
+   * ALLOWED rows may just be the model declining.
+   */
+  const goodRig = { shapes: [{ shape: 'CTL-positive-write-tool', verdict: 'DENIED' }, { shape: 'CTL-negative-outside', verdict: 'ALLOWED' }] };
+  check('a measurement with both controls correct passes the rig gate', rigVerdict(goodRig).ok);
+  check('a positive control that did NOT deny fails the rig gate',
+    !rigVerdict({ shapes: [{ shape: 'CTL-positive-write-tool', verdict: 'ALLOWED' }, { shape: 'CTL-negative-outside', verdict: 'ALLOWED' }] }).ok);
+  check('a negative control that did NOT change fails the rig gate',
+    !rigVerdict({ shapes: [{ shape: 'CTL-positive-write-tool', verdict: 'DENIED' }, { shape: 'CTL-negative-outside', verdict: 'DENIED' }] }).ok);
+  check('a measurement missing a control fails the rig gate', !rigVerdict({ shapes: [] }).ok);
+
   if (RECOGNIZED_WRITE_SHAPES.size) {
     check('the loaded table only ever holds measured verdicts',
       [...RECOGNIZED_WRITE_SHAPES.values()].every((r) => typeof r.denied === 'boolean' && r.n > 0));
+    check('the rig CONTROLS are excluded from the table, because neither is a Bash shape',
+      ![...RECOGNIZED_WRITE_SHAPES.keys()].some((k) => k.startsWith('CTL-')),
+      [...RECOGNIZED_WRITE_SHAPES.keys()].join(','));
   } else {
     console.log('  ..   table is EMPTY: no calibration file yet, so every Bash shape is undetermined');
   }
@@ -262,11 +312,24 @@ function check() {
   for (const k of RECOGNIZED_WRITE_SHAPES.keys()) {
     if (!fresh.has(k)) { console.log(`  DRIFT ${k}: in the table with no measured verdict behind it`); bad++; }
   }
-  const inconclusive = (m.shapes || []).filter((r) => r.verdict === 'INCONCLUSIVE');
+  const inconclusive = (m.shapes || []).filter((r) => r.verdict === 'INCONCLUSIVE' && !r.control);
   console.log(`bash-recognition: ${fresh.size} calibrated shape(s), ${inconclusive.length} inconclusive, cli ${m.cli_version}, ${m.platform}`);
   for (const [k, v] of fresh) console.log(`  ${v.denied ? 'DENIED  ' : 'RESIDUAL'} ${k.padEnd(26)} n=${v.n}/${v.passes} discarded=${v.discarded}`);
   for (const r of inconclusive) console.log(`  ABSENT   ${r.shape.padEnd(26)} ${r.why}`);
-  console.log(bad ? `FAIL ${bad} drift(s)` : 'PASS table matches the measurement');
+
+  /**
+   * The rig block, printed AFTER the table and gated hard. A table read out of a
+   * file whose controls failed is a table of numbers with nothing behind them,
+   * so this is an error rather than a warning.
+   */
+  const rig = rigVerdict(m);
+  console.log('  rig controls:');
+  for (const r of [rig.pos, rig.neg].filter(Boolean)) {
+    console.log(`    ${String(r.verdict).padEnd(8)} ${r.shape.padEnd(24)} n=${r.attributable}/${r.passes} discarded=${r.discarded}`);
+  }
+  if (!rig.ok) { for (const p of rig.problems) console.log(`  RIG FAILURE: ${p}`); bad += rig.problems.length; }
+
+  console.log(bad ? `FAIL ${bad} problem(s)` : 'PASS table matches the measurement and the rig controls held');
   return bad ? 1 : 0;
 }
 

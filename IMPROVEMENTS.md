@@ -4,10 +4,12 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-08-05 against Claude Code 2.1.220, the build in `evidence/VERIFIED_VERSION`.
-That pass reconciled items 20 to 23, 25 and 27 against their own artifacts and re-ran their
-gates. It did no new version check, so the verified build is unchanged from the 2026-08-04
-review.
+Last reviewed 2026-08-06 against Claude Code 2.1.220, the build in `evidence/VERIFIED_VERSION`.
+The 2026-08-05 pass reconciled items 20 to 23, 25 and 27 against their own artifacts and
+re-ran their gates; the 2026-08-06 pass added items 31 to 36 and closed the Bash-recognition
+measurement that item 33 rests on. Neither did a new version check, so the verified build is
+unchanged from the 2026-08-04 review. Note the live CLI on the measuring machine is 2.1.219,
+one behind the catalog, and the measurement records that rather than rounding it up.
 
 ---
 
@@ -382,7 +384,7 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 444 source assignments in `claims.jsonl` were made by subagents with stated rules,
+The 452 source assignments in `claims.jsonl` were made by subagents with stated rules,
 not independently double-checked. The integrity gate catches structural drift, not a
 wrong-but-plausible source id. A second blind attribution pass with disagreement
 reporting would harden it. The 2026-08-05 monitors and channels pass is a worked example
@@ -533,8 +535,18 @@ as a denial measures the model's caution and publishes it as a security property
 result is `tools/bash-recognition.mjs`, drift-gated against the recorded measurement, and a
 shape absent from it is UNDETERMINED rather than allowed.
 
-Three things came out of it that the documentation does not say:
+Four things came out of it that the documentation does not say. The calibration completed
+2026-08-06: eight shapes at n=10 paired, 200 sessions, both rig controls unanimous.
 
+- **A leading `cd` takes a write out of the rule's reach, and this is the sharpest result in
+  the set.** `touch infra/fresh.tf` was DENIED in the n=1 screen. `cd infra && touch fresh.tf`
+  creates THE SAME FILE and was ALLOWED, unanimously, ten of ten, with zero discards. The
+  pattern across the whole table is that the rule reaches a shape when the target is a
+  literal argument in the command as written, and indirection of any kind goes through: a
+  pipe, a variable, a nested shell, an interpreter, or a directory change earlier on the same
+  line. Anyone protecting a subtree with a deny rule should assume a compound command reaches
+  it. That reading is a hypothesis the measurement suggests and does not establish, and it is
+  labelled as one in `permissions.md`.
 - **PowerShell.** The recognised-file-command sentence names Bash and never PowerShell,
   though PowerShell RULES get full parity a few sections earlier including AST parsing and
   alias canonicalization. Measured: `powershell -Command "Add-Content -LiteralPath
@@ -553,9 +565,18 @@ Three things came out of it that the documentation does not say:
   `--allowedTools` CLI flag does grant it. A rig that grants approval the first way silently
   measures "the model declined" and reports it as "the rule denied".
 
-Residue: one platform, one build, ten shapes. The recognised set may differ on macOS or
+Measured: five shapes DENIED (`>>`, `cp`, `mv`, `sed -i`, `rm`) and three ALLOWED
+(`cd` then write, PowerShell `Add-Content`, an opaque `node build.mjs`). `cp` reached its
+verdict on six attributable passes because the model declined in both arms four times, which
+is exactly what the DISCARD rule is for: scoring those would have published 10/10 on six
+observations.
+
+Residue: one platform, one build, eight shapes in the record plus a 25-shape n=1 screen that
+is published as a screen and never as a verdict. The recognised set may differ on macOS or
 Linux and nothing here covers that; `compatibility.md` records it as UNVERIFIED rather than
-leaving it to be assumed.
+leaving it to be assumed. Three screen shapes (`dd`, `truncate`, `chmod`) could not be
+measured at all because the model declined in both arms, and one (`powershell Out-File`)
+produced an anomaly; all four are recorded rather than dropped.
 
 **34. Two of this repo's own gates were destroying or disabling evidence, and both were
 found by using them.**
