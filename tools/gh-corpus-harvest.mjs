@@ -67,9 +67,13 @@ export function harvestStatus({ malformed, duplicates, total, delta }) {
  *
  * This machine has an EXPIRED GITHUB_TOKEN environment variable, and gh honours
  * it over the valid keyring credential, producing "Bad credentials (HTTP 401)".
- * `gh-staff-harvest.mjs` and `sources/collect.mjs` both already strip it; this
- * tool did not, which is the proximate cause of the delta that never got
- * measured. Values are never read or logged, only deleted.
+ * That is the proximate cause of the delta that never got measured.
+ *
+ * It must be applied to EVERY `gh` invocation in this file, not only the
+ * verification query. An independent review caught the first version stripping
+ * the token in `searchTotal` while `harvest()` still spawned `gh` with the
+ * ambient environment, which left the harvest itself unable to run on this host.
+ * Values are never read or logged, only deleted.
  */
 function ghEnv() {
   const e = { ...process.env };
@@ -114,7 +118,7 @@ function harvest() {
     const fd = openSync(CORPUS, 'w');
     const p = spawn('gh', ['api', '--paginate',
       'repos/anthropics/claude-code/issues?state=all&per_page=100&sort=created&direction=asc',
-      '--jq', JQ], { stdio: ['ignore', fd, 'pipe'], windowsHide: true });
+      '--jq', JQ], { stdio: ['ignore', fd, 'pipe'], windowsHide: true, env: ghEnv() });
     let err = '';
     p.stderr.on('data', (d) => { err += d; });
     const tick = setInterval(() => {
@@ -269,11 +273,11 @@ function selfTest() {
 
   if (existsSync(STATS)) {
     const s = JSON.parse(readFileSync(STATS, 'utf8'));
-    console.log(`\ncommitted corpus-stats.json: status=${s.status ?? '(absent, pre-dates this gate)'} `
+    console.log(`\non-disk corpus-stats.json: status=${s.status ?? '(absent, pre-dates this gate)'} `
       + `search_api_total_at_boundary=${s.search_api_total_at_boundary} delta=${s.delta_vs_search}`);
-    check('the committed stats do not claim a delta they did not measure',
+    check('the on-disk stats do not claim a delta they did not measure',
       !(s.search_api_total_at_boundary === null && typeof s.delta_vs_search === 'number'),
-      `total=${s.search_api_total} delta=${s.delta_vs_search}`);
+      `boundary=${s.search_api_total_at_boundary} delta=${s.delta_vs_search}`);
   }
 
   console.log(`\n${fail === 0 ? 'SELF-TEST PASS' : 'SELF-TEST FAIL'} ${pass} passed, ${fail} failed`);

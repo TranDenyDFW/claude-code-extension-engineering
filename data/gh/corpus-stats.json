@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-06T00:18:15.853Z",
+  "generated": "2026-08-06T00:23:53.524Z",
   "bytes": 250858073,
   "megabytes": 239.2,
   "lines": 81291,
@@ -10,7 +10,7 @@
   "oldest_created_at": "2025-02-24T18:48:14Z",
   "newest_created_at": "2026-08-05T02:39:44Z",
   "search_api_total_at_boundary": 81292,
-  "search_api_total_live": 81627,
+  "search_api_total_live": 81628,
   "boundary_query": "created:<=2026-08-05T02:39:44Z",
   "delta_vs_search": -1,
   "search_unavailable_reason": null,

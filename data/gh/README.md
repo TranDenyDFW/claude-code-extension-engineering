@@ -49,9 +49,9 @@ check that distinguishes a complete population from a truncated one, and a numbe
 was published as evidence. That is the same shape as the `| head -30` SIGPIPE described below: a
 partial result reported as success, in the very tool written to prevent it.
 
-Three things changed. The tool now strips `GITHUB_TOKEN` and `GH_TOKEN` the way
-`gh-staff-harvest.mjs` and `sources/collect.mjs` already did. "Could not obtain the count" is now
-a third state, **UNVERIFIED**, which exits non-zero and never reads as PASS. And the comparison is
+Three things changed. The tool now strips `GITHUB_TOKEN` and `GH_TOKEN` from **every** `gh`
+invocation it makes, the verification query and the harvest itself. "Could not obtain the count" is
+now a third state, **UNVERIFIED**, which exits non-zero and never reads as PASS. And the comparison is
 made against the population **at the corpus boundary** (`created:<=` its newest issue) rather than
 against the live total, which grows: the live figure gives -336 on a corpus that is provably
 complete, because 335 of those issues were created after the harvest finished.
