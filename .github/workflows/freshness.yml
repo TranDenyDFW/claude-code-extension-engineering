@@ -1,33 +1,48 @@
 name: freshness
 
+# Split into five jobs on 2026-08-05, from one 20-step monolith.
+#
+# Three reasons, in order of how much they cost before the split. A single
+# failing step used to hide every later gate, so a run reported the FIRST defect
+# and never the set. The whole run needed `contents: write` because its LAST job
+# pushes a status file, so twenty steps that only read the tree carried a token
+# that could rewrite it. And the gates are independent, so they were serialising
+# for no reason.
+#
+# Only `freshness` writes. Everything else is read-only with
+# persist-credentials: false, which removes the checkout token from the runner's
+# git config entirely rather than trusting the steps not to use it.
+
 on:
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
   push:
+    branches: [main, "feat/**"]
+  # Added 2026-08-05. Before this, `push: branches: [main]` meant NONE of the
+  # gates below had ever fired on a feature branch outside workflow_dispatch, so
+  # every check in this file was unproven on the branch that introduced it.
+  pull_request:
     branches: [main]
 
 permissions:
-  contents: write
-  issues: write
+  contents: read
+
+env:
+  NODE_VERSION: "22"
 
 jobs:
-  freshness:
+  # ---------------------------------------------------------------- suite ----
+  suite:
+    name: deterministic suite and evidence ledger
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          node-version: "22"
-
-      - name: Read verified version
-        id: verified
-        run: echo "version=$(tr -d '[:space:]' < evidence/VERIFIED_VERSION)" >> "$GITHUB_OUTPUT"
-
-      - name: Read latest Claude Code version
-        id: latest
-        run: echo "version=$(npm view @anthropic-ai/claude-code version)" >> "$GITHUB_OUTPUT"
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Run deterministic suite
         run: node tests/run-tests.mjs
@@ -56,6 +71,101 @@ jobs:
         # live check is not what the build depends on.
         run: node tools/docs-revision-check.mjs --self-test
 
+  # ---------------------------------------------------------------- tools ----
+  tools:
+    name: doctor, prover, scaffold and benches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Extension-doctor self-test
+        # Runs the doctor against the committed lint-bench fixtures: every
+        # documented failure mode must be detected, the clean tree must yield
+        # ZERO findings, and the three false-positive shapes the live
+        # calibration run exposed (multi-line quoted scalar, zero-indent block
+        # sequence, the "*" matcher wildcard) must stay green. Gutting any
+        # check turns exactly its fixture row red.
+        run: node tools/extension-doctor.mjs --self-test
+
+      - name: Lint-bench runner self-test
+        # Scoring logic incl. the boilerplate-immunity rule (a run-level
+        # diagnostic must never fake a catch), plus fixture-generator drift.
+        run: node tests/lint-bench/run-bench.mjs --self-test
+
+      - name: Extension-prove self-test
+        # Matcher semantics, exit-code and stdout-JSON verdict interpretation,
+        # permission-rule evaluation incl. the documented "Write(path) is
+        # accepted but never consulted" silent failure, the mechanism adapters
+        # (a skill bundle is REFUSED with exit 3, not scored red against hooks.md
+        # citations), and the boilerplate immunity rule.
+        run: node tools/extension-prove.mjs --self-test
+
+      - name: Extension-prove is not hollow
+        # Every enforce and wiring case re-run against an empty tree and an
+        # inert always-exit-0 handler. A case that still passes is asserting
+        # nothing about the extension; the run prints PROVER IS HOLLOW.
+        run: node tools/extension-prove.mjs --prove-fail
+
+      - name: Bash-recognition table matches its measurement
+        # The deny rule's Bash coverage is documented BY EXAMPLE and never
+        # enumerated, so it cannot be read out of the docs and is measured
+        # instead. --self-test pins the classifier AND the row that matters most:
+        # with an empty table every shape is UNDETERMINED, never allowed, so an
+        # uncalibrated shape reddens a case rather than silently reporting a
+        # bypass nobody observed. --check is the drift gate between the frozen
+        # table and the recorded paired measurement; it exits 2 (cannot check)
+        # when no measurement is present, which is the safe state and is why the
+        # build does not rest on it alone.
+        run: |
+          node tools/bash-recognition.mjs --self-test
+          node tools/bash-recognition-run.mjs --self-test
+          node tools/bash-recognition.mjs --check || [ $? -eq 2 ]
+          # List-only: the probes spawn live Claude Code sessions, never in CI.
+          node tools/bash-recognition-probes.mjs > /dev/null
+
+      - name: Extension-scaffold end-to-end gate
+        # The gate that was missing. --self-test exercises analyse() and
+        # conformanceFor() as functions and never GENERATES a bundle and PROVES
+        # it, which is how four defects shipped at once behind a green build:
+        # hook bundles failing their own spec since 63a3ecc, a sentence-final
+        # period becoming the glob infra/./** which matches nothing, the
+        # permission-deny bundle shipping the hook its README called rejected,
+        # and advisory bundles emitting enforce cases against an empty
+        # settings.json. --gate asserts a frozen case-kind map and file list per
+        # probe, so a pass count cannot hide any of them.
+        run: |
+          set -euo pipefail
+          node tools/extension-scaffold.mjs --gate
+          node tools/extension-scaffold.mjs --gate --prove-gate-can-fail
+
+      - name: Extension-scaffold self-test
+        # Mechanism selection (a guarantee must pick the deny rule, because a
+        # command hook fails open), target extraction, and that an out-of-family
+        # requirement is REFUSED rather than force-fitted.
+        run: node tools/extension-scaffold.mjs --self-test
+
+      - name: Prove-bench runner self-test
+        # Scoring logic incl. false-positive-on-the-control weighted like a
+        # miss and n/a for an uninstalled tool, plus fixture-generator drift.
+        run: node tests/prove-bench/run-bench.mjs --self-test
+
+  # ---------------------------------------------------------------- tier3 ----
+  tier3:
+    name: tier 3 instrument and artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       - name: Tier 3 key quality
         # Key defects used to be found by graders AFTER a run and filed as
         # prose. Now they are a gate. The frozen v1 set is expected RED (15
@@ -76,59 +186,6 @@ jobs:
           node tools/tier3-strip.mjs --self-test
           node tools/tier3-pack.mjs --self-test
           node tools/tier3-score.mjs --self-test
-
-      - name: Extension-doctor self-test
-        # Runs the doctor against the committed lint-bench fixtures: every
-        # documented failure mode must be detected, the clean tree must yield
-        # ZERO findings, and the three false-positive shapes the live
-        # calibration run exposed (multi-line quoted scalar, zero-indent block
-        # sequence, the "*" matcher wildcard) must stay green. Gutting any
-        # check turns exactly its fixture row red.
-        run: node tools/extension-doctor.mjs --self-test
-
-      - name: Lint-bench runner self-test
-        # Scoring logic incl. the boilerplate-immunity rule (a run-level
-        # diagnostic must never fake a catch), plus fixture-generator drift.
-        run: node tests/lint-bench/run-bench.mjs --self-test
-
-      - name: Extension-prove self-test
-        # Matcher semantics, exit-code and stdout-JSON verdict interpretation,
-        # permission-rule evaluation incl. the documented "Write(path) is
-        # accepted but never consulted" silent failure, and the boilerplate
-        # immunity rule (printing BLOCKED with exit 0 is still an allow).
-        run: node tools/extension-prove.mjs --self-test
-
-      - name: Extension-prove is not hollow
-        # Every enforce and wiring case re-run against an empty tree and an
-        # inert always-exit-0 handler. A case that still passes is asserting
-        # nothing about the extension; the run prints PROVER IS HOLLOW.
-        run: node tools/extension-prove.mjs --prove-fail
-
-      - name: Extension-scaffold end-to-end gate
-        # The gate that was missing. --self-test exercises analyse() and
-        # conformanceFor() as functions and never GENERATES a bundle and PROVES
-        # it, which is how four defects shipped at once behind a green build:
-        # hook bundles failing their own spec since 63a3ecc, a sentence-final
-        # period becoming the glob infra/./** which matches nothing, the
-        # permission-deny bundle shipping the hook its README called rejected,
-        # and advisory bundles emitting enforce cases against an empty
-        # settings.json. --gate asserts a frozen case-kind map and file list per
-        # probe, so a pass count cannot hide any of them.
-        run: |
-          set -euo pipefail
-          node tools/extension-scaffold.mjs --gate
-          node tools/extension-scaffold.mjs --gate --prove-gate-can-fail
-
-      - name: Extension-scaffold self-test
-        # Mechanism selection (guarantee + fail-closed must pick the deny rule,
-        # because a command hook fails open), target extraction, and that an
-        # out-of-family requirement is REFUSED rather than force-fitted.
-        run: node tools/extension-scaffold.mjs --self-test
-
-      - name: Prove-bench runner self-test
-        # Scoring logic incl. false-positive-on-the-control weighted like a
-        # miss and n/a for an uninstalled tool, plus fixture-generator drift.
-        run: node tests/prove-bench/run-bench.mjs --self-test
 
       - name: Tier 3 artifacts match their sources
         # Drift gates, not self-tests. The committed batches must still derive
@@ -164,17 +221,57 @@ jobs:
           node tools/tier3-score.mjs --set v2 --rep 3 --check
           node tools/tier3-score.mjs --set v2 --replicates 1,2,3 --check
 
+  # ------------------------------------------------------------- manifest ----
+  manifest:
+    name: plugin manifest validates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
       - name: Validate plugin manifest
         run: |
           npm install -g @anthropic-ai/claude-code
           # Commit-SHA versioning is deliberate, so --strict would fail on the
           # "No version specified" advisory. The checker enforces, by set
           # subtraction, that the advisory is the ONLY warning; its ability to
-          # fail is proven by the self-test step above. No continue-on-error:
-          # this is a release gate, and it already caught a real frontmatter
-          # defect the moment it was armed.
-          claude plugin validate . 2>&1 | tee /tmp/validate-out.txt
-          node tools/check-validate-output.mjs /tmp/validate-out.txt
+          # fail is proven by its own self-test in the suite job. No
+          # continue-on-error: this is a release gate, and it already caught a
+          # real frontmatter defect the moment it was armed.
+          claude plugin validate . 2>&1 | tee validate-out.txt
+          node tools/check-validate-output.mjs validate-out.txt
+
+  # ------------------------------------------------------------ freshness ----
+  # The ONLY job that writes. It runs after the gates so a stale-version issue is
+  # never opened against a tree that does not pass its own checks, and it is
+  # skipped on pull_request, where the checkout is a merge ref and pushing to it
+  # is meaningless.
+  freshness:
+    name: version freshness and status badge
+    runs-on: ubuntu-latest
+    needs: [suite, tools, tier3, manifest]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      # persist-credentials stays DEFAULT here, deliberately: this job pushes.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Read verified version
+        id: verified
+        run: echo "version=$(tr -d '[:space:]' < evidence/VERIFIED_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Read latest Claude Code version
+        id: latest
+        run: echo "version=$(npm view @anthropic-ai/claude-code version)" >> "$GITHUB_OUTPUT"
 
       - name: Compare versions and write status
         id: status
@@ -197,6 +294,9 @@ jobs:
           echo "latest=$L" >> "$GITHUB_OUTPUT"
 
       - name: Commit status.json when changed
+        # Only on main. On a feature branch this would push a bot commit into
+        # someone's open work, which is a surprise nobody asked for.
+        if: github.ref == 'refs/heads/main'
         run: |
           if ! git diff --quiet evidence/status.json; then
             git config user.name "freshness-bot"
@@ -207,7 +307,7 @@ jobs:
           fi
 
       - name: Open verification issue when stale
-        if: steps.status.outputs.state == 'stale'
+        if: steps.status.outputs.state == 'stale' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

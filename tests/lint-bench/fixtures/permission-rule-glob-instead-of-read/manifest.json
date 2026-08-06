@@ -1,0 +1,7 @@
+{
+  "id": "permission-rule-glob-instead-of-read",
+  "kind": "enforcement-failure-mode",
+  "defect": "a Glob(path) deny rule meant to stop searching a secrets tree; path rules are consulted for Edit and Read only, so this one enforces nothing",
+  "citation": "permissions.md The rule that is accepted and never consulted [OFFICIAL] [v2.1.210]",
+  "signal": "never consult|not consulted|Read\\("
+}

@@ -1,6 +1,6 @@
 {
   "name": "claude-code-extension-engineering",
-  "description": "Architecture decision reference for Claude Code extensions: which mechanism should own a behavior, why the nearest alternative is wrong, and what the choice actually guarantees. Selection guide, 24 composition cards, 31 hook-event contracts, dated version gates, machine-checked evidence ledger. Benchmarked, both results published: 44 percent unaided versus 100 percent with the reference, and a NULL on architecture decisions (21 to 20 versus docs alone, p=1.000).",
+  "description": "Architecture decision reference for Claude Code extensions: which mechanism should own a behavior, why the nearest alternative is wrong, and what the choice actually guarantees. Selection guide, 28 composition cards, 31 hook-event contracts, dated version gates, machine-checked evidence ledger. Benchmarked, both results published: 44 percent unaided versus 100 percent with the reference, and a NULL on architecture decisions (21 to 20 versus docs alone, p=1.000).",
   "author": {
     "name": "TranDenyDFW",
     "url": "https://github.com/TranDenyDFW"

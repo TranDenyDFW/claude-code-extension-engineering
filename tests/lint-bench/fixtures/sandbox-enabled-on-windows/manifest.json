@@ -1,0 +1,8 @@
+{
+  "id": "sandbox-enabled-on-windows",
+  "kind": "enforcement-failure-mode",
+  "defect": "sandbox.enabled on native Windows, where the sandbox does not run; Claude Code warns and runs every command unsandboxed, so the key reads as protection and provides none",
+  "citation": "sandboxing.md It does not run on Windows [OFFICIAL] [v2.1.220]",
+  "signal": "Windows|unsupported platform|unsandboxed",
+  "assumePlatform": "win32"
+}

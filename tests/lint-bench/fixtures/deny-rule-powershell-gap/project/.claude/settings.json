@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(infra/**)"
+    ],
+    "allow": [
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Add-Content *)"
+    ]
+  }
+}

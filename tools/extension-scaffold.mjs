@@ -84,6 +84,23 @@ export const PROTECT = {
   test: (s) => PROTECT_VERB.test(s) || NEGATED_CHANGE.test(s),
 };
 
+/**
+ * ABSOLUTE language, which is a stronger claim than GUARANTEE.
+ *
+ * "Prevent writes to infra/" asks for a mechanism. "Prevent ANY change to
+ * infra/" asks for total coverage, and on this platform that is not available:
+ * an arbitrary subprocess writes straight through the deny rule, and the layer
+ * that would close it does not run on native Windows.
+ *
+ * A bundle whose requirement uses this language is marked `strict`, and under
+ * strict any surviving residual makes the run report NOT DONE. That is refusal
+ * semantics WITHOUT refusing to emit: the strongest available configuration
+ * still ships, and its own acceptance test names what it does not achieve.
+ * Silently emitting the same bundle for "prevent writes" and "prevent ANY
+ * change" would be the tool agreeing to a promise it knows it cannot keep.
+ */
+export const ABSOLUTE = /\b(any|all|every|anything|everything|no(thing)?|never|under no circumstances|whatsoever)\b/i;
+
 /** Pull a path or glob out of the requirement: backticked, quoted, or path-shaped. */
 export function extractTarget(text) {
   const backtick = text.match(/`([^`]+)`/);
@@ -129,6 +146,7 @@ export function toGlob(target) {
 export function analyse(requirement) {
   const guarantee = GUARANTEE.test(requirement);
   const failClosed = FAIL_CLOSED.test(requirement);
+  const absolute = guarantee && ABSOLUTE.test(requirement);
   const protect = PROTECT.test(requirement);
   const target = extractTarget(requirement);
   const notes = [];
@@ -136,7 +154,7 @@ export function analyse(requirement) {
 
   if (!protect || !target) {
     return {
-      supported: false, guarantee, failClosed, target,
+      supported: false, guarantee, failClosed, absolute, target,
       reason: !target
         ? 'no path or glob could be extracted from the requirement'
         : 'the requirement does not describe protecting a path, which is the only family this tool handles',
@@ -170,13 +188,16 @@ export function analyse(requirement) {
     if (failClosed) {
       notes.push('The requirement names the failure mode explicitly, which the deny rule satisfies by construction rather than by convention.');
     }
+    if (absolute) {
+      notes.push('The requirement uses ABSOLUTE language, so the spec is marked strict: any residual vector makes the run report NOT DONE. The strongest available configuration is still emitted, together with a sandbox proposal for the one layer that would close the gap.');
+    }
   } else {
     mechanism = 'advisory';
     rejected = 'A hook or deny rule, which would be heavier than the requirement asks for.';
     notes.push('No guarantee language found, so an advisory instruction is legitimate here.');
   }
 
-  return { supported: true, guarantee, failClosed, target, glob: toGlob(target), mechanism, rejected, notes };
+  return { supported: true, guarantee, failClosed, absolute, target, glob: toGlob(target), mechanism, rejected, notes };
 }
 
 // ------------------------------------------------------------------ emission
@@ -290,16 +311,65 @@ export function conformanceFor(name, requirement, a) {
    * that cannot fail. A case can: this one asserts the vector is NOT covered, so
    * it goes red in BOTH directions, if the product later closes the gap or if
    * someone widens the bundle to cover it.
+   *
+   * The command is `node build.mjs`, NOT `node -e "..."`. A script is the
+   * realistic shape, because a generator or build step is what actually writes
+   * into a protected tree, and it is the one measured running THROUGH a live
+   * deny rule and writing the protected file. That measurement is what makes
+   * this residual an observation rather than a citation.
    */
   cases.push({
     id: `C${cases.length + 1}`, kind: 'residual', event: 'PreToolUse',
     vector: 'V3 arbitrary subprocess',
-    why: 'permissions.md: Read and Edit deny rules "don\'t apply to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself". OS-level sandboxing is the layer that closes this, and it does not run on native Windows.',
-    input: { tool_name: 'Bash', tool_input: { command: `node -e "require('fs').writeFileSync('${inside}','x')"` } },
+    why: 'permissions.md: Read and Edit deny rules "don\'t apply to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself". Measured on this machine, paired against a control with the rule removed. OS-level sandboxing is the layer that closes this, and it does not run on native Windows.',
+    input: { tool_name: 'Bash', tool_input: { command: 'node build.mjs' } },
     expect: { decision: 'allow' },
   });
 
-  return { extension: name, mechanism: a.mechanism, requirement, generated_by: 'extension-scaffold', cases };
+  return {
+    extension: name, mechanism: a.mechanism, requirement, generated_by: 'extension-scaffold',
+    ...(a.absolute ? { strict: true } : {}),
+    cases,
+  };
+}
+
+/**
+ * The sandbox PROPOSAL, and why it is inert on purpose.
+ *
+ * OS-level sandboxing is the only layer that closes V3. Writing it into the
+ * bundle's own settings.json would be wrong in both of the two possible worlds,
+ * and the docs do not say which one we are in:
+ *
+ *   If project-scope `failIfUnavailable` IS honoured, then `sandbox.enabled` plus
+ *   `failIfUnavailable` means Claude Code refuses to start for every Windows
+ *   developer who opens the repo. A path protection becomes a team-wide outage.
+ *
+ *   If it is NOT honoured, the keys sit in the file looking like protection and
+ *   enforce nothing, which is the exact theatre this project exists to name.
+ *
+ * The sandbox does not run on native Windows, so neither branch can be settled
+ * on this machine. So the answer is written down and made NON-LOADABLE: a
+ * `.proposal` suffix means no Claude Code process will ever read it, and a human
+ * has to decide, on a platform where it can be tested, whether to adopt it.
+ */
+export function sandboxProposal(a) {
+  return JSON.stringify({
+    _what: 'A PROPOSAL, not a config. The .proposal suffix means Claude Code never loads this file.',
+    _why: 'A permissions deny rule does not reach an arbitrary subprocess that opens the file itself. OS-level sandboxing is the layer that does. It does not run on native Windows, so this could not be tested where the bundle was generated.',
+    _before_adopting: [
+      'Confirm on a platform where the sandbox runs. It is absent on native Windows.',
+      'failIfUnavailable makes startup FAIL where the sandbox is unavailable. In managed-policy scope that is deliberate and enforceable; in project scope, whether it is honoured is undocumented, and if it is, every Windows developer on the team is blocked from starting.',
+      'Deny rules are still respected inside the sandbox, so this ADDS a layer rather than replacing the one already in settings.json.',
+    ],
+    _scope: 'Intended for managed-settings (administrator policy), not for this bundle. Copy the sandbox object into the managed settings file if and only if the checks above pass.',
+    sandbox: {
+      enabled: true,
+      failIfUnavailable: true,
+      autoAllowBashIfSandboxed: false,
+      network: { allowUnixSockets: [], allowLocalBinding: false },
+    },
+    _residual_it_would_close: a.glob ? `writes to ${a.glob} by a subprocess the deny rule cannot see` : 'subprocess writes the deny rule cannot see',
+  }, null, 2) + '\n';
 }
 
 /**
@@ -352,8 +422,20 @@ export function buildBundle(name, requirement, a) {
       '```', 'node tools/extension-prove.mjs --bundle <this directory>', '```', '',
       `${conf.cases.length} cases: `
       + Object.entries(kinds).sort().map(([k, n]) => `${n} ${k}`).join(', ') + '.', '',
+      ...(conf.strict ? [
+        '## This requirement is ABSOLUTE, and this bundle does not fully satisfy it', '',
+        'The requirement uses absolute language, so the spec carries `strict: true` and the run',
+        'reports **NOT DONE** while any residual survives. That is not a bug in the bundle: it is',
+        'the strongest configuration available on this platform, plus an honest statement that the',
+        'strongest available is not the same as total.',
+        '',
+        'See `sandbox-managed-settings.json.proposal` for the one layer that would close the gap.',
+        'It is deliberately non-loadable. Adopting it is an administrator decision on a platform',
+        'where the sandbox actually runs, and it is not one this tool will make for you.', '',
+      ] : []),
     ].join('\n'),
   };
+  if (conf.strict) files['sandbox-managed-settings.json.proposal'] = sandboxProposal(a);
   return { files, conf };
 }
 
@@ -435,28 +517,38 @@ function scaffold(requirement, outDir, name) {
  */
 export const GATE_PROBES = [
   { id: 'P1', requirement: 'Prevent any change to a file under `infra/`. The protection must still hold if the guard script is deleted or crashes.',
-    mechanism: 'permission-deny', deny: ['Edit(infra/**)'],
+    mechanism: 'permission-deny', deny: ['Edit(infra/**)'], strict: true,
     kinds: 'enforce,near-miss,wiring,near-miss,enforce,tamper,residual' },
   { id: 'P2', requirement: 'Prevent any change to a file under infra/.',
-    mechanism: 'permission-deny', deny: ['Edit(infra/**)'],
+    mechanism: 'permission-deny', deny: ['Edit(infra/**)'], strict: true,
     kinds: 'enforce,near-miss,wiring,near-miss,enforce,residual' },
   { id: 'P3', requirement: 'Never allow modification of infra/.',
-    mechanism: 'permission-deny', deny: ['Edit(infra/**)'],
+    mechanism: 'permission-deny', deny: ['Edit(infra/**)'], strict: true,
     kinds: 'enforce,near-miss,wiring,near-miss,enforce,residual' },
+  /**
+   * P4 is the discriminator for `strict`, and it is the reason the absolute
+   * detector is separate from the guarantee detector. Same mechanism, same deny
+   * rule, same seven-case shape as P2, but "block writes ... so people do not
+   * edit it casually" is a bounded ask. It gets no sandbox proposal and its run
+   * is DONE. If ABSOLUTE ever widens to match "not", this probe goes red.
+   */
   { id: 'P4', requirement: 'Block writes to `infra/` so people do not edit it casually.',
-    mechanism: 'permission-deny', deny: ['Edit(infra/**)'],
+    mechanism: 'permission-deny', deny: ['Edit(infra/**)'], strict: false,
     kinds: 'enforce,near-miss,wiring,near-miss,enforce,residual' },
   { id: 'P5', requirement: 'It would be good to protect `infra/` from accidental edits.',
-    mechanism: 'advisory', deny: null,
+    mechanism: 'advisory', deny: null, strict: false,
     kinds: 'residual,near-miss' },
   { id: 'P6', requirement: 'Never allow modification of `config/prod.secrets.yaml`. This must hold even if the guard crashes.',
-    mechanism: 'permission-deny', deny: ['Edit(config/prod.secrets.yaml)'],
+    mechanism: 'permission-deny', deny: ['Edit(config/prod.secrets.yaml)'], strict: true,
     kinds: 'enforce,near-miss,wiring,near-miss,tamper,residual' },
   { id: 'P7', requirement: 'vendor/ must never be read or searched.',
     mechanism: null, kinds: null },
 ];
 
 const GATE_FILES = ['README.md', 'conformance.json', 'settings.json'];
+// A strict bundle carries one extra file, and it is deliberately NON-LOADABLE.
+// Frozen here so it cannot quietly become a real settings file.
+const GATE_FILES_STRICT = [...GATE_FILES, 'sandbox-managed-settings.json.proposal'].sort();
 
 async function runGate({ quiet = false } = {}) {
   const { proveBundle } = await import('./extension-prove.mjs');
@@ -471,8 +563,14 @@ async function runGate({ quiet = false } = {}) {
     if (a.mechanism !== p.mechanism) { bad++; console.log(`  FAIL ${p.id} mechanism ${a.mechanism}, frozen ${p.mechanism}`); continue; }
 
     const { files, conf } = buildBundle(p.id, p.requirement, a);
+    if (!!conf.strict !== !!p.strict) { bad++; console.log(`  FAIL ${p.id} strict=${!!conf.strict}, frozen ${!!p.strict}`); continue; }
+    const expectFiles = p.strict ? GATE_FILES_STRICT : GATE_FILES;
     const list = Object.keys(files).sort().join(',');
-    if (list !== GATE_FILES.join(',')) { bad++; console.log(`  FAIL ${p.id} file list ${list}, frozen ${GATE_FILES.join(',')}`); continue; }
+    if (list !== expectFiles.join(',')) { bad++; console.log(`  FAIL ${p.id} file list ${list}, frozen ${expectFiles.join(',')}`); continue; }
+    if (p.strict) {
+      const prop = files['sandbox-managed-settings.json.proposal'];
+      if (!/"_what"/.test(prop) || /^\s*\{\s*"sandbox"/.test(prop)) { bad++; console.log(`  FAIL ${p.id} the sandbox proposal lost its non-adoption preamble`); continue; }
+    }
     const deny = (JSON.parse(files['settings.json']).permissions || {}).deny || null;
     if (JSON.stringify(deny) !== JSON.stringify(p.deny)) { bad++; console.log(`  FAIL ${p.id} deny ${JSON.stringify(deny)}, frozen ${JSON.stringify(p.deny)}`); continue; }
     const kinds = conf.cases.map((c) => c.kind).join(',');
@@ -484,7 +582,15 @@ async function runGate({ quiet = false } = {}) {
       const res = proveBundle(tmp);
       const red = res.cases.filter((c) => !c.ok);
       if (red.length) { bad++; console.log(`  FAIL ${p.id} ${red.length} case(s) red: ${red.map((c) => `${c.id}:${c.why && c.why[0]}`).join(' | ')}`); continue; }
-      if (!quiet) console.log(`  ok   ${p.id} ${a.mechanism.padEnd(15)} ${conf.cases.length} cases, all green, frozen kinds match`);
+      /**
+       * A strict probe must report NOT DONE with every case green. That pairing
+       * is the whole design: the cases are correct AND the requirement is not
+       * met, and a gate that only counted red cases would call it a success.
+       */
+      const nr = (res.strictResidual || []).length;
+      if (p.strict && nr !== 1) { bad++; console.log(`  FAIL ${p.id} strict spec reported ${nr} surviving residual(s), frozen 1`); continue; }
+      if (!p.strict && nr !== 0) { bad++; console.log(`  FAIL ${p.id} non-strict spec reported ${nr} surviving residual(s), frozen 0`); continue; }
+      if (!quiet) console.log(`  ok   ${p.id} ${a.mechanism.padEnd(15)} ${conf.cases.length} cases, all green, frozen kinds match${p.strict ? ', NOT DONE on 1 residual as frozen' : ''}`);
     } finally { rmSync(tmp, { recursive: true, force: true }); }
   }
   if (!quiet) console.log(bad === 0 ? '\nGATE PASS: every frozen probe generated and proved as recorded.' : `\nGATE FAIL: ${bad} probe(s) diverged.`);

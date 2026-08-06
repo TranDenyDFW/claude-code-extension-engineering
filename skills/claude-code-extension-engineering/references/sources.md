@@ -22,9 +22,12 @@
 | SRC_MCP_SECURITY | MCP security best practices | https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices | 2026-07-29 | 2.1.220 | verified | yes | CC BY 4.0 (documentation, excluding specifications) |
 | SRC_MCP_SPEC | MCP released specification 2025-11-25 | https://modelcontextprotocol.io/specification/2025-11-25 | 2026-07-29 | 2.1.220 | verified | yes | Apache-2.0 (specification contributions) |
 | SRC_MEMORY | Claude Code CLAUDE.md and memory | https://code.claude.com/docs/en/memory | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_PERMISSIONS | Claude Code Configure permissions | https://code.claude.com/docs/en/permissions | 2026-08-05 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_PLUGIN_REF | Claude Code Plugins reference | https://code.claude.com/docs/en/plugins-reference | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_OUTPUT_STYLES | Claude Code Output styles documentation | https://code.claude.com/docs/en/output-styles | 2026-07-31 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_PLUGINS | Create Claude Code Plugins | https://code.claude.com/docs/en/plugins | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_SANDBOXING | Claude Code Configure the sandboxed Bash tool | https://code.claude.com/docs/en/sandboxing | 2026-08-05 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_SETTINGS | Claude Code settings | https://code.claude.com/docs/en/settings | 2026-08-05 | 2.1.220 | verified-partial | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_SKILL_CREATOR | Anthropic official Skill Creator | https://raw.githubusercontent.com/anthropics/skills/main/skills/skill-creator/SKILL.md | 2026-07-29 | 2.1.220 | verified | yes | Apache-2.0 |
 | SRC_SKILLS | Claude Code Skills | https://code.claude.com/docs/en/skills | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_SUBAGENTS | Claude Code Subagents | https://code.claude.com/docs/en/sub-agents | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |

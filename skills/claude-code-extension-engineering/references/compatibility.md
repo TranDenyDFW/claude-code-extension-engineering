@@ -50,6 +50,20 @@ how these entries are written is below, under Platform profiles.
 - LSP/code intelligence plugins - Supported [OFFICIAL]
 - Channels and monitors off Anthropic-hosted providers - Absent: channels require Anthropic authentication through claude.ai or a Console API key and are unavailable on Amazon Bedrock, Google Cloud's Agent Platform, and Microsoft Foundry; the Monitor tool is unavailable on those same three and whenever DISABLE_TELEMETRY or CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC is set, so plugin monitors are skipped there too [OFFICIAL]
 - Cowork and cloud sessions, including routines, do not read ~/.claude/skills - a personal skill reports not found on a scheduled run [OFFICIAL]
+- Permission path rules consulted for Edit and Read only, with a startup warning on a Write, NotebookEdit, Glob or MultiEdit path rule, requires v2.1.210 or later. On an older build the same rule is inert AND silent, so the absence of a warning is not evidence the rule works [OFFICIAL]  [v2.1.210]
+- Sandbox strictAllowlist, which denies out-of-allowlist hosts instead of prompting, requires v2.1.219 or later and only from user, managed, or CLI --settings scope [OFFICIAL]  [v2.1.219]
+
+## Platform profiles, the FIRST real exercise of the contract
+
+The contract below has existed as a placeholder since this reference was written. The
+sandbox is the first capability that actually needs it, because its support state is not a
+version question at all: no Claude Code build enables it on native Windows.
+
+- Concept ID enforcement.os-sandbox. Platform: macOS, current. Support state: Supported. Evidence: sandboxing page, fetched live 2026-08-05, build 2.1.220. Note: uses the built-in Seatbelt framework, nothing to install [OFFICIAL]  [v2.1.220]
+- Concept ID enforcement.os-sandbox. Platform: Linux and WSL2, current. Support state: Supported. Evidence: same fetch. Note: depends on two packages, and /sandbox reports which are missing. On WSL2 a sandboxed command cannot launch a Windows binary such as cmd.exe or powershell.exe, or anything under /mnt/c/, so those need excludedCommands, which runs them OUTSIDE the sandbox [OFFICIAL]  [v2.1.220]
+- Concept ID enforcement.os-sandbox. Platform: native Windows, current. Support state: ABSENT. Evidence: same fetch, quoting "Native Windows is not supported". Migration: run Claude Code inside a WSL2 distribution, which is a session-wide change and not a setting. What you do not get: OS-level enforcement over Bash child processes, the only documented layer reaching an arbitrary subprocess that writes a protected file [OFFICIAL]  [v2.1.220]
+- Concept ID enforcement.deny-rule.bash-recognition. Platform: Windows, build 2.1.220. Support state: PARTIAL. Evidence: paired live measurement on this machine, tests/tier4/bash-recognition-n10.json. Note: the documented recognition sentence names Bash and never PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was observed. The recognised Bash set is documented by example only, so its edge is measured rather than read  [ENGINEERING]
+- Concept ID enforcement.deny-rule.bash-recognition. Platform: macOS and Linux, any build. Support state: UNVERIFIED. Evidence: none. This project measured one platform and one build; the recognised set may differ elsewhere and nothing here should be read as covering it  [ENGINEERING]
 
 ## Platform profiles, the contract
 

@@ -1,0 +1,7 @@
+{
+  "id": "permission-rule-never-consulted",
+  "kind": "enforcement-failure-mode",
+  "defect": "a Write(path) deny rule, which Claude Code accepts and NEVER CONSULTS, so the protection is a decoration while looking exactly right",
+  "citation": "permissions.md The rule that is accepted and never consulted [OFFICIAL] [v2.1.210]",
+  "signal": "never consult|not consulted|Edit\\("
+}

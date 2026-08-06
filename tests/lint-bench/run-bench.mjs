@@ -276,9 +276,15 @@ const TOOL_DEFS = [
     detect() {
       return existsSync(join(ROOT, 'tools', 'extension-doctor.mjs')) ? 'workspace' : null;
     },
-    run({ home, project }) {
+    run({ home, project, manifest }) {
+      // A platform-conditional fixture pins the platform, or the row would
+      // report the runner's OS instead of the defect. Competitor adapters have
+      // no equivalent flag and are scored as they are: a Windows-only defect
+      // they do not detect is a real miss, which is why this cohort is counted
+      // separately from the published twelve.
+      const plat = manifest && manifest.assumePlatform ? ['--assume-platform', manifest.assumePlatform] : [];
       const r = spawnTool(process.execPath,
-        [join(ROOT, 'tools', 'extension-doctor.mjs'), '--home', home, '--project', project, '--json', '--no-delegate'],
+        [join(ROOT, 'tools', 'extension-doctor.mjs'), '--home', home, '--project', project, '--json', '--no-delegate', ...plat],
         { home, cwd: project });
       let findings = 0;
       try { findings = (JSON.parse(r.out.slice(r.out.indexOf('{'))).findings || []).length; } catch { }
@@ -291,9 +297,10 @@ const TOOL_DEFS = [
     detect() {
       return existsSync(join(ROOT, 'tools', 'extension-doctor.mjs')) && bin('agnix') ? 'workspace+agnix' : null;
     },
-    run({ home, project }) {
+    run({ home, project, manifest }) {
+      const plat = manifest && manifest.assumePlatform ? ['--assume-platform', manifest.assumePlatform] : [];
       const r = spawnTool(process.execPath,
-        [join(ROOT, 'tools', 'extension-doctor.mjs'), '--home', home, '--project', project, '--json', '--delegate', bin('agnix')],
+        [join(ROOT, 'tools', 'extension-doctor.mjs'), '--home', home, '--project', project, '--json', '--delegate', bin('agnix'), ...plat],
         { home, cwd: project });
       let findings = 0;
       try { findings = (JSON.parse(r.out.slice(r.out.indexOf('{'))).findings || []).length; } catch { }
@@ -326,7 +333,7 @@ const ZERO_FINDING_KINDS = new Set(['clean', 'negative-control']);
 
 /** Kinds scored against a signal regex. late-failure-mode is scored exactly
  *  like failure-mode and TOTALLED separately: see renderMatrix. */
-const SIGNAL_KINDS = new Set(['failure-mode', 'late-failure-mode', 'control']);
+const SIGNAL_KINDS = new Set(['failure-mode', 'late-failure-mode', 'enforcement-failure-mode', 'control']);
 
 export function scoreCell(manifest, run) {
   if (run.notApplicable) return 'n/a';
@@ -364,6 +371,7 @@ const KIND_SUFFIX = {
   clean: ' (clean)',
   'negative-control': ' (negative control)',
   'late-failure-mode': ' (late)',
+  'enforcement-failure-mode': ' (enforcement)',
 };
 
 export function renderMatrix(results) {
@@ -375,21 +383,24 @@ export function renderMatrix(results) {
     L.push(`| ${f.id}${KIND_SUFFIX[f.kind] || ''} | ${tools.map(t => f.cells[t.id] ?? 'skip').join(' | ')} |`);
   }
   L.push('');
-  // Two caught columns, not one. The published competitor numbers were measured
-  // on the 12 original failure modes; the late cohort landed afterwards and no
-  // competitor has ever been run against it. Summing them would restate an
-  // unmeasured denominator as though it had been measured.
+  // THREE caught columns, not one. The published competitor numbers were
+  // measured on the 12 original failure modes; the late and enforcement cohorts
+  // landed afterwards and no competitor has ever been run against either.
+  // Summing them would restate an unmeasured denominator as though it had been
+  // measured, which is the same defect as moving a denominator silently.
   const modes = results.fixtures.filter(f => f.kind === 'failure-mode');
   const late = results.fixtures.filter(f => f.kind === 'late-failure-mode');
-  L.push(`| Tool | Caught (of ${modes.length} published failure modes) | Caught (of ${late.length} late failure modes) | Clean-tree false positives | Negative-control false positives | Crashes |`);
-  L.push('|---|---|---|---|---|---|');
+  const enf = results.fixtures.filter(f => f.kind === 'enforcement-failure-mode');
+  L.push(`| Tool | Caught (of ${modes.length} published failure modes) | Caught (of ${late.length} late failure modes) | Caught (of ${enf.length} enforcement failure modes) | Clean-tree false positives | Negative-control false positives | Crashes |`);
+  L.push('|---|---|---|---|---|---|---|');
   for (const t of tools) {
     const caught = modes.filter(f => f.cells[t.id] === 'catch').length;
     const caughtLate = late.filter(f => f.cells[t.id] === 'catch').length;
+    const caughtEnf = enf.filter(f => f.cells[t.id] === 'catch').length;
     const fp = results.fixtures.filter(f => f.kind === 'clean' && f.cells[t.id] === 'FALSE-POS').length;
     const fpNeg = results.fixtures.filter(f => f.kind === 'negative-control' && f.cells[t.id] === 'FALSE-POS').length;
     const crash = results.fixtures.filter(f => f.cells[t.id] === 'crash').length;
-    L.push(`| ${t.label} | ${caught} | ${caughtLate} | ${fp} | ${fpNeg} | ${crash} |`);
+    L.push(`| ${t.label} | ${caught} | ${caughtLate} | ${caughtEnf} | ${fp} | ${fpNeg} | ${crash} |`);
   }
   return L.join('\n');
 }
@@ -484,32 +495,42 @@ function selfTest() {
       { id: 'c', kind: 'late-failure-mode', cells: { t1: 'catch' } },
       { id: 'd', kind: 'late-failure-mode', cells: { t1: 'catch' } },
       { id: 'e', kind: 'late-failure-mode', cells: { t1: 'crash' } },
+      // 4 enforcement rows, 3 caught: a THIRD distinct count, for the same
+      // reason the first two are distinct. With 3 here, no permutation of the
+      // three cohort readers produces the same summary row.
+      { id: 'f', kind: 'enforcement-failure-mode', cells: { t1: 'catch' } },
+      { id: 'g', kind: 'enforcement-failure-mode', cells: { t1: 'catch' } },
+      { id: 'h', kind: 'enforcement-failure-mode', cells: { t1: 'catch' } },
+      { id: 'i', kind: 'enforcement-failure-mode', cells: { t1: 'miss' } },
       { id: 'clean', kind: 'clean', cells: { t1: 'FALSE-POS' } },
       { id: 'neg', kind: 'negative-control', cells: { t1: 'clean' } },
     ],
   };
   const md = renderMatrix(fake);
   check('matrix includes installed tools only', md.includes('fake-catcher') && !md.includes('fake-absent'));
-  check('matrix totals caught, late, clean-FP, negative-control-FP and crashes separately',
-    md.includes('| fake-catcher | 1 | 2 | 1 | 0 | 1 |'), md.split('\n').pop());
+  check('matrix totals published, late, enforcement, clean-FP, negative-control-FP and crashes separately',
+    md.includes('| fake-catcher | 1 | 2 | 3 | 1 | 0 | 1 |'), md.split('\n').pop());
   check('the published failure-mode denominator counts ONLY the failure-mode kind',
     md.includes('Caught (of 2 published failure modes)') && md.includes('Caught (of 3 late failure modes)'),
     md.split('\n').find(l => l.includes('Caught')));
   check('a negative-control false positive is counted in its OWN column',
     renderMatrix({ ...fake, fixtures: fake.fixtures.map(f => f.id === 'neg' ? { ...f, cells: { t1: 'FALSE-POS' } } : f) })
-      .includes('| fake-catcher | 1 | 2 | 1 | 1 | 1 |'));
+      .includes('| fake-catcher | 1 | 2 | 3 | 1 | 1 | 1 |'));
   check('a late fixture is labelled in the matrix, so no reader mistakes it for a published cell',
     md.includes('| c (late) |') && md.includes('| neg (negative control) |'));
 
   const fixtures = loadFixtures();
   const byKind = k => fixtures.filter(f => f.manifest.kind === k).length;
-  check('all 21 fixtures load with manifests', fixtures.length === 21, `${fixtures.length}`);
+  check('all 30 fixtures load with manifests', fixtures.length === 30, `${fixtures.length}`);
   check('every signal-scored manifest carries a signal',
     fixtures.filter(f => SIGNAL_KINDS.has(f.manifest.kind)).every(f => f.manifest.signal));
   check('every signal compiles as a regex', fixtures.every(f => { if (!f.manifest.signal) return true; try { new RegExp(f.manifest.signal, 'i'); return true; } catch { return false; } }));
   check('exactly 12 published failure modes, the cohort the competitor matrix was measured over',
     byKind('failure-mode') === 12, `${byKind('failure-mode')}`);
   check('exactly 5 late failure modes', byKind('late-failure-mode') === 5, `${byKind('late-failure-mode')}`);
+  // A THIRD cohort, kept out of the published 12 for the same reason as the
+  // late one: that number was measured against competitors before these existed.
+  check('exactly 9 enforcement failure modes', byKind('enforcement-failure-mode') === 9, `${byKind('enforcement-failure-mode')}`);
   check('exactly one clean fixture', byKind('clean') === 1);
   check('exactly one negative control', byKind('negative-control') === 1, `${byKind('negative-control')}`);
   check('exactly two controls', byKind('control') === 2);
@@ -539,7 +560,9 @@ function selfTest() {
 const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (IS_MAIN) {
   if (argv.includes('--self-test')) selfTest();
-  else main();
+  // main() returns 1 when it REFUSES to overwrite recorded evidence. That has to
+  // reach the shell, or a run that wrote nothing reports success.
+  else process.exit(main());
 }
 
 function main() {
@@ -581,7 +604,7 @@ function main() {
       mkdirSync(project, { recursive: true });
       const before = hashTree(copy);
       let run;
-      try { run = t.run({ home, project }); }
+      try { run = t.run({ home, project, manifest: f.manifest }); }
       catch (err) { run = { out: String(err), spawnError: String(err), findings: 0 }; }
       const mutated = hashTree(copy) !== before;
       row.cells[t.id] = scoreCell(f.manifest, run);
@@ -596,7 +619,47 @@ function main() {
   }
 
   rmSync(scratch, { recursive: true, force: true });
-  writeFileSync(RESULTS, JSON.stringify(results, null, 2) + '\n');
+
+  /**
+   * NEVER OVERWRITE RECORDED COMPETITOR EVIDENCE.
+   *
+   * results.json is not an output, it is the RECORD of a competitor run. Four of
+   * the seven tools in the committed file are installed on the machine that
+   * produced it and on no other, so re-running elsewhere writes a file where
+   * those columns simply do not exist. That happened on 2026-08-05: a re-run
+   * dropped the agnix 0.45.0 tool list, and the capability catalog anchors its
+   * crosscheck AT THAT LIST, so the catalog failed verification, its load failed
+   * soft as designed, and every capability name check silently degraded to
+   * UNVERIFIED. One command, three layers of evidence gone, and no error.
+   *
+   * So the write refuses when this run would lose a tool the recorded file has
+   * data for. --out sends a partial run somewhere else, which is the right home
+   * for a cohort measured on a machine that lacks the competitors.
+   */
+  const outArg = arg('--out');
+  const outPath = outArg ? resolve(outArg) : RESULTS;
+  if (outPath === RESULTS && existsSync(RESULTS)) {
+    let prior = null;
+    try { prior = JSON.parse(readFileSync(RESULTS, 'utf8')); } catch { prior = null; }
+    const lost = prior && Array.isArray(prior.tools)
+      ? prior.tools.filter(t => t.version).map(t => t.id)
+        .filter(id => !results.tools.some(t => t.id === id && t.version))
+      : [];
+    if (lost.length) {
+      console.error('');
+      console.error(`REFUSING to overwrite ${RESULTS}: this run would DROP recorded data for ${lost.join(', ')}.`);
+      console.error('Those tools are not installed here, so their columns would vanish from the record');
+      console.error('rather than be re-measured. The capability catalog anchors its crosscheck to that');
+      console.error('data, and losing it silently degrades every name check to UNVERIFIED.');
+      console.error('');
+      console.error('Re-run on a machine with those tools installed, or send this run elsewhere:');
+      console.error('  node tests/lint-bench/run-bench.mjs --out tests/lint-bench/results-<name>.json');
+      console.log('\n' + renderMatrix(results));
+      return 1;
+    }
+  }
+  writeFileSync(outPath, JSON.stringify(results, null, 2) + '\n');
   console.log('\n' + renderMatrix(results));
-  console.log(`\nRaw results: tests/lint-bench/results.json`);
+  console.log(`\nRaw results: ${outPath}`);
+  return 0;
 }

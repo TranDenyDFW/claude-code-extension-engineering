@@ -6,9 +6,15 @@ description: "Building or debugging a Claude Code extension: CLAUDE.md, rules, s
 # Claude Code extension engineering
 
 Twelve authored extension mechanisms across seven layers, plus a cross-referenced
-programmatic tier (Agent SDK, GitHub Action). Pick the mechanism first, then open its
-reference: choosing wrong is the expensive mistake, and most of these look
-interchangeable until you need one to guarantee something.
+programmatic tier (Agent SDK, GitHub Action), plus an eighth ENFORCEMENT layer you
+configure rather than author: permission rules and the OS sandbox. Pick the mechanism
+first, then open its reference: choosing wrong is the expensive mistake, and most of these
+look interchangeable until you need one to guarantee something.
+
+The count stays at twelve deliberately. Permission rules and the sandbox are settings, not
+components you write and ship, so folding them into the authored count would make one
+number mean two things. They still decide the outcome whenever a requirement says "must
+not", which is why they are a layer here rather than a footnote inside hooks.md.
 
 Two questions decide most cases. **Who owns enforcement**, the model or the harness? And
 **where must it run**, this context or an isolated one? Ownership is not a guarantee:
@@ -29,6 +35,8 @@ subagent), so check `selection.md` before committing to one.
 | Skills | [skills.md](references/skills.md) |
 | Testing and iteration | [testing.md](references/testing.md) |
 | Hooks | [hooks.md](references/hooks.md) |
+| Permission rules: allow, ask, deny | [permissions.md](references/permissions.md) |
+| OS-level sandboxing (not on native Windows) | [sandboxing.md](references/sandboxing.md) |
 | Monitors [EXPERIMENTAL] | [monitors.md](references/monitors.md) |
 | Context modes | [context-modes.md](references/context-modes.md) |
 | Subagents | [subagents.md](references/subagents.md) |

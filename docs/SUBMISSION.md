@@ -40,7 +40,7 @@ coordination. Ownership is analyzed past the word "guarantee" into authority, fa
 policy (fail-open, fail-closed, advisory), and tamper boundary (user, project, managed
 policy).
 
-Includes a cross-mechanism selection guide, 24 composition cards, 31 documented
+Includes a cross-mechanism selection guide, 28 composition cards, 31 documented
 hook-event contracts including DirectoryAdded, which the docs gained on 2026-08-03, dated
 build and version gates, platform-specific failure modes, and a machine-checked evidence
 ledger giving every tagged claim a source, retrieval date, and drift detection.

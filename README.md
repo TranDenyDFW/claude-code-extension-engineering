@@ -83,7 +83,7 @@ components. This project answers the question that comes before it, and the two 
 | Learn hook, skill, plugin syntax | Strong | Strong |
 | Decide WHICH mechanism should own a behavior | Supporting | Primary purpose |
 | Compare the nearest rejected alternative | Limited | Primary purpose |
-| Cross-mechanism composition semantics | Component-oriented | 24 composition cards |
+| Cross-mechanism composition semantics | Component-oriented | 28 composition cards |
 | Version gates and changelog-only deltas | Not its pitch | Primary purpose |
 | Enforcement ownership, failure policy, tamper boundary | Per-component | Cross-component model |
 | Published control-vs-treatment benchmark | No | Yes, with limitations stated |
@@ -128,11 +128,11 @@ mechanism pairings are
 standard is applied to this repo itself, and the numbers are published whether or not
 they flatter it.
 
-**Tier 1, deterministic regression: 217 questions (set v2), 100% pass.** Each question
+**Tier 1, deterministic regression: 235 questions (set v2), 100% pass.** Each question
 carries a regex answer key and a source file, run by
 [tests/run-tests.mjs](tests/run-tests.mjs). Near-tautological on the first run since the
 keys derive from the content; it earns its keep as a regression gate and through
-`--prove-fail`, which guts every source file and confirms all 206 positive assertions go
+`--prove-fail`, which guts every source file and confirms all 223 positive assertions go
 red. A suite that stays green against deleted content proves nothing; this one cannot.
 Set v2 (2026-07-31) added coverage for the marketplace-submission facts, the frontmatter
 gotcha, and the measured behaviors, and retired the two known-deficient v1 keys; the

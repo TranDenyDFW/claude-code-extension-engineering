@@ -1,128 +1,64 @@
 [
   {
-    "id": "SRC_HOOKS",
-    "title": "Claude Code Hooks reference",
-    "url": "https://code.claude.com/docs/en/hooks",
-    "type": "external",
+    "id": "CCX_RESEARCH",
+    "title": "CCX architecture research, inventory and findings",
+    "url": "internal",
+    "type": "internal",
     "retrieved": "2026-07-29",
     "build": "2.1.220",
     "status": "verified",
-    "notes": "Live page titled 'Hooks reference' covering hook events, configuration schema, JSON I/O, exit codes, and the five handler types; one repo nuance: the repo says over-cap hook output is 'truncated' while the live page says output beyond 10,000 characters is saved to a file and replaced with a preview and file path.",
-    "spot_checks": [
-      {
-        "claim": "Exit code 2 is a blocking error whose stderr is fed back to Claude, while other non-zero exit codes are non-blocking (hooks.md exit-code table)",
-        "supported": true
-      },
-      {
-        "claim": "disableAllHooks: true switches every hook off, and only managed-policy settings survive it, so user/project/local settings cannot disable managed hooks (hooks.md tamper-boundary bullet)",
-        "supported": true
-      },
-      {
-        "claim": "Five handler types exist: command, http, mcp_tool, prompt, agent (hooks.md '5 types' table)",
-        "supported": true
-      }
-    ]
+    "notes": "Own work; not an external fetchable source.",
+    "spot_checks": []
   },
   {
-    "id": "SRC_HOOK_GUIDE",
-    "title": "Claude Code Hooks guide",
-    "url": "https://code.claude.com/docs/en/hooks-guide",
-    "type": "external",
+    "id": "DERIVED",
+    "title": "Derived reasoning, no upstream citation",
+    "url": "internal",
+    "type": "internal",
     "retrieved": "2026-07-29",
     "build": "2.1.220",
     "status": "verified",
-    "notes": "Live page is the hooks getting-started guide, now titled 'Automate actions with hooks' rather than 'Hooks guide', with walkthrough examples (notifications, Prettier formatting, PreToolUse blocking) and a debug section using claude --debug-file.",
-    "spot_checks": [
-      {
-        "claim": "The published guide examples pipe hook stdin through jq (basis for the repo warning that jq-based handlers fail open on Windows installs without jq)",
-        "supported": true
-      },
-      {
-        "claim": "Hooks are configured in ~/.claude/settings.json (user, all projects) and .claude/settings.json (project, committable), as stated in the hooks.md worked example",
-        "supported": true
-      }
-    ]
+    "notes": "Own work; not an external fetchable source.",
+    "spot_checks": []
   },
   {
-    "id": "SRC_MCP",
-    "title": "Claude Code MCP",
-    "url": "https://code.claude.com/docs/en/mcp",
-    "type": "external",
+    "id": "HARNESS_TOOL",
+    "title": "Claude Code built-in tool descriptions (shipped in-product)",
+    "url": "internal",
+    "type": "internal",
     "retrieved": "2026-07-29",
     "build": "2.1.220",
     "status": "verified",
-    "notes": "Live page titled 'Connect Claude Code to tools via MCP' is the full MCP reference (transports including deprecated SSE and WebSocket, .mcp.json env expansion, approval flow, output limits); it confirms the repo claims verbatim including the fixed 10,000-token warning threshold.",
-    "spot_checks": [
-      {
-        "claim": "MCP tool output warns at 10,000 tokens and is capped at 25,000 tokens by default, configurable via MAX_MCP_OUTPUT_TOKENS (mcp.md Context and cost)",
-        "supported": true
-      },
-      {
-        "claim": "claude mcp reset-project-choices re-arms the project-scoped server approval prompt (mcp.md Packaging)",
-        "supported": true
-      },
-      {
-        "claim": ".mcp.json expands ${VAR} and ${VAR:-default}, and an unset variable with no default still loads, passing the literal through with only a warning in claude mcp list (mcp.md Authentication and secrets)",
-        "supported": true
-      }
-    ]
+    "notes": "Own work; not an external fetchable source.",
+    "spot_checks": []
   },
   {
-    "id": "SRC_PLUGINS",
-    "title": "Create Claude Code Plugins",
-    "url": "https://code.claude.com/docs/en/plugins",
-    "type": "external",
+    "id": "LOCAL_ENV",
+    "title": "Direct observation of the installed Claude Code environment",
+    "url": "internal",
+    "type": "internal",
     "retrieved": "2026-07-29",
     "build": "2.1.220",
     "status": "verified",
-    "notes": "Guide page titled 'Create plugins' covering plugin creation, quickstart, structure, local testing and marketplace submission; ledger title 'Create Claude Code Plugins' is a close paraphrase of the on-page H1, and the page now also documents --plugin-url and single-SKILL.md-at-root plugins.",
-    "spot_checks": [
-      {
-        "claim": "claude --plugin-dir ./my-plugin (or --plugin-url zip) loads a local plugin for development; zip loading requires v2.1.128+ (plugins.md, Local development + testing)",
-        "supported": true
-      },
-      {
-        "claim": "Components live at the plugin root, not inside .claude-plugin/; only plugin.json goes inside .claude-plugin/ (plugins.md, Components section and anti-patterns)",
-        "supported": true
-      }
-    ]
+    "notes": "Own work; not an external fetchable source.",
+    "spot_checks": []
   },
   {
-    "id": "SRC_PLUGIN_REF",
-    "title": "Claude Code Plugins reference",
-    "url": "https://code.claude.com/docs/en/plugins-reference",
+    "id": "SRC_AGENT_SDK",
+    "title": "Claude Agent SDK documentation",
+    "url": "https://code.claude.com/docs/en/agent-sdk/overview",
     "type": "external",
-    "retrieved": "2026-07-29",
+    "retrieved": "2026-07-31",
     "build": "2.1.220",
     "status": "verified",
-    "notes": "Complete technical reference for the plugin system (schemas, CLI commands, component specs, environment variables); title matches, and it explicitly states that a manifest, when present, requires only the name field.",
+    "notes": "Agent SDK overview plus subpages; code.claude.com/docs/en/sdk 301-redirects here via docs.claude.com and platform.claude.com. Capabilities table covers hooks, sessions, MCP, permissions; the MCP subpage documents SDK MCP servers defining custom tools in application code instead of a separate server process.",
     "spot_checks": [
       {
-        "claim": "In .claude-plugin/plugin.json, name is the only required field once the manifest exists (plugins.md manifest table)",
+        "claim": "agent-sdk.md: SDK custom tools run in the host process rather than as a separate MCP server",
         "supported": true
       },
       {
-        "claim": "Persistent state belongs under ${CLAUDE_PLUGIN_DATA}, a directory that survives plugin updates, while ${CLAUDE_PLUGIN_ROOT} resolves to the plugin's installation directory (plugins.md, Structure bullet on marketplace installs)",
-        "supported": true
-      }
-    ]
-  },
-  {
-    "id": "SRC_SKILLS",
-    "title": "Claude Code Skills",
-    "url": "https://code.claude.com/docs/en/skills",
-    "type": "external",
-    "retrieved": "2026-07-29",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Claude Code skills guide whose on-page H1 is 'Extend Claude with skills' rather than the ledger's generic 'Claude Code Skills'; it confirms the commands-merged-into-skills model and the full frontmatter and substitution reference, and notes skills follow the agentskills.io open standard.",
-    "spot_checks": [
-      {
-        "claim": "disable-model-invocation: true makes a skill user-invoked only via /name and also blocks preloading into subagents (skills.md frontmatter table)",
-        "supported": true
-      },
-      {
-        "claim": "The combined description plus when_to_use text is truncated near 1,536 characters in the skill listing (skills.md frontmatter table and Levers detail)",
+        "claim": "agent-sdk.md: the SDK is a separate programmatic surface with sessions, hooks and structured options, not discovered from .claude/",
         "supported": true
       }
     ]
@@ -168,6 +104,98 @@
     ]
   },
   {
+    "id": "SRC_CHANNELS",
+    "title": "Claude Code Channels",
+    "url": "https://code.claude.com/docs/en/channels",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-05, whole page returned. Rendered title is 'Push events into a running session with channels'. Covers the supported plugins (Telegram, Discord, iMessage, fakechat), the pairing bootstrap, the enterprise controls table, the research-preview terms, and the how-channels-compare table. The builder-facing contract lives on channels-reference (SRC_CHANNELS_REF), not here.",
+    "spot_checks": [
+      {
+        "claim": "channels.md Managed settings and availability: channelsEnabled and allowedChannelPlugins are managed tier only and users cannot override them",
+        "supported": true
+      },
+      {
+        "claim": "channels.md Managed settings and availability: an EMPTY allowedChannelPlugins array is not a kill switch because --dangerously-load-development-channels still bypasses it, and leaving channelsEnabled UNSET is what blocks channels entirely",
+        "supported": true
+      },
+      {
+        "claim": "channels.md Fails open and silent: with the organization setting disabled or unset the MCP server still connects and its tools work, but channel messages do not arrive",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_CHANNELS_REF",
+    "title": "Claude Code Channels reference",
+    "url": "https://code.claude.com/docs/en/channels-reference",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-05, whole page returned. The builder contract: Server options table, notification format, reply tool, sender gating, permission relay including the request_id alphabet and the 2.1.211 sanitization rules, the development-flag testing path, and the curl-succeeded-versus-refused diagnosis fork.",
+    "spot_checks": [
+      {
+        "claim": "channels.md The four gates: capabilities.experimental['claude/channel'] is required, is always {}, and its PRESENCE is what registers the notification listener",
+        "supported": true
+      },
+      {
+        "claim": "channels.md Notification contract: meta keys must be identifiers (letters, digits, underscores) and keys containing hyphens or other characters are silently dropped",
+        "supported": true
+      },
+      {
+        "claim": "channels.md Permission relay: request_id is five lowercase letters drawn from a to z without l, and the local terminal dialog does not display it",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_DISCOVER_PLUGINS",
+    "title": "Claude Code Discover and install prebuilt plugins",
+    "url": "https://code.claude.com/docs/en/discover-plugins",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-05, whole page returned. Added because monitors.md's context-cost claim traces here and nowhere else in the mirror: this is the page carrying the append-after-the-conversation cost model for newly loaded plugin components. It was not one of the four pages this stage set out to add; it was found while checking that no claim was being attributed to a page that does not carry it.",
+    "spot_checks": [
+      {
+        "claim": "monitors.md Context cost: newly loaded components announce themselves in content appended to the conversation while the existing history still reads from the prompt cache, and MCP servers are the exception that invalidates it",
+        "supported": true
+      },
+      {
+        "claim": "monitors.md Context cost: plugins that contribute a theme, output style, monitor, or workflow are never listed as unused, since those deliver value without an invocation to track",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_ERRORS",
+    "title": "Claude Code Error reference",
+    "url": "https://code.claude.com/docs/en/errors",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified-partial",
+    "notes": "Fetched live 2026-08-05. Rendered title is 'Error reference'. PARTIAL BY MEASUREMENT, recorded rather than glossed: two separate fetches on the retrieval date returned the early message-index rows but not the tail of the page, so claims resting on late-page content were NOT confirmed live and are attributed to the docs mirror instead. Specifically, the 'legacy MultiEdit(path)' bullet the mirror carries at errors.md:1635 did not appear in either fetch, so the capability catalog's MultiEdit legacy provenance rests on the mirror, not on this row.",
+    "spot_checks": [
+      {
+        "claim": "monitors.md Secrets and user_config: the error index carries the row 'Monitor \"<name>\" from plugin <plugin> references ${user_config.*} in its command' routing to the Plugin errors section",
+        "supported": true
+      },
+      {
+        "claim": "monitors.md Secrets and user_config: sibling rows exist for shell-form hook commands and for the MCP headersHelper, so the rejection is a family of three fields rather than a monitor-only rule",
+        "supported": true
+      },
+      {
+        "claim": "This row is a PARTIAL live retrieval: the page tail (mirror line 1635, the legacy MultiEdit bullet) was absent from both fetches on the retrieval date, so no claim in this ledger depends on late-page content from this fetch",
+        "supported": true
+      }
+    ]
+  },
+  {
     "id": "SRC_FEATURES",
     "title": "Claude Code extension architecture overview",
     "url": "https://code.claude.com/docs/en/features-overview",
@@ -183,6 +211,74 @@
       },
       {
         "claim": "selection.md line 35: a subagent provides context isolation, a fresh context window that returns only a summary; the live page states subagents run their own loops in isolated context and return summaries, with work happening separately and only the summary returning.",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_HOOK_GUIDE",
+    "title": "Claude Code Hooks guide",
+    "url": "https://code.claude.com/docs/en/hooks-guide",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Live page is the hooks getting-started guide, now titled 'Automate actions with hooks' rather than 'Hooks guide', with walkthrough examples (notifications, Prettier formatting, PreToolUse blocking) and a debug section using claude --debug-file.",
+    "spot_checks": [
+      {
+        "claim": "The published guide examples pipe hook stdin through jq (basis for the repo warning that jq-based handlers fail open on Windows installs without jq)",
+        "supported": true
+      },
+      {
+        "claim": "Hooks are configured in ~/.claude/settings.json (user, all projects) and .claude/settings.json (project, committable), as stated in the hooks.md worked example",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_HOOKS",
+    "title": "Claude Code Hooks reference",
+    "url": "https://code.claude.com/docs/en/hooks",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Live page titled 'Hooks reference' covering hook events, configuration schema, JSON I/O, exit codes, and the five handler types; one repo nuance: the repo says over-cap hook output is 'truncated' while the live page says output beyond 10,000 characters is saved to a file and replaced with a preview and file path.",
+    "spot_checks": [
+      {
+        "claim": "Exit code 2 is a blocking error whose stderr is fed back to Claude, while other non-zero exit codes are non-blocking (hooks.md exit-code table)",
+        "supported": true
+      },
+      {
+        "claim": "disableAllHooks: true switches every hook off, and only managed-policy settings survive it, so user/project/local settings cannot disable managed hooks (hooks.md tamper-boundary bullet)",
+        "supported": true
+      },
+      {
+        "claim": "Five handler types exist: command, http, mcp_tool, prompt, agent (hooks.md '5 types' table)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_MCP",
+    "title": "Claude Code MCP",
+    "url": "https://code.claude.com/docs/en/mcp",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Live page titled 'Connect Claude Code to tools via MCP' is the full MCP reference (transports including deprecated SSE and WebSocket, .mcp.json env expansion, approval flow, output limits); it confirms the repo claims verbatim including the fixed 10,000-token warning threshold.",
+    "spot_checks": [
+      {
+        "claim": "MCP tool output warns at 10,000 tokens and is capped at 25,000 tokens by default, configurable via MAX_MCP_OUTPUT_TOKENS (mcp.md Context and cost)",
+        "supported": true
+      },
+      {
+        "claim": "claude mcp reset-project-choices re-arms the project-scoped server approval prompt (mcp.md Packaging)",
+        "supported": true
+      },
+      {
+        "claim": ".mcp.json expands ${VAR} and ${VAR:-default}, and an unset variable with no default still loads, passing the literal through with only a warning in claude mcp list (mcp.md Authentication and secrets)",
         "supported": true
       }
     ]
@@ -248,6 +344,150 @@
     ]
   },
   {
+    "id": "SRC_OUTPUT_STYLES",
+    "title": "Claude Code Output styles documentation",
+    "url": "https://code.claude.com/docs/en/output-styles",
+    "type": "external",
+    "retrieved": "2026-07-31",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Documents custom style files with frontmatter, keep-coding-instructions (default false), built-in Default/Proactive/Explanatory/Learning, /output-style deprecated 2.1.73 and removed 2.1.91, and the v2.1.178 nested-directories closest-wins rule.",
+    "spot_checks": [
+      {
+        "claim": "output-styles.md: keep-coding-instructions preserves the default software-engineering system prompt",
+        "supported": true
+      },
+      {
+        "claim": "plugins.md: with nested .claude/ directories the output style closest to the working directory wins",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_PERMISSIONS",
+    "title": "Claude Code Configure permissions",
+    "url": "https://code.claude.com/docs/en/permissions",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-05 from the .md form, whole page returned. Rendered title is \"Configure permissions\". Added for references/permissions.md, the first reference this project has carried for the enforcement layer, which two prior reviews noted was discussed in hooks.md and selection.md without ever having a page of its own.",
+    "spot_checks": [
+      {
+        "claim": "permissions.md evaluation order: \"Rules are evaluated in order: deny, then ask, then allow. The first match in that order determines the outcome, and rule specificity doesn't change the order.\"",
+        "supported": true
+      },
+      {
+        "claim": "permissions.md consulted-rule asymmetry: a Write, NotebookEdit, Glob or MultiEdit PATH rule is \"accepted but never consulted\", warns at startup, with an exception for a Glob rule passed in --allowedTools, and requires v2.1.210 or later",
+        "supported": true
+      },
+      {
+        "claim": "permissions.md Bash boundary: deny rules apply \"to file commands Claude Code recognizes in Bash, such as cat, head, tail, and sed\" and not \"to arbitrary subprocesses that read or write files indirectly\". The list is given by example and the page contains no enumeration of the recognised set, which is what forced the local measurement.",
+        "supported": true
+      },
+      {
+        "claim": "permissions.md PowerShell: the page gives PowerShell RULES full parity including AST parsing and alias canonicalization, and the recognised-file-command sentence says \"in Bash\" and never mentions PowerShell, so the question is documented neither way",
+        "supported": true
+      },
+      {
+        "claim": "permissions.md search tools: Read-rule coverage of Grep and Glob is \"a best-effort attempt\", stated in the same sentence that states Edit coverage flatly",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_PLUGIN_REF",
+    "title": "Claude Code Plugins reference",
+    "url": "https://code.claude.com/docs/en/plugins-reference",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Complete technical reference for the plugin system (schemas, CLI commands, component specs, environment variables); title matches, and it explicitly states that a manifest, when present, requires only the name field.",
+    "spot_checks": [
+      {
+        "claim": "In .claude-plugin/plugin.json, name is the only required field once the manifest exists (plugins.md manifest table)",
+        "supported": true
+      },
+      {
+        "claim": "Persistent state belongs under ${CLAUDE_PLUGIN_DATA}, a directory that survives plugin updates, while ${CLAUDE_PLUGIN_ROOT} resolves to the plugin's installation directory (plugins.md, Structure bullet on marketplace installs)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_PLUGINS",
+    "title": "Create Claude Code Plugins",
+    "url": "https://code.claude.com/docs/en/plugins",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Guide page titled 'Create plugins' covering plugin creation, quickstart, structure, local testing and marketplace submission; ledger title 'Create Claude Code Plugins' is a close paraphrase of the on-page H1, and the page now also documents --plugin-url and single-SKILL.md-at-root plugins.",
+    "spot_checks": [
+      {
+        "claim": "claude --plugin-dir ./my-plugin (or --plugin-url zip) loads a local plugin for development; zip loading requires v2.1.128+ (plugins.md, Local development + testing)",
+        "supported": true
+      },
+      {
+        "claim": "Components live at the plugin root, not inside .claude-plugin/; only plugin.json goes inside .claude-plugin/ (plugins.md, Components section and anti-patterns)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_SANDBOXING",
+    "title": "Claude Code Configure the sandboxed Bash tool",
+    "url": "https://code.claude.com/docs/en/sandboxing",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-05 from the .md form, whole page returned. Rendered title is \"Configure the sandboxed Bash tool\". Every claim attributed here is DOCUMENTATION ONLY and none is a local observation: the sandbox does not run on native Windows, which is this machine, so no line in references/sandboxing.md could earn a measured tag. That limit is stated in the file itself rather than left to be inferred.",
+    "spot_checks": [
+      {
+        "claim": "sandboxing.md platform support: \"The sandbox is built into Claude Code and runs on macOS, Linux, and WSL2. Native Windows is not supported.\"",
+        "supported": true
+      },
+      {
+        "claim": "sandboxing.md coverage: \"It applies only to Bash commands and their child processes\", which is what makes it complementary to permission rules rather than a superset of them",
+        "supported": true
+      },
+      {
+        "claim": "sandboxing.md deny rules: \"Explicit deny rules are always respected\", which is the sentence that falsifies the proposed doctor check about auto-allow bypassing a deny rule",
+        "supported": true
+      },
+      {
+        "claim": "sandboxing.md failIfUnavailable: making an unavailable sandbox a hard failure \"is intended for managed deployments that require sandboxing as a security gate\", and the documented delivery scope for the enforce keys is managed settings",
+        "supported": true
+      },
+      {
+        "claim": "sandboxing.md scope restrictions: sandbox.filesystem cannot be set from project or local settings, and strictAllowlist set in a repository settings file \"has no effect\". No equivalent sentence exists for failIfUnavailable, which is why this project treats its project-scope behaviour as undocumented rather than as restricted.",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_SETTINGS",
+    "title": "Claude Code settings",
+    "url": "https://code.claude.com/docs/en/settings",
+    "type": "external",
+    "retrieved": "2026-08-05",
+    "build": "2.1.220",
+    "status": "verified-partial",
+    "notes": "Fetched live 2026-08-05. PARTIAL BY MEASUREMENT, the second row in this ledger to be so. Two fetches, one of the page and one of the #sandbox-settings anchor, both returned the head of the available-settings table and stopped inside it, so the Sandbox settings section was NOT confirmed live. Nothing depends on it: every sandbox key cited in references/sandboxing.md is attributed to SRC_SANDBOXING, which carries the same keys in prose and did return whole. What this row does carry live is the settings-scope precedence order.",
+    "spot_checks": [
+      {
+        "claim": "settings precedence, quoted live: \"When the same setting appears in multiple scopes, Claude Code applies them in priority order: 1. Managed (highest) ... 2. Command line arguments ... 3. Local ... 4. Project ... 5. User (lowest)\"",
+        "supported": true
+      },
+      {
+        "claim": "This row is a PARTIAL live retrieval: the Sandbox settings section was absent from both fetches on the retrieval date, so no claim in this ledger is attributed to this row for a sandbox key",
+        "supported": true
+      }
+    ]
+  },
+  {
     "id": "SRC_SKILL_CREATOR",
     "title": "Anthropic official Skill Creator",
     "url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/skill-creator/SKILL.md",
@@ -267,6 +507,26 @@
       },
       {
         "claim": "skills.md: 'description = WHAT the Skill does + WHEN to use it'",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_SKILLS",
+    "title": "Claude Code Skills",
+    "url": "https://code.claude.com/docs/en/skills",
+    "type": "external",
+    "retrieved": "2026-07-29",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "Claude Code skills guide whose on-page H1 is 'Extend Claude with skills' rather than the ledger's generic 'Claude Code Skills'; it confirms the commands-merged-into-skills model and the full frontmatter and substitution reference, and notes skills follow the agentskills.io open standard.",
+    "spot_checks": [
+      {
+        "claim": "disable-model-invocation: true makes a skill user-invoked only via /name and also blocks preloading into subagents (skills.md frontmatter table)",
+        "supported": true
+      },
+      {
+        "claim": "The combined description plus when_to_use text is truncated near 1,536 characters in the skill listing (skills.md frontmatter table and Levers detail)",
         "supported": true
       }
     ]
@@ -320,138 +580,6 @@
     ]
   },
   {
-    "id": "CCX_RESEARCH",
-    "title": "CCX architecture research, inventory and findings",
-    "url": "internal",
-    "type": "internal",
-    "retrieved": "2026-07-29",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Own work; not an external fetchable source.",
-    "spot_checks": []
-  },
-  {
-    "id": "DERIVED",
-    "title": "Derived reasoning, no upstream citation",
-    "url": "internal",
-    "type": "internal",
-    "retrieved": "2026-07-29",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Own work; not an external fetchable source.",
-    "spot_checks": []
-  },
-  {
-    "id": "HARNESS_TOOL",
-    "title": "Claude Code built-in tool descriptions (shipped in-product)",
-    "url": "internal",
-    "type": "internal",
-    "retrieved": "2026-07-29",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Own work; not an external fetchable source.",
-    "spot_checks": []
-  },
-  {
-    "id": "LOCAL_ENV",
-    "title": "Direct observation of the installed Claude Code environment",
-    "url": "internal",
-    "type": "internal",
-    "retrieved": "2026-07-29",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Own work; not an external fetchable source.",
-    "spot_checks": []
-  },
-  {
-    "id": "SRC_AGENT_SDK",
-    "title": "Claude Agent SDK documentation",
-    "url": "https://code.claude.com/docs/en/agent-sdk/overview",
-    "type": "external",
-    "retrieved": "2026-07-31",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Agent SDK overview plus subpages; code.claude.com/docs/en/sdk 301-redirects here via docs.claude.com and platform.claude.com. Capabilities table covers hooks, sessions, MCP, permissions; the MCP subpage documents SDK MCP servers defining custom tools in application code instead of a separate server process.",
-    "spot_checks": [
-      {
-        "claim": "agent-sdk.md: SDK custom tools run in the host process rather than as a separate MCP server",
-        "supported": true
-      },
-      {
-        "claim": "agent-sdk.md: the SDK is a separate programmatic surface with sessions, hooks and structured options, not discovered from .claude/",
-        "supported": true
-      }
-    ]
-  },
-  {
-    "id": "SRC_OUTPUT_STYLES",
-    "title": "Claude Code Output styles documentation",
-    "url": "https://code.claude.com/docs/en/output-styles",
-    "type": "external",
-    "retrieved": "2026-07-31",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Documents custom style files with frontmatter, keep-coding-instructions (default false), built-in Default/Proactive/Explanatory/Learning, /output-style deprecated 2.1.73 and removed 2.1.91, and the v2.1.178 nested-directories closest-wins rule.",
-    "spot_checks": [
-      {
-        "claim": "output-styles.md: keep-coding-instructions preserves the default software-engineering system prompt",
-        "supported": true
-      },
-      {
-        "claim": "plugins.md: with nested .claude/ directories the output style closest to the working directory wins",
-        "supported": true
-      }
-    ]
-  },
-  {
-    "id": "SRC_CHANNELS",
-    "title": "Claude Code Channels",
-    "url": "https://code.claude.com/docs/en/channels",
-    "type": "external",
-    "retrieved": "2026-08-05",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Fetched live 2026-08-05, whole page returned. Rendered title is 'Push events into a running session with channels'. Covers the supported plugins (Telegram, Discord, iMessage, fakechat), the pairing bootstrap, the enterprise controls table, the research-preview terms, and the how-channels-compare table. The builder-facing contract lives on channels-reference (SRC_CHANNELS_REF), not here.",
-    "spot_checks": [
-      {
-        "claim": "channels.md Managed settings and availability: channelsEnabled and allowedChannelPlugins are managed tier only and users cannot override them",
-        "supported": true
-      },
-      {
-        "claim": "channels.md Managed settings and availability: an EMPTY allowedChannelPlugins array is not a kill switch because --dangerously-load-development-channels still bypasses it, and leaving channelsEnabled UNSET is what blocks channels entirely",
-        "supported": true
-      },
-      {
-        "claim": "channels.md Fails open and silent: with the organization setting disabled or unset the MCP server still connects and its tools work, but channel messages do not arrive",
-        "supported": true
-      }
-    ]
-  },
-  {
-    "id": "SRC_CHANNELS_REF",
-    "title": "Claude Code Channels reference",
-    "url": "https://code.claude.com/docs/en/channels-reference",
-    "type": "external",
-    "retrieved": "2026-08-05",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Fetched live 2026-08-05, whole page returned. The builder contract: Server options table, notification format, reply tool, sender gating, permission relay including the request_id alphabet and the 2.1.211 sanitization rules, the development-flag testing path, and the curl-succeeded-versus-refused diagnosis fork.",
-    "spot_checks": [
-      {
-        "claim": "channels.md The four gates: capabilities.experimental['claude/channel'] is required, is always {}, and its PRESENCE is what registers the notification listener",
-        "supported": true
-      },
-      {
-        "claim": "channels.md Notification contract: meta keys must be identifiers (letters, digits, underscores) and keys containing hyphens or other characters are silently dropped",
-        "supported": true
-      },
-      {
-        "claim": "channels.md Permission relay: request_id is five lowercase letters drawn from a to z without l, and the local terminal dialog does not display it",
-        "supported": true
-      }
-    ]
-  },
-  {
     "id": "SRC_TOOLS_REF",
     "title": "Claude Code Tools reference",
     "url": "https://code.claude.com/docs/en/tools-reference",
@@ -471,50 +599,6 @@
       },
       {
         "claim": "monitors.md Two different things are called Monitor: the Monitor TOOL runs a command in the background and feeds each output line back to Claude, and takes timeout_ms, persistent and TaskStop, none of which exist in the plugin monitor schema",
-        "supported": true
-      }
-    ]
-  },
-  {
-    "id": "SRC_ERRORS",
-    "title": "Claude Code Error reference",
-    "url": "https://code.claude.com/docs/en/errors",
-    "type": "external",
-    "retrieved": "2026-08-05",
-    "build": "2.1.220",
-    "status": "verified-partial",
-    "notes": "Fetched live 2026-08-05. Rendered title is 'Error reference'. PARTIAL BY MEASUREMENT, recorded rather than glossed: two separate fetches on the retrieval date returned the early message-index rows but not the tail of the page, so claims resting on late-page content were NOT confirmed live and are attributed to the docs mirror instead. Specifically, the 'legacy MultiEdit(path)' bullet the mirror carries at errors.md:1635 did not appear in either fetch, so the capability catalog's MultiEdit legacy provenance rests on the mirror, not on this row.",
-    "spot_checks": [
-      {
-        "claim": "monitors.md Secrets and user_config: the error index carries the row 'Monitor \"<name>\" from plugin <plugin> references ${user_config.*} in its command' routing to the Plugin errors section",
-        "supported": true
-      },
-      {
-        "claim": "monitors.md Secrets and user_config: sibling rows exist for shell-form hook commands and for the MCP headersHelper, so the rejection is a family of three fields rather than a monitor-only rule",
-        "supported": true
-      },
-      {
-        "claim": "This row is a PARTIAL live retrieval: the page tail (mirror line 1635, the legacy MultiEdit bullet) was absent from both fetches on the retrieval date, so no claim in this ledger depends on late-page content from this fetch",
-        "supported": true
-      }
-    ]
-  },
-  {
-    "id": "SRC_DISCOVER_PLUGINS",
-    "title": "Claude Code Discover and install prebuilt plugins",
-    "url": "https://code.claude.com/docs/en/discover-plugins",
-    "type": "external",
-    "retrieved": "2026-08-05",
-    "build": "2.1.220",
-    "status": "verified",
-    "notes": "Fetched live 2026-08-05, whole page returned. Added because monitors.md's context-cost claim traces here and nowhere else in the mirror: this is the page carrying the append-after-the-conversation cost model for newly loaded plugin components. It was not one of the four pages this stage set out to add; it was found while checking that no claim was being attributed to a page that does not carry it.",
-    "spot_checks": [
-      {
-        "claim": "monitors.md Context cost: newly loaded components announce themselves in content appended to the conversation while the existing history still reads from the prompt cache, and MCP servers are the exception that invalidates it",
-        "supported": true
-      },
-      {
-        "claim": "monitors.md Context cost: plugins that contribute a theme, output style, monitor, or workflow are never listed as unused, since those deliver value without an invocation to track",
         "supported": true
       }
     ]

@@ -510,7 +510,7 @@ export function buildCatalog(opts = {}) {
       sources.push({
         id: BENCH_ID,
         role: 'corroborating',
-        sha256: sha256(Buffer.from(benchText, 'utf8')),
+        sha256: sha256Text(benchText),
         bytes: Buffer.byteLength(benchText, 'utf8'),
         note: 'agnix 0.45.0 CC-AG-009 diagnostic captured by the lint bench',
       });
@@ -627,6 +627,26 @@ export function readVerifiedVersion(file = VERSION_FILE) {
  * Returns { ok, errors:[{code,msg}] }. It is an OBJECT and therefore always truthy:
  * callers must test `.ok`, never the return value itself.
  */
+/**
+ * Hash TEXT, not bytes, for integrity records over checked-in text files.
+ *
+ * On a Windows clone with core.autocrlf, git rewrites every LF to CRLF on
+ * checkout, so a sha256 taken over the raw bytes differs from the one recorded
+ * on the machine that wrote it while the CONTENT is identical. That is not a
+ * theoretical concern: it happened here. The crosscheck source failed
+ * verification, catalog load FAILS SOFT by design, and every capability name
+ * check silently degraded to UNVERIFIED with one header line to say so. An
+ * integrity gate that reports line endings as tampering is a gate that gets
+ * ignored, which is worse than not having it.
+ *
+ * Normalising is safe in the direction that matters: it cannot make DIFFERENT
+ * content hash the same unless the only difference is line endings, which for a
+ * generated JSON file is exactly what we want to tolerate.
+ */
+function sha256Text(text) {
+  return sha256(Buffer.from(String(text).split('\r\n').join('\n'), 'utf8'));
+}
+
 export function verifyCatalogIntegrity(cat, opts = {}) {
   const errors = [];
   const add = (code, msg) => errors.push({ code, msg });
@@ -729,7 +749,7 @@ export function verifyCatalogIntegrity(cat, opts = {}) {
   if (cat.crossCheck && benchPath && existsSync(benchPath)) {
     const benchText = readFileSync(benchPath, 'utf8');
     const declared = (Array.isArray(cat.sources) ? cat.sources : []).find((s) => s.id === cat.crossCheck.source);
-    if (declared && declared.sha256 !== sha256(Buffer.from(benchText, 'utf8'))) {
+    if (declared && declared.sha256 !== sha256Text(benchText)) {
       add('CROSSCHECK_SOURCE_CHANGED', `${cat.crossCheck.source} changed on disk since the catalog recorded it`);
     } else {
       const fresh = crossCheckOf(cat.tools || {}, benchText);

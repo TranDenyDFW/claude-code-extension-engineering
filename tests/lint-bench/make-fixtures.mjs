@@ -5,11 +5,16 @@
  *   node tests/lint-bench/make-fixtures.mjs           write fixtures/
  *   node tests/lint-bench/make-fixtures.mjs --check   re-derive and verify
  *
- * Twenty-one cases in five kinds:
+ * Thirty cases in six kinds:
  *
  *   failure-mode       12  the failure modes this repo's references document,
  *                          and the ONLY cohort the published competitor matrix
  *                          in tests/results-lint-bench.md was measured over
+ *   enforcement-failure-mode
+ *                       9  permission-rule and sandbox failure modes added
+ *                          2026-08-05, in a cohort of their own for the same
+ *                          reason as the late cohort: the published competitor
+ *                          matrix was measured before they existed
  *   late-failure-mode   5  monitor and channel failure modes added 2026-08-05,
  *                          after that competitor run. Scored exactly like a
  *                          failure mode, counted SEPARATELY, because "12 of 12"
@@ -535,12 +540,122 @@ Run the requested maintenance command and report what changed.
 `,
     },
   },
+  /**
+   * ---- enforcement-failure-mode, 9 cases, added 2026-08-05 -----------------
+   *
+   * A NEW COHORT, not nine more failure modes. "12 of 12" in
+   * tests/results-lint-bench.md is a published measurement against a competitor
+   * run that happened before these existed, and quietly moving its denominator
+   * would rewrite a number nobody re-measured. Same precedent as the late
+   * cohort above.
+   *
+   * Two of the nine carry assumePlatform, because their defect is
+   * platform-conditional: the sandbox does not run on native Windows, so the
+   * fixture has to pin the platform or it would pass on this machine and fail
+   * on the ubuntu runner, reporting the runner's OS instead of the defect.
+   */
+  {
+    id: 'permission-rule-never-consulted',
+    enforcement: true,
+    defect: 'a Write(path) deny rule, which Claude Code accepts and NEVER CONSULTS, so the protection is a decoration while looking exactly right',
+    citation: 'permissions.md The rule that is accepted and never consulted [OFFICIAL] [v2.1.210]',
+    signal: 'never consult|not consulted|Edit\\(',
+    files: {
+      'project/.claude/settings.json': J({ permissions: { deny: ['Write(infra/**)'] } }),
+    },
+  },
+  {
+    id: 'permission-rule-glob-instead-of-read',
+    enforcement: true,
+    defect: 'a Glob(path) deny rule meant to stop searching a secrets tree; path rules are consulted for Edit and Read only, so this one enforces nothing',
+    citation: 'permissions.md The rule that is accepted and never consulted [OFFICIAL] [v2.1.210]',
+    signal: 'never consult|not consulted|Read\\(',
+    files: {
+      'project/.claude/settings.json': J({ permissions: { deny: ['Glob(secrets/**)'] } }),
+    },
+  },
+  {
+    id: 'permission-rule-content-field',
+    enforcement: true,
+    defect: "a deny rule matching on Bash's primary content field, which Claude Code ignores and warns about at startup because a compound command would bypass it",
+    citation: 'permissions.md [OFFICIAL]: "A rule like Bash(command:rm *) would be bypassable by a compound command, so Claude Code ignores it"',
+    signal: 'content field|ignore|Bash\\(rm',
+    files: {
+      'project/.claude/settings.json': J({ permissions: { deny: ['Bash(command:rm *)'] } }),
+    },
+  },
+  {
+    id: 'permission-rule-degenerate-glob',
+    enforcement: true,
+    defect: 'a deny rule whose glob contains a "." segment, so it matches no real path; this repo shipped exactly that defect when a sentence-final period was swallowed into an extracted target',
+    citation: 'permissions.md [ENGINEERING]; IMPROVEMENTS.md item 31',
+    signal: 'matches no|match nothing|degenerate|empty path segment',
+    files: {
+      'project/.claude/settings.json': J({ permissions: { deny: ['Edit(infra/./**)'] } }),
+    },
+  },
+  {
+    id: 'sandbox-enabled-on-windows',
+    enforcement: true,
+    assumePlatform: 'win32',
+    defect: 'sandbox.enabled on native Windows, where the sandbox does not run; Claude Code warns and runs every command unsandboxed, so the key reads as protection and provides none',
+    citation: 'sandboxing.md It does not run on Windows [OFFICIAL] [v2.1.220]',
+    signal: 'Windows|unsupported platform|unsandboxed',
+    files: {
+      'home/.claude/settings.json': J({ sandbox: { enabled: true } }),
+    },
+  },
+  {
+    id: 'sandbox-fail-if-unavailable-in-repo',
+    enforcement: true,
+    defect: 'failIfUnavailable set in a CHECKED-IN project settings file; its documented home is managed settings, and if project scope is honoured this file stops Claude Code starting for every developer on an unsupported platform',
+    citation: 'sandboxing.md failIfUnavailable [OFFICIAL] [v2.1.220]',
+    signal: 'managed settings|failIfUnavailable|project scope|repository settings',
+    files: {
+      'project/.claude/settings.json': J({ sandbox: { failIfUnavailable: true } }),
+    },
+  },
+  {
+    id: 'sandbox-strict-allowlist-in-repo',
+    enforcement: true,
+    defect: 'strictAllowlist in a repository settings file, where the documentation says setting it "has no effect"; the policy is present, valid and inert',
+    citation: 'sandboxing.md Scope restrictions [OFFICIAL] [v2.1.219]',
+    signal: 'inert|no effect|repository settings|user, managed',
+    files: {
+      'project/.claude/settings.json': J({ sandbox: { strictAllowlist: true } }),
+    },
+  },
+  {
+    id: 'deny-rule-powershell-gap',
+    enforcement: true,
+    assumePlatform: 'win32',
+    defect: 'a file deny rule beside a PowerShell allow; the documented file-command recognition names Bash and never PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was measured on 2.1.220',
+    citation: 'permissions.md PowerShell [OFFICIAL] plus [LOCAL_ENV, measured 2026-08-05]',
+    signal: 'PowerShell',
+    files: {
+      'project/.claude/settings.json': J({
+        permissions: { deny: ['Edit(infra/**)'], allow: ['PowerShell(Get-ChildItem *)', 'PowerShell(Add-Content *)'] },
+      }),
+    },
+  },
+  {
+    id: 'sandbox-scalar-shadowed-across-scopes',
+    enforcement: true,
+    defect: 'sandbox.enabled set true at user scope and false at project scope; it is a nested SCALAR so exactly one wins and the other silently does nothing, unlike the permission ARRAYS beside it which merge',
+    citation: 'settings precedence [OFFICIAL]: managed > CLI > local > project > user',
+    signal: 'shadow|precedence|silently does nothing',
+    files: {
+      'home/.claude/settings.json': J({ sandbox: { enabled: true }, permissions: { deny: ['Edit(a/**)'] } }),
+      'project/.claude/settings.json': J({ sandbox: { enabled: false }, permissions: { deny: ['Edit(b/**)'] } }),
+    },
+  },
 ];
 
 export const kindOf = f =>
   f.clean ? 'clean'
   : f.negativeControl ? 'negative-control'
   : f.control ? 'control'
+  : f.enforcement ? 'enforcement-failure-mode'
   : f.late ? 'late-failure-mode'
   : 'failure-mode';
 
@@ -553,6 +668,10 @@ function build() {
       defect: f.defect,
       citation: f.citation,
       signal: f.signal,
+      // Only present on a platform-conditional fixture. The runner passes it to
+      // the doctor as --assume-platform, so the row measures the defect rather
+      // than whichever OS the CI runner happens to be.
+      ...(f.assumePlatform ? { assumePlatform: f.assumePlatform } : {}),
     }));
     for (const [rel, content] of Object.entries(f.files)) {
       out.set(join(f.id, rel), content);

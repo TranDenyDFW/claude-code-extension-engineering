@@ -1,0 +1,7 @@
+{
+  "id": "permission-rule-content-field",
+  "kind": "enforcement-failure-mode",
+  "defect": "a deny rule matching on Bash's primary content field, which Claude Code ignores and warns about at startup because a compound command would bypass it",
+  "citation": "permissions.md [OFFICIAL]: \"A rule like Bash(command:rm *) would be bypassable by a compound command, so Claude Code ignores it\"",
+  "signal": "content field|ignore|Bash\\(rm"
+}

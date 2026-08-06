@@ -42,23 +42,42 @@ machine's real config. Each copy was hashed before and after every run.
 
 ## Fixtures
 
-Twenty-one committed trees in five kinds. Each carries a manifest naming the defect, the
+Thirty committed trees in six kinds. Each carries a manifest naming the defect, the
 citation behind it, and a concept-word signal regex.
 
 | Kind | n | What it is |
 |---|---|---|
 | failure-mode | 12 | The failure modes this repo's references document. **The only cohort the competitor columns were measured over.** |
 | late-failure-mode | 5 | Monitor and channel failure modes, added 2026-08-05 with the checks that catch them. Scored identically, counted separately. |
+| enforcement-failure-mode | 9 | Permission-rule and sandbox failure modes, added 2026-08-05. A THIRD cohort for the same reason as the second, and measured on a machine without the competitors, so it lives in `results-enforcement.json` rather than in the file the competitor columns come from. |
 | control | 2 | Positive controls the incumbent documents catching. They verify the RUNNER, not the tools. |
 | clean | 1 | A correctly authored tree. Any finding counts against a tool exactly like a miss. |
 | negative-control | 1 | A correctly authored tree whose names sit in the version-asymmetry blind spot. Zero findings required, same rule as clean. |
 
 Two design decisions in that table are load-bearing.
 
-**The late cohort is a separate kind so the published 12 stays 12.** Folding five new trees
-into `failure-mode` would have turned "12 of 12" into "17 of 17" without anyone re-running
-a competitor, restating an unmeasured denominator as a measured one. The runner's own
-self-test pins the split, and a mutant that merges the cohorts turns it red.
+**The late and enforcement cohorts are separate kinds so the published 12 stays 12.**
+Folding fourteen new trees into `failure-mode` would have turned "12 of 12" into "26 of 26"
+without anyone re-running a competitor, restating an unmeasured denominator as a measured
+one. The runner's own self-test pins all three splits, and a mutant that merges any two
+cohorts turns it red. The summary renders three caught columns rather than a total, and its
+self-test fake carries three DISTINCT counts (1, 2, 3) so no permutation of the cohort
+readers produces the same row.
+
+**The enforcement cohort also could not be written into `results.json` at all, and that is
+a defect this bench found in itself.** Four of the seven competitor adapters are installed
+only on the machine that produced the committed record. Re-running here to add the nine new
+rows wrote a file with those four columns simply absent, and the capability catalog anchors
+its crosscheck sha at the agnix tool list INSIDE that file, so the catalog failed
+verification, its load failed soft as designed, and every capability name check silently
+degraded to UNVERIFIED. One command, three layers of evidence gone, no error. The runner now
+REFUSES to overwrite `results.json` when a run would drop a tool the record has data for,
+and `--out` is where a partial run goes. Watched refusing before it shipped.
+
+A second defect fell out of the same investigation: the crosscheck sha was taken over raw
+BYTES, so on any Windows clone with `core.autocrlf` the catalog fails verification purely
+because git rewrote the line endings. It now hashes LF-normalised text, and the catalog was
+observed loading under both CRLF and LF on disk.
 
 **The negative control is a separate kind for the same reason.** Its scoring rule is
 identical to clean's, so the cheap move was a second clean tree. But "the clean tree" is a
@@ -214,6 +233,35 @@ earlier build of the wrapper.
 
 The wrapper ships as [tools/extension-doctor.mjs](../tools/extension-doctor.mjs) plus the
 `/extension-doctor` plugin command.
+
+## The enforcement cohort, measured separately
+
+Nine trees, run 2026-08-05 with `--out tests/lint-bench/results-enforcement.json`. Only the
+two tools installed here appear; the four missing competitor columns are why this is a
+separate file rather than nine more rows in the published record.
+
+| Tool | Caught (of 9 enforcement failure modes) | Clean-tree FP | Negative-control FP | Crashes |
+|---|---|---|---|---|
+| claude plugin validate (official) | 0 | 1 | 0 | 0 |
+| extension-doctor (ours, bare) | 9 | 0 | 0 | 0 |
+
+The nine: a `Write(path)` deny rule that is accepted and never consulted; the same defect
+spelled `Glob(path)`; a rule matching on a tool's primary content field; a glob containing a
+`.` segment, which is the defect this project shipped in its own scaffold; `sandbox.enabled`
+on native Windows; `failIfUnavailable` in a checked-in project file; `strictAllowlist` in a
+repository file where the docs say it has no effect; a file deny rule beside a PowerShell
+allow; and `sandbox.enabled` set to different values at two scopes.
+
+Two carry `assumePlatform: win32` in their manifest and the runner passes it through as
+`--assume-platform`. Without it those rows would pass on a Windows developer's machine and
+fail on the ubuntu runner, and the gate would be reporting the runner's OS rather than the
+fixture's defect. The competitor adapters have no equivalent flag and are scored as they
+are: a Windows-only defect they do not detect is a real miss.
+
+Same construction limit as the published twelve, stated again because it does not go away:
+we authored both the fixtures and the expected outcomes. What is measured here is that
+eight new check ids each fire on their own known-bad input and stay silent on a correctly
+authored one, not that the tool is good.
 
 ## Live calibration on a real machine
 

@@ -1,0 +1,7 @@
+{
+  "id": "sandbox-fail-if-unavailable-in-repo",
+  "kind": "enforcement-failure-mode",
+  "defect": "failIfUnavailable set in a CHECKED-IN project settings file; its documented home is managed settings, and if project scope is honoured this file stops Claude Code starting for every developer on an unsupported platform",
+  "citation": "sandboxing.md failIfUnavailable [OFFICIAL] [v2.1.220]",
+  "signal": "managed settings|failIfUnavailable|project scope|repository settings"
+}

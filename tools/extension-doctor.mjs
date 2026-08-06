@@ -121,7 +121,171 @@ const CITE = {
   channelAllowlistShape: 'channels.md Managed settings and availability [OFFICIAL] [v2.1.84]: allowedChannelPlugins REPLACES the Anthropic list when set and names each entry as a plugin plus its marketplace, so an entry missing either half names no plugin the allowlist can match',
   channelAllowlistInert: 'channels.md Managed settings and availability [OFFICIAL] [v2.1.84]: channelsEnabled is the master switch and must be true for any channel to deliver, and allowedChannelPlugins applies only while channelsEnabled is true, so on its own the list reads as policy and enforces nothing',
   channelAllowlistEmpty: 'channels.md Managed settings and availability [OFFICIAL]: an EMPTY allowedChannelPlugins array is not a kill switch, because --dangerously-load-development-channels still bypasses it; to block channels entirely including the development flag, leave channelsEnabled UNSET',
+
+  // Enforcement: permission rules and the sandbox. Every string is quoted from
+  // references/permissions.md or references/sandboxing.md, which in turn quote
+  // the pages fetched live on 2026-08-05.
+  ruleNotConsulted: 'permissions.md The rule that is accepted and never consulted [OFFICIAL] [v2.1.210]: "Claude Code checks file permissions against Edit(path) and Read(path) rules only. If you write a path rule for Write, NotebookEdit, Glob, or the legacy MultiEdit tool instead, Claude Code accepts the rule but never consults it". This is the difference between a protection and a decoration, and the rule LOOKS right',
+  ruleContentField: 'permissions.md [OFFICIAL]: you cannot match a tool\'s primary content field. "A rule like Bash(command:rm *) would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning." Use Bash(rm *) instead',
+  ruleDegenerateGlob: 'permissions.md [ENGINEERING]: a pattern containing /./ or an empty segment matches no path, so the rule is present, syntactically valid, and enforces nothing. This project shipped exactly that defect: a sentence-final period turned infra/ into the glob infra/./** (IMPROVEMENTS.md item 31)',
+  sandboxAbsentPlatform: 'sandboxing.md It does not run on Windows [OFFICIAL] [v2.1.220]: "The sandbox is built into Claude Code and runs on macOS, Linux, and WSL2. Native Windows is not supported." By default an unavailable sandbox warns and runs commands UNSANDBOXED',
+  sandboxFailIfUnavailable: 'sandboxing.md failIfUnavailable [OFFICIAL] [v2.1.220]: making an unavailable sandbox a hard failure "is intended for managed deployments that require sandboxing as a security gate", and the documented delivery scope for the enforce keys is managed settings. Whether project scope is honoured is documented NEITHER WAY, and both answers are bad in a checked-in file: honoured means every developer on an unsupported platform cannot start Claude Code, not honoured means the key is theatre',
+  sandboxProjectInert: 'sandboxing.md Scope restrictions [OFFICIAL] [v2.1.220]: this key is documented as unavailable from a repository settings file, so it is present, valid, and inert',
+  denyRulePowerShellGap: 'permissions.md PowerShell [OFFICIAL] plus [LOCAL_ENV, measured 2026-08-05]: the recognised-file-command sentence says "in Bash" and never mentions PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was observed on 2.1.220, paired against a control. PowerShell RULE parity is about rule SYNTAX and does not imply file-command recognition',
+  nestedShadowing: 'settings precedence [OFFICIAL]: managed > CLI > local > project > user. Scalar keys SHADOW and array keys MERGE, so a nested scalar such as sandbox.enabled set at two scopes has exactly one winner while permissions.deny at two scopes has both. Skipping every object value, which this checker used to do, hid the shadowing case entirely',
 };
+
+/**
+ * Nested settings keys that SHADOW rather than merge, and the reason this list
+ * is explicit rather than a recursive walk.
+ *
+ * The cross-scope shadow check used to `continue` on every object value. That
+ * was a correct decision made too bluntly: `permissions.allow` and the sandbox
+ * arrays genuinely MERGE across scopes, so recursing blindly would report a
+ * conflict where none exists. But a nested SCALAR such as `sandbox.enabled`
+ * shadows exactly like a top-level one, and skipping the whole object hid it.
+ * So the model is an explicit list of dotted keys known to shadow, and a key not
+ * on the list is left alone rather than guessed at.
+ */
+export const SHADOWING_NESTED_KEYS = [
+  'sandbox.enabled',
+  'sandbox.failIfUnavailable',
+  'sandbox.autoAllowBashIfSandboxed',
+  'sandbox.allowUnsandboxedCommands',
+  'sandbox.strictAllowlist',
+  'sandbox.allowManagedDomainsOnly',
+  'sandbox.filesystem.disabled',
+  'permissions.defaultMode',
+];
+
+// Documented as unavailable from a repository settings file. Value is the reason.
+export const SANDBOX_PROJECT_INERT = new Map([
+  ['sandbox.filesystem', 'sandbox.filesystem cannot be set from project or local settings, "so a checked-out project can\'t switch filesystem isolation off"'],
+  ['sandbox.strictAllowlist', 'strictAllowlist works only in user, managed, or CLI --settings settings; "Setting it in a repository\'s .claude/settings.json or .claude/settings.local.json has no effect"'],
+  ['sandbox.network.tlsTerminate', 'network.tlsTerminate is "ignored in a repository\'s .claude/settings.json or .claude/settings.local.json"'],
+  ['sandbox.credentials.allowPlaintextInject', 'credentials.allowPlaintextInject is "ignored in a repository\'s .claude/settings.json or .claude/settings.local.json"'],
+]);
+
+const dig = (obj, dotted) => dotted.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), obj);
+
+/**
+ * The enforcement layer: permission rules and the sandbox.
+ *
+ * Split into its own exported function so each check can be fed a known-bad AND
+ * a correctly-authored input directly. Eight new check ids is eight new
+ * false-positive opportunities, and this file has already shipped three of
+ * those, so every one has a negative fixture as well as a positive one.
+ *
+ * @param {Array}  parsedSettings  [{ scope, file, value }]
+ * @param {string} platform        process.platform, or an assumed one
+ */
+export function enforcementFindings(parsedSettings, platform) {
+  const out = [];
+  const REPO_SCOPES = new Set(['project', 'local']);
+  const PATH_RULE_IGNORED = new Set(['Write', 'NotebookEdit', 'Glob', 'MultiEdit']);
+  // The documented primary content field per tool. A rule matching on one of
+  // these is ignored by Claude Code and warned about at startup.
+  const CONTENT_FIELD = new Map([
+    ['Bash', 'command'], ['PowerShell', 'command'], ['Read', 'file_path'], ['Edit', 'file_path'],
+    ['Write', 'file_path'], ['Grep', 'path'], ['Glob', 'path'], ['NotebookEdit', 'notebook_path'], ['WebFetch', 'url'],
+  ]);
+
+  for (const s of parsedSettings) {
+    const perms = (s.value && s.value.permissions) || {};
+    for (const level of ['deny', 'ask', 'allow']) {
+      for (const rule of (perms[level] || [])) {
+        const m = String(rule).match(/^([^(]+)\((.*)\)$/);
+        if (!m) continue;
+        const tool = m[1].trim();
+        const pattern = m[2].trim();
+
+        if (PATH_RULE_IGNORED.has(tool) && pattern && !pattern.includes(':')) {
+          out.push(F('BROKEN', 'permission-rule-never-consulted', `${s.scope}:${s.file}`,
+            `"${rule}" is a ${level} rule Claude Code ACCEPTS AND NEVER CONSULTS; it enforces nothing while looking correct`,
+            `Write it as ${tool === 'Glob' ? `Read(${pattern})` : `Edit(${pattern})`} instead. An Edit rule covers every file-editing tool, so the narrower-looking spelling is the one that covers less.`,
+            CITE.ruleNotConsulted));
+        }
+
+        const cf = CONTENT_FIELD.get(tool);
+        if (cf && pattern.startsWith(`${cf}:`)) {
+          out.push(F('BROKEN', 'permission-rule-content-field', `${s.scope}:${s.file}`,
+            `"${rule}" matches on ${tool}'s primary content field, which Claude Code IGNORES and warns about at startup`,
+            `Drop the field prefix: write ${tool}(${pattern.slice(cf.length + 1)}) instead.`,
+            CITE.ruleContentField));
+        }
+
+        if (pattern && (/(^|\/)\.(\/|$)/.test(pattern) || /\/\//.test(pattern))) {
+          out.push(F('BROKEN', 'permission-rule-degenerate-glob', `${s.scope}:${s.file}`,
+            `"${rule}" contains a "." or empty path segment, so the glob matches no real path and the rule never fires`,
+            `Normalise the pattern: ${pattern.replace(/\/\.(?=\/|$)/g, '').replace(/\/{2,}/g, '/')} is almost certainly what was meant.`,
+            CITE.ruleDegenerateGlob));
+        }
+      }
+    }
+
+    /**
+     * The PowerShell gap. Narrow ON PURPOSE: it fires only when a file DENY rule
+     * exists AND PowerShell is reachable in the same settings set. A project
+     * that never allows PowerShell has nothing to warn about, and a checker that
+     * warned anyway would be the cry-wolf case this file keeps having to fix.
+     */
+    const fileDenies = (perms.deny || []).filter(r => /^(Edit|Read)\(/.test(String(r)));
+    const psReachable = ['allow', 'ask'].some(l => (perms[l] || []).some(r => /^PowerShell\b/.test(String(r))));
+    if (fileDenies.length && psReachable) {
+      out.push(F('SILENT', 'deny-rule-powershell-gap', `${s.scope}:${s.file}`,
+        `${fileDenies.length} file deny rule(s) coexist with a PowerShell allow; the deny rule's documented file-command recognition covers Bash and says nothing about PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was measured on 2.1.220`,
+        'Treat the PowerShell path as uncovered, or deny the writing cmdlets explicitly, for example PowerShell(Add-Content *), PowerShell(Set-Content *) and PowerShell(Out-File *).',
+        CITE.denyRulePowerShellGap));
+    }
+
+    // ---- sandbox -----------------------------------------------------------
+    const sb = (s.value && s.value.sandbox) || null;
+    if (sb && typeof sb === 'object') {
+      if (sb.enabled === true && platform === 'win32') {
+        const hard = sb.failIfUnavailable === true;
+        out.push(F(hard ? 'BROKEN' : 'SILENT', 'sandbox-enabled-unsupported-platform', `${s.scope}:${s.file}`,
+          hard
+            ? 'sandbox.enabled with failIfUnavailable:true on native Windows, where the sandbox does not run; this configuration makes Claude Code REFUSE TO START rather than protect anything'
+            : 'sandbox.enabled on native Windows, where the sandbox does not run; Claude Code warns and runs every command UNSANDBOXED, so this key reads as protection and provides none',
+          'Run Claude Code inside WSL2, or drop the key and state the residual explicitly. On native Windows the OS layer is absent, not weaker.',
+          CITE.sandboxAbsentPlatform));
+      }
+      if (sb.failIfUnavailable === true && REPO_SCOPES.has(s.scope)) {
+        out.push(F('SILENT', 'sandbox-fail-if-unavailable-project-scope', `${s.scope}:${s.file}`,
+          'failIfUnavailable is set in a REPOSITORY settings file; its documented home is managed settings, and whether project scope honours it is documented neither way',
+          'Move it to managed settings. If it is honoured here, every developer on an unsupported platform is blocked from starting Claude Code by a file in the repo; if it is not, the key enforces nothing.',
+          CITE.sandboxFailIfUnavailable));
+      }
+      for (const [dotted, why] of SANDBOX_PROJECT_INERT) {
+        if (REPO_SCOPES.has(s.scope) && dig(s.value, dotted) !== undefined) {
+          out.push(F('SILENT', 'sandbox-key-inert-in-repo-scope', `${s.scope}:${s.file}`,
+            `${dotted} is set in a repository settings file, where it is documented as inert: ${why}`,
+            'Move it to user settings, managed settings, or the --settings CLI flag.',
+            CITE.sandboxProjectInert));
+        }
+      }
+    }
+  }
+
+  // ---- nested scalar shadowing across scopes -------------------------------
+  const PRECEDENCE = ['managed', 'local', 'project', 'user'];
+  for (const dotted of SHADOWING_NESTED_KEYS) {
+    const sites = [];
+    for (const s of parsedSettings) {
+      const v = dig(s.value, dotted);
+      if (v === undefined || (v !== null && typeof v === 'object')) continue;
+      sites.push({ scope: s.scope, file: s.file, value: v });
+    }
+    if (sites.length < 2) continue;
+    if (new Set(sites.map(x => JSON.stringify(x.value))).size < 2) continue;
+    const winner = sites.slice().sort((a, b) => PRECEDENCE.indexOf(a.scope) - PRECEDENCE.indexOf(b.scope))[0];
+    out.push(F('INFO', 'settings-shadowing-nested', sites.map(x => `${x.scope}:${x.file}`).join(' AND '),
+      `"${dotted}" is set at ${sites.map(x => `${x.scope}=${JSON.stringify(x.value)}`).join(', ')}; it is a SCALAR so precedence resolves to ${winner.scope} (${JSON.stringify(winner.value)}) and the others silently do nothing`,
+      'Keep the key at one scope. Note this is not true of the permission ARRAYS beside it, which merge.',
+      CITE.nestedShadowing));
+  }
+  return out;
+}
 
 // ------------------------------------------------------------------- helpers --
 
@@ -1017,8 +1181,15 @@ export function channelPolicyFindings(parsedSettings) {
  * @param {string}  [o.assumeVersion] pin the build instead of detecting it (tests, and --assume-version)
  * @param {boolean} [o.strictUnknown] promote UNKNOWN names from SILENT back to BROKEN
  * @param {object}  [o.catalog]       inject a catalog; defaults to the committed one, null disables name checks
+ * @param {string}  [o.assumePlatform] pin the platform instead of reading process.platform
+ *
+ * assumePlatform mirrors assumeVersion and exists for the same reason. The
+ * sandbox checks below are PLATFORM-conditional, so without it the two Windows
+ * fixtures would pass on this machine and fail on the ubuntu CI runner, which is
+ * a gate that reports the runner's OS rather than the fixture's defect.
  */
-export function runChecks({ home, project, assumeVersion = null, strictUnknown = false, catalog = undefined }) {
+export function runChecks({ home, project, assumeVersion = null, strictUnknown = false, catalog = undefined, assumePlatform = null }) {
+  const platform = assumePlatform || process.platform;
   const findings = [];
   const scopes = [];
   const cat = catalog === undefined ? CATALOG : catalog;
@@ -1278,6 +1449,7 @@ export function runChecks({ home, project, assumeVersion = null, strictUnknown =
 
   // ---- channel policy in settings -----------------------------------------
   findings.push(...channelPolicyFindings(parsedSettings));
+  findings.push(...enforcementFindings(parsedSettings, platform));
 
   return {
     scopes,
@@ -2122,6 +2294,137 @@ function selfTest() {
     }
   }
 
+  // ------------------------------------------------ enforcement layer -------
+  // Eight check ids, one of which (sandbox-key-inert-in-repo-scope) covers four
+  // distinct documented-inert keys. Eight checks is eight new false-positive
+  // opportunities, so every one is fed a
+  // known-bad input AND a correctly-authored input, and BOTH verdicts are
+  // asserted. A check only ever seen firing is half-tested, which is how the
+  // three false positives already fixed in this file got in.
+  //
+  // Platform is PINNED per row rather than read from process.platform, or the
+  // Windows rows would pass here and fail on the ubuntu runner, and the gate
+  // would be reporting the runner's OS instead of the fixture's defect.
+  {
+    const S = (scope, value) => ({ scope, file: `${scope}/settings.json`, value });
+    const ids = fs => new Set(fs.map(f => f.check));
+
+    // ---- the correctly authored tree, on BOTH platforms --------------------
+    const clean = [
+      S('project', { permissions: { deny: ['Edit(infra/**)', 'Read(secrets/**)'], allow: ['Bash(git status:*)', 'Edit(src/**)'] } }),
+      S('user', { permissions: { allow: ['Bash(npm run test:*)'] } }),
+    ];
+    for (const plat of ['win32', 'linux']) {
+      const f = enforcementFindings(clean, plat);
+      check(`a correctly authored enforcement config yields ZERO findings on ${plat}`,
+        f.length === 0, f.map(x => `${x.check} @ ${x.where}`).join(' | '));
+    }
+    // Arrays at two scopes MERGE, so the same permission key in two files is NOT
+    // shadowing. This is the cry-wolf guard for the nested-shadow check.
+    check('the same permission ARRAY at two scopes is not reported as shadowing',
+      enforcementFindings([S('project', { permissions: { deny: ['Edit(a/**)'] } }),
+        S('user', { permissions: { deny: ['Edit(b/**)'] } })], 'linux').length === 0);
+    check('a managed sandbox config on a supported platform yields ZERO findings',
+      enforcementFindings([S('managed', { sandbox: { enabled: true, failIfUnavailable: true, allowUnsandboxedCommands: false } })], 'linux').length === 0);
+
+    // ---- 1. accepted and never consulted -----------------------------------
+    check('a Write(path) deny rule is reported as never consulted',
+      ids(enforcementFindings([S('project', { permissions: { deny: ['Write(infra/**)'] } })], 'linux')).has('permission-rule-never-consulted'));
+    check('...and so are NotebookEdit, Glob and MultiEdit path rules',
+      ['NotebookEdit', 'Glob', 'MultiEdit'].every(t =>
+        ids(enforcementFindings([S('project', { permissions: { deny: [`${t}(x/**)`] } })], 'linux')).has('permission-rule-never-consulted')));
+    check('...but a BARE tool-name rule with no path is NOT reported, because it matches at the tool level',
+      enforcementFindings([S('project', { permissions: { deny: ['Write'] } })], 'linux').length === 0);
+    check('...and Edit(path) and Read(path) are never reported',
+      enforcementFindings([S('project', { permissions: { deny: ['Edit(a/**)', 'Read(b/**)'] } })], 'linux').length === 0);
+
+    // ---- 2. primary content field ------------------------------------------
+    check('Bash(command:...) is reported as ignored-and-warned',
+      ids(enforcementFindings([S('project', { permissions: { deny: ['Bash(command:rm *)'] } })], 'linux')).has('permission-rule-content-field'));
+    check('...and the fix drops the field prefix rather than the rule',
+      /Bash\(rm \*\)/.test(enforcementFindings([S('project', { permissions: { deny: ['Bash(command:rm *)'] } })], 'linux')[0].fix));
+    check('...but Bash(rm *) itself is silent',
+      enforcementFindings([S('project', { permissions: { deny: ['Bash(rm *)'] } })], 'linux').length === 0);
+
+    // ---- 3. degenerate glob -------------------------------------------------
+    check('a glob containing /./ is reported as matching nothing',
+      ids(enforcementFindings([S('project', { permissions: { deny: ['Edit(infra/./**)'] } })], 'linux')).has('permission-rule-degenerate-glob'));
+    check('...and the fix names the normalised pattern',
+      /infra\/\*\*/.test(enforcementFindings([S('project', { permissions: { deny: ['Edit(infra/./**)'] } })], 'linux')[0].fix));
+    check('...and a leading ./ is reported too, since it is the same authoring slip',
+      ids(enforcementFindings([S('project', { permissions: { deny: ['Edit(./infra/**)'] } })], 'linux')).has('permission-rule-degenerate-glob'));
+    check('...but a dotfile pattern is NOT a degenerate glob',
+      enforcementFindings([S('project', { permissions: { deny: ['Edit(.env)', 'Edit(**/.github/**)'] } })], 'linux').length === 0);
+
+    // ---- 4. sandbox on an unsupported platform ------------------------------
+    const winSoft = enforcementFindings([S('user', { sandbox: { enabled: true } })], 'win32');
+    check('sandbox.enabled on native Windows is reported', ids(winSoft).has('sandbox-enabled-unsupported-platform'));
+    check('...as SILENT when it merely falls back to unsandboxed', winSoft[0].severity === 'SILENT');
+    check('...and as BROKEN with failIfUnavailable, because Claude Code then refuses to start',
+      enforcementFindings([S('user', { sandbox: { enabled: true, failIfUnavailable: true } })], 'win32')
+        .some(f => f.check === 'sandbox-enabled-unsupported-platform' && f.severity === 'BROKEN'));
+    check('...and the SAME config on linux does not fire it at all',
+      !ids(enforcementFindings([S('user', { sandbox: { enabled: true, failIfUnavailable: true } })], 'linux')).has('sandbox-enabled-unsupported-platform'));
+
+    // ---- 5. failIfUnavailable in a repository file --------------------------
+    check('failIfUnavailable in project scope is reported',
+      ids(enforcementFindings([S('project', { sandbox: { failIfUnavailable: true } })], 'linux')).has('sandbox-fail-if-unavailable-project-scope'));
+    check('...and in local scope too',
+      ids(enforcementFindings([S('local', { sandbox: { failIfUnavailable: true } })], 'linux')).has('sandbox-fail-if-unavailable-project-scope'));
+    check('...but NOT in managed scope, which is its documented home',
+      !ids(enforcementFindings([S('managed', { sandbox: { failIfUnavailable: true } })], 'linux')).has('sandbox-fail-if-unavailable-project-scope'));
+    check('...and not in user scope either',
+      !ids(enforcementFindings([S('user', { sandbox: { failIfUnavailable: true } })], 'linux')).has('sandbox-fail-if-unavailable-project-scope'));
+
+    // ---- 6. keys documented as inert in a repository file -------------------
+    for (const [dotted] of SANDBOX_PROJECT_INERT) {
+      const nested = dotted.split('.').slice(1).reverse().reduce((acc, k) => ({ [k]: acc }), true);
+      check(`${dotted} in project scope is reported as inert`,
+        ids(enforcementFindings([S('project', { sandbox: nested })], 'linux')).has('sandbox-key-inert-in-repo-scope'), dotted);
+      check('...and the same key in user scope is NOT reported',
+        !ids(enforcementFindings([S('user', { sandbox: nested })], 'linux')).has('sandbox-key-inert-in-repo-scope'), dotted);
+    }
+
+    // ---- 7. the PowerShell gap, narrow on purpose ---------------------------
+    check('a file deny rule beside a PowerShell allow is reported',
+      ids(enforcementFindings([S('project', { permissions: { deny: ['Edit(infra/**)'], allow: ['PowerShell(Get-ChildItem *)'] } })], 'win32'))
+        .has('deny-rule-powershell-gap'));
+    check('...but a file deny rule with NO PowerShell allow is silent, which is the cry-wolf guard',
+      !ids(enforcementFindings([S('project', { permissions: { deny: ['Edit(infra/**)'], allow: ['Bash(git status:*)'] } })], 'win32'))
+        .has('deny-rule-powershell-gap'));
+    check('...and a PowerShell allow with no file deny rule is silent too',
+      !ids(enforcementFindings([S('project', { permissions: { allow: ['PowerShell(Get-ChildItem *)'] } })], 'win32'))
+        .has('deny-rule-powershell-gap'));
+
+    // ---- 8. nested scalar shadowing ----------------------------------------
+    const shadow = enforcementFindings([
+      S('user', { sandbox: { enabled: true } }),
+      S('project', { sandbox: { enabled: false } }),
+    ], 'linux');
+    check('a nested SCALAR set at two scopes is reported as shadowing',
+      ids(shadow).has('settings-shadowing-nested'));
+    check('...and precedence names PROJECT as the winner over user',
+      /resolves to project/.test((shadow.find(f => f.check === 'settings-shadowing-nested') || {}).what || ''));
+    check('...but the SAME value at two scopes is not a conflict',
+      !ids(enforcementFindings([S('user', { sandbox: { enabled: true } }), S('project', { sandbox: { enabled: true } })], 'linux'))
+        .has('settings-shadowing-nested'));
+    check('...and a key NOT on the shadowing list is left alone rather than guessed at',
+      !ids(enforcementFindings([S('user', { sandbox: { somethingUndocumented: 1 } }), S('project', { sandbox: { somethingUndocumented: 2 } })], 'linux'))
+        .has('settings-shadowing-nested'));
+
+    // ---- the citation floor, for these as well ------------------------------
+    const everyKind = enforcementFindings([
+      S('project', { permissions: { deny: ['Write(a/**)', 'Bash(command:rm *)', 'Edit(b/./**)', 'Edit(c/**)'], allow: ['PowerShell(x *)'] }, sandbox: { enabled: true, failIfUnavailable: true, strictAllowlist: true } }),
+      S('user', { sandbox: { enabled: false } }),
+    ], 'win32');
+    check('all EIGHT enforcement check ids fire in one adversarial run',
+      new Set(everyKind.map(f => f.check)).size === 8, [...new Set(everyKind.map(f => f.check))].join(', '));
+    check('every enforcement finding carries a citation past the floor',
+      everyKind.every(f => f.citation && f.citation.length > 10));
+    check('every enforcement finding carries a fix',
+      everyKind.every(f => f.fix && f.fix.length > 10));
+  }
+
   // Every finding must carry a citation: an uncited complaint is an opinion.
   {
     const dir = join(FIX, 'bad-hook-event');
@@ -2147,10 +2450,14 @@ function main() {
   const project = resolve(arg('--project') || process.cwd());
   const asJson = argv.includes('--json');
   const assumeVersion = arg('--assume-version');
+  // Mirrors --assume-version. The sandbox checks are platform-conditional, so a
+  // fixture whose defect exists on only one OS has to pin it, or the result
+  // reports the machine rather than the configuration.
+  const assumePlatform = arg('--assume-platform');
   const strictUnknown = argv.includes('--strict-unknown');
 
   const { scopes, findings, version, catalogVersion, absenceIsProof: proof, header } =
-    runChecks({ home, project, assumeVersion, strictUnknown });
+    runChecks({ home, project, assumeVersion, strictUnknown, assumePlatform });
 
   let delegated = [];
   const explicit = arg('--delegate');

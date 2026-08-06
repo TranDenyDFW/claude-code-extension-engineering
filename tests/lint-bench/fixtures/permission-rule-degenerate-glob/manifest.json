@@ -1,0 +1,7 @@
+{
+  "id": "permission-rule-degenerate-glob",
+  "kind": "enforcement-failure-mode",
+  "defect": "a deny rule whose glob contains a \".\" segment, so it matches no real path; this repo shipped exactly that defect when a sentence-final period was swallowed into an extracted target",
+  "citation": "permissions.md [ENGINEERING]; IMPROVEMENTS.md item 31",
+  "signal": "matches no|match nothing|degenerate|empty path segment"
+}

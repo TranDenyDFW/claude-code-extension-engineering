@@ -382,7 +382,7 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 383 source assignments in `claims.jsonl` were made by subagents with stated rules,
+The 444 source assignments in `claims.jsonl` were made by subagents with stated rules,
 not independently double-checked. The integrity gate catches structural drift, not a
 wrong-but-plausible source id. A second blind attribution pass with disagreement
 reporting would harden it. The 2026-08-05 monitors and channels pass is a worked example
@@ -510,6 +510,82 @@ every one to redden the gate; it is what would have gone red on `63a3ecc`. Both 
 Residue: seven probes is a frozen set chosen by the same person who wrote the analyser, so it
 carries item 28's limit. It catches regressions against known phrasings, not phrasings nobody
 has tried yet, which is item 29.
+
+
+**33. The enforcement layer had no reference of its own, and its edge is not readable.**
+Two reviews noted that permission rules and sandboxing were discussed inside `hooks.md` and
+`selection.md` and had no page. Fixed 2026-08-05 with `references/permissions.md` and
+`references/sandboxing.md`, one file per mechanism as the house invariant requires; a
+combined `enforcement-layers.md` would have been the only reference covering two, which is a
+milder form of the exact defect being reported.
+
+The substantive finding is that one of the two cannot be written from the documentation at
+all. `permissions.md` says a deny rule reaches "file commands Claude Code recognizes in
+Bash, such as `cat`, `head`, `tail`, and `sed`". Four examples, no enumeration anywhere on
+the page, so there is no reading that tells you whether `cp`, `mv`, `tee` or a shell
+redirection is inside the set, and you cannot test your way to it either because a command
+that never ran is indistinguishable on disk from one that was denied.
+
+So it is MEASURED. `tools/bash-recognition-run.mjs` runs paired arms, identical but for the
+deny rule, and admits a pass only when the rule arm held AND the control arm changed. Both
+arms unchanged means the command never ran and the pass is DISCARDED, because scoring that
+as a denial measures the model's caution and publishes it as a security property. The frozen
+result is `tools/bash-recognition.mjs`, drift-gated against the recorded measurement, and a
+shape absent from it is UNDETERMINED rather than allowed.
+
+Three things came out of it that the documentation does not say:
+
+- **PowerShell.** The recognised-file-command sentence names Bash and never PowerShell,
+  though PowerShell RULES get full parity a few sections earlier including AST parsing and
+  alias canonicalization. Measured: `powershell -Command "Add-Content -LiteralPath
+  infra/main.tf ..."` WROTE THE FILE through a live `Edit(infra/**)` deny rule, while a
+  `printf ... >>` into the same tree was refused in the same rig. On Windows this matters
+  more than the sandbox, which is not weaker there but absent.
+- **The V3 residual is now an observation, not a citation.** `node build.mjs` ran through a
+  live deny rule and wrote the protected file, paired against a control. The prior plan's own
+  risk note said this repo had never observed the subprocess leak and warned against
+  upgrading it to a local observation; that warning is now discharged by measurement rather
+  than by assertion.
+- **Approval and denial are separate gates, and a benchmark can conflate them.** A
+  project-scope `permissions.allow` entry granted nothing for an interpreter command in a
+  `-p` session: five spellings against `node writer.mjs` all returned "This command requires
+  approval", and a `printf` append then ran in a tree with NO allow rules at all. The
+  `--allowedTools` CLI flag does grant it. A rig that grants approval the first way silently
+  measures "the model declined" and reports it as "the rule denied".
+
+Residue: one platform, one build, ten shapes. The recognised set may differ on macOS or
+Linux and nothing here covers that; `compatibility.md` records it as UNVERIFIED rather than
+leaving it to be assumed.
+
+**34. Two of this repo's own gates were destroying or disabling evidence, and both were
+found by using them.**
+Neither was reported by any review. Both are the same shape as the defects this project
+exists to name: a check that silently stops checking.
+
+- **Re-running the lint bench DESTROYS the competitor record.** `results.json` is not an
+  output, it is the record of a run against seven tools, four of which are installed only on
+  the machine that produced it. Re-running here to add the enforcement cohort wrote a file
+  with those four columns simply absent. Worse, the capability catalog anchors its crosscheck
+  sha at the agnix tool list INSIDE that file, so the catalog failed verification, its load
+  failed soft as designed, and every capability name check degraded to UNVERIFIED. One
+  command, three layers of evidence gone, no error. The runner now REFUSES to overwrite
+  `results.json` when a run would drop a tool the record has data for, and `--out` is where a
+  partial run goes. Watched refusing before it shipped.
+- **The catalog's integrity gate reported line endings as tampering.** The crosscheck sha was
+  taken over raw BYTES, so on any Windows clone with `core.autocrlf` the catalog fails
+  verification because git rewrote LF to CRLF, while the content is identical. It fails soft,
+  so the only symptom is one header line nobody reads and every name check quietly becoming
+  UNVERIFIED. It now hashes LF-normalised text, observed loading under both CRLF and LF on
+  disk. An integrity gate that cries wolf on line endings is a gate that gets ignored, which
+  is worse than not having one.
+
+**35. Carried forward from the prior plan, still open.**
+Stated here rather than silently dropped. The doctor's per-finding confidence field and the
+quote-aware tokenizer were carried into this plan's Phase D from the previous one and are
+NOT implemented: neither has a definition in this repo, and inventing one to close a
+checklist item would be worse than leaving it open. The attested-fixture cohort drawn from
+the 81,291-issue corpus is also still open; the corpus is harvested and verified
+(`data/gh/`), the cohort is not built.
 
 ---
 

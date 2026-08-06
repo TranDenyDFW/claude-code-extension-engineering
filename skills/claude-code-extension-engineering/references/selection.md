@@ -31,6 +31,17 @@ Answer the axis questions in order, then open the matching mechanism reference. 
   - A procedure the model should follow → Skill. A checkable invariant (regex, exit code, file present) → Hook.
   - go to: [Skills](skills.md)
   - go to: [Hooks](hooks.md)
+  - Caveat: this branch used to end at Hook, and that was the single most expensive wrong answer on the page. "Mechanically enforceable" is FOUR mechanisms, not one, and the axis that separates them is COVERAGE SET, not strength. See the branch below before writing a hook for a path.
+- **Which calls must the enforcement actually see?**
+  - This is the branch to take for anything phrased "prevent", "must not", "never let". The four layers are COMPLEMENTARY and each one's gap is another's coverage, so "pick the strongest" is not a well-formed question. Route on what has to be covered.
+  - Advisory prose in CLAUDE.md → covers the model's INTENT and nothing else. Zero enforcement, and correct when the requirement has no guarantee language.
+  - PreToolUse hook → covers exactly the tools its matcher names, and FAILS OPEN when the handler is missing, crashes, or its interpreter is absent. A `Write|Edit` matcher cannot see a Bash command at all, so a hook alone never covers a shell write.
+  - `permissions.deny` rule → harness-owned, so it holds when a handler is deleted. Covers the built-in file tools plus a subset of Bash that the docs give BY EXAMPLE and never enumerate, so you cannot read or test your way to its edge. It leaks at the subprocess boundary: a Node or Python script that opens the file itself writes straight through. Deny beats allow regardless of specificity, so it cannot carry an exception.
+  - OS sandbox → closes exactly that subprocess boundary, at the OS level, for child processes too. It covers ONLY Bash and its children, so it does not cover the built-in file tools at all, and it DOES NOT RUN ON NATIVE WINDOWS.
+  - go to: [Permission rules](permissions.md)
+  - go to: [Sandboxing](sandboxing.md)
+  - go to: [Hooks](hooks.md)
+  - Caveat: on native Windows the sandbox is ABSENT, not weaker, so the subprocess vector has no answer there and the honest output is the strongest available configuration plus a stated residual. Two further Windows-specific gaps measured on this project: the deny rule's documented recognition sentence names Bash only and never PowerShell, and a `powershell Add-Content` write through a live `Edit(...)` deny rule was observed on 2.1.220. Do not read "PowerShell rules have parity with Bash rules" as covering it: that sentence is about rule SYNTAX, not about which file commands are recognised.
 - **Need context isolation?**
   - Yes → Subagent (fresh window, returns only a summary).
   - go to: [Subagents](subagents.md)
@@ -65,7 +76,7 @@ Answer the axis questions in order, then open the matching mechanism reference. 
 - **Need independent peers that communicate directly?**
   - Use Agent Teams only when subagent result-return is insufficient and coordination justifies the higher token cost.
   - go to: [Agent Teams](agent-teams.md)
-  - Caveat: Agent Teams is EXPERIMENTAL and disabled by default; it needs CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1. It is the only mechanism here that is not stable, and coordination cost is high.
+  - Caveat: Agent Teams is EXPERIMENTAL in the OFF-BY-DEFAULT sense, needing CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1, and coordination cost is high. It is NOT the only unstable mechanism on this page. SKILL.md defines two senses of EXPERIMENTAL and this is the first; Monitors and Channels are unstable in the second, live the moment they are configured but carrying a manifest schema, flag syntax or protocol contract documented as liable to change between releases. An earlier version of this line said Agent Teams was the only one, which contradicted the channels branch above calling Channels a research preview.
 - **Need to change how Claude itself responds, not what it knows?**
   - go to: [Custom Output Styles](output-styles.md)
   - go to: [Skills](skills.md)
