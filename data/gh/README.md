@@ -24,30 +24,49 @@ in-repo and durable. `comments/` is gitignored as bulk; the two extracted files 
 Run totals: 1,300 threads, 10,778 comments, 1,859 of them bots, 1,756 project-authored,
 0 fetch failures.
 
-## The full population is back, and verified
+## The full population is back, and verified. The first version of this section was not.
 
-`tools/gh-corpus-harvest.mjs` re-harvested the complete issue corpus on 2026-08-05.
+`tools/gh-corpus-harvest.mjs` re-harvested the complete issue corpus on 2026-08-05, and it was
+independently verified on 2026-08-05 after a defect described below.
 
 ```
 corpus     : 239.2 MB, 81291 lines
 parsed     : 81291   malformed: 0
 unique #   : 81291   duplicates: 0
 created    : 2025-02-24T18:48:14Z .. 2026-08-05T02:39:44Z
-search API : 81291   delta 0
+search API : 81292 at the corpus boundary  delta -1
+             live population is 81627; the difference is issues filed AFTER the
+             harvest and is not a defect
 STATUS: PASS
 ```
 
-The delta against an independent `search/issues` count is **zero**, so this is the complete
-population, not a sample. `all-issues.jsonl` is gitignored as bulk; `corpus-stats.json` is
-committed as the provenance record.
+**This section previously published `search API : 81291   delta 0` and called the delta "zero".
+That comparison never ran.** `corpus-stats.json` recorded `search_api_total: null`, because an
+expired `GITHUB_TOKEN` environment variable outranks this machine's valid `gh` keyring
+credential, `searchTotal()` returned a bare null on the resulting 401, and the completeness gate
+folded `total === null` into PASS. So the harvest printed `STATUS: PASS` while skipping the only
+check that distinguishes a complete population from a truncated one, and a number nobody measured
+was published as evidence. That is the same shape as the `| head -30` SIGPIPE described below: a
+partial result reported as success, in the very tool written to prevent it.
+
+Three things changed. The tool now strips `GITHUB_TOKEN` and `GH_TOKEN` the way
+`gh-staff-harvest.mjs` and `sources/collect.mjs` already did. "Could not obtain the count" is now
+a third state, **UNVERIFIED**, which exits non-zero and never reads as PASS. And the comparison is
+made against the population **at the corpus boundary** (`created:<=` its newest issue) rather than
+against the live total, which grows: the live figure gives -336 on a corpus that is provably
+complete, because 335 of those issues were created after the harvest finished.
+
+The remaining -1 is one issue present in the boundary count and absent from the corpus, consistent
+with a deletion, a transfer, or a conversion to a discussion in the hours between. The gate
+tolerates plus or minus 5 symmetrically and fails outside it.
 
 A harvest that merely finishes is not a harvest that is complete, and this corpus has now been
 destroyed twice: once by living in a harness session scratchpad that was deleted with the
 session, once by a `| head -30` that SIGPIPEd the producer at 800 of 1,300 while the pipeline
-still reported exit 0. The script therefore encodes all three constraints (cursor pagination
-because `page=` caps at 99, no downstream pipe stage, durable in-repo output) and refuses to
-report PASS unless malformed is zero, duplicates are zero, and the delta versus the search API
-is between 0 and 50, that window being issues legitimately filed during the run.
+still reported exit 0. The script encodes all three constraints (cursor pagination because
+`page=` caps at 99, no downstream pipe stage, durable in-repo output), and `--self-test` pins the
+three states with 14 rows, including one that goes red if `total === null` is ever folded back
+into PASS.
 
 Re-verify at any time without re-downloading:
 

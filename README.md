@@ -1,6 +1,6 @@
 # claude-code-extension-engineering
 
-![freshness](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FTranDenyDFW%2Fclaude-code-extension-engineering%2Fmain%2Fevidence%2Fstatus.json&query=%24.message&label=claude%20code&color=brightgreen)
+![freshness](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FTranDenyDFW%2Fclaude-code-extension-engineering%2Fmain%2Fevidence%2Fstatus.json)
 
 Decide which Claude Code extension mechanism should own a behavior BEFORE you build it,
 and know exactly what that choice does and does not guarantee. Then run `/extension-doctor`
