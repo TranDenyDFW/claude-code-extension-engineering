@@ -1,0 +1,16 @@
+{
+  "name": "stdout-theatre",
+  "control": false,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "Prints a convincing BLOCKED banner to stdout but exits 0 with no hookSpecificOutput, so nothing is blocked.",
+  "citation": "hooks.md: \"prefer exit 0 with a JSON decision\". A banner is not a decision.",
+  "expectedFailures": [
+    "C1",
+    "C3",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "matcher": "Write|Edit",
+  "deny": null
+}

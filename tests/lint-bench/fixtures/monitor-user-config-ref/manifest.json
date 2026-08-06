@@ -1,0 +1,7 @@
+{
+  "id": "monitor-user-config-ref",
+  "kind": "late-failure-mode",
+  "defect": "a plugin monitor command interpolates ${user_config.*}; since v2.1.207 Claude Code REJECTS that monitor with an error instead of substituting, so this one component never starts while the rest of the plugin loads and looks healthy",
+  "citation": "monitors.md Secrets and ${user_config.*} [OFFICIAL] [v2.1.207]; errors.md plugin-command-references-user-config",
+  "signal": "user_config|substitut|reject"
+}

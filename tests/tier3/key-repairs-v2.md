@@ -318,3 +318,80 @@ is evidence the seeding steered phrasing at most. That claim is checkable here.
 - unseeded (SHIPPED): no context window (a load-time gate the harness reads from managed settings); skills, agents, hooks, and MCP servers from user and project sources are blocked from loading at all, so nothing from those sources ever reaches any session or its context
 - evidence: `permissions.md`: "Block skills, agents, hooks, and MCP servers from user and project sources, so they can only come from plugins or managed settings."
 
+
+---
+
+## Post-run repairs (S040, 2026-08-05)
+
+This section records a repair applied **after** replicate 1 was graded and published, which is
+normally the practice that invalidates a benchmark. Everything below exists to record why this one
+does not.
+
+### Pre-registration: the defect and the repair DIRECTION were published before the repair
+
+Both statements are in git at `77956e1`, dated 2026-08-04, before any repair work began.
+
+`tests/results-tier3.md:158`:
+
+> **At least one key is still wrong, and it costs every arm equally.** S040's key selects an
+> advisory answer, and its own failure_mode names the harness mechanisms that would actually
+> satisfy the requirement.
+
+`.md/20260803-open-work.md`, item B1, "S040 carries a bad key that costs every arm equally", and
+item B2, "keys-lint cannot catch the S040 defect class".
+
+So the repair's DIRECTION is a pre-commitment being executed, not a post-hoc choice. The same
+argument the run already makes for `DECISION_MARGIN` and `REPLICATE_RULE`.
+
+`tools/tier3-keys-lint.mjs` gained the `primary-conceded` rule at `6dc044f`, **before** the key was
+touched, so the repair is verified by the rule rather than the rule being fitted to the repair.
+Measured across all 120 committed keys, that rule produces 1 true positive per set (S040) and 0
+false positives.
+
+### The bound, computed and published BEFORE the re-grade
+
+Measured from the committed grades at `674bf29`, with `tools/tier3-score.mjs` exports:
+
+```
+S040 per-arm totals /7 : { a: 2.00, b: 1.75, bplus: 1.75, d: 1.75 }
+current arm sums /420  : { a: 296.25, b: 370.50, bplus: 370.50, d: 367.25 }
+```
+
+**S040 is currently a TIE in D versus B.** It is one of the 20 ties in the published
+`D vs B | 60 | 20 | 20 | 20` row. A re-grade can therefore do exactly one of three things.
+
+| Re-grade outcome | D vs B sign test | p |
+|---|---|---|
+| stays a tie | 20W 20L | 1.0000 |
+| becomes a D win | 21W 20L | 1.0000 |
+| becomes a D loss | 20W 21L | 1.0000 |
+
+Exhaustively over every reachable pair of S040 re-grade totals, both arms free to land anywhere in
+[0, 7] in half-point steps:
+
+```
+D minus B overall margin lies in [-2, +1] points, against DECISION_MARGIN = 6
+```
+
+Reaching p < 0.05 at n = 41 decided scenarios requires **28W 13L**. One scenario cannot travel
+eight wins.
+
+**Therefore no re-grade outcome can change the headline verdict.** It is NEGATIVE in every
+reachable case. Publishing that arithmetic before the re-grade runs is what converts "we changed a
+key and the answer happened not to move" into "we changed a key under a published bound that made
+the answer incapable of moving".
+
+The deeper reason it holds: a defect that hits all four arms identically lands in the *scenario*
+term of the design, and a paired comparison is built precisely to cancel the scenario term. That is
+why the published limitation was right to say the defect "does not bias D against B, but it
+depresses every absolute number".
+
+### What the re-grade will and will not touch
+
+Repairing the key changes no answer sheet, because answers depend only on the scenario prose, which
+is unchanged. It changes no blinding map, because `permutationFor` hashes the id alone. It changes
+exactly the 56 grade records for S040, which must be re-earned against the repaired key.
+
+Those land as NEW files and are merged by `tools/tier3-grades.mjs`, which supersedes on
+`(scenario, sheet, field, grader)`. `grades-v2-g1-batch-1.jsonl` and its g2 counterpart are never
+edited: they are the record of what was graded against the OLD key, and that history stays intact.

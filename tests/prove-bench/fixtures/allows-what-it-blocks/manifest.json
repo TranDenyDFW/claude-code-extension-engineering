@@ -1,0 +1,16 @@
+{
+  "name": "allows-what-it-blocks",
+  "control": false,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "The guard tests an unset variable, so it never fires and always allows.",
+  "citation": "test-hook.sh:245-252 treats exit 0 and exit 2 alike, so it cannot see this.",
+  "expectedFailures": [
+    "C1",
+    "C3",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "matcher": "Write|Edit",
+  "deny": null
+}

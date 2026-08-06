@@ -1,0 +1,575 @@
+{
+  "batch": 5,
+  "scenarios": [
+    {
+      "id": "S002",
+      "focus": "enforcement",
+      "scenario": "A production service drops the connection after exactly one message and nobody knows why. I want five investigators working in parallel, each owning a different hypothesis, actively trying to disprove each other's theories like a scientific debate, with whatever consensus survives written to a findings doc.",
+      "key": {
+        "primary": "Agent team: a lead session spawns five teammates who share a task list and message each other directly through their mailboxes",
+        "rejected_alternative": "Five parallel subagents launched from the main conversation",
+        "rejection_reason": "Subagents only report results back to the agent that spawned them and never talk to each other, so the adversarial cross-examination cannot happen; each investigator would anchor on its own theory with no one challenging it. Teammates are full independent sessions with direct inter-agent messaging, and the competing-hypotheses debate is the documented flagship team use case: the theory that survives active disproof attempts is more likely the real root cause.",
+        "enforcement_owner": "model",
+        "context_boundary": "independent sessions (each teammate is a full Claude Code session with its own context window)",
+        "lifecycle": "explicit spawn request in the prompt, or Claude proposes teammates and the user confirms; requires the experimental env flag set at session start",
+        "failure_mode": "Task status can lag when a teammate fails to mark work complete, blocking dependents; the lead may declare the team finished early or start doing the work itself; in-process teammates do not survive /resume; token cost scales linearly with teammate count.",
+        "version_caveat": "Experimental and disabled by default; requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in settings.json or the environment"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "An agent team of five investigators, one hypothesis each, using peer-to-peer messaging so they can rebut each other, with the surviving consensus written to a findings document as the deliverable. Roles are assigned adversarially (each teammate is told to attempt to falsify the others) and a lead collates.",
+          "rejected_alternative": "Five parallel subagents. They are isolated by design and can only report back to the orchestrator, so there is no cross-examination, only five independent write-ups that someone else has to reconcile after the fact.",
+          "enforcement_owner": "Model. The harness supplies the message transport and the shared workspace, but nothing in the harness forces a teammate to actually attack another's theory or to change its mind when refuted.",
+          "context_boundary": "Each investigator has its own context window; inter-agent messages and the shared findings file are what cross between them. Your conversation holds the coordination layer and the final document, not each investigator's raw packet dumps or log reads.",
+          "lifecycle": "Starts when the team is created and the debate task assigned; ends when the consensus document is written and the team is disbanded, or when the session ends. It is a one-off investigation structure, not a standing rule.",
+          "failure_mode": "Advisory throughout. The characteristic failure is premature agreement: agents converge politely instead of falsifying, and a 'consensus' can be produced without anyone reproducing the disconnect. Messages can also be missed, and five concurrent investigators multiply token burn. Require each surviving claim to cite an actual captured trace or log line.",
+          "version_caveat": "Agent teams with peer messaging are a recent capability and likely still opt-in or experimental; I cannot state the exact version, setting name, or plan requirement. If unavailable, the fallback is sequential subagent rounds where each round is given the previous round's claims to attack."
+        },
+        {
+          "sheet": 2,
+          "primary": "An agent team. The session becomes the lead and spawns five teammates, each owning one hypothesis, with the spawn prompt instructing them to message each other and actively try to disprove the other theories. Consensus goes into a findings doc on disk, which is the durable artifact because teammate context windows never merge.",
+          "rejected_alternative": "Subagents. They report only back to the main agent and never talk to each other, so the adversarial cross-examination that makes a surviving hypothesis trustworthy cannot happen at all.",
+          "enforcement_owner": "The model. The lead decides who investigates what, when the debate has run its course, and what the consensus is; the harness supplies only the shared task list, the per-agent mailbox files under ~/.claude/teams/, and file locking on task claims. A TeammateIdle or TaskCompleted hook exiting with code 2 is the one harness-side lever that can force more work.",
+          "context_boundary": "Each teammate is a full independent Claude Code session with its own context window, loading CLAUDE.md, MCP servers and skills but not the lead's conversation history. What crosses is SendMessage traffic between teammates, shared task-list state, idle notifications to the lead, and whatever gets written to the findings doc.",
+          "lifecycle": "The team forms when the first teammate is spawned and each teammate runs until it goes idle, accepts a shutdown request, or the session ends. The team config directory is removed at session end; the task list under ~/.claude/tasks/ persists locally, governed by cleanupPeriodDays.",
+          "failure_mode": "Advisory throughout. Teammates can stop on errors instead of recovering, can fail to mark tasks complete and thereby block dependents, and the lead may declare the investigation finished early; Claude may also quietly spawn plain subagents instead of a team, and the agent panel alone does not tell you which happened.",
+          "version_caveat": "Agent teams are experimental and disabled by default: set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in settings.json or the environment or nothing spawns. Documented behavior is as of v2.1.178, where TeamCreate and TeamDelete no longer exist and cleanup is automatic; /resume and /rewind do not restore in-process teammates, and five teammates cost roughly five independent context windows."
+        },
+        {
+          "sheet": 3,
+          "primary": "An agent team: the main session is the lead and spawns five teammates, one per hypothesis, each told to attack the others' theories over peer messages, with the surviving consensus written to the findings doc. This is the documented competing-hypotheses shape, where the debate itself is the mechanism.",
+          "rejected_alternative": "Subagents run in parallel for the same five hypotheses. They report only to the agent that spawned them and never message each other, so there is no cross-examination, only five independent reports the main agent would have to reconcile alone.",
+          "enforcement_owner": "The model. The lead decides the decomposition, who challenges whom, and when consensus has been reached; nothing in the harness makes the debate happen. TeammateIdle, TaskCreated and TaskCompleted hooks are the only harness levers available on top.",
+          "context_boundary": "Each teammate is a separate Claude Code session with its own context window that loads CLAUDE.md, skills and MCP servers but not the lead's history. What crosses between them is peer messages, shared task list state, and the findings doc on disk.",
+          "lifecycle": "The team comes into existence when the lead spawns the first teammate, teammates keep running until they idle or are asked to shut down, and the shared team directories are cleaned up when the session exits.",
+          "failure_mode": "It fails open and quietly. A teammate that hits an error tends to stop rather than recover, so the debate silently loses an investigator and whatever consensus emerges was never actually challenged from that angle; task status can also lag and strand dependents.",
+          "version_caveat": "Agent teams are experimental and off unless CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set in settings.json or the environment. Without it no team forms at all, and the page describes the v2.1.178 and later lifecycle where TeamCreate and TeamDelete no longer exist."
+        },
+        {
+          "sheet": 4,
+          "primary": "An agent team: your session becomes the lead and spawns five teammates, each owning one hypothesis, messaging each other directly to attack each other's theories, with the lead synthesizing the surviving consensus into the findings doc.",
+          "rejected_alternative": "Parallel subagents. They report results only back to the agent that spawned them and never talk to each other, so the adversarial cross-examination that the whole request is built around could not happen.",
+          "enforcement_owner": "The model. The lead session decides who investigates what, relays nothing itself, and judges when the debate is done; nothing in the harness forces teammates to actually challenge each other. The only harness-side gates are TeammateIdle, TaskCreated and TaskCompleted hooks, which can exit 2 to push a teammate back to work.",
+          "context_boundary": "Each teammate is a separate Claude Code session with its own context window, loading CLAUDE.md, MCP servers and skills but not the lead's conversation history. What crosses the boundary is mailbox messages between teammates, shared task-list state, and the lead's synthesis into your conversation.",
+          "lifecycle": "The team forms the moment the first teammate is spawned and lasts for the session; teammates end on a shutdown request or when the session exits, at which point the shared team directories are cleaned up automatically while the task list persists locally.",
+          "failure_mode": "Advisory and fails open. The lead can declare the investigation finished before the tasks are actually done, teammates sometimes fail to mark tasks complete which blocks dependents, and a teammate that hits an error tends to stop rather than recover, so a hypothesis silently goes uninvestigated.",
+          "version_caveat": "Agent teams are experimental and disabled by default; they need CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in settings.json or the environment. The documented behaviour is as of v2.1.178 (TeamCreate/TeamDelete no longer exist), and mailbox delivery no longer blocks on a single malformed entry only from v2.1.207."
+        }
+      ]
+    },
+    {
+      "id": "S011",
+      "focus": "knowledge",
+      "scenario": "New teammates and every fresh session re-learn the same basics: the monorepo builds with pnpm build:all, tests need a local Postgres, and API handlers live under src/api/handlers/. The team wants Claude to hold these facts in every session, shared with everyone through version control.",
+      "key": {
+        "primary": "Project CLAUDE.md at ./CLAUDE.md (or ./.claude/CLAUDE.md), committed to the repo",
+        "rejected_alternative": "A project skill whose description covers build and layout questions",
+        "rejection_reason": "A skill's body loads only when invoked or judged relevant, so these facts would be absent from most sessions. The docs direct always-needed facts (build commands, conventions, project layout) to CLAUDE.md and reserve skills for procedures and on-demand reference material.",
+        "enforcement_owner": "model",
+        "context_boundary": "main context",
+        "lifecycle": "Loaded in full at session start for every session launched in or below the project directory",
+        "failure_mode": "Adherence degrades as the file grows (docs advise targeting under 200 lines), and the content is advisory context, so Claude can still deviate from it",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A project CLAUDE.md committed at ./CLAUDE.md (or ./.claude/CLAUDE.md), holding the three facts as short, specific bullets: the build command, the local Postgres prerequisite for tests, and the src/api/handlers/ location. Keep it well under 200 lines so adherence stays high, and let /init seed it.",
+          "rejected_alternative": "Auto memory. Claude would learn the same facts on its own, but each machine gets its own directory under ~/.claude/projects/<project>/memory/, so nothing reaches teammates through version control and every new hire starts from an empty index.",
+          "enforcement_owner": "The model. CLAUDE.md is context injected into the conversation, not configuration the client enforces, so Claude reads the facts and generally follows them but nothing in the harness compels it.",
+          "context_boundary": "The main session context window: ancestor CLAUDE.md files are loaded in full at launch as a user message placed after the system prompt, and they are re-sent into every subagent except the built-in Explore and Plan agents. Nothing crosses back out; the file is read-only context.",
+          "lifecycle": "Loads at the start of every session in that repo and reloads after compaction, since the project-root file is re-read from disk and re-injected. It stops applying only when the file is edited, deleted, or skipped through claudeMdExcludes or --setting-sources.",
+          "failure_mode": "Advisory and fails open: nothing blocks a session that ignores it. The realistic decay is size, since the file grows as the team adds facts, adherence drops, and contradictory entries get resolved arbitrarily.",
+          "version_caveat": "No version gate on project CLAUDE.md itself; it is the oldest mechanism here. The only flag worth naming is the interactive multi-phase /init, which is behind an environment variable rather than on by default."
+        },
+        {
+          "sheet": 2,
+          "primary": "A project CLAUDE.md committed at the repo root (./CLAUDE.md or ./.claude/CLAUDE.md) holding the build command, the local Postgres test prerequisite and the handler path as short concrete lines. These are always-relevant facts rather than a procedure, which is exactly what CLAUDE.md is for; /init can generate the first draft from the codebase and the team refines it.",
+          "rejected_alternative": "Auto memory. It also carries repo facts across sessions, but it lives machine-local under ~/.claude/projects/<project>/memory/ and never travels through version control, so every teammate would accumulate their own private copy instead of sharing one.",
+          "enforcement_owner": "The model. CLAUDE.md is delivered as context, a user message after the system prompt, not as enforced configuration; the harness only guarantees the file is discovered and loaded, not that Claude obeys it.",
+          "context_boundary": "The main conversation context window, loaded in full at session start by walking up the directory tree from the working directory. It also crosses into non-fork subagents, which receive the whole CLAUDE.md hierarchy; the built-in Explore and Plan agents are the exception and skip it.",
+          "lifecycle": "Loads at the start of every session in that repository, and the project-root file is re-read from disk and re-injected after /compact. It stops applying when the file is deleted, when a claudeMdExcludes glob skips it, or when 'project' is excluded from --setting-sources.",
+          "failure_mode": "Advisory, fails open: nothing blocks Claude from ignoring an entry. In practice adherence decays once the file grows past roughly 200 lines, and contradictions with nested or user-level CLAUDE.md files get resolved arbitrarily. Confirm it actually loaded by checking Memory files in /context.",
+          "version_caveat": "No version gate on a plain project CLAUDE.md. The interactive multi-phase /init that also proposes skills and hooks needs CLAUDE_CODE_NEW_INIT=1, and the /doctor trim proposal for a checked-in CLAUDE.md requires Claude Code v2.1.206 or later."
+        },
+        {
+          "sheet": 3,
+          "primary": "A project CLAUDE.md committed at the repository root (./CLAUDE.md or ./.claude/CLAUDE.md) holding the three facts as short imperative lines: pnpm build:all for the monorepo build, the local Postgres prerequisite for tests, and src/api/handlers/ as the handler location. Bootstrap it with /init and keep it well under the 200-line target so adherence stays high.",
+          "rejected_alternative": "Auto memory. It accumulates the same class of fact without anyone writing it, but Claude authors it, it is machine-local per repository, and it never travels through version control, which is the explicit requirement here.",
+          "enforcement_owner": "The model. CLAUDE.md is delivered as context rather than configuration, so the harness only guarantees that the file is loaded; whether the build command or the Postgres prerequisite is actually respected is the model's call.",
+          "context_boundary": "The main session context window. The file is concatenated into the startup context of every session launched in that repository and is paid for whether or not the facts are used, and the project-root file is re-injected into the same window after compaction.",
+          "lifecycle": "Loads at launch of every session started in the repo, applies for the whole session, and is re-read from disk and re-injected after /compact for the project-root file. It stops applying only when the file is edited, excluded, or the session runs outside that directory tree.",
+          "failure_mode": "Advisory and fails open. The facts are present but the model can drift past them, especially once the file grows or contradicts another CLAUDE.md in the tree, and nothing reports the miss, so the team only learns about it from a wrong build command.",
+          "version_caveat": "No version gate, plan restriction, experimental status, or enabling flag applies to a project CLAUDE.md; it works on any build. The only version-gated piece nearby is the optional /doctor checkup that proposes trims for a checked-in CLAUDE.md."
+        },
+        {
+          "sheet": 4,
+          "primary": "Project memory: a CLAUDE.md at the repository root, committed to version control, holding the build command, the Postgres test prerequisite and the handler directory as short factual lines. It is auto-loaded into every session for everyone who clones the repo, which is exactly the always-on shared-baseline shape.",
+          "rejected_alternative": "A skill, rejected because a skill is loaded only when the model judges its description relevant, so these orientation facts would be absent from the sessions that need them most (the first minutes of a fresh session).",
+          "enforcement_owner": "Shared between the two but effectively the model. The harness owns loading the file into context deterministically; the model owns whether it actually uses the facts, and nothing checks that it did.",
+          "context_boundary": "The main session context window. The full file text crosses in at session start and stays resident for the whole session, so it is charged on every request and it is what compaction may summarize away.",
+          "lifecycle": "Runs at session start in any session rooted in that repo, refreshes when the file is edited and re-read, and stops applying when the file is deleted or when the session moves outside the repo. It has no per-task trigger.",
+          "failure_mode": "Fails open and is purely advisory: the model can and does drift from it, and drift gets worse as the file grows and after context compaction. The realistic decay path is scope creep, the file becomes a wiki, the signal-to-noise ratio drops, and adherence falls.",
+          "version_caveat": "Root CLAUDE.md project memory is one of the oldest and most stable Claude Code mechanisms, so no version gate, plan restriction or enabling flag applies in practice. The only moving parts I would verify against the installed version are the import syntax for pulling in other files and the deprecation status of CLAUDE.local.md; I cannot state those precisely without the documentation."
+        }
+      ]
+    },
+    {
+      "id": "S020",
+      "focus": "knowledge",
+      "scenario": "The security organization wants identical data-handling reminders and coding-style guidance present in every session on every developer machine, across every repository, and individual developers must not be able to opt out of it loading.",
+      "key": {
+        "primary": "Managed policy CLAUDE.md at the OS managed location (macOS /Library/Application Support/ClaudeCode/CLAUDE.md, Linux /etc/claude-code/CLAUDE.md, Windows C:\\Program Files\\ClaudeCode\\CLAUDE.md), or the claudeMd key in managed-settings.json, deployed via MDM or config management",
+        "rejected_alternative": "Pushing a ~/.claude/CLAUDE.md to every machine via dotfiles",
+        "rejection_reason": "User-scope files belong to the user, who can edit or delete them, and ordinary CLAUDE.md files can be skipped with claudeMdExcludes. The managed policy file loads before user and project scopes in every session on the machine and is the one memory file the docs say cannot be excluded by individual settings.",
+        "enforcement_owner": "model",
+        "context_boundary": "main context",
+        "lifecycle": "Loaded at the start of every session on the machine, in every repository, before user and project instructions",
+        "failure_mode": "It is still behavioral guidance, not technical enforcement: the docs' own split says anything that must be hard-blocked (tools, commands, paths) belongs in managed settings permissions.deny, not in the managed CLAUDE.md",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A managed-policy CLAUDE.md deployed by IT to the managed location (C:\\Program Files\\ClaudeCode\\CLAUDE.md on Windows, /Library/Application Support/ClaudeCode/CLAUDE.md on macOS, /etc/claude-code/CLAUDE.md on Linux and WSL), pushed with MDM, Group Policy, or Ansible. The same content can instead live in the claudeMd key of managed-settings.json.",
+          "rejected_alternative": "A user-scope ~/.claude/CLAUDE.md rolled out to every machine. It reaches every repository too, but it sits in a file the developer owns and can edit, empty, or exclude, so there is no opt-out guarantee.",
+          "enforcement_owner": "Split by layer: the harness owns loading, since managed policy memory cannot be excluded by any user setting, while the model still owns whether it acts on the reminders. For data handling that must be technically prevented rather than reminded, pair it with managed permissions.deny.",
+          "context_boundary": "The main session context window of every session on the machine, injected before user and project CLAUDE.md so more specific instructions are read later, and re-sent into subagents that load the CLAUDE.md hierarchy. It never leaves the machine's local configuration.",
+          "lifecycle": "Loads at the start of every session on that machine, in every repository, and applies for the whole session. It stops applying only when IT changes or removes the file or the managed settings key, which is the point.",
+          "failure_mode": "Advisory in effect even though loading is guaranteed: it is behavioral guidance, so a session can still drift from a data-handling reminder and nothing blocks the action. Being machine-scoped, it also silently misses any developer working from an unmanaged machine or a cloud session.",
+          "version_caveat": "No version gate or plan tier named for managed CLAUDE.md, but there is a placement gate on the settings-key variant: claudeMd is honored only in managed and policy settings, so the same key copied into user, project, or local settings does nothing at all."
+        },
+        {
+          "sheet": 2,
+          "primary": "A managed policy CLAUDE.md deployed to the managed location on every machine (/Library/Application Support/ClaudeCode/CLAUDE.md on macOS, /etc/claude-code/CLAUDE.md on Linux and WSL, C:\\Program Files\\ClaudeCode\\CLAUDE.md on Windows) through MDM, Group Policy or Ansible, carrying the data-handling reminders and the coding-style guidance. The inline equivalent is the claudeMd key inside managed-settings.json.",
+          "rejected_alternative": "A user-level ~/.claude/CLAUDE.md pushed to each machine. It reaches every repository too, but it is the developer's own file: they can edit it, delete it or exclude it, so the no-opt-out requirement fails.",
+          "enforcement_owner": "Split, and the split is the point: the harness guarantees the file loads first in every session and cannot be excluded, since claudeMdExcludes explicitly does not apply to managed policy CLAUDE.md. The content itself is behavioral guidance that the model may still fail to follow.",
+          "context_boundary": "Every session's main context on that machine, in every repository, ordered ahead of user and project CLAUDE.md, and also carried into non-fork subagents. Nothing crosses back out of the session.",
+          "lifecycle": "Applies from session start on any machine where the configuration management system has placed the file, and changes only when IT redeploys it. Individual user, project or local settings cannot switch it off or exclude it.",
+          "failure_mode": "Loading fails closed, adherence fails open. If a data-handling reminder must actually prevent something, such as reading a secrets path or reaching an external endpoint, it needs managed permissions.deny rules, sandbox settings or a PreToolUse hook; the managed CLAUDE.md alone is guidance, and its adherence degrades as it grows the same way any long instructions file does.",
+          "version_caveat": "The claudeMd key is honored only in managed and policy settings and is ignored in user, project or local settings. On Windows with WSL, the Windows policy chain is inherited only when wslInheritsWindowsSettings is true, otherwise WSL sessions read /etc/claude-code instead and would miss a Windows-only deployment."
+        },
+        {
+          "sheet": 3,
+          "primary": "A managed-policy CLAUDE.md deployed to the operating system policy location on every machine through MDM or Group Policy, or the same text carried in the claudeMd key of managed-settings.json, holding the data-handling reminders and the coding-style guidance.",
+          "rejected_alternative": "A user-scope ~/.claude/CLAUDE.md pushed out by configuration management. It reaches every repository on the machine, but it sits in a file the developer owns and can edit, delete, or exclude, so opting out is trivial and undetectable.",
+          "enforcement_owner": "Split, and only the delivery half belongs to the harness: the client guarantees the managed file loads and cannot be excluded by individual settings, while the model owns whether the reminders change what actually happens in a session.",
+          "context_boundary": "The main session context window, loaded first among the instruction files, in every session on the machine and in every repository. It is paid for in every session whether or not the reminders are relevant to the work.",
+          "lifecycle": "Loads at the start of every session on the machine, in every repository, ahead of user and project instructions, and applies for that whole session. It stops applying only when an administrator changes or removes the policy file or the managed settings key.",
+          "failure_mode": "Fails closed on loading, since individual settings cannot exclude it, but advisory on outcome: nothing verifies that a session honoured a data-handling reminder, and piling text onto an always-on preamble tends to reduce adherence rather than raise it. Anything that must actually be blocked belongs in managed settings rules, not in this file.",
+          "version_caveat": "The documentation mirror states no version gate, experimental status, or plan restriction for a managed CLAUDE.md; the real prerequisite is administrative, namely the ability to write the policy path or the managed settings file on every developer machine, which is also what makes the no-opt-out property hold."
+        },
+        {
+          "sheet": 4,
+          "primary": "Enterprise managed policy settings deployed by MDM (the managed-settings.json administered at the machine-wide policy path, for example under ProgramData on Windows or the system-level application-support path on macOS and Linux), pointing at an admin-owned instruction file or a SessionStart hook that injects the reminders. Managed policy is the only scope that user and project settings cannot override, which is what makes opt-out impossible.",
+          "rejected_alternative": "A user-level ~/.claude/CLAUDE.md rolled out by script, rejected because it lives in a location developers own and can edit or delete, so the no-opt-out requirement fails the first time someone finds it inconvenient.",
+          "enforcement_owner": "The harness owns loading: the policy is applied regardless of what the developer configures. The model still owns whether the data-handling reminders are actually followed, so the guarantee is about presence, not compliance.",
+          "context_boundary": "Every session on every managed machine and every repository, at session start. The reminder text crosses into each session's context window and is charged on every request, so the text must be short.",
+          "lifecycle": "Applies at session start for as long as the MDM policy is in place, updates when the policy is redeployed, and stops only when the security organization changes or withdraws it. Developers have no lifecycle control over it.",
+          "failure_mode": "Loading fails closed, adherence fails open: the reminders always arrive but remain advisory prose the model can drift from, particularly after compaction on a long session. Two practical hazards are that a policy file that is malformed or at the wrong path silently does nothing (so verify on a representative machine rather than assuming), and that always-on text on every session is the most expensive place to put anything, which pushes toward a few lines of policy plus hooks for the rules that must actually be enforced.",
+          "version_caveat": "Managed settings and their precedence over user and project settings are an enterprise-oriented feature whose file paths, supported keys and version requirement I cannot state exactly from memory, and whether hooks declared in managed settings are honored is specifically worth verifying. Confirm the path and the supported schema for the installed version and for each operating system in the fleet before relying on it; there may also be a plan or deployment-tier condition attached."
+        }
+      ]
+    },
+    {
+      "id": "S024",
+      "focus": "delegation",
+      "scenario": "We ship an internal deployment CLI, a compiled binary with many subcommands. Whenever our shared toolkit is active, Claude should be able to run it as a bare command inside ordinary shell pipelines, composing it with grep and jq across every project, without anyone editing their PATH.",
+      "key": {
+        "primary": "Ship the binary in the plugin's bin/ directory, which is added to the Bash tool's PATH while the plugin is enabled",
+        "rejected_alternative": "Wrap the CLI in a stdio MCP server that exposes each subcommand as a separate MCP tool",
+        "rejection_reason": "MCP tools have fixed input schemas and their results flow through MCP output limits, so they cannot participate in shell pipelines or compose with other commands. The plugin bin/ directory exists precisely for this: files there are invokable as bare commands in any Bash tool call while the plugin is enabled, keeping normal CLI ergonomics.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context",
+        "lifecycle": "executables are on the Bash tool's PATH whenever the plugin is enabled; invocation happens through ordinary Bash tool calls under the normal permission flow",
+        "failure_mode": "no structured schema constrains usage, so the model can misuse flags a typed tool would have prevented, and the command vanishes from PATH the moment the plugin is disabled, breaking workflows that assumed it",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A plugin bin/ directory: ship the compiled deployment binary, or a thin wrapper that execs it, as an executable file in the shared toolkit plugin's bin/, installed at user scope. Claude Code puts that directory on the Bash tool's PATH, so the CLI is a bare command composable with grep and jq in any project.",
+          "rejected_alternative": "An MCP server wrapping each subcommand as a tool. It loses because MCP tool calls are not shell commands, so the binary could never be piped into grep or jq inside an ordinary Bash pipeline.",
+          "enforcement_owner": "The harness. Claude Code adds the plugin's bin/ to the PATH of every Bash tool call while the plugin is enabled; the model simply types the command name.",
+          "context_boundary": "The binary runs in the Bash tool's subprocess, outside the model's context. Only its stdout and stderr, as the Bash tool truncates them, cross back into the session context window.",
+          "lifecycle": "It applies for the whole of every session in which the plugin is enabled, in every project, and stops the moment the plugin is disabled or uninstalled.",
+          "failure_mode": "Fails open at the shell level: if the plugin is disabled, the file lacks the executable bit, or the shipped binary is wrong for the host platform, the bare command reports command not found or an exec error and Claude may improvise a different route. A wrapper that reaches outside the plugin root also breaks, because paths traversing outside the plugin directory are not copied into the plugin cache.",
+          "version_caveat": "The mirror documents bin/ with no minimum version marker, so the real gate is enablement rather than a release: shipping the toolkit disabled by default via defaultEnabled requires v2.1.154 or later, and earlier versions enable it on install regardless."
+        },
+        {
+          "sheet": 2,
+          "primary": "Ship the binary inside the plugin and have the plugin put its executable directory on the PATH used for Bash tool invocations, so the CLI resolves as a bare command name in ordinary pipelines. Where the installed version does not contribute PATH automatically, the equivalent is the plugin shipping a settings fragment or a SessionStart hook that prepends the plugin root's bin directory to PATH for the session.",
+          "rejected_alternative": "An MCP server wrapping each subcommand as a discrete tool. Rejected because it defeats the actual requirement: MCP tool results come back as structured payloads to the model, so the CLI can no longer be composed with grep and jq inside a single shell pipeline, and a many-subcommand binary would flood the tool list.",
+          "enforcement_owner": "The harness. It constructs the environment that the Bash tool inherits, so PATH contribution is a harness-level fact; the model just types a command name and either it resolves or it does not.",
+          "context_boundary": "The binary runs as a normal subprocess of the Bash tool, in the session's shell environment and not in the model's window. Only the command's stdout and stderr cross back, which is exactly why pipeline composition with grep and jq is valuable: filtering happens before anything reaches the context.",
+          "lifecycle": "It applies for the duration of any session in which the toolkit plugin is enabled, from the point the environment is constructed at session start. It stops when the plugin is disabled or uninstalled, and it does not survive into shells the harness did not spawn.",
+          "failure_mode": "Fails open and confusingly. If the PATH contribution does not take, the model gets a plain command not found and will usually improvise around it, often by inventing an absolute path or a different tool, rather than reporting the misconfiguration. A second trap is permission rules: allow entries written against the bare command name will not match if the model falls back to invoking the binary by absolute path, so it prompts on every call.",
+          "version_caveat": "I am not confident that plugins expose an automatic PATH contribution for bundled executables in the installed version, and I will not invent a manifest field name for it. The dependable fallback that I can vouch for conceptually is exporting PATH from a session-start hook or settings environment block using the plugin root variable; the binary must also be shipped per platform or fetched at install time, since a compiled binary is not portable across macOS, Linux and Windows."
+        },
+        {
+          "sheet": 3,
+          "primary": "The plugin bin/ component: put the compiled deployment binary (or a thin wrapper that execs it) in bin/ at the plugin root of the shared toolkit. While the plugin is enabled its bin/ contents are added to the Bash tool's PATH, so Claude invokes it as a bare command inside ordinary pipelines with grep and jq, in any project, with no user PATH edits.",
+          "rejected_alternative": "An MCP server wrapping the CLI's subcommands as tools. It loses because MCP tool results cannot be piped into grep or jq inside a single shell command, and it would demand a hand-written schema per subcommand for a binary that already has a fine command-line interface.",
+          "enforcement_owner": "The harness. Claude Code injects the directory into the Bash tool's PATH when the plugin is enabled; the model merely types a command name, and whether that command is permitted to run is then decided by the permission rules and any PreToolUse hook.",
+          "context_boundary": "Main session context, and cheaply so: nothing about the binary is preloaded except the plugin's listing text. Command output enters the main window exactly like any other Bash result, so the pipeline itself controls how much crosses the boundary.",
+          "lifecycle": "It applies from the moment the plugin is enabled, for every Bash tool call in that session, and stops the moment the plugin is disabled or uninstalled. Nothing triggers it per se; the PATH entry is simply present or absent.",
+          "failure_mode": "Fails open with a plain shell error rather than a policy block: if the file is not executable, the shebang is wrong, or the plugin is disabled, the pipeline dies with command not found and the model is free to improvise a fallback path. Hard-coding an absolute path instead of relying on PATH breaks on the next update, because the plugin's installation directory changes each version.",
+          "version_caveat": "No version gate is documented for bin/ itself; the applicable gate is distribution: from Claude Code v2.1.195 every path that loads plugins asks each user to install and trust the plugin before it runs, so the binary reaches nobody who has not accepted that prompt."
+        },
+        {
+          "sheet": 4,
+          "primary": "A plugin, using its `bin/` directory. Executables placed in `bin/` at the plugin root are added to the Bash tool's `PATH` while the plugin is enabled, so the deployment CLI is invokable as a bare command in any Bash tool call and composes normally with `grep` and `jq` in a pipeline. Ship the binary in the existing shared toolkit plugin and install that plugin at user scope so it applies across every project.",
+          "rejected_alternative": "Wrapping the CLI in a bundled MCP server that exposes each subcommand as a tool. That gives Claude typed access but destroys the actual requirement: MCP tool results come back as tool output, not as a process in a shell pipeline, so the binary can never be composed with `grep` and `jq` in a single Bash invocation.",
+          "enforcement_owner": "The harness. Claude Code is what prepends the plugin's `bin/` to the Bash tool's `PATH` for the lifetime of the plugin being enabled. The model just writes an ordinary command line and does not need to know where the binary lives.",
+          "context_boundary": "Essentially nothing extra crosses the boundary. The binary lives on disk in the plugin cache and executes in the Bash tool's subprocess; only the command's stdout/stderr enters the conversation, the same as any other shell command. There is no schema, no description, and no per-session token cost, which is the main advantage over the MCP framing.",
+          "lifecycle": "The `PATH` entry exists for every Bash tool call in any session where the plugin is enabled, and disappears when the plugin is disabled or uninstalled. It is not tied to a project, a prompt, or a skill invocation. On a plugin update the executable moves to a new `${CLAUDE_PLUGIN_ROOT}`; the previous version directory lingers about 14 days before cleanup.",
+          "failure_mode": "Fails open and silently. The `PATH` injection covers only the Bash tool, not the engineer's own interactive shell, so a person reproducing Claude's command by hand gets `command not found` and concludes the toolkit is broken. Because it is a compiled binary, the plugin has to carry a build matching each user's OS and architecture or the bare command dies at exec time with no configuration error to point at. Permission rules still apply independently: without a `Bash(<tool>:*)` allow rule every invocation prompts.",
+          "version_caveat": "The mirrored documentation lists `bin/` in the plugin directory structure and file-locations table but states no minimum Claude Code version, no experimental flag, and no plan restriction for it, so I cannot confirm a version gate from the permitted inputs. The one documented scoping limit is that the `PATH` addition applies to the Bash tool only and only while the plugin is enabled."
+        }
+      ]
+    },
+    {
+      "id": "S030",
+      "focus": "delegation",
+      "scenario": "Our distributed toolkit needs npm dependencies installed on each user's machine at first run, and those installed modules must keep working after the toolkit updates instead of being stranded or wiped when a new version lands.",
+      "key": {
+        "primary": "Install into ${CLAUDE_PLUGIN_DATA}, the persistent per-plugin data directory under ~/.claude/plugins/data/, via a SessionStart hook that diffs the bundled package.json against a stored copy and reinstalls when they differ",
+        "rejected_alternative": "Run npm install into ${CLAUDE_PLUGIN_ROOT} on first run and point the bundled server at that node_modules",
+        "rejection_reason": "The plugin root is the versioned cache directory: its path changes on every update and the previous version's directory is removed about two weeks later, so the docs say to treat it as ephemeral and not write state there. ${CLAUDE_PLUGIN_DATA} is documented for exactly this: installed dependencies such as node_modules or Python virtual environments that survive plugin updates and are deleted only on uninstall from the last scope (unless --keep-data).",
+        "enforcement_owner": "harness",
+        "context_boundary": "the install work itself runs in shell processes outside any context window, writing dependencies to the persistent per-plugin data directory; the one boundary crossing to watch is that SessionStart hook stdout is added as context Claude can see, so a noisy npm install leaks into the main context unless the script silences its output",
+        "lifecycle": "the data directory is created on first reference, survives every plugin update, and is deleted when the plugin is uninstalled from its last scope; the install hook fires at SessionStart",
+        "failure_mode": "because the directory outlives versions, a bare existence check misses updates that change the dependency manifest; skipping the documented manifest-diff pattern leaves users running new plugin code against stale dependencies",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A `SessionStart` hook in the plugin that installs into the persistent data directory: it diffs the bundled `${CLAUDE_PLUGIN_ROOT}/package.json` against a stored copy in `${CLAUDE_PLUGIN_DATA}` and, when they differ, copies the manifest and runs `npm install` there. Plugin scripts and MCP servers then point at the persisted tree, for example `\"env\": { \"NODE_PATH\": \"${CLAUDE_PLUGIN_DATA}/node_modules\" }`. `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/{id}/` and survives plugin updates by design.",
+          "rejected_alternative": "Installing `node_modules` into `${CLAUDE_PLUGIN_ROOT}` at first run. That path changes on every plugin update, so the modules are stranded with the old version directory, which is marked orphaned and cleaned up about 14 days later. The docs say plainly to treat it as ephemeral and not write state there.",
+          "enforcement_owner": "The harness. Claude Code fires `SessionStart` and runs the hook command as a subprocess with `CLAUDE_PLUGIN_ROOT` and `CLAUDE_PLUGIN_DATA` exported. The model is not involved in the install and should not be asked to run it.",
+          "context_boundary": "Outside the conversation. The hook runs in its own process and nothing crosses into context unless the hook deliberately prints text back, which this one should not; keep it quiet so a routine npm install does not consume session context. The installed modules live under the user's `~/.claude/plugins/data/`, not in the repository or the plugin cache.",
+          "lifecycle": "Fires at every session start, including on `--continue`/`--resume` with `source` set to `resume` (or `fork`). The manifest diff makes it a cheap no-op after the first successful install and a real reinstall only when a plugin update ships a changed `package.json`. The data directory is deleted when the plugin is uninstalled from the last scope where it is installed, unless `--keep-data` is passed; the `/plugin` interface shows its size and prompts before deleting.",
+          "failure_mode": "Fails open and quietly. A failed `npm install` (offline machine, proxy, private registry auth) leaves the modules missing and the failure only surfaces later, when a plugin script or MCP server dies on a missing require. The trailing `rm -f \"${CLAUDE_PLUGIN_DATA}/package.json\"` in the documented command is load-bearing: it removes the copied manifest so the next session retries instead of believing the install succeeded. A directory-existence check alone is the wrong test, because the data directory outlives every plugin version and so cannot detect a changed dependency manifest.",
+          "version_caveat": "Do not rely on the `Setup` hook for this: it only fires with `--init-only`, or with `--init`/`--maintenance` in `-p` mode, so it does not run on ordinary launches. `${CLAUDE_PLUGIN_DATA}` is created on first reference. When a plugin updates mid-session, hooks and MCP servers keep using the previous version's path until `/reload-plugins`. The mirrored documentation states no minimum Claude Code version for `${CLAUDE_PLUGIN_DATA}` or the persistent data directory, so I cannot confirm a version gate from the permitted inputs."
+        },
+        {
+          "sheet": 2,
+          "primary": "A SessionStart hook bundled in the toolkit plugin that installs into ${CLAUDE_PLUGIN_DATA}: diff the bundled package.json against the copy in the data directory, and on any difference copy it and run npm install there. Runtime components then point at it, for example NODE_PATH set to ${CLAUDE_PLUGIN_DATA}/node_modules, because that directory survives plugin updates while ${CLAUDE_PLUGIN_ROOT} does not.",
+          "rejected_alternative": "A Setup hook. It loses because Setup fires only under --init-only, or --init and --maintenance with -p, and never on normal startup, so an ordinary first session would find no modules installed.",
+          "enforcement_owner": "The harness. The SessionStart hook is a shell command executed at a fixed lifecycle event regardless of what the model decides, so the bootstrap is not something Claude can skip or forget.",
+          "context_boundary": "The install runs in a separate hook process with the plugin path variables exported to it, not in the model's context. Nothing but the hook's own stdout, if any, crosses into the session, so a large npm install costs no tokens.",
+          "lifecycle": "It fires at every SessionStart and is a no-op after the first successful install, because the diff exits nonzero only when the stored manifest is missing or differs from the bundled one, which covers both first run and a dependency-changing update. It stops applying when the plugin is disabled or uninstalled.",
+          "failure_mode": "Fails open. A failed npm install does not stop the session; the trailing rm deletes the copied manifest so the next session retries, and in the meantime the toolkit runs against missing modules. A directory-existence check instead of a manifest diff is the classic bug: it looks installed forever and never notices an update that changed dependencies.",
+          "version_caveat": "No version gate is documented for ${CLAUDE_PLUGIN_DATA} itself; the flag that matters is --keep-data, because uninstalling from the last remaining scope deletes the data directory and its node_modules by default. Note also that a plugin updating mid-session keeps the previous version's paths until /reload-plugins."
+        },
+        {
+          "sheet": 3,
+          "primary": "A plugin-shipped SessionStart hook that performs an idempotent first-run install into a stable location keyed to the toolkit's identity rather than to its version or install path, for example a directory under the user's Claude configuration named for the plugin, and skips instantly when a marker matching the current lockfile hash is already present. The location choice is the whole answer: anything installed inside the plugin's own directory is replaceable on update.",
+          "rejected_alternative": "Vendoring node_modules into the distributed plugin repository. Rejected because it bloats every clone of the marketplace, still lives inside the directory an update replaces, and ships platform-specific native binaries that break on a teammate's different OS or Node version.",
+          "enforcement_owner": "The harness fires the hook on schedule; the install script owns idempotency, the storage location, and the decision to reinstall. The model owns nothing and should not be asked to run installs itself.",
+          "context_boundary": "The install runs as a subprocess with no model context. Only a short status line should be injected into the session window; piping full npm output into the context is a real and common waste, so the script should be quiet on success and verbose only on failure.",
+          "lifecycle": "It runs at every session start, no-ops when the marker matches, and does real work on the first run after installation and on any toolkit update that changes the dependency manifest. It stops applying when the plugin is disabled, and the installed tree should then be pruned rather than left behind.",
+          "failure_mode": "Fails open and slowly. A first-run install delays session start by however long npm takes, and on an offline or proxied machine it fails while the session proceeds regardless, so the breakage surfaces much later as an opaque module-not-found from whatever tool needed it. Keying the directory to a version instead of the toolkit name produces the stranding the requirement names, an orphaned tree per release; keying it to the plugin directory produces the wipe. Concurrent sessions starting together can also race on the same install, so a lock file is needed.",
+          "version_caveat": "SessionStart hooks and a plugin-root environment variable exist in current Claude Code, but I do not know of a native declarative dependency-install lifecycle for plugins, and I will not invent a manifest field for one. If the installed version has such a hook contract it should be preferred over a hand-rolled script; absent that, the idempotent session-start installer with an out-of-tree target directory is the mechanism I would commit to."
+        },
+        {
+          "sheet": 4,
+          "primary": "A SessionStart hook in the plugin that installs into ${CLAUDE_PLUGIN_DATA}: compare the bundled package.json against a copy kept in the persistent data directory and run npm install there when they differ, then point the plugin's scripts at the result with NODE_PATH.",
+          "rejected_alternative": "A Setup hook. It loses because Setup fires only with --init-only, or with --init or --maintenance under -p, and never on a normal launch, so first run in an ordinary session would find no modules installed.",
+          "enforcement_owner": "The harness runs the hook at session start, but correctness of the install-if-changed logic belongs to the plugin author; Claude Code does not manage plugin dependencies itself.",
+          "context_boundary": "The install runs in a hook subprocess outside the model's context, and nothing but hook output crosses into the session. The modules live in ~/.claude/plugins/data/<id>/ rather than in the versioned plugin cache directory.",
+          "lifecycle": "It runs on every session start, doing real work only on the first run and after an update that changed package.json. The data directory outlives plugin updates and is removed when the plugin is uninstalled from its last remaining scope.",
+          "failure_mode": "Fails open but self-healing: a failed npm install deletes the copied manifest so the next session retries, yet until then the plugin's scripts run against missing modules. The trap to avoid is writing state under ${CLAUDE_PLUGIN_ROOT}, which changes on every update and is cleaned up roughly two weeks later.",
+          "version_caveat": "The mirror states no minimum version for ${CLAUDE_PLUGIN_DATA}, so the operative gate is a flag rather than a release: the data directory is deleted by default when the plugin is uninstalled from its last scope unless --keep-data is passed, and a mid-session update keeps hooks on the old plugin root until /reload-plugins."
+        }
+      ]
+    },
+    {
+      "id": "S033",
+      "focus": "orchestration",
+      "scenario": "Mid-session I have a quick conceptual question about code we already walked through together. The answer should draw on everything discussed so far, needs no new file reads or commands, and neither the question nor the answer should take up room in the ongoing conversation history.",
+      "key": {
+        "primary": "/btw side question: it sees the full conversation context, has no tool access, and the answer is discarded rather than added to history.",
+        "rejected_alternative": "Spawn a subagent to answer the question.",
+        "rejection_reason": "A subagent starts with a fresh, isolated context and does not see the conversation history, so it lacks exactly the shared context the question depends on, and its result returns into the main conversation history. The sub-agents doc explicitly recommends /btw over a subagent for a quick question about something already in your conversation.",
+        "enforcement_owner": "harness",
+        "context_boundary": "main context (full visibility, no tools, answer discarded from history)",
+        "lifecycle": "explicit invocation with /btw followed by the question",
+        "failure_mode": "No tool access means any question that actually needs a fresh file read or command cannot be answered; and because the exchange is discarded, you cannot build on the answer in later turns without restating it.",
+        "version_caveat": "none for /btw itself; reopening the overlay with a bare /btw requires v2.1.212 or later (before that it printed a usage message), and Left/Right stepping through earlier answers requires v2.1.187 or later"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "The built-in /btw side question, not an extension mechanism at all: type /btw followed by the question and the answer appears in a dismissible overlay that sees the whole session.",
+          "rejected_alternative": "A forked subagent started with /subtask. It also inherits the full conversation, but its result arrives as a message in the main conversation and it spends a subagent slot, which is precisely the cost you asked to avoid.",
+          "enforcement_owner": "The harness. Claude Code runs the side question against the existing context with no tools and keeps the exchange out of the transcript; the model cannot opt into writing it back.",
+          "context_boundary": "It runs against your full current conversation, reusing the parent prompt cache, and nothing crosses back: question and answer live only in the overlay and are discarded rather than appended to history.",
+          "lifecycle": "It runs the moment you submit /btw, even while Claude is mid-turn, and it stops at a single response with no follow-up turns; dismissing the overlay ends it, and a bare /btw reopens the most recent exchange.",
+          "failure_mode": "Fails closed on capability rather than silently: with no tool access it can only answer from what is already in context, so a question needing a file read or command returns nothing useful, and there is no follow-up turn to repair a partial answer.",
+          "version_caveat": "Reopening the overlay by running /btw with no question requires v2.1.212, since earlier versions printed a usage message, and stepping between earlier side answers with Left and Right requires v2.1.187 or later."
+        },
+        {
+          "sheet": 2,
+          "primary": "The built-in /btw side question in interactive mode: type /btw followed by the question and the answer appears in a dismissible overlay. It is the designed inverse of a subagent, full conversation visibility with no tools.",
+          "rejected_alternative": "A forked subagent via /subtask, which also inherits the whole conversation but returns its result as a real message into the main transcript, which is exactly the context cost you are trying to avoid.",
+          "enforcement_owner": "Harness. The harness runs the side question outside the transcript, denies it tool access, and discards the exchange; nothing here is left to the model's discretion.",
+          "context_boundary": "Everything in the current conversation is visible going in; nothing comes out. The question and answer live only in the overlay and never enter conversation history, and the call reuses the parent conversation's prompt cache so the marginal cost is small.",
+          "lifecycle": "Fires on /btw with a question, including while Claude is mid-turn on other work, returns a single response with no follow-up turns, and stops applying when you dismiss the overlay with Space, Enter or Escape. Earlier side questions stay listed in the overlay until cleared with x.",
+          "failure_mode": "Fails closed on capability: no file reads, no commands, no search, so a question that actually needs new information gets answered from stale context and can be confidently wrong. The escape hatch is pressing f to fork the exchange into a real session with full tool access.",
+          "version_caveat": "Requires an interactive session; there is no /btw in headless or SDK use. /btw with no argument reopens the most recent overlay as of v2.1.212 (earlier it printed usage), Left/Right stepping through earlier answers needs v2.1.187, and forking with f is available in local sessions only."
+        },
+        {
+          "sheet": 3,
+          "primary": "No new extension mechanism: the built-in /btw side question. The harness answers from the conversation already in context, shows the answer in a dismissible overlay, and discards it, which is precisely the requested shape.",
+          "rejected_alternative": "A conversation fork with /subtask. It also sees the whole conversation, but its result comes back as a message in the main conversation, so the answer would occupy the history you wanted to keep free.",
+          "enforcement_owner": "The harness. Ephemerality and the absence of tools are properties of the /btw path itself, not instructions the model is asked to respect, so nothing depends on the model choosing to stay brief or to avoid reading files.",
+          "context_boundary": "The side question runs against the parent conversation's full context and reuses its prompt cache, but nothing crosses back into the transcript. The only way to keep an answer is pressing f to fork it into a new session, where it becomes real transcript turns.",
+          "lifecycle": "Fires on the explicit /btw command, including while Claude is mid-turn on something else, and is over as soon as the single answer is dismissed. There are no follow-up turns inside the overlay.",
+          "failure_mode": "Fails closed toward context-only answers: with no tool access it cannot verify anything, so if the question actually needed a fresh file read the result is a confident answer from stale context. It also cannot be continued in place.",
+          "version_caveat": "The mirror documents no minimum version for /btw itself. Stepping back through earlier answers requires v2.1.187 or later, and before v2.1.212 running /btw with no question printed a usage message instead of reopening the overlay."
+        },
+        {
+          "sheet": 4,
+          "primary": "Not a subagent: this belongs to a forked or ephemeral side conversation of the current session (the Agent SDK exposes this as resuming a session with a fork), because only a fork starts from the already accumulated context while leaving the parent transcript untouched.",
+          "rejected_alternative": "A subagent through the Task tool, rejected because a subagent begins with an empty context and would require the entire prior discussion to be re-serialized into its prompt, which is exactly the work this request rules out and would also cost the tokens it is trying to save.",
+          "enforcement_owner": "The harness. Whether a turn is appended to the parent transcript is a session-management property of the runtime, not something the model can choose to skip.",
+          "context_boundary": "The fork inherits a copy of the full session context; the question and its answer live only inside the fork, and nothing crosses back into the parent conversation unless the user deliberately restates it.",
+          "lifecycle": "Begins when the ephemeral question is asked and ends with its answer; the parent session then resumes at exactly the state it was in, with no growth in its history.",
+          "failure_mode": "If no fork mechanism is actually available, the question and answer simply land in the main history and the whole point is lost; and an answer that turns out to matter is not retrievable from the parent session afterwards. Advisory, and it fails open into ordinary context growth.",
+          "version_caveat": "I cannot confirm from model knowledge alone the exact name or the availability of an interactive-CLI ephemeral or sidechain question mode. A fork-on-resume option in the Agent SDK is the part I am more confident about, and I would check the installed version before relying on either."
+        }
+      ]
+    },
+    {
+      "id": "S039",
+      "focus": "orchestration",
+      "scenario": "Five investigators should chase competing root-cause theories for a flaky-connection bug in parallel, and they must be able to message each other directly to try to disprove each other's findings and converge through a shared work list, rather than each just reporting back to one coordinator.",
+      "key": {
+        "primary": "Agent teams: teammates are independent Claude Code sessions with their own context windows, direct inter-agent messaging via mailboxes, and a shared task list with claiming and dependencies.",
+        "rejected_alternative": "Spawning five parallel subagents from the main conversation.",
+        "rejection_reason": "Subagents only report results back to the calling agent and never talk to each other, so the adversarial cross-challenge and self-coordination the scenario requires is structurally impossible; the docs' comparison table says to use teams when workers need to share findings, challenge each other, and coordinate on their own.",
+        "enforcement_owner": "harness",
+        "context_boundary": "independent sessions",
+        "lifecycle": "team forms when the first teammate is spawned after the user requests or approves it; teammates live for the session and shut down via shutdown requests or session end",
+        "failure_mode": "Token cost scales linearly per teammate; /resume does not restore in-process teammates; task status can lag and block dependents; two teammates editing the same file overwrite each other.",
+        "version_caveat": "experimental and disabled by default; gated by CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in settings.json or the environment"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "An agent team: spawn five teammates as independent Claude Code sessions, one per hypothesis, prompted to message each other and try to disprove each other's theories, converging through the shared task list with the main session as lead.",
+          "rejected_alternative": "Subagents. They run inside one session and report results only to the main agent, so five investigators would become five reports read by one coordinator with no peer challenge between them.",
+          "enforcement_owner": "The model. The lead coordinates, assigns and synthesizes in natural language and teammates self-claim work; the harness only supplies the mailbox files, the shared task list and the file lock that makes claiming race-free.",
+          "context_boundary": "Each teammate has its own context window and loads CLAUDE.md, MCP servers and skills like a normal session, but not the lead's conversation history, so the bug details must be in the spawn prompt. Peer messages and task-list entries are what cross between them.",
+          "lifecycle": "The team forms when the first teammate is spawned, with the main session fixed as lead for its lifetime. It ends on shutdown requests or when the session exits, at which point the shared team directory is cleaned up automatically while the task list persists.",
+          "failure_mode": "Advisory throughout, and it stalls rather than blocking: teammates sometimes fail to mark tasks complete and block dependents, the lead can declare the work finished early, and token cost scales linearly with five separate sessions. /resume does not restore in-process teammates.",
+          "version_caveat": "Experimental and disabled by default: it needs CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in settings.json or the environment. The implicit spawn-and-cleanup lifecycle described here is v2.1.178 and later; older builds used the removed TeamCreate and TeamDelete tools. One team per session, no nesting."
+        },
+        {
+          "sheet": 2,
+          "primary": "An agent team: one lead session spawns five teammates, each with its own hypothesis, sharing a task list and messaging each other by name to attack each other's theories. This is the documented competing-hypotheses pattern.",
+          "rejected_alternative": "Five parallel subagents. They lose on the one requirement that defines this scenario: subagents report only to the agent that spawned them and cannot message each other, so every disproof attempt would have to be relayed through a single coordinator.",
+          "enforcement_owner": "The model. The lead assigns and synthesizes and the teammates decide what to claim, challenge and conclude; the harness only supplies the messaging, the shared task list and the permission checks.",
+          "context_boundary": "Each teammate is a full session with its own context window that loads CLAUDE.md, MCP servers and skills but not the lead's conversation history. What crosses is the spawn prompt, direct messages between named teammates, and shared task state.",
+          "lifecycle": "Teammates start when the lead spawns them, which requires the experiment variable set at session start, and they run until shut down or the session exits; shutdown waits for the current request or tool call, and cleanup happens automatically when the session ends.",
+          "failure_mode": "Experimental and fails messy rather than open or closed: task status lags when a teammate forgets to mark work complete and blocks dependent tasks, teammates are not worktree-isolated so a shared findings file invites conflicts, /resume does not restore them, and token cost scales linearly with five parallel contexts.",
+          "version_caveat": "Agent teams are experimental and disabled by default; nothing happens unless CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is set to 1 in settings.json or the environment. The documented behaviour is as of v2.1.178, and split-pane display additionally needs tmux or iTerm2."
+        },
+        {
+          "sheet": 3,
+          "primary": "An agent team: your session becomes the lead and spawns five teammates, each a full independent Claude Code session with its own context window, working a shared task list and messaging one another by name to try to disprove each other's theories. Ask for it explicitly and give each teammate a distinct hypothesis in the spawn prompt.",
+          "rejected_alternative": "Five parallel subagents. They get independent context too, but they report only back to the main agent and cannot message each other, so the adversarial cross-checking and shared work list you specified never happen.",
+          "enforcement_owner": "Model. The lead decides assignment, approves plans and synthesizes turn by turn, and teammates self-claim tasks; the harness only supplies the mailbox files, the file-locked task list, and hook events (TeammateIdle, TaskCreated, TaskCompleted) you can exit 2 from to gate quality.",
+          "context_boundary": "Each teammate loads project context like a normal session (CLAUDE.md, MCP servers, skills) plus the lead's spawn prompt; the lead's conversation history does not carry over. What crosses between agents is mailbox messages and task-list state, never context, so anything a teammate must know goes in its spawn prompt or a message.",
+          "lifecycle": "The team forms when the first teammate spawns and lives for that session. Teammates end on a shutdown request they can approve or reject, or when the session exits; team config directories are removed then while the task list persists locally under cleanupPeriodDays.",
+          "failure_mode": "Advisory throughout. Claude sometimes spawns plain subagents instead of a team even when asked, teammates fail to mark tasks complete and block dependents, and the lead can declare the investigation finished early or start doing the work itself. Teammates are not isolated in worktrees, so two of them writing the same findings file overwrite each other. Token cost scales linearly with teammate count.",
+          "version_caveat": "Experimental and disabled by default: set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 in settings.json or the environment or nothing spawns. Documented behavior is as of v2.1.178, where TeamCreate and TeamDelete no longer exist and team_name on the Agent tool is ignored. Known limits: no session resumption for in-process teammates, no nested teams, permissions fixed at spawn from the lead, and split panes require tmux or iTerm2."
+        },
+        {
+          "sheet": 4,
+          "primary": "An agent team: five peer investigators, each with its own context window, sharing a common work list and able to message each other directly under a lead rather than fanning out from a dispatcher.",
+          "rejected_alternative": "Five parallel Task subagents, rejected because that topology is strictly hub and spoke: the workers cannot see or address each other and can only report back to the dispatcher, so no cross-examination or convergence is possible.",
+          "enforcement_owner": "The harness owns the topology, meaning the message channel, the shared work list and the separate windows. The model owns whether the investigators genuinely try to disprove one another instead of agreeing early.",
+          "context_boundary": "Each investigator reasons in its own window; what crosses between them are the messages they send and the entries they write to the shared work list, plus whatever is surfaced to the lead and then to the user.",
+          "lifecycle": "Starts when the team is launched for this specific flaky-connection bug and ends when it converges or is disbanded; it is not a standing configuration that survives the investigation.",
+          "failure_mode": "Cost and noise: five windows plus message traffic multiply token spend sharply, and teams tend either to converge prematurely on the first plausible theory or to loop exchanging messages without resolving. Coordination is advisory end to end, so it fails open into an inconclusive report.",
+          "version_caveat": "Multi-agent teams with peer-to-peer messaging are a much newer capability than plain subagents and I believe availability is version gated and possibly plan gated, but I cannot name the version, flag or plan from model knowledge and would confirm before promising it."
+        }
+      ]
+    },
+    {
+      "id": "S042",
+      "focus": "integration",
+      "scenario": "Our release runbook is about 400 lines of ordered steps plus two helper scripts. It is needed roughly once a week, and the team resents that every conversation pays a token cost for it even during unrelated work.",
+      "key": {
+        "primary": "An Agent Skill: a .claude/skills/release-runbook/SKILL.md with a description, the procedure in the body, and the scripts as supporting files",
+        "rejected_alternative": "Putting the runbook in the project CLAUDE.md (or an @-import from it)",
+        "rejection_reason": "CLAUDE.md and its imports load in full at the start of every session; the skills doc says to create a skill 'when a section of CLAUDE.md has grown into a procedure rather than a fact' because 'a skill's body loads only when it's used, so long reference material costs almost nothing until you need it.' Only the skill's description sits in context until invocation.",
+        "enforcement_owner": "model",
+        "context_boundary": "main context",
+        "lifecycle": "Description is always listed to the model; full body loads when the model matches it to the task or the user types /release-runbook",
+        "failure_mode": "Advisory at every step: auto-invocation rides on description matching, so weak keywords mean the runbook never loads and a release proceeds without it; once invoked the body is ordinary context the model can drift from, with the docs prescribing stronger descriptions or hooks to enforce behavior deterministically; after compaction a large skill needs re-invoking to restore the full content.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "An Agent Skill in .claude/skills/release/, with the ordered steps in SKILL.md and the two helper scripts sitting beside it as files the skill tells the model to execute. Only the skill name and description stay resident in context; the 400 lines load on demand when the release is actually happening.",
+          "rejected_alternative": "Putting the runbook in CLAUDE.md, rejected because CLAUDE.md is loaded into every session unconditionally, which is precisely the recurring token cost the team is complaining about.",
+          "enforcement_owner": "The model. It decides, from the description, whether the current work is a release, and it decides whether to follow the ordered steps once loaded.",
+          "context_boundary": "Main session context. The frontmatter description is the only permanently resident part; the SKILL.md body crosses in on invocation, and the helper scripts never need to enter context at all because they are run through Bash and only their output crosses back.",
+          "lifecycle": "Triggered when the model matches the current request against the skill description, or when a human invokes it explicitly. It stays loaded for the rest of that conversation and is gone on the next fresh session or after a context clear.",
+          "failure_mode": "Advisory and fails open: if the description is vague the model simply never loads the skill and improvises a release from memory, which is worse than a slightly expensive always-on runbook. Also, a 400-line body loaded mid-session can push out earlier working context, so split rarely-needed detail into referenced files rather than inlining everything.",
+          "version_caveat": "Agent Skills with progressive disclosure are a comparatively recent addition and the directory conventions for personal versus project skills have moved; I do not know the exact minimum version or whether any enabling setting is still required on the team's build, so confirm before relying on the on-demand loading behaviour."
+        },
+        {
+          "sheet": 2,
+          "primary": "A skill at .claude/skills/release/SKILL.md holding the ordered runbook, with the two helper scripts kept as supporting files in the same directory and referenced by path so they are executed rather than read into the prompt. A tight description plus when_to_use is all that stays resident; the 400 lines load only when the release is actually being run.",
+          "rejected_alternative": "CLAUDE.md or a project rules file. It loses because memory files are loaded at session start for every conversation, so the runbook would be paid for on every unrelated turn, which is precisely the cost the team is objecting to.",
+          "enforcement_owner": "The model. Nothing makes the runbook apply; Claude matches the request against the skill description and decides to load it, and the only lever on reliability is description wording plus the option to invoke /release by hand.",
+          "context_boundary": "Everything runs in the main session context. Only the skill name and description sit in the always-loaded listing; the rendered SKILL.md body crosses into the conversation on invocation and then stays. The helper scripts stay on disk and only their stdout crosses back.",
+          "lifecycle": "Triggered when Claude matches the description or when a human types /release. Once loaded, the rendered body persists for the rest of the session, is carried across auto-compaction within a token budget, and clears only on /clear or a new session.",
+          "failure_mode": "Advisory and fails open, in two directions. The skill may simply not trigger on a paraphrased request and the release proceeds without the runbook, with no signal that anything was skipped; and once loaded, the body is a recurring per-turn cost for the rest of that session, so a weekly release session ends up carrying it anyway. Description truncation makes non-triggering more likely as the skill count grows.",
+          "version_caveat": "No plan or flag gate applies to skills. Two version-dependent behaviours matter for the token argument: re-invocation dedup landed in v2.1.202, and before that every re-invocation appended another full copy of the body; and the /context Skills row only reports the budget-applied listing size as of v2.1.196."
+        },
+        {
+          "sheet": 3,
+          "primary": "A Skill at `.claude/skills/release/SKILL.md` holding the ordered procedure, with the two helper scripts as supporting files in the same directory and referenced by path from the skill body. Only the skill name and description sit in context until it is invoked or matched.",
+          "rejected_alternative": "CLAUDE.md. It loads into every session unconditionally, which is precisely the recurring token cost the team objects to during unrelated work.",
+          "enforcement_owner": "The model. Claude decides from the description whether the release procedure is relevant, and once the body is loaded it follows the steps as guidance; nothing in the harness enforces the order.",
+          "context_boundary": "The main session's context window. Before invocation only the name and description cross the boundary; on invocation the rendered SKILL.md body enters as one message and stays for the session. The helper scripts stay on disk and only their output crosses in.",
+          "lifecycle": "Loads when someone types the slash command or when Claude matches the description, then the rendered content persists for the rest of the session. It stops applying at `/clear`, in a new session, or when compaction drops it, in which case it must be re-invoked.",
+          "failure_mode": "Advisory, and it fails open in both directions: the skill can simply fail to fire on the one week it was needed, and once loaded the model can drift off the ordered steps. Non-firing gets likelier as the skill count grows, because the listing budget truncates descriptions and can strip the very keywords that would have matched.",
+          "version_caveat": "No version gate or flag on skills themselves. The build-dependent detail that bears on the token complaint is re-invocation: before v2.1.202 every re-invocation appended another full copy of the body, so an older build partly undoes the saving. Existing `.claude/commands/*.md` files keep working since custom commands merged into skills."
+        },
+        {
+          "sheet": 4,
+          "primary": "A skill: .claude/skills/release/SKILL.md holding a short ordered spine, with the bulk of the 400 lines split into supporting reference files the skill links to and loads only when needed, and the two helper scripts left as executables the skill tells Claude to run (referenced through ${CLAUDE_SKILL_DIR}) so their bodies never enter context at all. Only the skill's name and description are resident in an unrelated conversation; the full body loads on /release or when Claude matches the description.",
+          "rejected_alternative": "CLAUDE.md (or a .claude/rules/ file). Both load their full content at session start and are re-billed on every request, which is exactly the recurring cost the team is objecting to.",
+          "enforcement_owner": "The model. The harness guarantees only that the description is listed and that the rendered body is injected once the skill is invoked; whether Claude follows the 400 lines in order, and whether it picks the skill up at all when nobody types the command, is a model decision.",
+          "context_boundary": "Runs inline in the main session context. What crosses is the description (always, capped at 1,536 characters combined with when_to_use) and then the rendered SKILL.md as a single message on invocation; supporting reference files cross only when Claude reads them, and script bodies never cross because they are executed rather than loaded.",
+          "lifecycle": "Triggered by /release or by Claude matching the description to the task. Once invoked, the content stays in the conversation for the rest of the session and is not re-read on later turns, so it stops applying only when the session ends; after auto-compaction the most recent invocation is re-attached at up to 5,000 tokens within a 25,000-token shared budget.",
+          "failure_mode": "Advisory. The two realistic failures are non-triggering (a vague description means Claude never loads it during the weekly release and the team is back to pasting) and the inverse, that once loaded on release day the whole body is resident for every subsequent turn of that session, so the saving is across sessions rather than within one. Write the body as standing instructions rather than one-time steps, because Claude Code does not re-read the file mid-session.",
+          "version_caveat": "No plan gate or experimental flag. Re-invocation deduplication (a note instead of a second full copy) requires v2.1.202 or later; before that every re-invocation appended another copy, which reintroduces the cost complaint. ${CLAUDE_SKILL_DIR} substitution inside allowed-tools requires v2.1.129 or later and ${CLAUDE_PROJECT_DIR} requires v2.1.196, otherwise the helper-script rules stay literal and prompt. Adding disable-model-invocation: true drops the description cost to zero but gives up automatic loading."
+        }
+      ]
+    },
+    {
+      "id": "S053",
+      "focus": "crosscut",
+      "scenario": "Engineers kick off long agent runs and switch to other windows. They want an OS desktop alert the moment the run is blocked waiting for an approval or for input, without anyone watching the terminal.",
+      "key": {
+        "primary": "Notification hook, with matchers for notification types such as permission_prompt and idle_prompt, whose command fires the OS notifier",
+        "rejected_alternative": "A Stop hook that sends the alert when Claude finishes responding",
+        "rejection_reason": "Stop fires only when Claude ends its turn. A session blocked mid-turn on a permission prompt has not stopped, so a Stop-based alert never fires at the moment attention is actually needed. Notification is the documented event for permission prompts and idle waiting, and the hooks guide's first walkthrough is exactly this desktop-alert use case.",
+        "enforcement_owner": "harness",
+        "context_boundary": "no context window (the notifier is a pure side-effect command fired on the Notification event); nothing crosses back into the conversation: the event supports no decision control, and even blocking stderr is shown to the user only, never to Claude",
+        "lifecycle": "Notification event fires whenever Claude Code sends a notification; the matcher selects types like permission_prompt or idle_prompt",
+        "failure_mode": "Notification hook output and exit code are ignored by design, so a broken notifier command fails completely silently: no alert and no surfaced error.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "A Notification hook with matcher permission_prompt, plus idle_prompt and agent_needs_input for background runs, whose command handler returns terminalSequence carrying an OSC 9, 99 or 777 desktop notification escape (or shells out to the platform notifier).",
+          "rejected_alternative": "A Stop hook. It fires when Claude finishes responding, not when the run is parked waiting for an approval mid turn, so it would alert at the wrong moment and miss the blocked state entirely.",
+          "enforcement_owner": "The harness. Claude Code raises the notification event and runs the handler, so the alert does not depend on the model noticing or announcing that it is blocked.",
+          "context_boundary": "The handler runs in a separate process with the notification JSON (message, title, notification_type) on stdin. Nothing needs to reach the model; terminalSequence is emitted through Claude Code's own terminal write path rather than by the handler.",
+          "lifecycle": "Fires each time Claude Code emits a notification of the matched type, for the life of the session, and stops when the hook entry is removed or hooks are disabled.",
+          "failure_mode": "Advisory by construction: Notification hooks cannot block or modify anything, so a broken handler simply means the engineer never hears the ping, and it fails open. An escape sequence outside the allowlist is silently ignored, and hooks have no controlling terminal, so writing to /dev/tty instead of terminalSequence fails.",
+          "version_caveat": "terminalSequence requires Claude Code v2.1.141 or later. The agent_needs_input and agent_completed matchers require v2.1.198 and only fire while agent view is open in a terminal, so background runs need that window open."
+        },
+        {
+          "sheet": 2,
+          "primary": "A Notification hook in user settings with two matchers, permission_prompt and idle_prompt, each running an OS notifier; or, to avoid a platform-specific notifier binary, a hook that returns a terminalSequence containing an OSC 9 or OSC 777 notification escape that Claude Code emits through its own terminal write path.",
+          "rejected_alternative": "A Stop hook. It fires when the main agent has finished responding, which is the end of a turn, not the moment mid-run when the agent is parked on an approval dialog, so it would miss precisely the event the engineers want to be paged about.",
+          "enforcement_owner": "The harness. Claude Code raises the notification event itself and runs the registered handler; the model is not consulted and cannot suppress or forget the alert.",
+          "context_boundary": "A separate process outside the conversation. The event JSON carrying message, title, notification_type, session_id, and transcript_path crosses in on stdin; nothing crosses into the model's context, and the hook's stderr is shown to the user only.",
+          "lifecycle": "Fires every time Claude Code raises a notification whose type matches, for the life of the session: permission_prompt when Claude needs a tool approved, idle_prompt when Claude is done and waiting for the next prompt. It stops when the hook is removed from settings.",
+          "failure_mode": "Purely advisory and fails open. Notification hooks cannot block or modify anything, so a notifier that is absent, unauthorized by the OS, or erroring simply drops the alert with no signal in the conversation. Hooks also run with no controlling terminal, so a handler that writes escape sequences straight to /dev/tty silently fails.",
+          "version_caveat": "The terminalSequence field requires Claude Code v2.1.141 or later, and only OSC 0/1/2/9/99/777 and BEL are allowed through. The agent_needs_input and agent_completed matchers require v2.1.198 or later and fire only while agent view is open in a terminal, so do not rely on them for the ordinary terminal case."
+        },
+        {
+          "sheet": 3,
+          "primary": "A Notification hook in settings.json that shells out to the platform's desktop notifier (osascript / notify-send / a Windows toast helper) using the message text supplied on the hook's stdin.",
+          "rejected_alternative": "The built-in terminal bell / notification-channel setting, which is fine as a fallback but cannot be routed to a real OS toast or to a phone, and is easy to miss in a backgrounded terminal.",
+          "enforcement_owner": "The harness fires the event; delivery beyond that is owned by the OS notification daemon, so the guarantee is only as good as the notifier.",
+          "context_boundary": "The notifier runs outside the model context entirely and consumes only the event payload (message, session id, cwd). Nothing crosses back in; the hook should exit zero silently so the waiting turn is not disturbed.",
+          "lifecycle": "Runs when Claude Code raises a notification event, which is the idle-waiting and permission-prompt case, and stops when the session ends or the user answers the prompt.",
+          "failure_mode": "Advisory and fails open: if the notifier is not installed, the user's Do Not Disturb is on, or the event is not raised for the particular blocking state, the run simply sits there and no one is told. It can also be noisy, and a hook that blocks or takes seconds to return will visibly stall the prompt.",
+          "version_caveat": "Which situations raise the Notification event (permission requests only, versus also long-idle input waits) has varied between releases, and I cannot confirm the current event coverage or its exact payload field names without the documentation; verify against the installed version rather than assuming both cases fire."
+        },
+        {
+          "sheet": 4,
+          "primary": "A Notification hook in each engineer's ~/.claude/settings.json with matcher \"permission_prompt\" (add a second group with \"idle_prompt\" to also catch the waiting-for-your-next-prompt case), running the platform's native notifier: osascript on macOS, notify-send on Linux, or a PowerShell toast or MessageBox on Windows.",
+          "rejected_alternative": "A PermissionRequest hook. It fires at the right moment but its job is to answer the permission decision, and wiring notification logic into it risks a hook that accidentally allows or defers prompts instead of merely announcing them.",
+          "enforcement_owner": "Shared: the harness deterministically fires the Notification event and spawns the command, but the OS notification daemon owns actual delivery, so a fired hook is not a guaranteed alert.",
+          "context_boundary": "The hook command runs in a separate process with the notification payload on stdin; nothing enters or leaves the model's context window. The run stays blocked in the CLI waiting for the human either way.",
+          "lifecycle": "Fires each time Claude Code emits a notification of the matched type, for the life of every session on that machine, and stops at session end. The agent_needs_input and agent_completed matchers additionally only fire while agent view is open, so they are not a substitute for permission_prompt.",
+          "failure_mode": "Purely advisory and fails open: a missed alert never blocks or delays the run, it just leaves the session stalled longer. osascript fails silently unless Script Editor has been granted notification permission, notify-send needs a running notification daemon, and a session over SSH, in a container, or headless with -p has no desktop to notify at all.",
+          "version_caveat": "No version gate for the Notification event or the permission_prompt and idle_prompt matchers; agent_needs_input and agent_completed require Claude Code v2.1.198 or later. Because the notify command is platform-specific, this belongs in user settings rather than a shared repository settings file, or it will be a broken command on half the fleet."
+        }
+      ]
+    },
+    {
+      "id": "S056",
+      "focus": "crosscut",
+      "scenario": "We run the agent in a fully auto-approved configuration for speed, but any git push must still halt and wait for a human to explicitly confirm, every single time, no matter what approval configuration the session is running under.",
+      "key": {
+        "primary": "A permissions ask rule such as Bash(git push *), which forces a confirmation prompt on every matching call",
+        "rejected_alternative": "A PreToolUse hook returning permissionDecision \"ask\" for git push commands",
+        "rejection_reason": "bypassPermissions mode skips prompts except a documented exception list: explicit ask rules, connector tools an organization set to ask, and MCP tools marked requiresUserInteraction. Hook ask decisions are not on that list, so they carry no documented guarantee of surviving prompt-skipping modes, whereas content-scoped ask rules are additionally documented to force a prompt even for sandboxed commands in auto-allow mode.",
+        "enforcement_owner": "harness",
+        "context_boundary": "no context window (the rule is evaluated by the harness before the matching Bash call and pauses it on a terminal prompt); what crosses the boundary is the human's confirmation or refusal rather than model output, and the tool call proceeds only after that approval",
+        "lifecycle": "evaluated before every matching Bash call in the fixed deny, then ask, then allow order; the prompt fires even in bypassPermissions and sandbox auto-allow",
+        "failure_mode": "The gate requires a human present: in headless -p runs nobody can answer the prompt, and in dontAsk mode the call is denied outright instead of prompted, so unattended pipelines stall or fail at the gate.",
+        "version_caveat": "none"
+      },
+      "sheets": [
+        {
+          "sheet": 1,
+          "primary": "An explicit permissions.ask rule, Bash(git push *), placed in managed settings so no developer can drop it. Ask rules are evaluated ahead of allow rules and are one of the few things that still forces a prompt in bypassPermissions and auto mode, which is exactly the \"no matter what approval configuration\" requirement.",
+          "rejected_alternative": "A PreToolUse hook on Bash returning permissionDecision \"ask\". It works, but it adds a script that can crash or be removed, and hook decisions never override the rule layer anyway, so the declarative ask rule is the mechanism the permission evaluator honours by construction.",
+          "enforcement_owner": "The harness forces the prompt; the human owns the decision. The model has no way to skip it, and neither does the session's permission mode.",
+          "context_boundary": "Entirely inside the harness's permission evaluation, before the Bash tool call is dispatched. The command string is rendered to the human in the prompt, and only the approve or deny outcome crosses back to the model as a tool result.",
+          "lifecycle": "Evaluated on every Bash tool call for the whole session, in deny then ask then allow order, before any auto-approval path. It stops applying only if the rule is removed or if the command text does not match the pattern.",
+          "failure_mode": "Fails closed for anything that matches, but the string match is the weak point and everything around it fails open: a push reached through an environment runner such as devbox run git push, a git alias, or a shell script the agent invokes never matches Bash(git push *). In dontAsk mode a call that would prompt is denied instead of prompted, which is safe but is not the requested \"halt and wait for a human\".",
+          "version_caveat": "No version gate, plan restriction, or enabling flag applies to a content-scoped ask rule; it survives bypassPermissions, auto mode, and sandboxing with autoAllowBashIfSandboxed on. If you implement the same intent as a PreToolUse hook instead, v2.1.211 is the floor at which a hook's \"ask\" reliably forces the prompt in auto mode."
+        },
+        {
+          "sheet": 2,
+          "primary": "An explicit ask rule in settings, permissions.ask containing Bash(git push *) and, on Windows, the PowerShell(git push *) twin, placed in managed settings so no session configuration can drop it. bypassPermissions skips prompts except those forced by explicit ask rules, so the push halts every time.",
+          "rejected_alternative": "A PreToolUse hook returning permissionDecision \"ask\". It also forces the prompt, but it introduces a script whose crash is a non-blocking error indistinguishable from a clean pass, which is a worse posture for a gate that must never be missed.",
+          "enforcement_owner": "The harness. Permission rules are enforced by Claude Code rather than the model, and the precedence is one directional: a hook returning allow cannot suppress a matching ask rule.",
+          "context_boundary": "The rule is evaluated in the harness on each Bash call. The model sees only that the call is awaiting approval; the human decision is taken in the CLI, never in the context window.",
+          "lifecycle": "Evaluated on every Bash tool call for the whole session, in deny then ask then allow order, with the first match deciding. It stops applying only when the rule is removed from the settings file that carries it.",
+          "failure_mode": "Fails closed on a match, but matching is textual, so a push spelled around the pattern (git -C repo push, a push inside a shell script or a make target, or gh) never matches and sails through the auto approving config. In dontAsk mode the call is denied outright rather than prompted, which is safe but not the requested behaviour.",
+          "version_caveat": "No version gate on ask rules themselves. If the same gate is built as a hook instead, auto mode only honours a hook's ask reliably from v2.1.211; before that the classifier could approve an unsandboxed Bash command without showing the prompt the hook requested."
+        },
+        {
+          "sheet": 3,
+          "primary": "An explicit ask rule in settings: \"ask\": [\"Bash(git push *)\"], placed in managed settings (or at minimum the committed project settings) so it cannot be edited away, plus PowerShell(git push *) on Windows fleets. Content-scoped ask rules are the documented exception that still forces a prompt under bypassPermissions and auto mode, and they survive a sandbox's autoAllowBashIfSandboxed substitution.",
+          "rejected_alternative": "A PreToolUse hook returning permissionDecision \"ask\". It does fire in every permission mode and would work, but it is one more script that disableAllHooks or a hook-loading policy can suppress, whereas the ask rule's precedence is guaranteed by the permission engine.",
+          "enforcement_owner": "The harness. Permission rules are evaluated by Claude Code before the tool runs; the model cannot approve its own push, and no permission mode the session was launched with removes an explicit ask rule.",
+          "context_boundary": "Evaluated in the CLI process before execution. The confirmation happens in the terminal UI, entirely outside the context window; the model sees only the approved-or-denied outcome as its tool result.",
+          "lifecycle": "Checked on every matching Bash call for the whole session. An ask rule never persists an approval, so it prompts each time rather than once per repository. It stops applying only if the rule is removed from the settings source that supplies it.",
+          "failure_mode": "Fails closed for the literal pattern but is fragile at the edges, because Bash argument matching is string matching: git -C dir push, an aliased or wrapper-invoked push, devbox run git push, or a push buried inside a shell script the model executes will not match Bash(git push *). Two mode caveats also change the outcome rather than the safety: dontAsk mode denies instead of prompting, and a headless -p run has no human to answer so the call is refused.",
+          "version_caveat": "No version gate on ask rules. Note the interaction documented for sandboxing: when the sandbox is enabled with autoAllowBashIfSandboxed left at true, a bare Bash ask rule is substituted away by the sandbox boundary, but a content-scoped rule like Bash(git push *) still forces the prompt, which is why the rule must be written with the specifier rather than as a whole-tool ask."
+        },
+        {
+          "sheet": 4,
+          "primary": "A PreToolUse hook matched on Bash that parses the command, and when it resolves to a git push returns a structured decision asking for explicit confirmation (or denying with a reason that says to ask the human), since hooks are evaluated on the tool call itself rather than through the normal permission-prompt path.",
+          "rejected_alternative": "An ask-style permission rule in settings.json for Bash(git push:*), which is the natural fit but is precisely what an auto-approving / bypass session skips.",
+          "enforcement_owner": "The harness runs the hook and enforces its decision; the human owns the confirmation itself.",
+          "context_boundary": "The hook process sees only the proposed command string and session metadata; the decision plus its reason cross back into the model's context, and the push never executes unless confirmed.",
+          "lifecycle": "Evaluated before every Bash tool call for the whole session, no matter which approval mode the session was launched in; it stops applying only if the hook config is removed or hooks are disabled.",
+          "failure_mode": "String matching on a shell command is the weak point and it fails open on anything unusual: git -C other/repo push, an alias, a push buried in a && chain or a heredoc, a Makefile target, a script that pushes, or a library call from Python. Match loosely and deny on ambiguity so the failure direction is closed, and accept the false positives.",
+          "version_caveat": "Whether a PreToolUse hook can return an ask decision (as opposed to only allow or deny) and whether an ask decision still surfaces a prompt when the session was started with permission prompting bypassed are both version-dependent behaviours I cannot confirm from memory. If ask is not honoured under bypass, deny with an instructive reason is the reliable form."
+        }
+      ]
+    }
+  ]
+}

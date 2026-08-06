@@ -1,0 +1,14 @@
+{
+  "name": "log-tools",
+  "description": "Polls the build queue and reports each state change into the session.",
+  "experimental": {
+    "monitors": [
+      {
+        "name": "build-queue",
+        "command": "sh poll.sh --interval 30",
+        "description": "Build queue state changes",
+        "when": "always"
+      }
+    ]
+  }
+}

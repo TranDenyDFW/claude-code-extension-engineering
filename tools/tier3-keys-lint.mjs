@@ -52,26 +52,47 @@ const GATE_RE = /v?2\.\d+\.\d+|experimental|CLAUDE_CODE_[A-Z_]+/;
  * used for the WARN rule (rejected_alternative same class as primary), never
  * for an ERROR.
  */
+const MECHANISM_RULES = [
+  ['team', /agent team|teammate/],
+  ['workflow', /dynamic workflow|workflow runtime|\bworkflow\b/],
+  ['subagent', /sub-?agent|delegated worker/],
+  ['hook', /\bhook\b/],
+  ['skill', /\bskill\b/],
+  ['mcp', /\bmcp\b|model context protocol/],
+  ['plugin', /\bplugin\b|marketplace/],
+  ['output-style', /output style/],
+  ['claude-md', /claude\.md|\.claude\/rules|memory file/],
+  ['settings', /managed settings|settings\.json|permission/],
+  ['lsp', /\blsp\b|language server/],
+  ['sdk', /agent sdk|\bsdk\b/],
+  ['command', /slash command|\/[a-z-]+ command/],
+];
+
 export function mechanismTag(text) {
   const t = String(text).toLowerCase();
-  const rules = [
-    ['team', /agent team|teammate/],
-    ['workflow', /dynamic workflow|workflow runtime|\bworkflow\b/],
-    ['subagent', /sub-?agent|delegated worker/],
-    ['hook', /\bhook\b/],
-    ['skill', /\bskill\b/],
-    ['mcp', /\bmcp\b|model context protocol/],
-    ['plugin', /\bplugin\b|marketplace/],
-    ['output-style', /output style/],
-    ['claude-md', /claude\.md|\.claude\/rules|memory file/],
-    ['settings', /managed settings|settings\.json|permission/],
-    ['lsp', /\blsp\b|language server/],
-    ['sdk', /agent sdk|\bsdk\b/],
-    ['command', /slash command|\/[a-z-]+ command/],
-  ];
-  for (const [tag, re] of rules) if (re.test(t)) return tag;
+  for (const [tag, re] of MECHANISM_RULES) if (re.test(t)) return tag;
   return 'other';
 }
+
+/**
+ * EVERY mechanism a field names, not just the first. Single-tag matching is too
+ * lossy for the primary-conceded rule below: S040's primary tags as `subagent`
+ * under first-match but also carries `claude-md`, and its failure_mode names both
+ * `hook` and `settings`. Comparing first-matches alone would miss the concession.
+ */
+export function mechanismTags(text) {
+  const t = String(text).toLowerCase();
+  return new Set(MECHANISM_RULES.filter(([, re]) => re.test(t)).map(([tag]) => tag));
+}
+
+/** Mechanisms the harness enforces regardless of what any agent decides. */
+export const HARNESS_OWNED = new Set(['hook', 'settings']);
+
+/**
+ * The key CONCEDING, in its own enforcement_owner, that its primary is not enforced.
+ * The lookahead keeps "model context protocol" from reading as "model owned".
+ */
+const MODEL_OWNED_RE = /\bmodel[- ]owned\b|\badvisory\b|^\s*model(?!\s+context\s+protocol)\b/i;
 
 export function lintKeys(rows) {
   const errors = [];
@@ -102,6 +123,40 @@ export function lintKeys(rows) {
         warns.push(`${r.id}.rejected_alternative: same mechanism class as primary (${p}); the field may discriminate nothing (S022 class; verify by eye)`);
       }
     }
+    /**
+     * primary-conceded (S040 class). The key argues for a better primary than the
+     * one it selects: its own failure_mode or rejection_reason names a HARNESS-owned
+     * mechanism the primary does not, while its own enforcement_owner admits the
+     * primary is model-owned or advisory.
+     *
+     * S040 is the witness. Its primary is "restate the rule in the delegation
+     * prompt"; its failure_mode says "a hard guarantee needs a different mechanism
+     * entirely, such as a permissions deny rule, a PreToolUse hook, or denying
+     * Agent(Explore)". Every arm answered with one of those three and every arm
+     * scored 0.00 on primary, both graders, because the key rewarded diagnosis of
+     * the docs' prescription over satisfaction of the user's stated requirement.
+     *
+     * WARN, not ERROR, for three reasons and the third decides it: this is mechanism
+     * tagging, which this file's header reserves for WARN; open-work item B2
+     * prescribed WARN before the data existed; and an ERROR here would move the
+     * FROZEN v1 set from 15 errors to 16, rewriting published history to make a new
+     * rule look good. Promote to ERROR only after two further scenario sets lint
+     * with zero human-judged false positives.
+     */
+    if (r.primary && r.enforcement_owner) {
+      const owner = String(r.enforcement_owner);
+      if (MODEL_OWNED_RE.test(owner)) {
+        const inPrimary = mechanismTags(r.primary);
+        const conceded = mechanismTags(`${r.failure_mode ?? ''}  ${r.rejection_reason ?? ''}`);
+        const inRejected = mechanismTags(r.rejected_alternative ?? '');
+        const better = [...conceded].filter(m =>
+          HARNESS_OWNED.has(m) && !inPrimary.has(m) && !inRejected.has(m));
+        if (better.length && ![...inPrimary].some(m => HARNESS_OWNED.has(m))) {
+          warns.push(`${r.id}.primary: the key's own failure_mode/rejection_reason names a harness-owned mechanism (${better.join(', ')}) that the primary does not, while enforcement_owner calls the primary model-owned or advisory; the key argues for a better primary than the one it selects, so an answer that satisfies the scenario's stated requirement scores zero (S040 class; verify by eye)`);
+        }
+      }
+    }
+
     const lc = String(r.lifecycle ?? '');
     if (vc && !/^none\b/i.test(vc)) {
       const flag = vc.match(/CLAUDE_CODE_[A-Z_]+|v?2\.\d+\.\d+/);
@@ -162,6 +217,66 @@ function selfTest() {
   check('mechanismTag distinguishes hook from skill',
     mechanismTag('A PreToolUse hook') === 'hook' && mechanismTag('A skill with guidance') === 'skill');
 
+  // ---- primary-conceded (S040 class) ----------------------------------------
+  // The refactor to a shared rules table must not change first-match behaviour.
+  check('mechanismTags returns ALL matches while mechanismTag keeps first-match',
+    (() => {
+      const s = 'A PreToolUse hook wired in settings.json';
+      const many = mechanismTags(s);
+      return many.has('hook') && many.has('settings') && mechanismTag(s) === 'hook';
+    })());
+
+  const conceded = w => w.some(x => /argues for a better primary/.test(x));
+
+  // KNOWN-BAD: must fire. This is S040's exact shape.
+  check('MUST FIRE: advisory primary whose failure_mode names a deny rule and a hook',
+    (() => {
+      const r = lintKeys([{ ...good,
+        primary: 'Restate the rule in the delegation prompt each time exploration is handed off, since sub-agents skip CLAUDE.md by design',
+        enforcement_owner: 'split: the harness owns delegation, but the rule itself is model-owned and purely advisory',
+        failure_mode: 'purely advisory; a hard guarantee needs a different mechanism entirely, such as a permissions deny rule in settings.json or a PreToolUse hook',
+        rejected_alternative: 'moving the rule higher in the CLAUDE.md hierarchy',
+        rejection_reason: 'the hierarchy does not reach a delegated worker either' }]);
+      return r.errors.length === 0 && conceded(r.warns);
+    })());
+
+  check('MUST FIRE: the same concession made in rejection_reason instead of failure_mode',
+    conceded(lintKeys([{ ...good,
+      primary: 'A skill that reminds the model to check the manifest',
+      enforcement_owner: 'model-owned',
+      failure_mode: 'the model can simply not check it',
+      rejected_alternative: 'documenting it in the README',
+      rejection_reason: 'nobody reads it; only a PreToolUse hook actually stops the call' }]).warns));
+
+  // KNOWN-GOOD: each isolates one suppression clause and must stay SILENT.
+  check('stays silent: the sound key gains no new warning', !conceded(lintKeys([good]).warns));
+
+  check('stays silent (clause 3): advisory primary, advisory owner, but NO harness mechanism conceded',
+    !conceded(lintKeys([{ ...good,
+      primary: 'A skill that instructs the model to check the manifest',
+      enforcement_owner: 'model-owned, advisory',
+      failure_mode: 'the model can decline the guidance and nothing detects it' }]).warns));
+
+  check('stays silent (clause 4): the hook was CONSIDERED and rejected, which is correct behaviour',
+    !conceded(lintKeys([{ ...good,
+      primary: 'A skill that routes the decision',
+      enforcement_owner: 'model-owned',
+      rejected_alternative: 'A PreToolUse hook on Edit',
+      rejection_reason: 'the hook fires per tool call and cannot see intent',
+      failure_mode: 'a hook would be stricter but cannot read intent' }]).warns));
+
+  check('stays silent (clause 2): the primary IS the harness mechanism',
+    !conceded(lintKeys([{ ...good,
+      primary: 'A permissions deny rule in settings.json',
+      enforcement_owner: 'harness',
+      failure_mode: 'a PreToolUse hook is still needed for shell reads' }]).warns));
+
+  check('stays silent: "model context protocol" does not read as "model owned"',
+    !conceded(lintKeys([{ ...good,
+      primary: 'An MCP server exposing the query tool',
+      enforcement_owner: 'the model context protocol server owns the contract',
+      failure_mode: 'a PreToolUse hook would be needed to gate it' }]).warns));
+
   check('defect record with a range id is an ERROR',
     lintDefects([{ scenario: 'all ten (S041 through S050)', field: 'failure_mode', problem: 'x' }]).some(e => /not a single S0NN/.test(e)));
   check('sound defect record passes', lintDefects([{ scenario: 'S041', field: 'failure_mode', problem: 'x', batch: 5 }]).length === 0);
@@ -177,6 +292,23 @@ function selfTest() {
   // floor is 10 so the assertion states "red and substantial" without
   // memorizing the exact figure.
   check('the frozen v1 set is RED under this lint (baseline)', r1.errors.length >= 10, `${r1.errors.length} error(s)`);
+
+  /**
+   * LIVE-CORPUS WITNESS, and the row that keeps primary-conceded honest.
+   *
+   * Once S040 is repaired in v2, the rule fires on ZERO rows of the live set, and
+   * a rule that never fires on real data is indistinguishable from one that does
+   * not work. v1 is frozen and its S040 is untouchable, so it is a permanent
+   * real-data witness: gut the rule and this row goes red.
+   */
+  check('the frozen v1 set still carries the S040-class self-contradiction (real-data witness)',
+    conceded(r1.warns), `${r1.warns.filter(w => /argues for a better primary/.test(w)).length} hit(s)`);
+
+  // The rule must be SELECTIVE, not a blanket fire on every advisory key. If this
+  // count climbs, the conjunction has loosened and the warns will breed an
+  // exemption list, which is exactly what the file's header forbids.
+  const conc1 = r1.warns.filter(w => /argues for a better primary/.test(w)).length;
+  check('primary-conceded is selective on the 60-key frozen set', conc1 >= 1 && conc1 <= 3, `${conc1} of 60`);
 
   console.log(bad ? `SELF-TEST FAIL: ${bad} check(s) failed` : 'SELF-TEST PASS: every defect class detected, sound keys pass, v1 baseline red.');
   process.exit(bad ? 1 : 0);

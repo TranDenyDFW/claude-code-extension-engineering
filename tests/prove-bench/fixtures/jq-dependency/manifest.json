@@ -1,0 +1,16 @@
+{
+  "name": "jq-dependency",
+  "control": false,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "Handler shells out to jq, absent on many Windows installs, so it exits non-zero and fails open.",
+  "citation": "hooks.md:125: \"jq is absent on many Windows installs, so the handler exits non-zero, fails open, and silently blocks nothing while looking installed.\"",
+  "expectedFailures": [
+    "C1",
+    "C3",
+    "C5",
+    "C6",
+    "C7"
+  ],
+  "matcher": "Write|Edit",
+  "deny": null
+}

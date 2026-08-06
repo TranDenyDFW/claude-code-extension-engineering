@@ -1,0 +1,151 @@
+{
+  "generated": "2026-08-04T23:21:25.079Z",
+  "cli_version": "2.1.219 (Claude Code)",
+  "cases": 8,
+  "agreed": 8,
+  "fidelity": 1,
+  "observed_path_shapes": [
+    "P:\\ClaudeExt\\ccx-engineering-work\\tmp\\fidelity\\F1\\infra\\main.tf",
+    "P:\\ClaudeExt\\ccx-engineering-work\\tmp\\fidelity\\F2\\infra\\main.tf",
+    "P:\\ClaudeExt\\ccx-engineering-work\\tmp\\fidelity\\F4\\infra\\main.tf",
+    "P:\\ClaudeExt\\ccx-engineering-work\\tmp\\fidelity\\F8\\src\\app.ts"
+  ],
+  "rows": [
+    {
+      "id": "F1",
+      "class": "stdout-json-deny",
+      "doc": "exit 0 with hookSpecificOutput.permissionDecision deny blocks the tool",
+      "predicted": {
+        "written": false,
+        "fired": true
+      },
+      "observed": {
+        "written": false,
+        "fired": true
+      },
+      "firedPaths": [
+        "P:\\ClaudeExt\\ccx-engineering-work\\tmp\\fidelity\\F1\\infra\\main.tf"
+      ],
+      "agree": true,
+      "stdout": "Blocked. Hook denied write: `infra is protected`.\n\n`infra/main.tf` not created. Path guarded by policy hook, not a syntax issue. Options: write elsewhere, or user lifts guard on `infra/`."
+    },
+    {
+      "id": "F2",
+      "class": "exit2-deny",
+      "doc": "exit 2 blocks on PreToolUse",
+      "predicted": {
+        "written": false,
+        "fired": true
+      },
+      "observed": {
+        "written": false,
+        "fired": true
+      },
+      "firedPaths": [
+        "P:\\ClaudeExt\\ccx-engineering-work\\tmp\\fidelity\\F2\\infra\\main.tf"
+      ],
+      "agree": true,
+      "stdout": "Blocked. Hook denied write:\n\n```\nPreToolUse:Write [.claude/guard.mjs]: infra is protected\n```\n\n`infra/` path protected by project guard. File not created. Options: user allow-list `infra/` in guard, or pick different path."
+    },
+    {
+      "id": "F3",
+      "class": "matcher-scoping",
+      "doc": "a matcher naming only Bash does not select the handler for a Write",
+      "predicted": {
+        "written": true,
+        "fired": false
+      },
+      "observed": {
+        "written": true,
+        "fired": false
+      },
+      "firedPaths": [],
+      "agree": true,
+      "stdout": "Created `infra/main.tf`."
+    },
+    {
+      "id": "F4",
+      "class": "matcher-wildcard",
+      "doc": "\"*\" is a wildcard and matches every tool",
+      "predicted": {
+        "written": false,
+        "fired": true
+      },
+      "observed": {
+        "written": false,
+        "fired": true
+      },
+      "firedPaths": [
+        "P:\\ClaudeExt\\ccx-engineering-work\\tmp\\fidelity\\F4\\infra\\main.tf"
+      ],
+      "agree": true,
+      "stdout": "Blocked. Hook denied write:\n\n```\ninfra is protected\n```\n\n`infra/main.tf` not created. Some guard protect `infra/` path. Need user override or different path."
+    },
+    {
+      "id": "F5",
+      "class": "fail-open-on-crash",
+      "doc": "a crashing command handler fails OPEN and blocks nothing",
+      "predicted": {
+        "written": true,
+        "fired": false
+      },
+      "observed": {
+        "written": true,
+        "fired": false
+      },
+      "firedPaths": [],
+      "agree": true,
+      "stdout": "Created `infra/main.tf`."
+    },
+    {
+      "id": "F6",
+      "class": "permission-deny-edit",
+      "doc": "a permissions deny rule Edit(path) blocks a Write to that path",
+      "predicted": {
+        "written": false,
+        "fired": false
+      },
+      "observed": {
+        "written": false,
+        "fired": false
+      },
+      "firedPaths": [],
+      "agree": true,
+      "stdout": "ASKGUARD-DISMISS: AskUserQuestion tool is not available in this session (ToolSearch returns no match), so the permission-fix choice cannot be rendered as selectable options."
+    },
+    {
+      "id": "F7",
+      "class": "permission-deny-write-inert",
+      "doc": "a Write(path) deny rule is ACCEPTED BUT NEVER CONSULTED, so it blocks nothing",
+      "predicted": {
+        "written": true,
+        "fired": false
+      },
+      "observed": {
+        "written": true,
+        "fired": false
+      },
+      "firedPaths": [],
+      "agree": true,
+      "stdout": "Created `infra/main.tf`, one line: `resource \"x\" {}`"
+    },
+    {
+      "id": "F8",
+      "class": "near-miss",
+      "doc": "a guard scoped to infra/ does not block a write outside it",
+      "predicted": {
+        "written": true,
+        "fired": true
+      },
+      "observed": {
+        "written": true,
+        "fired": true
+      },
+      "firedPaths": [
+        "P:\\ClaudeExt\\ccx-engineering-work\\tmp\\fidelity\\F8\\src\\app.ts"
+      ],
+      "agree": true,
+      "stdout": "Made `src/app.ts`, one line as given.\n\nNote: `resource \"x\" {}` is HCL/Terraform syntax, not TypeScript. Written verbatim as asked; will not compile under `tsc`."
+    }
+  ]
+}

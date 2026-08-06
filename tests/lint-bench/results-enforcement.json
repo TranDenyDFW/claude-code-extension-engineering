@@ -1,0 +1,861 @@
+{
+  "date": "2026-08-06",
+  "platform": "win32",
+  "node": "v24.14.1",
+  "tools": [
+    {
+      "id": "agnix",
+      "label": "agnix (bare)",
+      "version": null
+    },
+    {
+      "id": "cct",
+      "label": "claude-code-templates --health-check",
+      "version": null
+    },
+    {
+      "id": "cclint",
+      "label": "cclint (felixgeelhaar)",
+      "version": null
+    },
+    {
+      "id": "skill-validator",
+      "label": "claude-skill-validator (aliksir)",
+      "version": null
+    },
+    {
+      "id": "plugin-validate",
+      "label": "claude plugin validate (official)",
+      "version": "2.1.219 (Claude Code)"
+    },
+    {
+      "id": "doctor",
+      "label": "extension-doctor (ours, bare)",
+      "version": "workspace"
+    },
+    {
+      "id": "doctor+agnix",
+      "label": "extension-doctor + agnix (wrapper)",
+      "version": null
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "bad-hook-event",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx01t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx01t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"user\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx01t6\\\\home\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"hook-unverified-event\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx01t6\\\\home\\\\.claude\\\\settings.json hooks.PreToolUsed\",\n      \"what\": \"hook event \\\"PreToolUsed\\\": \\\"PreToolUsed\\\" is not in the capability catalog 2.1.220 and the installed build could not be detected, so it is UNVERIFIED rather than broken; if the name is not real then every hook under it never fires and nothing reports it. Nearest catalog name(s): PreToolUse.\",\n      \"fix\": \"Confirm the name against the build you actually run, then regenerate data/capabilities/catalog.json so the answer stops being a guess.\",\n      \"citation\": \"data/capabilities/catalog.json [GENERATED] versionAwareness: the catalog enumerates one build, so a name it lacks is proof of nonexistence ONLY on a build it covers; on a newer or undetermined build the honest answer is UNVERIFIED, because a false BROKEN is the exact defect this catalog replaced (catalog 2.1.220, detected build unknown)\",\n      \"source\": \"doctor\",\n      \"class\": \"unknown\",\n      \"confidence\": \"weak\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "bad-matcher-regex",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx02t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx02t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx02t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"hook-matcher-regex\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx02t6\\\\project\\\\.claude\\\\settings.json hooks.PreToolUse[0]\",\n      \"what\": \"matcher \\\"Bash|(\\\" does not compile as a regex (Invalid regular expression: /Bash|(/: Unterminated group); the hook can never match and fails open\",\n      \"fix\": \"Fix the pattern, or use \\\"*\\\" to match every tool.\",\n      \"citation\": \"hooks.md matchers [OFFICIAL]: an array matcher is a schema error that rejects the WHOLE settings file; a bad regex never matches and fails open\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "channel-server-unbound",
+      "kind": "late-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "miss",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": 0,
+          "findings": 2,
+          "mutated": true,
+          "out": "Validating plugin manifest: C:\\Users\\Shake\\AppData\\Local\\Temp\\lint-bench-1785990808449\\fx03t5\\project\\alert-bridge\\.claude-plugin\\plugin.json\n\n‼ Found 2 warnings:\n\n  > version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n  > author: No author information provided. Consider adding author details for plugin attribution\n\n√ Validation passed with warnings\n\n",
+          "note": "tool WROTE into the fixture copy"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx03t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx03t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"channel-server-unbound\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx03t6\\\\project\\\\alert-bridge\\\\.claude-plugin\\\\plugin.json channels[0]\",\n      \"what\": \"channel binds to server \\\"alert\\\", which is not a key in this plugin's mcpServers (found: alerts); with no entry there is no subprocess, so the listener never binds and the declaration binds to nothing\",\n      \"fix\": \"Add the server to the plugin's mcpServers or .mcp.json, or correct the name.\",\n      \"citation\": \"channels.md The four gates [OFFICIAL]: gate 2 is an .mcp.json or plugin mcpServers entry, and channels.md [ENGINEERING] adds that Claude Code spawns each configured server as a subprocess, so no entry means no process, the listener never binds, and an external POST is refused rather than accepted and dropped\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "clean",
+      "kind": "clean",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "FALSE-POS",
+        "doctor": "clean",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": 0,
+          "findings": 2,
+          "mutated": true,
+          "out": "Validating plugin manifest: C:\\Users\\Shake\\AppData\\Local\\Temp\\lint-bench-1785990808449\\fx04t5\\project\\ops-tools\\.claude-plugin\\plugin.json\n\n‼ Found 2 warnings:\n\n  > version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n  > author: No author information provided. Consider adding author details for plugin attribution\n\n√ Validation passed with warnings\n\n",
+          "note": "tool WROTE into the fixture copy"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 0,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx04t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx04t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"user\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx04t6\\\\home\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": []\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "control-array-matcher",
+      "kind": "control",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx05t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx05t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx05t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"hook-matcher-array\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx05t6\\\\project\\\\.claude\\\\settings.json hooks.PreToolUse[0]\",\n      \"what\": \"matcher is a JSON array; this is a schema error and the WHOLE settings file is rejected, so no hook in it appears in /hooks\",\n      \"fix\": \"Join alternatives into one regex string: \\\"Bash|Edit\\\".\",\n      \"citation\": \"hooks.md matchers [OFFICIAL]: an array matcher is a schema error that rejects the WHOLE settings file; a bad regex never matches and fails open\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "control-bad-skill-name",
+      "kind": "control",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx06t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx06t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"skill-name-format\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx06t6\\\\home\\\\.claude\\\\skills\\\\My Fancy_Skill\\\\SKILL.md\",\n      \"what\": \"skill name \\\"My Fancy_Skill\\\" is not kebab-case; Claude Code silently ignores it\",\n      \"fix\": \"Rename to lowercase-kebab-case and keep the directory in sync.\",\n      \"citation\": \"skills.md name format [OFFICIAL]: non-kebab-case names are silently ignored\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "dead-skill-frontmatter",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx07t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx07t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"skill-frontmatter\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx07t6\\\\home\\\\.claude\\\\skills\\\\data-tools\\\\SKILL.md\",\n      \"what\": \"frontmatter does not parse (unquoted-colon): line 2: description is an unquoted scalar containing \\\": \\\"; real YAML parsers reject this and the skill loads with EMPTY metadata. Quote the value.\",\n      \"fix\": \"Fix the YAML; quote any value containing a colon. Then confirm the description shows in /skills.\",\n      \"citation\": \"skills.md Frontmatter [LOCAL_ENV, measured 2026-07-30]: unparseable YAML loads with EMPTY metadata; this repo's own skill was dead for weeks this way (0%/16% trigger recall until fixed)\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "deny-rule-powershell-gap",
+      "kind": "enforcement-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx08t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx08t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx08t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"deny-rule-powershell-gap\",\n      \"where\": \"project:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx08t6\\\\project\\\\.claude\\\\settings.json\",\n      \"what\": \"1 file deny rule(s) coexist with a PowerShell allow; the deny rule's documented file-command recognition covers Bash and says nothing about PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was measured on 2.1.220\",\n      \"fix\": \"Treat the PowerShell path as uncovered, or deny the writing cmdlets explicitly, for example PowerShell(Add-Content *), PowerShell(Set-Content *) and PowerShell(Out-File *).\",\n      \"citation\": \"permissions.md PowerShell [OFFICIAL] plus [LOCAL_ENV, measured 2026-08-05]: the recognised-file-command sentence says \\\"in Bash\\\" and never mentions PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was observed on 2.1.220, paired against a control. PowerShell RULE parity is about rule SYNTAX and does not imply file-command recognition\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "disable-all-hooks",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx09t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx09t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"user\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx09t6\\\\home\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"disable-all-hooks\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx09t6\\\\home\\\\.claude\\\\settings.json\",\n      \"what\": \"disableAllHooks is true while 1 hook event(s) are configured: every hook in every file is off\",\n      \"fix\": \"Remove disableAllHooks, or remove the dead hook config so the state is honest.\",\n      \"citation\": \"selection.md tamper boundary [OFFICIAL]: disableAllHooks switches every hook off and there is no per-hook disable\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "dup-skill-across-scopes",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx10t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx10t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"skill-duplicate-across-scopes\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx10t6\\\\home\\\\.claude\\\\skills\\\\deploy-helper\\\\SKILL.md AND C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx10t6\\\\project\\\\.claude\\\\skills\\\\deploy-helper\\\\SKILL.md\",\n      \"what\": \"skill \\\"deploy-helper\\\" exists at user and project scope; one silently shadows the other\",\n      \"fix\": \"Rename one, or delete the one that should lose.\",\n      \"citation\": \"skills.md scope shadowing [OFFICIAL]: same name at two scopes, one silently wins; /doctor only checks one directory\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "future-tool-unverified",
+      "kind": "negative-control",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "clean",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 0,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx11t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx11t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"user\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx11t6\\\\home\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": \"2.1.222\",\n      \"confidence\": \"strong\",\n      \"rung\": \"versions-store\",\n      \"source\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx11t6\\\\home\\\\.local\\\\share\\\\claude\\\\versions\\\\2.1.222\"\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); installed build 2.1.222 (versions-store, strong) is NEWER than the catalog: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": []\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "mcp-scope-collision",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx12t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx12t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"mcp-scope-collision\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx12t6\\\\home\\\\.claude.json AND C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx12t6\\\\project\\\\.mcp.json\",\n      \"what\": \"MCP server \\\"github\\\" is configured at user scope and project scope with DIFFERENT configs; one silently wins and the loser looks configured\",\n      \"fix\": \"Keep the server at one scope, or align the configs deliberately.\",\n      \"citation\": \"mcp.md scopes [OFFICIAL]: same server name at two scopes, one config silently wins\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "memory-over-cap",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx13t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx13t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"memory-over-cap\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx13t6\\\\home\\\\.claude\\\\projects\\\\P--sample-app\\\\memory\\\\MEMORY.md\",\n      \"what\": \"MEMORY.md index is 243 lines / 14086 bytes, past the 200-line / 25600-byte cap; over-limit content errors instead of loading (v2.1.210+)\",\n      \"fix\": \"Move detail into per-topic files and keep MEMORY.md a one-line-per-memory index.\",\n      \"citation\": \"official memory docs [OFFICIAL] [v2.1.210]: MEMORY.md index over 200 lines errors instead of loading\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "missing-hook-handler",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx14t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx14t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx14t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"hook-handler-missing\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx14t6\\\\project\\\\.claude\\\\settings.json hooks.PreToolUse[0]\",\n      \"what\": \"handler \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.mjs\\\" not found (checked C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx14t6\\\\project/.claude/hooks/guard.mjs); command hooks fail OPEN, so this rule silently never enforces\",\n      \"fix\": \"Create the file or fix the path; prefer $CLAUDE_PROJECT_DIR-anchored paths.\",\n      \"citation\": \"hooks.md failure policy [OFFICIAL]: command hooks fail OPEN, so a missing handler means the rule silently never enforces\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "monitor-command-missing",
+      "kind": "late-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "miss",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": 0,
+          "findings": 2,
+          "mutated": true,
+          "out": "Validating plugin manifest: C:\\Users\\Shake\\AppData\\Local\\Temp\\lint-bench-1785990808449\\fx15t5\\project\\watch-tools\\.claude-plugin\\plugin.json\n\n‼ Found 2 warnings:\n\n  > version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n  > author: No author information provided. Consider adding author details for plugin attribution\n\n√ Validation passed with warnings\n\n",
+          "note": "tool WROTE into the fixture copy"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx15t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx15t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"monitor-command-missing\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx15t6\\\\project\\\\watch-tools\\\\.claude-plugin\\\\plugin.json experimental.monitors[0]\",\n      \"what\": \"command script \\\"${CLAUDE_PLUGIN_ROOT}/scripts/tail-errors.sh\\\" not found (checked C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx15t6\\\\project\\\\watch-tools/scripts/tail-errors.sh); a monitor that cannot start is indistinguishable from a monitor with nothing to report, because fail-open is the only posture available here\",\n      \"fix\": \"Create the file or fix the path; anchor it with \\\"${CLAUDE_PLUGIN_ROOT}\\\".\",\n      \"citation\": \"monitors.md No block or deny contract [ENGINEERING]: fail-open is the only posture available, so when a monitor dies the session simply stops hearing from it and carries on, and the absence of notifications is indistinguishable from nothing having happened\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "monitor-cwd-assumption",
+      "kind": "late-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "miss",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": 0,
+          "findings": 2,
+          "mutated": true,
+          "out": "Validating plugin manifest: C:\\Users\\Shake\\AppData\\Local\\Temp\\lint-bench-1785990808449\\fx16t5\\project\\log-tools\\.claude-plugin\\plugin.json\n\n‼ Found 2 warnings:\n\n  > version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n  > author: No author information provided. Consider adding author details for plugin attribution\n\n√ Validation passed with warnings\n\n",
+          "note": "tool WROTE into the fixture copy"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx16t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx16t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"monitor-cwd-assumption\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx16t6\\\\project\\\\log-tools\\\\.claude-plugin\\\\plugin.json experimental.monitors[0]\",\n      \"what\": \"command uses the relative path \\\"poll.sh\\\", which exists under the plugin root but is resolved against the SESSION working directory, so it only works when the user happens to start Claude Code inside the plugin\",\n      \"fix\": \"Prefix the command with cd \\\"${CLAUDE_PLUGIN_ROOT}\\\" && , or anchor the path with \\\"${CLAUDE_PLUGIN_ROOT}\\\".\",\n      \"citation\": \"monitors.md Lifecycle and working directory [OFFICIAL]: the cwd is the SESSION working directory, NOT the plugin directory, so a relative path resolves against wherever the user started Claude Code, which is the single most likely reason a monitor \\\"never fires\\\"; prefix with cd \\\"${CLAUDE_PLUGIN_ROOT}\\\" && when the script needs its own directory\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "monitor-duplicate-name",
+      "kind": "late-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "miss",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": 0,
+          "findings": 2,
+          "mutated": true,
+          "out": "Validating plugin manifest: C:\\Users\\Shake\\AppData\\Local\\Temp\\lint-bench-1785990808449\\fx17t5\\project\\queue-tools\\.claude-plugin\\plugin.json\n\n‼ Found 2 warnings:\n\n  > version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n  > author: No author information provided. Consider adding author details for plugin attribution\n\n√ Validation passed with warnings\n\n",
+          "note": "tool WROTE into the fixture copy"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx17t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx17t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"monitor-duplicate-name\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx17t6\\\\project\\\\queue-tools\\\\monitors\\\\monitors.json[0] AND C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx17t6\\\\project\\\\queue-tools\\\\monitors\\\\monitors.json[1]\",\n      \"what\": \"2 monitor entries share the name \\\"queue-watch\\\"; name is the dedup key, so a plugin reload or a repeat skill dispatch spawns duplicate processes instead of reusing one\",\n      \"fix\": \"Give each monitor its own stable name.\",\n      \"citation\": \"monitors.md Configuration [OFFICIAL] [v2.1.105]: name is the identifier unique within the plugin and is the dedup key that prevents duplicate processes when the plugin reloads or the skill is invoked again; monitors.md Lifecycle and working directory [ENGINEERING] adds that it is the ONLY documented protection against duplicates\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "monitor-user-config-ref",
+      "kind": "late-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "miss",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": 0,
+          "findings": 2,
+          "mutated": true,
+          "out": "Validating plugin manifest: C:\\Users\\Shake\\AppData\\Local\\Temp\\lint-bench-1785990808449\\fx18t5\\project\\deploy-tools\\.claude-plugin\\plugin.json\n\n‼ Found 2 warnings:\n\n  > version: No version specified. Consider adding a version following semver (e.g., \"1.0.0\")\n  > author: No author information provided. Consider adding author details for plugin attribution\n\n√ Validation passed with warnings\n\n",
+          "note": "tool WROTE into the fixture copy"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx18t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx18t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"monitor-user-config-ref\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx18t6\\\\project\\\\deploy-tools\\\\.claude-plugin\\\\plugin.json experimental.monitors[0]\",\n      \"what\": \"command references ${user_config.*}; since v2.1.207 Claude Code rejects the monitor with an error instead of substituting the value, so this monitor never starts while the rest of the plugin keeps loading and looks healthy\",\n      \"fix\": \"Have the monitor script read the value from a config file it owns; the exec-form and CLAUDE_PLUGIN_OPTION_ escape routes a hook has do not exist for a monitor.\",\n      \"citation\": \"monitors.md Secrets and user_config [OFFICIAL] [v2.1.207]: since v2.1.207 Claude Code REJECTS the monitor with an error instead of substituting the value, the check runs on the command TEMPLATE so it fires even with nothing configured yet, and the rest of the plugin keeps loading and looks healthy\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "over-cap-description",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx19t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx19t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"skill-description-cap\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx19t6\\\\home\\\\.claude\\\\skills\\\\mega-skill\\\\SKILL.md\",\n      \"what\": \"description plus when_to_use is 1962 chars, past the ~1536 cap; the tail is silently truncated out of triggering\",\n      \"fix\": \"Cut the combined length under the cap; move detail into the body.\",\n      \"citation\": \"skills.md description cap [OFFICIAL]: description plus when_to_use truncates at ~1536 chars; the tail silently stops triggering\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "permission-rule-content-field",
+      "kind": "enforcement-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx20t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx20t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx20t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"permission-rule-content-field\",\n      \"where\": \"project:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx20t6\\\\project\\\\.claude\\\\settings.json\",\n      \"what\": \"\\\"Bash(command:rm *)\\\" matches on Bash's primary content field, which Claude Code IGNORES and warns about at startup\",\n      \"fix\": \"Drop the field prefix: write Bash(rm *) instead.\",\n      \"citation\": \"permissions.md [OFFICIAL]: you cannot match a tool's primary content field. \\\"A rule like Bash(command:rm *) would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning.\\\" Use Bash(rm *) instead\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "permission-rule-degenerate-glob",
+      "kind": "enforcement-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx21t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx21t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx21t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"permission-rule-degenerate-glob\",\n      \"where\": \"project:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx21t6\\\\project\\\\.claude\\\\settings.json\",\n      \"what\": \"\\\"Edit(infra/./**)\\\" contains a \\\".\\\" or empty path segment, so the glob matches no real path and the rule never fires\",\n      \"fix\": \"Normalise the pattern: infra/** is almost certainly what was meant.\",\n      \"citation\": \"permissions.md [ENGINEERING]: a pattern containing /./ or an empty segment matches no path, so the rule is present, syntactically valid, and enforces nothing. This project shipped exactly that defect: a sentence-final period turned infra/ into the glob infra/./** (IMPROVEMENTS.md item 31)\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "permission-rule-glob-instead-of-read",
+      "kind": "enforcement-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx22t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx22t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx22t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"permission-rule-never-consulted\",\n      \"where\": \"project:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx22t6\\\\project\\\\.claude\\\\settings.json\",\n      \"what\": \"\\\"Glob(secrets/**)\\\" is a deny rule Claude Code ACCEPTS AND NEVER CONSULTS; it enforces nothing while looking correct\",\n      \"fix\": \"Write it as Read(secrets/**) instead. An Edit rule covers every file-editing tool, so the narrower-looking spelling is the one that covers less.\",\n      \"citation\": \"permissions.md The rule that is accepted and never consulted [OFFICIAL] [v2.1.210]: \\\"Claude Code checks file permissions against Edit(path) and Read(path) rules only. If you write a path rule for Write, NotebookEdit, Glob, or the legacy MultiEdit tool instead, Claude Code accepts the rule but never consults it\\\". This is the difference between a protection and a decoration, and the rule LOOKS right\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "permission-rule-never-consulted",
+      "kind": "enforcement-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx23t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx23t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx23t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"permission-rule-never-consulted\",\n      \"where\": \"project:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx23t6\\\\project\\\\.claude\\\\settings.json\",\n      \"what\": \"\\\"Write(infra/**)\\\" is a deny rule Claude Code ACCEPTS AND NEVER CONSULTS; it enforces nothing while looking correct\",\n      \"fix\": \"Write it as Edit(infra/**) instead. An Edit rule covers every file-editing tool, so the narrower-looking spelling is the one that covers less.\",\n      \"citation\": \"permissions.md The rule that is accepted and never consulted [OFFICIAL] [v2.1.210]: \\\"Claude Code checks file permissions against Edit(path) and Read(path) rules only. If you write a path rule for Write, NotebookEdit, Glob, or the legacy MultiEdit tool instead, Claude Code accepts the rule but never consults it\\\". This is the difference between a protection and a decoration, and the rule LOOKS right\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "plugin-version-pinned",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "miss",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": true,
+          "out": "Validating plugin manifest: C:\\Users\\Shake\\AppData\\Local\\Temp\\lint-bench-1785990808449\\fx24t5\\project\\my-plugin\\.claude-plugin\\plugin.json\n\n‼ Found 1 warning:\n\n  > author: No author information provided. Consider adding author details for plugin attribution\n\n√ Validation passed with warnings\n\n",
+          "note": "tool WROTE into the fixture copy"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx24t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx24t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"INFO\",\n      \"check\": \"plugin-version-pinned\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx24t6\\\\project\\\\my-plugin\\\\.claude-plugin\\\\plugin.json\",\n      \"what\": \"plugin.json pins version \\\"1.0.0\\\"; the marketplace treats the version as the update cache key, so updates stop arriving until the string changes\",\n      \"fix\": \"Omit version to use commit-SHA flow, or bump it on every release without exception.\",\n      \"citation\": \"plugins.md versioning [OFFICIAL], IMPROVEMENTS.md item 6 (measured on this repo): a pinned version is the update cache key; updates stop until the string changes\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "sandbox-enabled-on-windows",
+      "kind": "enforcement-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx25t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx25t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"user\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx25t6\\\\home\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"sandbox-enabled-unsupported-platform\",\n      \"where\": \"user:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx25t6\\\\home\\\\.claude\\\\settings.json\",\n      \"what\": \"sandbox.enabled on native Windows, where the sandbox does not run; Claude Code warns and runs every command UNSANDBOXED, so this key reads as protection and provides none\",\n      \"fix\": \"Run Claude Code inside WSL2, or drop the key and state the residual explicitly. On native Windows the OS layer is absent, not weaker.\",\n      \"citation\": \"sandboxing.md It does not run on Windows [OFFICIAL] [v2.1.220]: \\\"The sandbox is built into Claude Code and runs on macOS, Linux, and WSL2. Native Windows is not supported.\\\" By default an unavailable sandbox warns and runs commands UNSANDBOXED\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "sandbox-fail-if-unavailable-in-repo",
+      "kind": "enforcement-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx26t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx26t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx26t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"sandbox-fail-if-unavailable-project-scope\",\n      \"where\": \"project:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx26t6\\\\project\\\\.claude\\\\settings.json\",\n      \"what\": \"failIfUnavailable is set in a REPOSITORY settings file; its documented home is managed settings, and whether project scope honours it is documented neither way\",\n      \"fix\": \"Move it to managed settings. If it is honoured here, every developer on an unsupported platform is blocked from starting Claude Code by a file in the repo; if it is not, the key enforces nothing.\",\n      \"citation\": \"sandboxing.md failIfUnavailable [OFFICIAL] [v2.1.220]: making an unavailable sandbox a hard failure \\\"is intended for managed deployments that require sandboxing as a security gate\\\", and the documented delivery scope for the enforce keys is managed settings. Whether project scope is honoured is documented NEITHER WAY, and both answers are bad in a checked-in file: honoured means every developer on an unsupported platform cannot start Claude Code, not honoured means the key is theatre\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "sandbox-scalar-shadowed-across-scopes",
+      "kind": "enforcement-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 2,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx27t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx27t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"user\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx27t6\\\\home\\\\.claude\\\\settings.json\"\n    },\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx27t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"sandbox-enabled-unsupported-platform\",\n      \"where\": \"user:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx27t6\\\\home\\\\.claude\\\\settings.json\",\n      \"what\": \"sandbox.enabled on native Windows, where the sandbox does not run; Claude Code warns and runs every command UNSANDBOXED, so this key reads as protection and provides none\",\n      \"fix\": \"Run Claude Code inside WSL2, or drop the key and state the residual explicitly. On native Windows the OS layer is absent, not weaker.\",\n      \"citation\": \"sandboxing.md It does not run on Windows [OFFICIAL] [v2.1.220]: \\\"The sandbox is built into Claude Code and runs on macOS, Linux, and WSL2. Native Windows is not supported.\\\" By default an unavailable sandbox warns and runs commands UNSANDBOXED\",\n      \"source\": \"doctor\"\n    },\n    {\n      \"severity\": \"INFO\",\n      \"check\": \"settings-shadowing-nested\",\n      \"where\": \"user:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx27t6\\\\home\\\\.claude\\\\settings.json AND project:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx27t6\\\\project\\\\.claude\\\\settings.json\",\n      \"what\": \"\\\"sandbox.enabled\\\" is set at user=true, project=false; it is a SCALAR so precedence resolves to project (false) and the others silently do nothing\",\n      \"fix\": \"Keep the key at one scope. Note this is not true of the permission ARRAYS beside it, which merge.\",\n      \"citation\": \"settings precedence [OFFICIAL]: managed > CLI > local > project > user. Scalar keys SHADOW and array keys MERGE, so a nested scalar such as sandbox.enabled set at two scopes has exactly one winner while permissions.deny at two scopes has both. Skipping every object value, which this checker used to do, hid the shadowing case entirely\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "sandbox-strict-allowlist-in-repo",
+      "kind": "enforcement-failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx28t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx28t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx28t6\\\\project\\\\.claude\\\\settings.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"SILENT\",\n      \"check\": \"sandbox-key-inert-in-repo-scope\",\n      \"where\": \"project:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx28t6\\\\project\\\\.claude\\\\settings.json\",\n      \"what\": \"sandbox.strictAllowlist is set in a repository settings file, where it is documented as inert: strictAllowlist works only in user, managed, or CLI --settings settings; \\\"Setting it in a repository's .claude/settings.json or .claude/settings.local.json has no effect\\\"\",\n      \"fix\": \"Move it to user settings, managed settings, or the --settings CLI flag.\",\n      \"citation\": \"sandboxing.md Scope restrictions [OFFICIAL] [v2.1.220]: this key is documented as unavailable from a repository settings file, so it is present, valid, and inert\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "settings-shadowing",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 0,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx29t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx29t6\\\\project\",\n  \"scopes\": [\n    {\n      \"scope\": \"user\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx29t6\\\\home\\\\.claude\\\\settings.json\"\n    },\n    {\n      \"scope\": \"project\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx29t6\\\\project\\\\.claude\\\\settings.json\"\n    },\n    {\n      \"scope\": \"local\",\n      \"file\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx29t6\\\\project\\\\.claude\\\\settings.local.json\"\n    }\n  ],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": null,\n      \"confidence\": \"none\",\n      \"rung\": null,\n      \"source\": null\n    },\n    \"absenceIsProof\": false,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); the installed build could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"INFO\",\n      \"check\": \"settings-shadowing\",\n      \"where\": \"user:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx29t6\\\\home\\\\.claude\\\\settings.json AND project:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx29t6\\\\project\\\\.claude\\\\settings.json AND local:C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx29t6\\\\project\\\\.claude\\\\settings.local.json\",\n      \"what\": \"\\\"model\\\" is set at user=\\\"claude-opus-5\\\", project=\\\"claude-sonnet-5\\\", local=\\\"claude-haiku-4-5-20251001\\\"; precedence resolves to local (\\\"claude-haiku-4-5-20251001\\\") and the others silently do nothing\",\n      \"fix\": \"Keep the key at one scope, or make the shadowing intentional and documented.\",\n      \"citation\": \"settings precedence [OFFICIAL]: managed > CLI > local > project > user; the loser looks configured and does nothing\",\n      \"source\": \"doctor\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    },
+    {
+      "id": "unresolvable-subagent-tools",
+      "kind": "failure-mode",
+      "cells": {
+        "agnix": "skip",
+        "cct": "skip",
+        "cclint": "skip",
+        "skill-validator": "skip",
+        "plugin-validate": "n/a",
+        "doctor": "catch",
+        "doctor+agnix": "skip"
+      },
+      "raw": {
+        "plugin-validate": {
+          "exit": null,
+          "findings": 0,
+          "mutated": false,
+          "out": "(no plugin directory in fixture: not applicable)"
+        },
+        "doctor": {
+          "exit": 1,
+          "findings": 1,
+          "mutated": false,
+          "out": "{\n  \"home\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx30t6\\\\home\",\n  \"project\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx30t6\\\\project\",\n  \"scopes\": [],\n  \"capability\": {\n    \"catalogVersion\": \"2.1.220\",\n    \"installed\": {\n      \"version\": \"2.1.220\",\n      \"confidence\": \"strong\",\n      \"rung\": \"versions-store\",\n      \"source\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx30t6\\\\home\\\\.local\\\\share\\\\claude\\\\versions\\\\2.1.220\"\n    },\n    \"absenceIsProof\": true,\n    \"strictUnknown\": false,\n    \"header\": \"capability catalog 2.1.220 (43 current tools, 31 current hook events); installed build 2.1.220 (versions-store, strong) is covered by the catalog: an absent name is reported BROKEN.\"\n  },\n  \"findings\": [\n    {\n      \"severity\": \"BROKEN\",\n      \"check\": \"agent-unresolvable-tool\",\n      \"where\": \"C:\\\\Users\\\\Shake\\\\AppData\\\\Local\\\\Temp\\\\lint-bench-1785990808449\\\\fx30t6\\\\project\\\\.claude\\\\agents\\\\checker.md\",\n      \"what\": \"tools lists \\\"FrobnicateTool\\\": \\\"FrobnicateTool\\\" is not a tool in capability catalog 2.1.220, which completely enumerates that build, and the installed build 2.1.220 is at or below it, so absence is proof the name does not exist here; since v2.1.208 an unresolvable tools list refuses to spawn the subagent.\",\n      \"fix\": \"Remove or correct the entry.\",\n      \"citation\": \"subagents.md tools resolution [OFFICIAL] [v2.1.208]: an unresolvable tools list refuses to spawn\",\n      \"source\": \"doctor\",\n      \"class\": \"invalid\",\n      \"confidence\": \"strong\"\n    }\n  ]\n}\n\n"
+        }
+      }
+    }
+  ]
+}

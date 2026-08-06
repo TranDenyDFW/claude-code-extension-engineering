@@ -1,0 +1,17 @@
+{
+  "name": "alert-bridge",
+  "description": "Pushes alerts from the on-call webhook into the running session.",
+  "mcpServers": {
+    "alerts": {
+      "command": "node",
+      "args": [
+        "./servers/alerts.mjs"
+      ]
+    }
+  },
+  "channels": [
+    {
+      "server": "alert"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "id": "future-tool-unverified",
+  "kind": "negative-control",
+  "defect": "NONE, and that is the point. The build marker says 2.1.222, NEWER than the capability catalog, which is the regime where absence from the catalog proves nothing. Every name here is real: Read, PowerShell and ReportFindings are current tools, DirectoryAdded is a current hook event. Any finding is a false positive of exactly the class that shipped on 2026-08-02, when a hand-typed name list called 14 real tool names and 1 real hook event broken",
+  "citation": "data/capabilities/catalog.json [GENERATED] versionAwareness; tools-reference.md PowerShell/ReportFindings rows; hooks.md DirectoryAdded section",
+  "signal": null
+}

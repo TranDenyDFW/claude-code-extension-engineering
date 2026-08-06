@@ -1,0 +1,7 @@
+{
+  "id": "sandbox-strict-allowlist-in-repo",
+  "kind": "enforcement-failure-mode",
+  "defect": "strictAllowlist in a repository settings file, where the documentation says setting it \"has no effect\"; the policy is present, valid and inert",
+  "citation": "sandboxing.md Scope restrictions [OFFICIAL] [v2.1.219]",
+  "signal": "inert|no effect|repository settings|user, managed"
+}

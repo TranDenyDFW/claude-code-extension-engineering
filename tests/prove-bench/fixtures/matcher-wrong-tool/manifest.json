@@ -1,0 +1,14 @@
+{
+  "name": "matcher-wrong-tool",
+  "control": false,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "Handler logic is correct but the matcher is scoped to Write only, so an Edit to infra/ never reaches it.",
+  "citation": "hooks.md: \"Matcher: exact string, list (A|B), or regex (unanchored)\". test-hook.sh never reads hooks.json at all.",
+  "expectedFailures": [
+    "C3",
+    "C6",
+    "C7"
+  ],
+  "matcher": "Write",
+  "deny": null
+}

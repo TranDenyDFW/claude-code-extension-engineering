@@ -1,0 +1,33 @@
+{
+  "name": "ops-tools",
+  "description": "Watches the deploy pipeline and the build queue, and bridges on-call alerts into the session.",
+  "experimental": {
+    "monitors": [
+      {
+        "name": "deploy-status",
+        "command": "cd \"${CLAUDE_PLUGIN_ROOT}\" && node \"${CLAUDE_PLUGIN_ROOT}/scripts/poll-deploy.mjs\"",
+        "description": "Deployment status changes",
+        "when": "always"
+      },
+      {
+        "name": "build-queue",
+        "command": "cd \"${CLAUDE_PLUGIN_ROOT}\" && node \"${CLAUDE_PLUGIN_ROOT}/scripts/poll-queue.mjs\"",
+        "description": "Build queue depth crossing the alert threshold",
+        "when": "on-skill-invoke:deploy-check"
+      }
+    ]
+  },
+  "mcpServers": {
+    "alerts": {
+      "command": "node",
+      "args": [
+        "./servers/alerts.mjs"
+      ]
+    }
+  },
+  "channels": [
+    {
+      "server": "alerts"
+    }
+  ]
+}

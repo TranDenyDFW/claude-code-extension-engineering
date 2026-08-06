@@ -1,0 +1,286 @@
+{
+  "arm": "d",
+  "batch": 1,
+  "answers": [
+    {
+      "id": "S001",
+      "primary": "A dynamic workflow saved to .claude/workflows/, invoked as /<name>. The script fans one audit agent per route handler file with pipeline(), feeds each finding to a second adversarial verifier agent before it counts as reported, and returns the collected verified findings.",
+      "rejected_alternative": "Subagents delegated turn by turn from the main conversation. About 400 files plus a verifier per finding is more than one conversation can coordinate, and the orchestration itself would not survive as a rerunnable artifact for next quarter.",
+      "enforcement_owner": "The harness. Claude authors the script once, but the workflow runtime executes the fan-out and the ordering, so the verification stage cannot be skipped for a given file by model judgment.",
+      "context_boundary": "Every audit agent and every verifier runs in its own context window inside the workflow runtime, and the intermediate findings live in script variables. Only the value the script returns crosses into my conversation.",
+      "lifecycle": "It runs on explicit invocation, as the ultracode or use-a-workflow opt-in for the first pass and as the saved /<name> command for later quarters, and it stops when the script returns. It applies to nothing between invocations.",
+      "failure_mode": "It fails incomplete rather than loudly. Resume is scoped to the session that launched the run, so exiting Claude Code partway through a 400 file pass throws the progress away and the next session restarts the whole pass.",
+      "version_caveat": "Dynamic workflows need Claude Code v2.1.154 or later and a paid plan; on Pro they must first be switched on from the Dynamic workflows row in /config, and an organization can remove them entirely with disableWorkflows in managed settings.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "workflows.md",
+          "quote": "Claude writes the script for the task you describe, and a runtime executes it in the background while your session stays responsive."
+        },
+        "lifecycle": {
+          "page": "workflows.md",
+          "quote": "Press Enter to save. The workflow runs as `/<name>` in future sessions from either location."
+        },
+        "failure_mode": {
+          "page": "workflows.md",
+          "quote": "Resume works within the same Claude Code session. If you exit Claude Code while a workflow is running, the next session starts the workflow fresh."
+        },
+        "version_caveat": {
+          "page": "workflows.md",
+          "quote": "Dynamic workflows require Claude Code v2.1.154 or later and are available on all paid plans"
+        }
+      }
+    },
+    {
+      "id": "S002",
+      "primary": "An agent team: the main session is the lead and spawns five teammates, one per hypothesis, each told to attack the others' theories over peer messages, with the surviving consensus written to the findings doc. This is the documented competing-hypotheses shape, where the debate itself is the mechanism.",
+      "rejected_alternative": "Subagents run in parallel for the same five hypotheses. They report only to the agent that spawned them and never message each other, so there is no cross-examination, only five independent reports the main agent would have to reconcile alone.",
+      "enforcement_owner": "The model. The lead decides the decomposition, who challenges whom, and when consensus has been reached; nothing in the harness makes the debate happen. TeammateIdle, TaskCreated and TaskCompleted hooks are the only harness levers available on top.",
+      "context_boundary": "Each teammate is a separate Claude Code session with its own context window that loads CLAUDE.md, skills and MCP servers but not the lead's history. What crosses between them is peer messages, shared task list state, and the findings doc on disk.",
+      "lifecycle": "The team comes into existence when the lead spawns the first teammate, teammates keep running until they idle or are asked to shut down, and the shared team directories are cleaned up when the session exits.",
+      "failure_mode": "It fails open and quietly. A teammate that hits an error tends to stop rather than recover, so the debate silently loses an investigator and whatever consensus emerges was never actually challenged from that angle; task status can also lag and strand dependents.",
+      "version_caveat": "Agent teams are experimental and off unless CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set in settings.json or the environment. Without it no team forms at all, and the page describes the v2.1.178 and later lifecycle where TeamCreate and TeamDelete no longer exist.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "agent-teams.md",
+          "quote": "One session acts as the team lead, coordinating work, assigning tasks, and synthesizing results."
+        },
+        "lifecycle": {
+          "page": "agent-teams.md",
+          "quote": "An agent team forms when the first teammate is spawned, with the main session acting as the lead."
+        },
+        "failure_mode": {
+          "page": "agent-teams.md",
+          "quote": "Teammates may stop after encountering errors instead of recovering."
+        },
+        "version_caveat": {
+          "page": "agent-teams.md",
+          "quote": "Agent teams are experimental and disabled by default. Enable them by setting `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`"
+        }
+      }
+    },
+    {
+      "id": "S003",
+      "primary": "A subagent, ideally a reusable test-runner definition in .claude/agents/ with Bash access, invoked to run the suite and report only the failing tests with their error messages. This is the documented pattern for isolating a high-volume operation.",
+      "rejected_alternative": "A skill that tells Claude how to run the suite and summarize it. A skill runs in the main conversation context, so the tens of thousands of lines would land in the window I am trying to protect.",
+      "enforcement_owner": "Split, and the split is the point: the harness owns the boundary because a subagent gets its own context window and only its final report returns, while the model owns the fidelity of what that report contains.",
+      "context_boundary": "The suite executes in the subagent's own context window, which does not see my conversation history. Only the subagent's final report, the failing tests and their messages, crosses back into my session.",
+      "lifecycle": "It runs when Claude delegates, either from the subagent description matching, from me naming it, or from an @-mention, and it ends when the subagent returns its result. Each invocation is a fresh instance unless it is explicitly resumed.",
+      "failure_mode": "The isolation holds, but completeness fails open: if a rate limit or server error cuts the subagent off after it produced text, the partial output comes back with a note, and a truncated failure list reads exactly like a clean one unless the note is heeded.",
+      "version_caveat": "No version gate on the pattern itself, but as of v2.1.198 subagents run in the background by default, and background subagents keep a reduced built-in tool set. Bash and PowerShell survive that filter, so a test runner still works either way.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "sub-agents.md",
+          "quote": "Each subagent runs in its own context window with a custom system prompt, specific tool access, and independent permissions."
+        },
+        "lifecycle": {
+          "page": "sub-agents.md",
+          "quote": "When Claude encounters a task that matches a subagent's description, it delegates to that subagent, which works independently and returns results."
+        },
+        "failure_mode": {
+          "page": "sub-agents.md",
+          "quote": "the Agent tool returns that partial output with a note that the subagent was cut off and didn't finish its task"
+        },
+        "version_caveat": {
+          "page": "sub-agents.md",
+          "quote": "As of v2.1.198, subagents run in the background by default."
+        }
+      }
+    },
+    {
+      "id": "S004",
+      "primary": "An agent team of three teammates, one owning the frontend files, one the backend API, one the test suite, messaging each other as the interface contract moves. Cross-layer coordination is a named agent-teams use case, and each teammate is directly addressable from the agent panel.",
+      "rejected_alternative": "Subagents, one per layer. They only report back to the main agent, so a contract change cannot propagate sideways mid-flight, and there is no way to open one and redirect it without going through the orchestrator.",
+      "enforcement_owner": "The model. The lead handles decomposition, task assignment and integration from natural language instruction; no harness rule enforces that the contract stays consistent across the three layers.",
+      "context_boundary": "Three independent sessions, each with its own context window and none of the lead's history. Peer messages, the shared task list and the files on disk are what cross; my direct messages go to whichever teammate's transcript is open.",
+      "lifecycle": "The team forms on the first teammate spawn and each teammate runs until it idles or is shut down by name; the shared team directories are removed automatically when the session ends, so there is no separate teardown step.",
+      "failure_mode": "It fails open on file collisions. Teams are not worktree-isolated, so a shared interface or type file touched by two teammates is simply overwritten by the later writer, which is the exact hazard of a contract evolving across three layers.",
+      "version_caveat": "Experimental and disabled unless CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set. Also note that dropping into a teammate works in the default in-process mode in any terminal, while split panes need tmux or iTerm2 and are unsupported in VS Code, Windows Terminal and Ghostty.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "agent-teams.md",
+          "quote": "Tell the lead what you want in natural language. It handles team coordination, task assignment, and delegation based on your instructions."
+        },
+        "lifecycle": {
+          "page": "agent-teams.md",
+          "quote": "The team's shared directories are cleaned up automatically when the session ends, so there's no separate cleanup step."
+        },
+        "failure_mode": {
+          "page": "agent-teams.md",
+          "quote": "Two teammates editing the same file leads to overwrites."
+        },
+        "version_caveat": {
+          "page": "agent-teams.md",
+          "quote": "Agent teams are experimental and disabled by default. Enable them by setting `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`"
+        }
+      }
+    },
+    {
+      "id": "S005",
+      "primary": "A dynamic workflow whose script holds the loop: run the strict type check, fan fixes out to agents, re-run, and terminate on a pass or on two consecutive rounds with no progress. The stopping rule is code, not a judgment call re-made each round.",
+      "rejected_alternative": "A skill that instructs Claude to iterate in the main conversation. The instructions are followed by the model turn by turn, so the termination condition is re-interpreted every round and the growing check output accumulates in the session context.",
+      "enforcement_owner": "The harness. The workflow runtime executes the branching and the loop counter, so the round count and the no-progress test are not the model's to reconsider.",
+      "context_boundary": "The runtime executes the script separately from my conversation; each round's type-check output and each fix agent's work stay in that agent's window and in script variables. Only the final outcome returns.",
+      "lifecycle": "It starts on one invocation, by including the ultracode keyword or asking for a workflow in my own words, and runs in the background until the script's own exit condition is met. It stops applying the moment the script returns.",
+      "failure_mode": "It is closed to intervention, which is what I asked for and also the risk: nothing but an agent permission prompt can pause a run, so a loop that keeps making cosmetic progress cannot be redirected mid-flight and burns agents until it hits the runtime cap.",
+      "version_caveat": "Requires Claude Code v2.1.154 or later on a paid plan, with a /config toggle on Pro. The workflowSizeGuideline setting, default medium since v2.1.219, also steers Claude toward fewer than 15 agents, which can under-size a long fix loop; it is advice, not a cap.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "workflows.md",
+          "quote": "A workflow script holds the loop, the branching, and the intermediate results itself, so Claude's context holds only the final answer."
+        },
+        "lifecycle": {
+          "page": "workflows.md",
+          "quote": "To run a single task as a workflow without changing the session's effort level, include the keyword `ultracode` in your prompt."
+        },
+        "failure_mode": {
+          "page": "workflows.md",
+          "quote": "Only agent permission prompts can pause a run."
+        },
+        "version_caveat": {
+          "page": "workflows.md",
+          "quote": "Dynamic workflows require Claude Code v2.1.154 or later and are available on all paid plans"
+        }
+      }
+    },
+    {
+      "id": "S006",
+      "primary": "A dynamic workflow that pipelines one migration agent per component file with isolation set to worktree, so each transform happens in its own git checkout, followed by a verification stage per file before the result is kept. This is the documented 500 file migration shape.",
+      "rejected_alternative": "Worktree-isolated subagents dispatched from the conversation, the packaged /batch skill being that shape. It splits a change into roughly 5 to 30 subagents, which does not reach 500 files, and the per-file verify gate would be model-decided rather than scripted.",
+      "enforcement_owner": "The harness. The runtime executes the script in its own environment and enforces the concurrency and total agent caps, so isolation and the verify-before-done ordering are structural rather than remembered.",
+      "context_boundary": "Each migration agent works in its own context window and its own worktree copy of the repo; per-file diffs and verifier output stay in the runtime. Only the collected result crosses into my conversation, and the file changes land through the worktrees.",
+      "lifecycle": "One invocation starts it and it runs in the background while the session stays usable, ending when the script returns. Up to 16 agents run concurrently and 1,000 in total per run, which bounds a 500 file pass to a single run only if each file uses two agents at most.",
+      "failure_mode": "Stopping mid fan-out is expensive rather than safe: on resume, cached results stop at the first agent that did not finish and every agent that started after it runs again, so completed migrations get re-transformed and a non-idempotent codemod can double-apply.",
+      "version_caveat": "Requires Claude Code v2.1.154 or later on a paid plan, enabled from /config on Pro. Worktree isolation for an agent is a per-agent option; the subagent form of it has run its shell commands inside the worktree since v2.1.203.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "workflows.md",
+          "quote": "The workflow runtime executes the script in an isolated environment, separate from your conversation."
+        },
+        "lifecycle": {
+          "page": "workflows.md",
+          "quote": "Workflows run in the background, so the session stays responsive while agents work."
+        },
+        "failure_mode": {
+          "page": "workflows.md",
+          "quote": "The second rule is what makes stopping mid fan-out expensive."
+        },
+        "version_caveat": {
+          "page": "workflows.md",
+          "quote": "Dynamic workflows require Claude Code v2.1.154 or later and are available on all paid plans"
+        }
+      }
+    },
+    {
+      "id": "S007",
+      "primary": "A dynamic workflow: one reviewer agent per changed file in a pipeline stage, then a single synthesis agent that receives all per-file findings and returns one deduplicated, ranked summary. Saving it makes the same orchestration available on every branch.",
+      "rejected_alternative": "An agent team with a reviewer per file. Peer messaging and a shared task list are pure overhead when the reviewers have nothing to say to each other, and each teammate is a full session, so cost scales with 60 reviewers for no coordination benefit.",
+      "enforcement_owner": "The harness. The script decides what runs next and guarantees the merge stage sees every reviewer's output, instead of Claude deciding turn by turn which files still need a reviewer.",
+      "context_boundary": "Sixty per-file review transcripts stay inside the runtime and in script variables; the synthesis agent gets the findings as data in its own window. Only the ranked summary crosses into my conversation.",
+      "lifecycle": "It runs when invoked, and because a per-branch review is repeated work, the run's script can be saved as a command that runs the same orchestration each time. It stops when the summary is returned.",
+      "failure_mode": "It stalls rather than fails loudly: shell, web fetch and MCP calls outside the allowlist still prompt mid-run, so an unattended 60 agent review can sit waiting on approval, and a reviewer that never produced a finding leaves a hole the merged summary cannot reveal.",
+      "version_caveat": "Requires Claude Code v2.1.154 or later and a paid plan, with the Pro toggle in /config. Sixty reviewers plus a merge stage also exceeds the default medium size guideline and will trip the advisory Large workflow warning at 25 agents on v2.1.203 and later.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "workflows.md",
+          "quote": "A workflow moves the plan into code. With subagents, skills, and agent teams, Claude is the orchestrator"
+        },
+        "lifecycle": {
+          "page": "workflows.md",
+          "quote": "When Claude writes a workflow for a task you'll repeat, you can save that run's script as a command. A process like a review you run on every branch then runs the same orchestration each time."
+        },
+        "failure_mode": {
+          "page": "workflows.md",
+          "quote": "Shell commands, web fetches, and MCP tools that aren't in your allowlist can still prompt you mid-run."
+        },
+        "version_caveat": {
+          "page": "workflows.md",
+          "quote": "Dynamic workflows require Claude Code v2.1.154 or later and are available on all paid plans"
+        }
+      }
+    },
+    {
+      "id": "S008",
+      "primary": "Three chained subagents in the main conversation, defined in .claude/agents/ as a finder, a fixer and a verifier, invoked in sequence so each one's returned result becomes the next one's brief. This is the documented chain-subagents pattern and it keeps a single writer on the hot files at a time.",
+      "rejected_alternative": "An agent team of three specialists. Teams are the wrong tool for sequential, same-file work with hard dependencies: teammates are not worktree-isolated and would race on the same handful of files while waiting on each other.",
+      "enforcement_owner": "The model. Claude decides when each stage starts and chooses what context to carry forward, so the strict ordering is an instruction it follows rather than something the harness enforces.",
+      "context_boundary": "Three separate context windows, one per specialist, none of which sees my conversation history. What crosses each boundary is the subagent's returned summary plus the hand-off prompt Claude writes for the next stage; the hot files themselves are the other shared channel.",
+      "lifecycle": "Each subagent starts when Claude delegates that step and ends when it returns its result; the chain ends after the verifier reports. Every invocation creates a fresh instance unless Claude explicitly resumes an earlier one.",
+      "failure_mode": "It is advisory and loses information silently: each stage starts with a fresh, isolated context, so any detail Claude omits from the hand-off is gone, and the fixer can drift beyond exactly what was found with nothing to block it.",
+      "version_caveat": "No version gate on chaining. It does depend on foreground behaviour that has been the default since v2.1.198: subagents now run in the background unless Claude needs the result before continuing, which is precisely the case in a strict three-stage chain.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "sub-agents.md",
+          "quote": "Each subagent completes its task and returns results to Claude, which then passes relevant context to the next subagent."
+        },
+        "lifecycle": {
+          "page": "sub-agents.md",
+          "quote": "For multi-step workflows, ask Claude to use subagents in sequence."
+        },
+        "failure_mode": {
+          "page": "sub-agents.md",
+          "quote": "Each subagent starts with a fresh, isolated context window. It doesn't see your conversation history, the skills you've already invoked, or the files Claude has already read."
+        },
+        "version_caveat": {
+          "page": "sub-agents.md",
+          "quote": "Claude runs a subagent in the foreground when it needs the result before continuing."
+        }
+      }
+    },
+    {
+      "id": "S009",
+      "primary": "An agent team of three teammates, one on user experience, one on technical architecture, one playing devil's advocate, messaging each other as the arguments form. Each teammate is a full session I can open from the agent panel and redirect while it is still running.",
+      "rejected_alternative": "Three parallel subagents. They can explore the same three angles but report only back to the main agent, so the perspectives never react to each other and I cannot steer one of them mid-flight.",
+      "enforcement_owner": "The model. The lead spawns the perspectives, mediates their exchange and synthesizes the result; the reacting-to-each-other property is prompt-shaped behaviour, not something the harness guarantees.",
+      "context_boundary": "Three independent context windows plus the lead's. Peer messages and the shared task list cross between teammates, my typed redirection goes to whichever teammate's transcript is open, and the lead's own history never reaches them.",
+      "lifecycle": "It starts when I ask for teammates and Claude spawns them, always with my approval first, and the teammates keep exploring until they idle or are shut down; the team's directories are cleaned up when the session exits.",
+      "failure_mode": "It can fail by quietly not being a team at all: Claude sometimes spawns subagents instead, and they appear in the same panel, so I would think I have three arguing explorers when I have three isolated reporters with no cross-talk and no direct steering.",
+      "version_caveat": "Experimental and disabled until CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set; without it Claude will not spawn or propose teammates at all. Interacting with a single explorer works in the default in-process panel, while split panes additionally need tmux or iTerm2.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "agent-teams.md",
+          "quote": "One session acts as the team lead, coordinating work, assigning tasks, and synthesizing results."
+        },
+        "lifecycle": {
+          "page": "agent-teams.md",
+          "quote": "Claude won't spawn teammates without your approval."
+        },
+        "failure_mode": {
+          "page": "agent-teams.md",
+          "quote": "Subagents appear in the same agent panel as teammates, so the panel alone doesn't confirm a team formed."
+        },
+        "version_caveat": {
+          "page": "agent-teams.md",
+          "quote": "Agent teams are experimental and disabled by default. Enable them by setting `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`"
+        }
+      }
+    },
+    {
+      "id": "S010",
+      "primary": "Nested subagents: one reviewer subagent that keeps the Agent tool in its tools list and dispatches a verifier subagent per finding, then returns a single verified summary. The documentation names this exact shape as what nesting is for.",
+      "rejected_alternative": "A dynamic workflow fanning verifiers out from a script. It would also keep the chatter out of my context, but it is the heavier mechanism for a five to ten item fan-out whose count is only known after the review runs, and it needs its own version and plan gate.",
+      "enforcement_owner": "The harness owns the containment: only the top-level subagent's summary comes back to me, whatever the nested layer produces. The model owns how many verifiers get dispatched and what survives into the summary.",
+      "context_boundary": "Three layers of context. Each verifier has its own window and reports into the reviewer's window, the reviewer holds all the per-finding chatter, and only the reviewer's final summary crosses into my conversation.",
+      "lifecycle": "It starts when Claude delegates the review pass, the verifiers spawn inside that subagent and end when they report, and the whole thing stops when the reviewer returns its summary. Each invocation is a fresh instance.",
+      "failure_mode": "It degrades invisibly. At the depth limit the Agent tool is withheld and the subagent at the limit does the verification itself and still returns one summary, so the output looks identical whether verification was independent or self-performed.",
+      "version_caveat": "Nesting is gated on the spawn depth: by default a subagent can nest up to three layers below the main conversation, which is enough for reviewer plus verifiers. The default was raised to three at v2.1.219; v2.1.217 and v2.1.218 defaulted to one, which turns this pattern off, and CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH to change it needs v2.1.217 or later.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "sub-agents.md",
+          "quote": "Only the top-level subagent's summary returns to you."
+        },
+        "lifecycle": {
+          "page": "sub-agents.md",
+          "quote": "When Claude encounters a task that matches a subagent's description, it delegates to that subagent, which works independently and returns results."
+        },
+        "failure_mode": {
+          "page": "sub-agents.md",
+          "quote": "so a subagent at the limit does its delegated work itself and returns one summary"
+        },
+        "version_caveat": {
+          "page": "sub-agents.md",
+          "quote": "By default, a subagent can spawn subagents of its own, up to three layers below the main conversation."
+        }
+      }
+    }
+  ]
+}

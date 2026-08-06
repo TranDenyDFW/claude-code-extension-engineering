@@ -1,0 +1,7 @@
+{
+  "id": "monitor-duplicate-name",
+  "kind": "late-failure-mode",
+  "defect": "two monitor entries share one name in monitors/monitors.json; name is the dedup key, so a plugin reload or a repeat skill dispatch spawns duplicate processes instead of reusing one. Declared in the default FILE rather than inline, so the file-loading path is exercised by something",
+  "citation": "monitors.md Configuration [OFFICIAL] [v2.1.105]: name is the identifier unique within the plugin and is the dedup key",
+  "signal": "duplicate|same name|dedup|twice|two"
+}

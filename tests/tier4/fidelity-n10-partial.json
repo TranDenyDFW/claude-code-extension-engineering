@@ -1,0 +1,101 @@
+{
+  "SUPERSEDED_BY": "tests/tier4/fidelity-n10-final.json",
+  "WHY": "Intermediate batch from the fixed-observer re-runs. Superseded by the consolidated record; kept for provenance.",
+  "generated": "2026-08-05T02:45:06.598Z",
+  "cli_version": "2.1.219 (Claude Code)",
+  "workers": 4,
+  "passes": 10,
+  "sessions": 40,
+  "elapsed_s": 948,
+  "modelled_classes": 4,
+  "modelled_fully_agreeing": 4,
+  "nondeterministic": [],
+  "not_observable": [
+    [
+      "PostToolUse exit 2",
+      "the tool has already run, so disk state cannot distinguish blocked from allowed. The only signal is what the model does next, which is narration."
+    ],
+    [
+      "SessionStart additionalContext",
+      "the observable is whether injected text reached the model, detectable only by asking the model to echo it. That measures the model, not the harness."
+    ],
+    [
+      "Managed-settings precedence",
+      "requires writing to the platform managed-settings path, which is an administrator surface on this machine and out of scope for a test harness."
+    ],
+    [
+      "PreCompact, SubagentStop, Stop",
+      "each needs a session shaped to reach the event; not reachable from a single headless -p turn with a disk-visible outcome."
+    ]
+  ],
+  "rows": [
+    {
+      "id": "F3",
+      "class": "matcher-scoping",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        true
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    },
+    {
+      "id": "F5",
+      "class": "fail-open-on-crash",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        true
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    },
+    {
+      "id": "F6",
+      "class": "permission-deny-edit",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    },
+    {
+      "id": "F7",
+      "class": "permission-deny-write-inert",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        true
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    }
+  ]
+}

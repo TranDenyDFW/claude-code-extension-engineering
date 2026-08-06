@@ -49,6 +49,49 @@ Development is not a one-way checklist. The generic loop is CAPTURE FAILURE, the
 
 - Bisect with --safe-mode (or CLAUDE_CODE_SAFE_MODE), which starts with CLAUDE.md, plugins, skills, hooks and MCP all disabled (2.1.169); iterate with /reload-skills (2.1.152) and /reload-plugins. Skill edits apply in-session, but a NEW top-level skills directory needs a restart [OFFICIAL]  [v2.1.169]
 
+## The conformance spec: ship the expected outcome beside the artifact
+
+An extension that has no recorded expected outcome cannot be tested, only run. Ship a
+`conformance.json` next to the extension and keep it in version control with it.
+
+Four case kinds, because each catches a distinct real failure:
+
+| Kind | Asserts | The failure it catches |
+|---|---|---|
+| `enforce` | the thing that must be blocked IS blocked | the guard never fires |
+| `near-miss` | a safe neighbour is NOT blocked | a guard so broad it gets disabled out of annoyance |
+| `wiring` | the matcher actually selects this handler for this tool | correct logic wired to the wrong tool, which never fires in production |
+| `fail-posture` | deleting or crashing the handler does not yield `allow` | a command hook FAILS OPEN, so "guarantee" was never guaranteed |
+
+```json
+{ "id": "C1", "kind": "enforce", "event": "PreToolUse",
+  "input": { "tool_name": "Write", "tool_input": { "file_path": "infra/main.tf" } },
+  "expect": { "decision": "deny" } }
+```
+
+Three rules that decide whether the spec is worth anything:
+
+- **Score structurally, never on text.** A handler printing `BLOCKED` to stdout with exit 0 and
+  no `hookSpecificOutput` is an ALLOW. Matching on output text scores the banner, not the
+  decision.
+- **A false positive counts exactly like a miss.** Without the `near-miss` cases, a hook that
+  denies unconditionally passes everything.
+- **The spec must be able to fail.** Re-run every `enforce` and `wiring` case against two
+  controls: an EMPTY tree with nothing installed, and an INERT bundle whose handler is present,
+  executable and always exits 0. A case that still passes against either is asserting nothing.
+
+`fail-posture` is the case kind that turns "does it work" into "is it a guarantee", and it is
+the one that most often changes the mechanism. A command hook cannot pass it: a missing or
+crashing handler fails open by design. Passing needs a harness-owned mechanism, normally a
+`permissions.deny` rule. Write a file rule as `Edit(path)`, never `Write(path)`: a `Write` path
+rule is accepted and never consulted.
+
+```bash
+node tools/extension-prove.mjs --bundle <dir>          # run the spec
+node tools/extension-prove.mjs --prove-fail            # prove the spec can fail
+node tools/extension-scaffold.mjs --requirement "..." --out <dir>
+```
+
 ## Detail
 
 - Shared evaluation, regression, failure capture, and iteration practices.

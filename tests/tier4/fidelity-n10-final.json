@@ -1,0 +1,169 @@
+{
+  "generated": "2026-08-05T02:45:57.523Z",
+  "cli_version": "2.1.219 (Claude Code)",
+  "passes_per_class": 10,
+  "classes": 15,
+  "total_sessions_counted": 150,
+  "modelled": {
+    "classes": 13,
+    "fully_agreeing": 13
+  },
+  "unmodelled": {
+    "classes": 2,
+    "consistent": 2
+  },
+  "nondeterministic": [],
+  "note": "Only results from the FIXED observer are admitted. Three harness bugs were found and fixed during the sweep; see tests/results-prove-bench.md.",
+  "rows": [
+    {
+      "class": "exit2-deny",
+      "round": 1,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 2, after the marker-filename fix",
+      "source_log": "tmp/n10-fix.log"
+    },
+    {
+      "class": "fail-open-on-crash",
+      "round": 1,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 4, re-measured because their original pass came from a broken observer",
+      "source_log": "tmp/n10-rest.log"
+    },
+    {
+      "class": "matcher-scoping",
+      "round": 1,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 4, re-measured because their original pass came from a broken observer",
+      "source_log": "tmp/n10-rest.log"
+    },
+    {
+      "class": "matcher-wildcard",
+      "round": 1,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 2, after the marker-filename fix",
+      "source_log": "tmp/n10-fix.log"
+    },
+    {
+      "class": "near-miss",
+      "round": 1,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 3, after the per-case-target fix",
+      "source_log": "tmp/n10-f8.log"
+    },
+    {
+      "class": "permission-deny-edit",
+      "round": 1,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 4, re-measured because their original pass came from a broken observer",
+      "source_log": "tmp/n10-rest.log"
+    },
+    {
+      "class": "permission-deny-write-inert",
+      "round": 1,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 4, re-measured because their original pass came from a broken observer",
+      "source_log": "tmp/n10-rest.log"
+    },
+    {
+      "class": "stdout-json-deny",
+      "round": 1,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 2, after the marker-filename fix",
+      "source_log": "tmp/n10-fix.log"
+    },
+    {
+      "class": "http-handler-unreachable",
+      "round": 2,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 1, round 2 only, unaffected by both observer bugs",
+      "source_log": "tmp/n10.log"
+    },
+    {
+      "class": "if-filter-excludes",
+      "round": 2,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 1, round 2 only, unaffected by both observer bugs",
+      "source_log": "tmp/n10.log"
+    },
+    {
+      "class": "if-filter-matches",
+      "round": 2,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 1, round 2 only, unaffected by both observer bugs",
+      "source_log": "tmp/n10.log"
+    },
+    {
+      "class": "settings-scope-merge",
+      "round": 2,
+      "simulator": "unmodelled",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 1, round 2 only, unaffected by both observer bugs",
+      "source_log": "tmp/n10.log"
+    },
+    {
+      "class": "timeout-fails-open",
+      "round": 2,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 1, round 2 only, unaffected by both observer bugs",
+      "source_log": "tmp/n10.log"
+    },
+    {
+      "class": "timeout-within-budget",
+      "round": 2,
+      "simulator": "models",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 1, round 2 only, unaffected by both observer bugs",
+      "source_log": "tmp/n10.log"
+    },
+    {
+      "class": "user-prompt-submit-exit2",
+      "round": 2,
+      "simulator": "unmodelled",
+      "agreed": 10,
+      "passes": 10,
+      "deterministic": true,
+      "provenance": "batch 1, round 2 only, unaffected by both observer bugs",
+      "source_log": "tmp/n10.log"
+    }
+  ]
+}

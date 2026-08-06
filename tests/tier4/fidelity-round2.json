@@ -1,0 +1,270 @@
+{
+  "generated": "2026-08-05T00:08:17.873Z",
+  "cli_version": "2.1.219 (Claude Code)",
+  "passes": 2,
+  "modelled": {
+    "cases": 5,
+    "agreed": 5
+  },
+  "unmodelled_measured": 2,
+  "unstable": [],
+  "not_observable": [
+    [
+      "PostToolUse exit 2",
+      "the tool has already run, so disk state cannot distinguish blocked from allowed. The only signal is what the model does next, which is narration."
+    ],
+    [
+      "SessionStart additionalContext",
+      "the observable is whether injected text reached the model, detectable only by asking the model to echo it. That measures the model, not the harness."
+    ],
+    [
+      "Managed-settings precedence",
+      "requires writing to the platform managed-settings path, which is an administrator surface on this machine and out of scope for a test harness."
+    ],
+    [
+      "PreCompact, SubagentStop, Stop",
+      "each needs a session shaped to reach the event; not reachable from a single headless -p turn with a disk-visible outcome."
+    ]
+  ],
+  "rows": [
+    {
+      "id": "G1",
+      "class": "timeout-fails-open",
+      "simulator": "models",
+      "doc": "a command handler that exceeds its timeout: does it block, or fail open",
+      "why": "hooks.md documents per-event timeout defaults but never states the verdict on timeout. extension-prove does not model timeouts at all.",
+      "predicted": {
+        "written": true,
+        "marker": true
+      },
+      "observations": [
+        {
+          "written": true,
+          "marker": true,
+          "markerBody": [
+            "SLOW"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        },
+        {
+          "written": true,
+          "marker": true,
+          "markerBody": [
+            "SLOW"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        }
+      ],
+      "stable": true,
+      "agree": true
+    },
+    {
+      "id": "G2",
+      "class": "timeout-within-budget",
+      "simulator": "models",
+      "doc": "the same handler with a generous timeout still denies",
+      "why": null,
+      "predicted": {
+        "written": false,
+        "marker": true
+      },
+      "observations": [
+        {
+          "written": false,
+          "marker": true,
+          "markerBody": [
+            "SLOW"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        },
+        {
+          "written": false,
+          "marker": true,
+          "markerBody": [
+            "SLOW"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        }
+      ],
+      "stable": true,
+      "agree": true
+    },
+    {
+      "id": "G3",
+      "class": "settings-scope-merge",
+      "simulator": "unmodelled",
+      "doc": "a hook in .claude/settings.json AND one in .claude/settings.local.json: do both fire, or does one win",
+      "why": "extension-prove reads ONE settings.json per bundle and has no scope model at all.",
+      "predicted": {
+        "written": false,
+        "marker": true
+      },
+      "observations": [
+        {
+          "written": false,
+          "marker": true,
+          "markerBody": [
+            "A",
+            "B"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        },
+        {
+          "written": false,
+          "marker": true,
+          "markerBody": [
+            "A",
+            "B"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        }
+      ],
+      "stable": true,
+      "agree": true
+    },
+    {
+      "id": "G4",
+      "class": "if-filter-matches",
+      "simulator": "models",
+      "doc": "a handler with an `if` permission-rule filter fires when the call matches",
+      "why": "the `if` handler field is documented but extension-prove ignores it entirely.",
+      "predicted": {
+        "written": null,
+        "marker": true
+      },
+      "observations": [
+        {
+          "written": false,
+          "marker": true,
+          "markerBody": [
+            "IF:git status"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        },
+        {
+          "written": false,
+          "marker": true,
+          "markerBody": [
+            "IF:git status"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        }
+      ],
+      "stable": true,
+      "agree": true
+    },
+    {
+      "id": "G5",
+      "class": "if-filter-excludes",
+      "simulator": "models",
+      "doc": "the same handler does NOT fire when the call does not match the filter",
+      "why": null,
+      "predicted": {
+        "written": null,
+        "marker": false
+      },
+      "observations": [
+        {
+          "written": false,
+          "marker": false,
+          "markerBody": [],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        },
+        {
+          "written": false,
+          "marker": false,
+          "markerBody": [],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        }
+      ],
+      "stable": true,
+      "agree": true
+    },
+    {
+      "id": "G6",
+      "class": "http-handler-unreachable",
+      "simulator": "models",
+      "doc": "an http handler whose endpoint refuses the connection: fails OPEN per the docs",
+      "why": "hooks.md states an HTTP gate fails OPEN on connection failure. extension-prove supports only type=command.",
+      "predicted": {
+        "written": true,
+        "marker": false
+      },
+      "observations": [
+        {
+          "written": true,
+          "marker": false,
+          "markerBody": [],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        },
+        {
+          "written": true,
+          "marker": false,
+          "markerBody": [],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        }
+      ],
+      "stable": true,
+      "agree": true
+    },
+    {
+      "id": "G7",
+      "class": "user-prompt-submit-exit2",
+      "simulator": "unmodelled",
+      "doc": "exit 2 on UserPromptSubmit blocks the whole turn",
+      "why": "BLOCKING_ON_EXIT2 lists UserPromptSubmit but no case has ever exercised a non-PreToolUse event.",
+      "predicted": {
+        "written": false,
+        "marker": true
+      },
+      "observations": [
+        {
+          "written": false,
+          "marker": true,
+          "markerBody": [
+            "UPS"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        },
+        {
+          "written": false,
+          "marker": true,
+          "markerBody": [
+            "UPS"
+          ],
+          "ok": true,
+          "notes": [],
+          "exit": 0
+        }
+      ],
+      "stable": true,
+      "agree": true
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "blocks-the-near-miss",
+  "control": false,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "Matches the bare substring \"infra\", so infrastructure-notes.md is blocked too.",
+  "citation": "A guard that blocks safe work gets disabled, so a false positive is weighted exactly like a miss.",
+  "expectedFailures": [
+    "C4",
+    "C6",
+    "C7"
+  ],
+  "matcher": "Write|Edit",
+  "deny": null
+}

@@ -1,0 +1,106 @@
+{
+  "arm": "a",
+  "batch": 4,
+  "answers": [
+    {
+      "id": "S031",
+      "primary": "A subagent (Task-tool delegation to an agent defined under .claude/agents/) should own this: it runs the suite inside its own context window and returns only the failing tests with their error messages as its final message.",
+      "rejected_alternative": "A skill that tells the main session to run the suite and then summarize, rejected because skill instructions execute inline, so the thousands of log lines would already be sitting in the working conversation before any summarizing could happen.",
+      "enforcement_owner": "Split, with the structural half on the harness: a separate context window is a harness property and the raw output physically cannot leak through it, while the model owns the quality and completeness of the distilled summary.",
+      "context_boundary": "The suite executes entirely in the subagent's context window; only the invoking prompt crosses in and only the agent's final text response crosses back into the working conversation.",
+      "lifecycle": "Runs when the main session delegates the test run and stops applying the moment the subagent returns its final message; nothing about it persists into the next turn.",
+      "failure_mode": "Lossy summarization is the real risk: the agent drops a failing case or trims the stack trace you needed, and since the raw output dies with the subagent context there is no way to recover it short of rerunning. Isolation fails closed, but summary completeness is advisory and fails open.",
+      "version_caveat": "Markdown-defined subagents invoked through the Task tool are long-standing in Claude Code, but I cannot confirm from model knowledge alone which version added background or concurrent execution of them, so any claim that the suite runs while you keep working should be verified against the installed version."
+    },
+    {
+      "id": "S032",
+      "primary": "A subagent whose definition frontmatter carries a tools allowlist containing only read-side tools (Read, Grep, Glob), so the mutating tools are never presented to the model at all.",
+      "rejected_alternative": "A PreToolUse hook denying Write, Edit and Bash, which does work but filters capability after granting it and has to enumerate every mutating path correctly, rather than simply not handing the worker a write tool.",
+      "enforcement_owner": "The harness. Tool availability is resolved before the model runs, so neither the agent's own instructions nor a mid-task decision can add a write tool back.",
+      "context_boundary": "Everything happens in the subagent's own context window: the review brief crosses in, the review text crosses back, and the reduced tool set applies only inside that window and not to the session that dispatched it.",
+      "lifecycle": "Applies for the whole life of each invocation of that agent and lapses when the agent returns; it places no constraint on the main session or on other agents.",
+      "failure_mode": "Fails closed on the tools it omits, but the guarantee is only as tight as the allowlist: granting Bash (or leaving MCP tools implicitly available) silently reintroduces write capability. A second-order cost is that a reviewer with no write access cannot apply its own fixes, so someone has to transcribe them.",
+      "version_caveat": "The agent-frontmatter tools field is long-standing, but whether MCP-provided tools and newer built-in tools are excluded by default when an allowlist is present is version-dependent and I would test it on the installed build rather than assert it."
+    },
+    {
+      "id": "S033",
+      "primary": "Not a subagent: this belongs to a forked or ephemeral side conversation of the current session (the Agent SDK exposes this as resuming a session with a fork), because only a fork starts from the already accumulated context while leaving the parent transcript untouched.",
+      "rejected_alternative": "A subagent through the Task tool, rejected because a subagent begins with an empty context and would require the entire prior discussion to be re-serialized into its prompt, which is exactly the work this request rules out and would also cost the tokens it is trying to save.",
+      "enforcement_owner": "The harness. Whether a turn is appended to the parent transcript is a session-management property of the runtime, not something the model can choose to skip.",
+      "context_boundary": "The fork inherits a copy of the full session context; the question and its answer live only inside the fork, and nothing crosses back into the parent conversation unless the user deliberately restates it.",
+      "lifecycle": "Begins when the ephemeral question is asked and ends with its answer; the parent session then resumes at exactly the state it was in, with no growth in its history.",
+      "failure_mode": "If no fork mechanism is actually available, the question and answer simply land in the main history and the whole point is lost; and an answer that turns out to matter is not retrievable from the parent session afterwards. Advisory, and it fails open into ordinary context growth.",
+      "version_caveat": "I cannot confirm from model knowledge alone the exact name or the availability of an interactive-CLI ephemeral or sidechain question mode. A fork-on-resume option in the Agent SDK is the part I am more confident about, and I would check the installed version before relying on either."
+    },
+    {
+      "id": "S034",
+      "primary": "A subagent invoked with an explicitly authored handoff brief: the main session serializes the findings, ruled-out hypotheses, config quirks and stack traces into the Task prompt, or writes them to a project file the agent is instructed to read first.",
+      "rejected_alternative": "Assuming a fork or an inheriting helper would pick up the debugging history automatically, rejected because subagent context does not transfer implicitly and two hours of accumulated reasoning would be silently absent from the helper's window.",
+      "enforcement_owner": "The model. Nothing in the harness checks that the brief is complete, so faithfulness of the handoff is entirely an authoring responsibility of the dispatching session.",
+      "context_boundary": "The helper runs in a fresh context window containing only the brief plus whatever it reads itself; the drafted regression tests and a short report cross back. The debugging session keeps its own window for the fix work.",
+      "lifecycle": "Fires once at handoff time and ends when the tests come back. If the fix work changes the diagnosis afterwards the brief is stale, and the helper has to be re-dispatched with an updated one rather than corrected in place.",
+      "failure_mode": "Silent context loss: the helper re-derives or invents the parts of the picture the brief omitted and writes tests against a hypothesis you already ruled out. It fails open, because a thin brief produces confident wrong output rather than an error.",
+      "version_caveat": "Whether the helper can genuinely run while you continue working in the same session depends on the installed version's background-task support for agents; I would not promise the parallelism without checking, and the handoff-brief pattern itself is version-independent."
+    },
+    {
+      "id": "S035",
+      "primary": "A subagent defined by name under .claude/agents (optionally packaged in a plugin so the whole team gets the same one), with the multi-step procedure written into its body and a read-only tools allowlist on it.",
+      "rejected_alternative": "A skill holding the same written procedure, rejected because a skill's steps execute inline in the invoking conversation, so every intermediate file read and command output would accumulate in exactly the context the requirement is protecting.",
+      "enforcement_owner": "The harness owns both load-bearing properties, the separate context window and the tool allowlist. The model owns only whether it actually follows the written steps in order.",
+      "context_boundary": "The pull request reference crosses in, all intermediate reads and outputs stay inside the agent's window, and only the finished summary crosses back to the caller.",
+      "lifecycle": "Triggered by name on demand, once per pull request, and it stops applying as soon as the summary is returned; it holds no state between invocations.",
+      "failure_mode": "The returned summary is the only surviving artifact, so anything the agent omits is unrecoverable without a full rerun. A strictly read-only allowlist can also be too tight if the procedure needs a CLI such as gh, and granting Bash to fix that quietly reopens write capability.",
+      "version_caveat": "Invoking an agent by name and restricting its tools are both long-standing. Distributing agents inside plugins or a marketplace is a newer surface whose exact packaging requirements I would verify rather than assert from memory."
+    },
+    {
+      "id": "S036",
+      "primary": "Inline the full conventions text in the worker subagent's own definition file so it forms part of that agent's system prompt at token zero of every run, rather than referencing it by path or leaving it to be discovered.",
+      "rejected_alternative": "A skill containing the conventions that the worker is expected to invoke, rejected because skill loading is model-triggered and therefore discoverable rather than guaranteed, which is precisely the observed failure.",
+      "enforcement_owner": "Split: the harness guarantees the text is delivered into the agent's context on every run, but compliance with the conventions once the text is present remains model behavior.",
+      "context_boundary": "The conventions occupy the subagent's context window on every invocation. The main session's loaded copy does not cross the boundary at all, which is why the worker appeared to ignore guidance the main session clearly had.",
+      "lifecycle": "Loads at the start of every run of that agent and ends with the run; it never constrains the main session unless the main session loads the same text separately.",
+      "failure_mode": "Two copies of the conventions drift apart over time, and presence is not obedience, so the guidance stays advisory and fails open. Very long inlined text also crowds the agent's window and invites skimming, which reproduces the original symptom more subtly.",
+      "version_caveat": "I am not confident from model knowledge alone whether subagents inherit project CLAUDE.md in the installed version, and that inheritance question is the crux here; it should be tested empirically rather than assumed in either direction."
+    },
+    {
+      "id": "S037",
+      "primary": "A PreToolUse hook matched on the Bash tool that inspects the command string and returns a deny decision for mutating SQL before the command is ever executed.",
+      "rejected_alternative": "A tools allowlist on the reporting agent, rejected because allowlisting operates per tool and cannot distinguish a SELECT from a DELETE once Bash has been granted at all.",
+      "enforcement_owner": "The harness. The hook is an external process whose verdict is applied before execution, so the block holds no matter what the worker decides to attempt.",
+      "context_boundary": "The hook runs in no context window at all; it receives the tool-call JSON on stdin, and only its denial reason crosses back into the worker's context as a tool result.",
+      "lifecycle": "Fires on every Bash call for as long as the hook is configured in settings, including calls made by subagents, and stops when the configuration is removed.",
+      "failure_mode": "Fails closed on the patterns it recognizes, but the parser is the weak link: heredocs, statements read from a file, chained or quoted commands, stored procedures and non-obvious DDL can slip past, and every unrecognized shape fails open. Back it with a genuinely read-only database account so safety does not rest on string matching.",
+      "version_caveat": "The PreToolUse deny contract has changed shape across versions (a structured permission-decision object versus signalling denial by a non-zero exit code), and I would confirm which form the installed version expects before writing the hook rather than guess the field names."
+    },
+    {
+      "id": "S038",
+      "primary": "The named routine should be a skill or workflow whose invocation carries a tool restriction that excludes the interactive user-question tool, so the harness simply does not offer that tool for the duration of the run.",
+      "rejected_alternative": "A PreToolUse hook denying the question tool, rejected because a hook is session-scoped configuration that would remain in force after the routine finishes instead of lapsing automatically on the user's next message.",
+      "enforcement_owner": "The harness, since the set of tools available in a given turn is decided outside the model and the model cannot restore a tool it was never given.",
+      "context_boundary": "The restriction is scoped to the invocation in which the routine runs; only the routine's own output crosses back, and the next user message opens a turn with the default tool set restored.",
+      "lifecycle": "Begins when the user launches the routine by name and lapses when that run ends, so the questioning capability returns automatically on the next user message with no manual reset step.",
+      "failure_mode": "Fails closed on the tool but not on the intent: with no question tool the model can still stall by ending its turn with a question in prose, or it can guess an answer and continue an autonomous cleanup on a wrong assumption, which is worse than asking.",
+      "version_caveat": "I cannot confirm from model knowledge alone the exact frontmatter key for per-invocation tool restriction, nor whether the interactive question tool is restrictable by name in the installed version; both need verification before this design is relied on."
+    },
+    {
+      "id": "S039",
+      "primary": "An agent team: five peer investigators, each with its own context window, sharing a common work list and able to message each other directly under a lead rather than fanning out from a dispatcher.",
+      "rejected_alternative": "Five parallel Task subagents, rejected because that topology is strictly hub and spoke: the workers cannot see or address each other and can only report back to the dispatcher, so no cross-examination or convergence is possible.",
+      "enforcement_owner": "The harness owns the topology, meaning the message channel, the shared work list and the separate windows. The model owns whether the investigators genuinely try to disprove one another instead of agreeing early.",
+      "context_boundary": "Each investigator reasons in its own window; what crosses between them are the messages they send and the entries they write to the shared work list, plus whatever is surfaced to the lead and then to the user.",
+      "lifecycle": "Starts when the team is launched for this specific flaky-connection bug and ends when it converges or is disbanded; it is not a standing configuration that survives the investigation.",
+      "failure_mode": "Cost and noise: five windows plus message traffic multiply token spend sharply, and teams tend either to converge prematurely on the first plausible theory or to loop exchanging messages without resolving. Coordination is advisory end to end, so it fails open into an inconclusive report.",
+      "version_caveat": "Multi-agent teams with peer-to-peer messaging are a much newer capability than plain subagents and I believe availability is version gated and possibly plan gated, but I cannot name the version, flag or plan from model knowledge and would confirm before promising it."
+    },
+    {
+      "id": "S040",
+      "primary": "Move the ban out of the rules file and into harness-level enforcement: permission deny entries covering the vendor path, or a PreToolUse hook that rejects any Read, Grep or Glob call whose resolved path falls under vendor/.",
+      "rejected_alternative": "Restating the prohibition more forcefully in CLAUDE.md or the project rules file, rejected because project memory is advisory text aimed at the model and is not reliably present in a delegated agent's context in the first place, which is exactly why the delegated searches ignore it.",
+      "enforcement_owner": "The harness. Permission rules and hooks are evaluated per tool call by the process itself, which is why they cover delegated agents whereas a rules file only shapes whichever context happens to contain it.",
+      "context_boundary": "Enforcement lives outside every context window; the agent that attempted the call receives a denial in its own window and no vendor content ever crosses into any context, delegated or main.",
+      "lifecycle": "Applies from session start to every matching tool call by the main session and by every agent it spawns, and stops only when the settings entry or hook is removed.",
+      "failure_mode": "Fails closed for the tools it matches, but Bash is the standing hole: grep -r, rg, cat and find reach vendor/ through a command string unless the hook also parses commands. Over-broad globs can additionally block legitimate reads (a vendor-named source file elsewhere) and stall the research the delegation was meant to do.",
+      "version_caveat": "Deny-rule glob syntax and whether a Read deny also covers the search tools have varied across versions, and whether subagents inherit the parent session's permission settings is the assumption this whole design rests on; I would verify that on the installed version rather than assume it."
+    }
+  ]
+}

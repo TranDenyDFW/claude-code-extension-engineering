@@ -1,0 +1,8 @@
+{
+  "id": "deny-rule-powershell-gap",
+  "kind": "enforcement-failure-mode",
+  "defect": "a file deny rule beside a PowerShell allow; the documented file-command recognition names Bash and never PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was measured on 2.1.220",
+  "citation": "permissions.md PowerShell [OFFICIAL] plus [LOCAL_ENV, measured 2026-08-05]",
+  "signal": "PowerShell",
+  "assumePlatform": "win32"
+}

@@ -49,16 +49,18 @@ side in [key-repairs-v2.md](tier3/key-repairs-v2.md); the unseeded values shippe
 
 ## Results
 
+Grades: 1680  scenarios in set: 60  arms: a, b, bplus, d
+Completeness gate: PASS, every scenario, sheet and field graded exactly once.
 <!-- tier3-score:begin set=v2 -->
 
 Overall = mean across all seven fields, partial counted as half.
 
 | Arm | Overall | Primary (strict) | Primary | Rejected alt | Owner | Context | Lifecycle | Failure | Version |
 |---|---|---|---|---|---|---|---|---|---|
-| A: unaided (calibration) | 71% | 34/60 | 69% | 61% | 90% | 95% | 79% | 66% | 35% |
-| B: official docs | 88% | 57/60 | 96% | 67% | 95% | 97% | 95% | 87% | 82% |
-| B+: docs, staged procedure, no skill | 88% | 57/60 | 96% | 68% | 96% | 97% | 96% | 85% | 80% |
-| D: docs + skill, staged procedure | 87% | 57/60 | 96% | 64% | 95% | 98% | 95% | 85% | 80% |
+| A: unaided (calibration) | 71% | 35/60 | 71% | 61% | 90% | 96% | 80% | 67% | 35% |
+| B: official docs | 89% | 58/60 | 98% | 66% | 95% | 98% | 97% | 88% | 83% |
+| B+: docs, staged procedure, no skill | 89% | 58/60 | 98% | 67% | 97% | 98% | 98% | 87% | 81% |
+| D: docs + skill, staged procedure | 89% | 58/60 | 98% | 64% | 96% | 99% | 97% | 86% | 81% |
 
 VERIFIED-quote rate: the share of the four factual fields whose citation carries a quote that
 appears VERBATIM in the cited mirror page, checked mechanically. Fields with no citation count
@@ -78,9 +80,9 @@ reported only: the pre-committed margin above is what decides the outcome.
 
 | Comparison | Scenarios | Wins | Losses | Ties | Mean delta | Sign test |
 |---|---|---|---|---|---|---|
-| D vs B | 60 | 20 | 20 | 20 | -1 pts | p=1.000 |
-| D vs BPLUS | 60 | 14 | 16 | 30 | -1 pts | p=0.856 |
-| BPLUS vs B | 60 | 19 | 16 | 25 | +0 pts | p=0.736 |
+| D vs B | 60 | 21 | 20 | 19 | +0 pts | p=1.000 |
+| D vs BPLUS | 60 | 15 | 16 | 29 | -1 pts | p=1.000 |
+| BPLUS vs B | 60 | 20 | 16 | 24 | +0 pts | p=0.618 |
 | B vs A | 60 | 48 | 9 | 3 | +18 pts | p=0.000 |
 
 Ties are reported because they dominate: a split like 22 to 7 describes only the
@@ -97,13 +99,13 @@ the two scores nor which arm produced the sheet.
 | primary | 240 | 99% | 100% |
 | rejected_alternative | 240 | 87% | 100% |
 | enforcement_owner | 240 | 97% | 100% |
-| context_boundary | 240 | 97% | 100% |
+| context_boundary | 240 | 99% | 100% |
 | lifecycle | 240 | 93% | 100% |
 | failure_mode | 240 | 85% | 100% |
 | version_caveat | 240 | 85% | 96% |
 | **all fields** | **1680** | **92%** | **99%** |
 
-Disagreements of any size: 137 of 1680 cells. Full-point splits requiring adjudication: 9.
+Disagreements of any size: 133 of 1680 cells. Full-point splits requiring adjudication: 9.
 
 Leave-one-batch-out. Every comparison is recomputed with each grading batch removed in
 turn, because a batch that behaves unlike the rest can manufacture across ten scenarios
@@ -111,27 +113,109 @@ what looks like a finding across sixty. This is what caught the retracted v1 hea
 
 | Comparison | All 60 | Worst single-batch drop | Verdict |
 |---|---|---|---|
-| D vs B | 20W 20L, p=1.000 | drop batch 1: 16W 16L, p=1.000 | not significant to begin with |
-| D vs BPLUS | 14W 16L, p=0.856 | drop batch 4: 11W 11L, p=1.000 | not significant to begin with |
-| BPLUS vs B | 19W 16L, p=0.736 | drop batch 5: 14W 13L, p=1.000 | not significant to begin with |
+| D vs B | 21W 20L, p=1.000 | drop batch 1: 16W 16L, p=1.000 | not significant to begin with |
+| D vs BPLUS | 15W 16L, p=1.000 | drop batch 2: 14W 15L, p=1.000 | not significant to begin with |
+| BPLUS vs B | 20W 16L, p=0.618 | drop batch 6: 16W 15L, p=1.000 | not significant to begin with |
 | B vs A | 48W 9L, p=0.000 | drop batch 4: 40W 8L, p=0.000 | robust |
 
-**Verdict, by the rule committed before the run: NEGATIVE.** D does not beat B (-1 points). Publish the negative.
+**Verdict, by the rule committed before the run: NEGATIVE.** D does not beat B (0 points). Publish the negative.
 
-D is -1 points over B+, inside the noise floor, so the reference did not add anything measurable on top of the procedure.
+D is 0 points over B+, inside the noise floor, so the reference did not add anything measurable on top of the procedure.
 
 Robust across every single-batch drop: B over A.
+
+<!-- tier3-score:end -->
+
+## Three replicates: what the run-to-run wobble actually is
+
+The single-replicate result above discloses that it rests on ONE answering pass. Two more were
+run to measure how much of the 1-point D-versus-B gap was pass-to-pass noise. Every input that
+defines an arm was hash-pinned first: the five arm and grader prompts, arm D's 22-file skill
+tree, and the 20-page documentation revision, each verified before dispatch and re-verified
+after. Sheet ORDER was re-salted per replicate, 60 of 60 scenarios reordered in every pairwise
+comparison, while grading-batch MEMBERSHIP was deliberately held identical, because the
+leave-one-batch-out clause is undefined if a batch means different scenarios in different passes.
+
+replicate 1: 3369 records, 1680 cells, grader agreement 92%
+replicate 2: 3366 records, 1680 cells, grader agreement 93%
+replicate 3: 3360 records, 1680 cells, grader agreement 95%
+batch partition identical across all 3 replicates.
+<!-- tier3-pooled:begin set=v2 -->
+
+Pooled over replicates 1, 2, 3. Rule committed before any replicate data existed: `pooled-per-scenario-mean, all-drops-robust`.
+
+Per-arm overall by replicate. The SPREAD is what three passes buy; a pooled mean alone
+would hide it.
+
+| Arm | Rep 1 | Rep 2 | Rep 3 | Pooled | Spread |
+|---|---|---|---|---|---|
+| a | 71% | 71% | 72% | 71% | 1 pts |
+| b | 89% | 91% | 93% | 91% | 4 pts |
+| bplus | 89% | 92% | 94% | 92% | 5 pts |
+| d | 89% | 91% | 93% | 91% | 4 pts |
+
+D versus B by replicate, then pooled over per-scenario MEAN deltas. n stays at the
+scenario count: pooling averages within a scenario, it does not stack.
+
+| Pass | n | Wins | Losses | Ties | Sign test |
+|---|---|---|---|---|---|
+| Replicate 1 | 60 | 21 | 20 | 19 | p=1.000 |
+| Replicate 2 | 60 | 18 | 21 | 21 | p=0.749 |
+| Replicate 3 | 60 | 14 | 16 | 30 | p=0.856 |
+| **Pooled** | **60** | **23** | **30** | **7** | **p=0.410** |
+
+Grader agreement by replicate: rep 1 92%, rep 2 93%, rep 3 95%.
+
+**Pooled verdict: NEGATIVE.** pooled sign test 23W 30L p=0.4101 (need < 0.05); pooled margin 0 pts (need >= 6); 0/15 drops stay significant (need all)
+
+Robustness drops computed: 15 (3 leave-one-replicate, 6 leave-one-grader, 6 leave-one-batch). 15 of them do not reach p < 0.05.
+
+<!-- tier3-pooled:end -->
+
+**The spread is the finding, not the null.** A single arm moves 4 to 5 points between otherwise
+identical passes. The D-versus-B gap those passes were built to detect is 0, -1 and 0 points.
+The noise is several times the effect, so this instrument cannot resolve a difference of the
+size it was looking for, and no amount of additional grading fixes that: the variance enters at
+the ANSWERING step, upstream of everything the grading design controls.
+
+That converts the published claim from "we did not detect a benefit" into something falsifiable:
+**no effect larger than roughly 4 points is detectable here, and the observed difference is well
+inside that band.** A future run that wants to resolve a smaller effect has to attack answering
+variance, by averaging more passes per arm, not by grading harder.
+
+**Three ways the arms moved that a single pass would have reported as fact.**
+Overall scores rose monotonically across passes for every docs arm, 89 to 91 to 93 for B, so a
+run reporting "official docs score 89 percent" and one reporting 93 percent are both this
+instrument on the same inputs. Arm A's `version_caveat` moved 35, 15, 19 percent, a 20-point
+range on the single field that carries most of the B-over-A margin. And full-point grader splits
+went 9, 6, 0, with exact agreement 92, 93, 95 percent; replicate 3 needed no adjudication at all.
+
+**What three replicates do NOT license.** They remove variance from ONE source, the answering
+pass. Everything else is unchanged and still applies: the 60 scenarios are self-authored inside
+this project and identical in all three passes; three docs arms sit at 89 to 94 percent with
+several fields at or above 95, so ceiling compression bounds the room a difference could appear
+in BY CONSTRUCTION; grading is model grading against keys from the same model family; four keys
+remain filed as defective and unrepaired; and n is 60 in the pooled row, not 180, because pooling
+averages within a scenario rather than stacking passes. Anyone reading 1,680 cells times three as
+the sample size is wrong, and the scorer's self-test asserts exactly that.
+
+**Arm A self-identification got worse, not better.** Sheets containing "from memory" or similar
+went 10, 13, 17 of 60 across the three passes. The arm A prompt is hash-pinned and was not
+touched, so this is the known limitation reproducing and drifting upward. It cuts against
+**B over A**, the one comparison this benchmark reports as robust, in the direction that
+inflates it. Three passes of monotonic increase is harder to set aside than the single
+observation was.
 
 <!-- tier3-score:end -->
 
 ## What this says
 
 **Combining the reference with the documentation produces no measurable benefit.** D versus
-B is 20 wins, 20 losses, p=1.000. Not a small effect the instrument struggled to see: a dead
+B is 21 wins, 20 losses, p=1.000. Not a small effect the instrument struggled to see: a dead
 heat, on an instrument specifically rebuilt to detect a small effect. The verdict by the rule
 committed before any v2 answer existed is NEGATIVE.
 
-**The staged procedure also produces nothing.** B+ over B is 19 to 16, p=0.736. The v1 run's
+**The staged procedure also produces nothing.** B+ over B is 20 to 16, p=0.618. The v1 run's
 retracted headline claimed the procedure was the effect; with repaired keys, two graders per
 cell, and equalized documentation, it is not.
 
@@ -148,21 +232,55 @@ in the page it cited. A benchmark that can report those numbers can be argued wi
 
 ## Limitations, including two that bound the conclusion
 
-**Single replicate.** This is one answer pass per arm. Answer-agent nondeterminism is the
-variance this design cannot see, and it is the main reason not to read the 1-point D-versus-B
-gap as anything but noise. The pooled multi-replicate endpoint is already committed in the
-scorer (`pooledVerdict`, `REPLICATE_RULE`), written before any replicate data existed, so
-replicates 2 and 3 can be added later and pooled without touching the rule. They were
-deferred for budget, not for convenience, and this line is the disclosure.
+**Single replicate. RESOLVED 2026-08-05, and the answer was worse than the caveat.** This
+block is one answer pass per arm. Two further passes were run under the same hash-pinned
+inputs and pooled by the pre-committed rule; see "Three replicates" below. The variance this
+design could not see turns out to be **4 to 5 points per arm**, several times the 1-point
+D-versus-B gap the block reports. The gap is noise, as this paragraph originally suspected,
+but the honest restatement is stronger than a suspicion: no effect smaller than roughly 4
+points is resolvable by this instrument at one pass per arm, and every absolute percentage in
+the table above should be read as plus or minus that.
 
-**At least one key is still wrong, and it costs every arm equally.** S040's key selects an
-advisory remedy while the key's OWN `failure_mode` field concedes that "a hard guarantee
-needs a different mechanism entirely, such as a permissions deny rule, a PreToolUse hook, or
-denying Agent(Explore)". All four arms independently chose the deny rule, so all four score
-zero on primary and on the four fields derived from it. That is roughly 20 zero-scores from
-one arguable key. It does not bias D against B, but it depresses every absolute number, and
-the keys-lint does not yet catch the class "the key's own failure_mode names a better primary
-than the key's primary". Adding that rule is tracked work, not a mid-run edit.
+**S040's key was wrong, and has now been repaired. Read how before reading the result.**
+The key selected an advisory remedy while its OWN `failure_mode` conceded that "a hard
+guarantee needs a different mechanism entirely, such as a permissions deny rule, a PreToolUse
+hook, or denying Agent(Explore)". All four arms independently chose the deny rule, so all four
+scored zero on primary and on the fields derived from it, roughly 20 zero-scores from one key.
+It never biased D against B; it depressed every absolute number.
+
+Repairing an expected key AFTER a run is normally the practice that invalidates a benchmark,
+so the full procedure is recorded in `tests/tier3/key-repairs-v2.md`. In short: the defect and
+the repair DIRECTION were published in git on 2026-08-04, before any repair; the lint rule that
+catches the class landed before the key was touched, and produces 1 true positive per set with
+0 false positives across all 120 committed keys; the WORDING was authored by an agent that
+never read an answer sheet, a grade file or this document, verified by a directional 7-shingle
+check; and the arithmetic bound was **published before the re-grade ran**.
+
+That bound said the D-versus-B margin could only land in [-2, +1] against a `DECISION_MARGIN`
+of 6, and the sign test could only move from 20W/20L to at worst 21W/20L or 20W/21L, both
+p=1.0000, because reaching p < 0.05 at n=41 needs 28W/13L and one scenario cannot travel eight
+wins. **The observed outcome was 21W/20L at a margin of 0 points.** The bound held. The
+verdict is NEGATIVE, exactly as before the repair, and it was incapable of being anything else.
+
+What did change is that S040 became gradeable at all: per-arm totals moved from a flat
+{a 2.00, b 1.75, b+ 1.75, d 1.75} out of 7 to {a 5.75, b 5.50, b+ 6.00, d 7.00}. The absolute
+numbers rose accordingly, which is what "it depresses every absolute number" predicted.
+
+**Test-retest reliability, measured for the first time.** The re-grade gave both graders the
+full batch-1 packet rather than a one-scenario packet, because a ten-scenario packet is a
+different grading task. Only the 56 S040 records were used; the other 504 cells are the same
+graders scoring the same sheets against the same unchanged keys a second time. They agreed
+with themselves on **90.5% of cells exactly (456 of 504) and 100% within half a point**. That
+is a bound on grader self-consistency this benchmark previously had no measurement of, and it
+is published whether or not it flatters the instrument. Raw records in `tests/tier3/retest-v2/`.
+
+**The re-grade surfaced four more key defects, which are recorded and NOT repaired.** Both
+graders independently flagged that S018's `rejected_alternative` names the status quo the
+scenario says has already failed twice, so the field discriminates nothing, and that S018,
+S023 and S045 assert `version_caveat: none` while the answers cite concrete version-gated
+facts. They are filed in `tests/tier3/key-defects.jsonl`. Repairing them now would be a second
+post-hoc key change without pre-registration, which is the discipline this section exists to
+maintain. They belong to the next instrument revision.
 
 **Arm A identifies itself in 10 of its 60 sheets**, writing phrases like "unaided", "from
 memory" or "I recall" in the answer text. Zero such phrases appear in B, B+ or D. Blinding
@@ -204,7 +322,7 @@ or a captured Claude Code system prompt, not a user question. Zero usable. The l
 external source is GitHub issues and discussions on `anthropics/claude-code`, which has not
 been tried. Until then this limitation stands unfixed, not merely unaddressed.
 
-**Ceiling compression bounds the null.** The three docs arms sit at 87 to 88 percent with four
+**Ceiling compression bounds the null.** The three docs arms all sit at 89 percent with four
 of seven fields at 95 percent or above, so the room in which a difference could appear is
 small by construction. "No measurable benefit" is therefore a statement about what this
 instrument can resolve at this difficulty, not a proof that no benefit exists anywhere. A

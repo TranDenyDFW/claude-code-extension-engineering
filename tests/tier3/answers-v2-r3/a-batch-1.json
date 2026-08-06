@@ -1,0 +1,107 @@
+{
+  "arm": "a",
+  "batch": 1,
+  "answers": [
+    {
+      "id": "S001",
+      "primary": "A dynamic workflow (programmatic orchestration behind one slash command) that fans out one audit subagent per route file with bounded concurrency, then routes every candidate finding through a separate adversarial verifier subagent before it is allowed into the report. The workflow definition plus the auditor and verifier subagent definitions are checked into the repo (or shipped as a plugin), so next quarter is a single re-invocation of the same command.",
+      "rejected_alternative": "An ad hoc subagent fan-out driven by the main agent from a skill: it performs the same 400 audits, but the file coverage, the concurrency cap, and the mandatory verification step are all instructions the model may reorder or skip, so the quarterly rerun is not reproducible.",
+      "enforcement_owner": "Harness for the mechanics (which files get audited, and that no finding is emitted without passing the verifier step), model for the substance (whether an authorization gap is really present). The gate is only real if the orchestration code refuses to append an unverified finding rather than merely asking for verification.",
+      "context_boundary": "Each file audit runs in its own subagent window holding that handler plus the audit rubric; each verification runs in a third window seeing the finding and the code but not the auditor's reasoning. Only structured findings cross back to the driver, so no single context ever holds 400 file bodies.",
+      "lifecycle": "Runs on explicit invocation of the command, once per quarter, and ends when every file has been audited and every surviving finding verified. Nothing persists between quarters except the checked-in workflow and subagent definitions.",
+      "failure_mode": "Fails open on recall: a subagent returning 'no findings' is indistinguishable from one that ran badly or errored, and per-file isolation hides authorization enforced in middleware or the router, so false negatives are silent. The adversarial verifier only suppresses false positives; nothing catches what was never proposed. At 400 units, unbounded fan-out also hits rate and concurrency limits, so a fixed worker pool is required."
+      ,
+      "version_caveat": "In-product dynamic workflow orchestration is a recent Claude Code addition and I cannot state its minimum version, flag name, or whether it is still experimental from model knowledge alone. Subagents plus a slash command (or a headless CLI driver) are the version-safe fallback and need no gate."
+    },
+    {
+      "id": "S002",
+      "primary": "An agent team of five investigators, one hypothesis each, using peer-to-peer messaging so they can rebut each other, with the surviving consensus written to a findings document as the deliverable. Roles are assigned adversarially (each teammate is told to attempt to falsify the others) and a lead collates.",
+      "rejected_alternative": "Five parallel subagents. They are isolated by design and can only report back to the orchestrator, so there is no cross-examination, only five independent write-ups that someone else has to reconcile after the fact.",
+      "enforcement_owner": "Model. The harness supplies the message transport and the shared workspace, but nothing in the harness forces a teammate to actually attack another's theory or to change its mind when refuted.",
+      "context_boundary": "Each investigator has its own context window; inter-agent messages and the shared findings file are what cross between them. Your conversation holds the coordination layer and the final document, not each investigator's raw packet dumps or log reads.",
+      "lifecycle": "Starts when the team is created and the debate task assigned; ends when the consensus document is written and the team is disbanded, or when the session ends. It is a one-off investigation structure, not a standing rule.",
+      "failure_mode": "Advisory throughout. The characteristic failure is premature agreement: agents converge politely instead of falsifying, and a 'consensus' can be produced without anyone reproducing the disconnect. Messages can also be missed, and five concurrent investigators multiply token burn. Require each surviving claim to cite an actual captured trace or log line.",
+      "version_caveat": "Agent teams with peer messaging are a recent capability and likely still opt-in or experimental; I cannot state the exact version, setting name, or plan requirement. If unavailable, the fallback is sequential subagent rounds where each round is given the previous round's claims to attack."
+    },
+    {
+      "id": "S003",
+      "primary": "A subagent (Task) that runs the suite in its own context and returns only a structured list of failing tests with their error messages, invoked through a skill or slash command so that is always the path taken. Have the subagent redirect raw output to a file and read only the tail or the matched sections, so the volume never has to fit in any window.",
+      "rejected_alternative": "Running the suite inline in the main conversation and filtering the output with a grep pipeline or a PostToolUse hook. Pattern filtering silently drops failures whose format does not match, and any pass-through still risks the raw text landing in the working context.",
+      "enforcement_owner": "Harness owns the boundary: a subagent's transcript does not merge into the parent, only its final message returns. The model owns fidelity of the extraction. Note the harness guarantee covers that call only; nothing stops the main agent from running the suite itself unless a PreToolUse hook denies the test command in the main session.",
+      "context_boundary": "The tens of thousands of lines live and die inside the subagent window; what crosses is the subagent's final message. Give it an explicit output contract (test id, file, assertion message, first stack frame) so the returned payload stays bounded.",
+      "lifecycle": "Per invocation, whenever a test run is requested, and it stops applying as soon as the summary is returned. To make it the only path rather than the preferred path, pair it with a PreToolUse hook that blocks direct test invocations outside the subagent.",
+      "failure_mode": "Fails open on completeness: the subagent can summarize, truncate, or paraphrase error text, and a suite that dies at startup can be reported as 'no failures'. Very large output can also exhaust the subagent's own context before it summarizes, which is why it should stream to disk and read selectively.",
+      "version_caveat": "Subagents are a stable, generally available mechanism and need no flag or plan gate. The hook event names and payload schema needed for the hard block are specific and I will not quote them from memory here."
+    },
+    {
+      "id": "S004",
+      "primary": "An agent team with three teammates (frontend, backend API, tests), peer messaging so contract changes propagate as they happen, and the interface contract held in a shared file that is the single source of truth. Direct addressability lets you redirect one teammate without going through a lead.",
+      "rejected_alternative": "Three parallel subagents. They cannot be spoken to mid-flight and cannot broadcast a contract change to each other; the orchestrator would have to stop them and re-dispatch with new instructions every time the interface moves.",
+      "enforcement_owner": "Model. The harness routes messages and provides the addressing, but keeping the three layers consistent with the evolving contract is model behavior, not an enforced invariant.",
+      "context_boundary": "Each teammate has its own window scoped to its layer; contract updates, questions, and your direct instructions cross the boundary as messages. Your session holds the coordination view plus whatever teammates report, not their full file reads.",
+      "lifecycle": "Spawned for the duration of this feature and ends when the work is merged or the team is disbanded or the session ends. It carries no policy forward to the next feature.",
+      "failure_mode": "Advisory, and the concrete failures are contract drift and write collisions: nothing locks files, so two teammates touching a shared type or schema file can clobber each other, and a teammate can keep working from a stale contract because reading messages is voluntary. Cost scales with the number of concurrent teammates.",
+      "version_caveat": "Agent teams are recent and likely still experimental or opt-in; I cannot name the version, flag, or plan requirement. The version-safe degradation is a sequential subagent pipeline with the contract file as the handoff, at the cost of losing mid-flight redirection."
+    },
+    {
+      "id": "S005",
+      "primary": "A programmatic loop owned by code, either a dynamic workflow or a headless CLI/Agent SDK driver: the harness runs the strict type check, hands the error list to a fixer subagent, re-runs the check, and evaluates the exit predicate (zero errors, or two consecutive rounds with no reduction in the error count) itself.",
+      "rejected_alternative": "A skill or slash command that instructs the model to loop. The stop decision then belongs to the model, which typically halts early, declares partial success, or re-litigates the approach each round, which is exactly the babysitting the request rules out. (A Stop hook that re-injects 'keep going' is the blunt cousin and lacks a progress predicate.)",
+      "enforcement_owner": "Harness. The round counter, the error-count comparison, and the exit condition are code; the model contributes only edits inside each round.",
+      "context_boundary": "The driver holds counters and the current error list, nothing more. Each fix round runs in a fresh subagent window with just the current errors and the files it needs, which keeps a multi-round loop from accumulating the whole history in one context.",
+      "lifecycle": "Triggered on invocation, stops on a clean type check or when the no-progress predicate fires, and has no standing effect afterwards.",
+      "failure_mode": "Fails closed on liveness (it always terminates) but the quality gate is weak: the cheapest way to reduce an error count is casts, any, or suppression comments, so the loop can reach green while degrading the code. Harden the predicate with a no-new-suppressions check and a test run. Oscillation (fixing A reintroduces B) shows as a flat count and trips the no-progress exit instead of being diagnosed.",
+      "version_caveat": "The shell or SDK form of this loop works today with no gate. The in-product dynamic workflow form is newer and I cannot state its version gate, flag, or experimental status from model knowledge alone."
+    },
+    {
+      "id": "S006",
+      "primary": "A dynamic workflow fan-out over the file list with a fixed-size worker pool, where each unit of work is transformed in its own git worktree copy and must pass a per-unit verification (typecheck, build, targeted tests or snapshot diff) before its diff is accepted and merged back. Re-runnable over just the failed subset.",
+      "rejected_alternative": "An agent team. There is nothing for peers to discuss, and teammates sharing one checkout reintroduces exactly the edit collisions that the isolated copies exist to prevent.",
+      "enforcement_owner": "Harness owns isolation, scheduling, retries, and the merge gate; the model owns the transform quality inside each unit.",
+      "context_boundary": "Each file is transformed in a subagent window holding that file plus the migration rules and a canonical example; only the accepted diff and a pass/fail record cross back. The driver never holds 500 file bodies.",
+      "lifecycle": "One invocation, ending when the work queue drains and all verified diffs are merged; the failed subset can be re-driven without redoing the successes.",
+      "failure_mode": "Fails open at the seams: per-file verification passes while the application is broken by shared surfaces (theme provider, global CSS ordering, class-name collisions, build config), and merge conflicts on those shared files are the common concrete failure. Operationally, 500 concurrent worktrees or agent processes exhaust disk, file handles, and rate limits, so the worker count must be fixed and must not scale with the input size.",
+      "version_caveat": "Git worktrees and headless invocation are available today with no gate. The packaged workflow orchestration feature is newer and I cannot state its version requirement or enabling flag."
+    },
+    {
+      "id": "S007",
+      "primary": "Parallel subagent fan-out, one reviewer subagent per changed file, dispatched from a slash command or skill, with a final merge step (in the orchestrator or a dedicated merge subagent) that deduplicates and ranks the pooled findings into one summary.",
+      "rejected_alternative": "An agent team. Peer messaging buys nothing when the reviewers have nothing to discuss, and it multiplies cost and latency while making the run less reproducible.",
+      "enforcement_owner": "Model owns the outcome: both the per-file judgment and the dedup/rank merge are model decisions. The harness only guarantees context isolation and caps how many reviewers run at once.",
+      "context_boundary": "Each reviewer sees one file's diff plus whatever it chooses to open for context; findings cross back as structured items. The orchestrator holds up to 60 finding lists at once, so enforce a strict per-file schema and a length cap or the merge step will itself run out of room.",
+      "lifecycle": "Per pull request, on invocation; ends when the merged summary is produced. Re-run against a new head commit rather than incrementally updated.",
+      "failure_mode": "Fails open on cross-file defects by construction: a reviewer holding one file cannot see the caller that now passes the wrong argument, or the interface it silently broke. The merge is lossy in both directions, collapsing two genuinely distinct bugs that share a symptom while leaving near-duplicates, and the ranking is not stable between runs.",
+      "version_caveat": "Subagents and slash commands are generally available and require no flag or plan gate. There is a ceiling on how many subagents run concurrently, so 60 reviews execute in waves rather than all at once; I cannot quote the exact limit or its setting name."
+    },
+    {
+      "id": "S008",
+      "primary": "A strictly sequential subagent pipeline (analyzer, then fixer, then verifier) driven by a single orchestrator, expressed as a dynamic workflow when the ordering must be guaranteed rather than merely instructed, with an explicit structured artifact handed from each step to the next.",
+      "rejected_alternative": "An agent team. Concurrent peers editing the same handful of hot files would collide with no locking, and the dependency here is strict, so messaging adds cost without adding anything the handoff artifact does not already carry.",
+      "enforcement_owner": "Harness if the sequence is expressed as workflow code, because the ordering and the handoff become mechanical; model if it is only a skill, because then the order is an instruction the agent can compress or skip. The shared hot files are the reason to prefer the harness-owned form.",
+      "context_boundary": "Three separate windows. The findings list crosses into the fixer; the resulting diff plus the original findings cross into the verifier. Deliberately withhold the fixer's rationale from the verifier so the verification is independent rather than a review of a persuasive narrative.",
+      "lifecycle": "One invocation, ending after the verifier reports. If verification fails, either loop back to the fixer a bounded number of times or stop and report; without an explicit loop the pipeline simply reports the failure.",
+      "failure_mode": "Lossy handoff is the practical failure: the fixer works from a summary and can fix the wrong thing or fix the symptom, and a verifier that sees the fixer's reasoning tends to rubber-stamp. Sequencing removes write collisions but the fixer's edits invalidate the line numbers in the analyzer's findings, so anchor findings by symbol or code excerpt, not line number.",
+      "version_caveat": "Chaining subagents sequentially works today with no version gate. The workflow form that makes the ordering non-negotiable is newer, and I cannot state its version, flag, or experimental status."
+    },
+    {
+      "id": "S009",
+      "primary": "An agent team of three explorers (user experience, technical architecture, devil's advocate) with peer messaging so arguments react to each other as they form, and direct addressability so you can drop into one explorer mid-flight and redirect it. Require a written design document as the artifact.",
+      "rejected_alternative": "Three parallel subagents. They would return three independent essays with no reaction between them and no way in during the run, and the reaction is the entire point of the exercise.",
+      "enforcement_owner": "Model. The harness provides the messaging and the addressing; whether the devil's advocate stays genuinely adversarial rather than sliding into mild caveats is model behavior and it drifts.",
+      "context_boundary": "Each explorer has its own window; the arguments they exchange cross between them. Your session sees the coordination and whatever they surface, not each explorer's full deliberation, which is why the design document matters.",
+      "lifecycle": "Exists only for the exploration and ends when the design decision is made or the team is disbanded or the session ends. It leaves no standing policy behind, so any conclusion you want to keep must be written down.",
+      "failure_mode": "Advisory and prone to false consensus: the adversarial role degrades into agreement, and three concurrent explorers burn tokens fast on a task with no verifiable output. Without an explicit artifact requirement the reasoning dies with the team and you are left with a decision you cannot audit.",
+      "version_caveat": "Agent teams are recent and likely opt-in or experimental; I cannot state the exact version, enabling flag, or plan availability. Fallback with no gate is a subagent per perspective followed by a synthesis round that shows each perspective the others' output."
+    },
+    {
+      "id": "S010",
+      "primary": "Push the whole pass one level down: a dynamic workflow (or an Agent SDK / headless CLI driver) owns the review, dispatches an independent verifier per finding, merges the verdicts, and returns exactly one verified summary to your conversation.",
+      "rejected_alternative": "Dispatching the verifiers directly from your session as subagents. Each verifier's return message lands in your transcript, so you receive five to ten partial reports instead of one, which is precisely what the request rules out.",
+      "enforcement_owner": "Harness owns the isolation and the single-message-out contract; the model owns whether an individual finding survives its verification.",
+      "context_boundary": "The review runs in its own window; each verifier receives one finding plus the relevant code and not the reviewer's reasoning, which is what makes the verification independent rather than confirmatory. Only the merged summary crosses back to you.",
+      "lifecycle": "Per review pass, on invocation; ends once every finding has a verdict and the single summary is emitted. Nothing persists afterwards.",
+      "failure_mode": "Fails open, and drops are silent: a verifier that cannot reproduce a finding kills a possibly true positive, and one merged summary hides that disagreement unless you require a per-finding verdict line with its evidence. The load-bearing detail is whether a subagent may itself spawn subagents; I cannot confirm the current nesting rule, and if nesting is disallowed the fan-out must live in a workflow or SDK driver rather than inside a single subagent.",
+      "version_caveat": "Subagents are generally available with no flag. Subagent nesting depth and the availability gate for in-product dynamic workflows are exactly the points I cannot state from model knowledge; an Agent SDK or headless CLI driver is the version-safe way to get the single-summary guarantee today."
+    }
+  ]
+}

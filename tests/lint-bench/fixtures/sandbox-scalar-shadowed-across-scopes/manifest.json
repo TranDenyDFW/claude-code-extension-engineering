@@ -1,0 +1,7 @@
+{
+  "id": "sandbox-scalar-shadowed-across-scopes",
+  "kind": "enforcement-failure-mode",
+  "defect": "sandbox.enabled set true at user scope and false at project scope; it is a nested SCALAR so exactly one wins and the other silently does nothing, unlike the permission ARRAYS beside it which merge",
+  "citation": "settings precedence [OFFICIAL]: managed > CLI > local > project > user",
+  "signal": "shadow|precedence|silently does nothing"
+}

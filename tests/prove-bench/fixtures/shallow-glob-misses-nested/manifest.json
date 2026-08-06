@@ -1,0 +1,14 @@
+{
+  "name": "shallow-glob-misses-nested",
+  "control": false,
+  "requirement": "Prevent any change to a file under infra/. Leave everything outside infra/ untouched. The protection must still hold if the guard's own script is deleted or crashes.",
+  "defect": "Deny rule uses Edit(infra/*), which does not span a directory separator, so nested paths are unprotected.",
+  "citation": "permissions page glob semantics: * does not cross a separator; ** does.",
+  "expectedFailures": [
+    "C5"
+  ],
+  "matcher": null,
+  "deny": [
+    "Edit(infra/*)"
+  ]
+}

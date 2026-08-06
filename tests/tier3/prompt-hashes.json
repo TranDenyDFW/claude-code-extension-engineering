@@ -1,0 +1,37 @@
+{
+  "pinned": "2026-08-05",
+  "note": "Arm and grader prompts, and arm D's skill tree, as run for replicate 1. These are the independent variables. Editing one between replicates does not improve the run, it destroys the comparison. Hashes are over LF-normalised text so a CRLF checkout does not report false drift.",
+  "skillSource": "P:/ClaudeExt/QuestionExtension/tmp/t3full-v2/d/skill",
+  "skillNote": "The repo skill has moved on since replicate 1. Arm D must read THIS tree, not skills/claude-code-extension-engineering, or the replicates differ by more than answer-agent nondeterminism and the pooled rule does not apply.",
+  "prompts": {
+    "arm-a.md": "b4c3d26d0640967f1d02f038cb3438c1be5f9c59ac424606c83986e2913225e8",
+    "arm-b-plus.md": "823ff3addac58fd9e6969a381e806a7a8394d25879a19a9d87dbb7959ac45f23",
+    "arm-b.md": "6165a4c46c856069a12144a24851ea6263431173e65bc34314e7ff78d64f200d",
+    "arm-d.md": "5519606026620e768b11618c93cbbced21d59945b12ec624e42c904b88e6ffbb",
+    "grader.md": "4c5c0bdbeecccd46a94b93bce037c08691494666b9243891edd956c78c7c90e8"
+  },
+  "skill": {
+    "references/agent-sdk.md": "420a72793ddca5d254b3928b653bd395850d4057e629c79bd92b8e037512ab55",
+    "references/agent-teams.md": "1bc7f379824b17beb5fa3a888e28f4b564531a442d33e8b6e0b12c8d3bd35740",
+    "references/auto-memory.md": "c62ed7e1a632e4594e621947fa45f58981fc8ee7cba02111b1adbc6c6ceab716",
+    "references/claude-md-family.md": "bebcf489dded0b5fcb78d4fa19c0cdd52757c65fb58b9429d9374f23beb40091",
+    "references/compatibility.md": "b61bfdbe18791dbfc3f9005cb18bb0c2bbd253eabf1dfb46bf67538bcd2d06d4",
+    "references/composition-cards.md": "f0210638ff6c3e42ec461055d2d682e04b9de92f48e85a0f00b1d690886944a8",
+    "references/context-modes.md": "481cf6f971093bcfc4ae45e74beea16f92187507c774b285ff67236456aeaae0",
+    "references/github-action.md": "ba5f771fbf0142e76e87c60a7af14e7ef7b833a0dd801cfeaa02e9b28514b279",
+    "references/hook-events.md": "552a85af91a8336ff6d672916aa843729ed93a4355fdea68a61e7e473827de63",
+    "references/hooks.md": "a5d261a6aa25d614ec88b6a6cde6527a414206dcdb410fad5ad20dfffb7c6561",
+    "references/lsp.md": "58e1057b2a00133c2e599f56e48c45fb711aa6ca3861afbc1a2e3c833b39b5ba",
+    "references/mcp.md": "0bf9e9dea10bd82d3f654da433c756ff5f956618df9de049d3904ee82049f1b0",
+    "references/output-styles.md": "ee105160c7b473d871c10b005cecb026def75a64008c8f36835c18d9e40b84cb",
+    "references/plugins.md": "97af9f4f67473f258eef93fb089e1d32cc9a2e0cc567663420937b045701f300",
+    "references/selection.md": "f2e74a87fed2a7d95d7997b753c67f114f739bd985491da5073c6e0544af1588",
+    "references/skills.md": "428939bfe71d9b50565667d48f48e25195a31841783eb669665e05c7e0cd4dfb",
+    "references/sources.md": "e388fe5adb795a4d05252fbed3c0604fd5b6b2214e2578b5c136c142733f75ec",
+    "references/subagents.md": "192ea6d4619e446090ea43a5d595ccd7c8e202faf78bb774eca8f0f92b264c4e",
+    "references/testing.md": "d2d98a53151de02fd2fc328511ffd6325147ad7318cb698243bf3708c7d8f301",
+    "references/themes.md": "034114a3c87c95abe81f1a8f73436820052627b6c9c1d137d9f12070889808fa",
+    "references/workflows.md": "e1819ca1393b061b71d60fc8dac71e4763a47aa9cf70d9efa1ee00ce2adebd9f",
+    "SKILL.md": "54de6713181e88279b0271cbdb1bfaad3c0e12776a62c4d188bf09276b020517"
+  }
+}

@@ -1,0 +1,542 @@
+{
+  "SUPERSEDED_BY": "tests/tier4/fidelity-n10-final.json",
+  "WHY": "First sweep. Round-1 numbers are WRONG: the observer looked only for MARKER.log and only at infra/main.tf, so four round-1 classes scored a false 0/10 and four more passed for the wrong reason. Round-2 rows in this file are valid. Kept as evidence of the defect, not as a measurement.",
+  "generated": "2026-08-05T01:48:12.439Z",
+  "cli_version": "2.1.219 (Claude Code)",
+  "workers": 4,
+  "passes": 10,
+  "sessions": 150,
+  "elapsed_s": 3538,
+  "modelled_classes": 13,
+  "modelled_fully_agreeing": 9,
+  "nondeterministic": [],
+  "not_observable": [
+    [
+      "PostToolUse exit 2",
+      "the tool has already run, so disk state cannot distinguish blocked from allowed. The only signal is what the model does next, which is narration."
+    ],
+    [
+      "SessionStart additionalContext",
+      "the observable is whether injected text reached the model, detectable only by asking the model to echo it. That measures the model, not the harness."
+    ],
+    [
+      "Managed-settings precedence",
+      "requires writing to the platform managed-settings path, which is an administrator surface on this machine and out of scope for a test harness."
+    ],
+    [
+      "PreCompact, SubagentStop, Stop",
+      "each needs a session shaped to reach the event; not reachable from a single headless -p turn with a disk-visible outcome."
+    ]
+  ],
+  "rows": [
+    {
+      "id": "F1",
+      "class": "stdout-json-deny",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 0,
+      "rate": 0,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": [
+        {
+          "pass": 0,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 1,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 2,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 3,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 4,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 5,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 6,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 7,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 8,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 9,
+          "notes": [
+            "marker true->false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "F2",
+      "class": "exit2-deny",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 0,
+      "rate": 0,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": [
+        {
+          "pass": 0,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 1,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 2,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 3,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 4,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 5,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 6,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 7,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 8,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 9,
+          "notes": [
+            "marker true->false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "F3",
+      "class": "matcher-scoping",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        true
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    },
+    {
+      "id": "F4",
+      "class": "matcher-wildcard",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 0,
+      "rate": 0,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": [
+        {
+          "pass": 0,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 1,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 2,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 3,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 4,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 5,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 6,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 7,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 8,
+          "notes": [
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 9,
+          "notes": [
+            "marker true->false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "F5",
+      "class": "fail-open-on-crash",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        true
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    },
+    {
+      "id": "F6",
+      "class": "permission-deny-edit",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    },
+    {
+      "id": "F7",
+      "class": "permission-deny-write-inert",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        true
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    },
+    {
+      "id": "F8",
+      "class": "near-miss",
+      "round": 1,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 0,
+      "rate": 0,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": [
+        {
+          "pass": 0,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 1,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 2,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 3,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 4,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 5,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 6,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 7,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 8,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        },
+        {
+          "pass": 9,
+          "notes": [
+            "written true->false",
+            "marker true->false"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "G1",
+      "class": "timeout-fails-open",
+      "round": 2,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        true
+      ],
+      "observedMarker": [
+        true
+      ],
+      "divergences": []
+    },
+    {
+      "id": "G2",
+      "class": "timeout-within-budget",
+      "round": 2,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        true
+      ],
+      "divergences": []
+    },
+    {
+      "id": "G3",
+      "class": "settings-scope-merge",
+      "round": 2,
+      "simulator": "unmodelled",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        true
+      ],
+      "divergences": []
+    },
+    {
+      "id": "G4",
+      "class": "if-filter-matches",
+      "round": 2,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        true
+      ],
+      "divergences": []
+    },
+    {
+      "id": "G5",
+      "class": "if-filter-excludes",
+      "round": 2,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    },
+    {
+      "id": "G6",
+      "class": "http-handler-unreachable",
+      "round": 2,
+      "simulator": "models",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        true
+      ],
+      "observedMarker": [
+        false
+      ],
+      "divergences": []
+    },
+    {
+      "id": "G7",
+      "class": "user-prompt-submit-exit2",
+      "round": 2,
+      "simulator": "unmodelled",
+      "passes": 10,
+      "agreed": 10,
+      "rate": 1,
+      "deterministic": true,
+      "observedWritten": [
+        false
+      ],
+      "observedMarker": [
+        true
+      ],
+      "divergences": []
+    }
+  ]
+}

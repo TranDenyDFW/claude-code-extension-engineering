@@ -1,0 +1,286 @@
+{
+  "arm": "bplus",
+  "batch": 4,
+  "answers": [
+    {
+      "id": "S031",
+      "primary": "A subagent (Agent-tool delegation) spawned for the single job of running the integration suite and reporting back only the failing tests with their error messages. Either the built-in general-purpose agent invoked ad hoc, or a small custom `test-runner` agent in `.claude/agents/` with Bash plus Read/Grep/Glob, so the thousands of log lines live and die in its own context window.",
+      "rejected_alternative": "Running the suite inline in the main session and asking Claude to summarize the output afterwards. It loses because by the time the summary exists the raw log is already resident in the main context window, which is precisely the cost being avoided.",
+      "enforcement_owner": "Split, with the harness owning the part that matters here. The harness owns the context boundary: it gives the subagent a separate window and pipes only the final report back. The model owns what counts as a failing test, so the selection inside the report is a judgment call, not an enforced filter.",
+      "context_boundary": "The suite runs in the subagent's own context window. Crossing in: the delegation prompt Claude composes, plus the CLAUDE.md hierarchy and a git-status snapshot. Crossing out: only the subagent's final report. The raw stdout never enters the main conversation and is discarded with the subagent's window.",
+      "lifecycle": "Fires when Claude delegates the test run, and stops applying the moment the subagent finishes and its result returns to the main conversation. It is one-shot per invocation: a later run is a brand-new instance with no memory of the earlier one unless Claude explicitly resumes it.",
+      "failure_mode": "Hard on isolation, advisory on brevity. Nothing forces the report to be terse, so the subagent can return a long detailed writeup that consumes main context anyway, and once it has returned the raw log is unrecoverable, so an over-aggressive summary means rerunning the suite. It fails open with respect to the terseness you actually asked for.",
+      "version_caveat": "As of v2.1.198 subagents run in the background by default, and background subagents are cut down to a narrower built-in tool set. Bash, Read, Grep and Glob survive that filter so a test runner is unaffected, but any tool outside the list is silently removed from the same agent definition when it runs in the background.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "sub-agents.md",
+          "quote": "the verbose output stays in the subagent's context while only the relevant summary returns to your main conversation"
+        },
+        "lifecycle": {
+          "page": "sub-agents.md",
+          "quote": "When subagents complete, their results return to your main conversation."
+        },
+        "failure_mode": {
+          "page": "sub-agents.md",
+          "quote": "Running many subagents that each return detailed results can consume significant context."
+        },
+        "version_caveat": {
+          "page": "sub-agents.md",
+          "quote": "As of v2.1.198, subagents run in the background by default."
+        }
+      }
+    },
+    {
+      "id": "S032",
+      "primary": "A custom subagent file in `.claude/agents/` whose frontmatter sets `tools` as an allowlist containing only Read, Grep and Glob (and `disallowedTools: Agent` so it cannot delegate its way around the limit). The incapability comes from the tool pool the harness builds for it, not from anything written in its prompt.",
+      "rejected_alternative": "A PreToolUse hook that denies Edit, Write and Bash. It is equally deterministic, but it is session-wide scaffolding wrapped around the worker rather than a property of the worker, the write tools stay visible in the model's pool, and it has to correctly identify the reviewer from the agent fields on every call.",
+      "enforcement_owner": "The harness. The allowlist is applied when Claude Code constructs the subagent, so Edit, Write, NotebookEdit, Bash and every MCP tool are absent from its tool schema; the model cannot call what it was never given, regardless of what its instructions or a mid-task message say.",
+      "context_boundary": "The reviewer runs in its own context window. In: the delegation message, its own markdown body as system prompt, the CLAUDE.md hierarchy and a git-status snapshot. Out: only its final report, which Claude Code scans for instruction-shaped text before the main agent reads it.",
+      "lifecycle": "Applies from the moment the subagent is spawned until it returns its report, and re-applies identically on every spawn because the restriction lives in the agent definition rather than in session state. Removing or editing the agent file is the only thing that changes it.",
+      "failure_mode": "Fails closed: a write attempt is not a denied prompt, it is a tool that does not exist. The residual risks are structural rather than model-driven: leaving Agent or Skill in the pool lets it reach writable capability indirectly, and its findings still have to be applied by some other agent that can write, so the review itself is only as safe as that hand-off.",
+      "version_caveat": "If the reviewer ships inside a plugin rather than `.claude/agents/`, the `hooks`, `mcpServers` and `permissionMode` frontmatter fields are ignored for security reasons, so a belt-and-braces `permissionMode` would silently not apply and only the `tools` allowlist would be holding the line.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "sub-agents.md",
+          "quote": "This example uses `tools` to allow only Read, Grep, Glob, and Bash. The subagent can't edit files, write files, or use any MCP tools"
+        },
+        "lifecycle": {
+          "page": "sub-agents.md",
+          "quote": "Each subagent invocation creates a new instance with fresh context."
+        },
+        "failure_mode": {
+          "page": "sub-agents.md",
+          "quote": "no agent message can change a subagent's permission settings, `CLAUDE.md`, or configuration"
+        },
+        "version_caveat": {
+          "page": "sub-agents.md",
+          "quote": "For security reasons, plugin subagents don't support the `hooks`, `mcpServers`, or `permissionMode` frontmatter fields."
+        }
+      }
+    },
+    {
+      "id": "S033",
+      "primary": "The built-in `/btw` side question in the interactive session. No extension mechanism should be authored for this: the harness already answers from the full current conversation and renders the exchange in a dismissible overlay that never becomes a transcript turn.",
+      "rejected_alternative": "A conversation fork started with `/subtask`, which also inherits everything discussed so far. It loses because a fork's result arrives as a real message in the main conversation, so the answer would occupy exactly the history space the request says it must not.",
+      "enforcement_owner": "The harness. Claude Code decides where the side answer is rendered and what is appended to the transcript; the model contributes only the answer text and has no ability to write the exchange into history.",
+      "context_boundary": "It runs against the parent conversation's context and reuses its prompt cache, so it sees every file already read and every decision already made, but the question and the answer are not appended to that conversation. Nothing crosses back into history unless you press `f` to fork the exchange into a real session.",
+      "lifecycle": "Triggered by typing `/btw <question>`, including while Claude is mid-turn, since it runs independently of the main turn. It produces exactly one response and then stops; dismissing the overlay ends it, and there are no follow-up turns inside it.",
+      "failure_mode": "Advisory and knowledge-bounded rather than open or closed. Side questions have no tool access at all, so a question that actually needs a fresh file read or a command gets answered from whatever is already in context, which can be confidently stale. There is also no way to iterate without abandoning the ephemerality by forking.",
+      "version_caveat": "Before v2.1.212 `/btw` with no question printed a usage message instead of reopening the overlay, stepping between earlier answers with Left and Right requires v2.1.187 or later, and the `f` fork-into-a-new-session key is available in local sessions only.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "interactive-mode.md",
+          "quote": "The question and answer are ephemeral: they appear in a dismissible overlay and never enter the conversation history."
+        },
+        "lifecycle": {
+          "page": "interactive-mode.md",
+          "quote": "there are no follow-up turns in the overlay. To continue the thread, fork it into its own session with `f`."
+        },
+        "failure_mode": {
+          "page": "interactive-mode.md",
+          "quote": "side questions answer only from what is already in context. Claude can't read files, run commands, or search"
+        },
+        "version_caveat": {
+          "page": "interactive-mode.md",
+          "quote": "Before v2.1.212, `/btw` without a question printed a usage message instead."
+        }
+      }
+    },
+    {
+      "id": "S034",
+      "primary": "A conversation fork, started with `/subtask draft regression tests for the bug we just characterized`. A fork is a subagent that inherits the entire session so far, so the helper already holds the findings, the ruled-out hypotheses, the config quirks and the stack traces, and it runs in a background panel while you stay on the fix.",
+      "rejected_alternative": "A named subagent (or an agent teammate) spawned with the findings written into its prompt. It loses because both start from a fresh, isolated context and inherit none of the session, so you would have to re-narrate two hours of debugging into the spawn prompt, which is the exact work the request rules out.",
+      "enforcement_owner": "The harness. Claude Code copies the parent's system prompt, tools, model and message history into the fork at spawn time and returns only its final result; the model does not have to select or restate anything for the transfer to happen.",
+      "context_boundary": "The fork runs in a second context window seeded with the whole parent conversation. Crossing in: everything, verbatim. Crossing out: only the fork's final result, which arrives as one message in your main conversation, while all of the fork's own tool calls stay in its window.",
+      "lifecycle": "Starts when you run `/subtask` (or when Claude requests the `fork` agent type where that is enabled), runs in the background panel below the prompt while you keep working, and stops when it returns its result or when you press `x` to stop it. It does not persist past that turn's completion.",
+      "failure_mode": "Fails open on capability. Inheriting everything means it also inherits the main session's full tool pool and permission context, so a test-drafting fork can edit source or run commands if the model decides to, and two agents now hold the same repo state concurrently. It also duplicates the whole context, so token cost roughly doubles for the duration.",
+      "version_caveat": "`/subtask` requires Claude Code v2.1.212 or later; on v2.1.161 through v2.1.211 the command was `/fork`. `CLAUDE_CODE_FORK_SUBAGENT` set to 1 or 0 forces fork mode on or off regardless of the staged rollout, and Claude spawning forks on its own is explicitly experimental.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "sub-agents.md",
+          "quote": "A fork is a subagent that inherits the entire conversation so far instead of starting fresh."
+        },
+        "lifecycle": {
+          "page": "sub-agents.md",
+          "quote": "The fork appears in a panel below your prompt and runs in the background while you keep working."
+        },
+        "failure_mode": {
+          "page": "sub-agents.md",
+          "quote": "This drops the input isolation that subagents otherwise provide: a fork sees the same system prompt, tools, model, and message history as the main session"
+        },
+        "version_caveat": {
+          "page": "sub-agents.md",
+          "quote": "Run a forked subagent with `/subtask`, which requires Claude Code v2.1.212 or later."
+        }
+      }
+    },
+    {
+      "id": "S035",
+      "primary": "A skill holding the written procedure, with `context: fork` and `agent: Explore` in its frontmatter, invoked by name as `/summarize-pr`. The SKILL.md body becomes the prompt that drives a forked subagent, and the Explore agent type supplies read-only codebase-exploration tools.",
+      "rejected_alternative": "A dynamic workflow. It loses because the procedure is already an authored prose sequence with a handful of steps, while a workflow is a JavaScript orchestration script aimed at dozens to hundreds of agents; it would add a runtime and an approval gate for a task one forked agent handles.",
+      "enforcement_owner": "Split. The harness owns the isolation and the agent type: it runs the skill body in a separate subagent context with Explore's tool set. The model owns whether it actually follows the written steps, since the skill body is a prompt, not a checked procedure.",
+      "context_boundary": "The procedure runs in the forked subagent's context, not the invoking one, and it does not get the invoking conversation's history. Crossing out: only the final result, delivered as one message. All the intermediate file reads and command output stay in the fork.",
+      "lifecycle": "Triggered when a team member types the skill's name; it runs in the background by default and ends when it returns its result into the conversation. Adding `disable-model-invocation: true` keeps it name-triggered only so Claude never fires it opportunistically.",
+      "failure_mode": "Degraded-open rather than closed. A backgrounded fork is restricted to the narrower background tool set, so a step that depends on a tool outside it silently has nothing to call; and the read-only property comes from choosing the Explore agent type, not from a permission rule, so it is a capability default rather than a hard guarantee unless you also add deny rules.",
+      "version_caveat": "`background: false`, the way to make the fork block the invoking turn and keep the full tool set, requires Claude Code v2.1.218 or later. Before v2.1.218 forked skills always blocked the turn, so upgrading changed the default from blocking to background.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "skills.md",
+          "quote": "Add `context: fork` to your frontmatter when you want a skill to run in isolation. The skill content becomes the prompt that drives the subagent."
+        },
+        "lifecycle": {
+          "page": "skills.md",
+          "quote": "you keep working while it runs, and its result arrives in your conversation when it completes"
+        },
+        "failure_mode": {
+          "page": "skills.md",
+          "quote": "If your skill's steps depend on a tool outside that set, set `background: false` to keep the full tool set."
+        },
+        "version_caveat": {
+          "page": "skills.md",
+          "quote": "Before v2.1.218, forked skills always blocked the turn until they finished."
+        }
+      }
+    },
+    {
+      "id": "S036",
+      "primary": "The endpoint worker's subagent definition should list the conventions skill in its `skills` frontmatter field, which injects the full skill content into the subagent's context at startup rather than leaving it to be found.",
+      "rejected_alternative": "Leaving the conventions as an ordinary skill the worker can invoke through the Skill tool during its run. That is exactly the current failure: the guidance is discoverable, so whether it loads depends on the model choosing to load it, which is the behaviour being complained about.",
+      "enforcement_owner": "The harness. Claude Code injects the full text of each listed skill into the subagent's startup context, so its presence is not a model decision. Whether the worker then obeys the conventions is still the model's job; preloading guarantees availability, not compliance.",
+      "context_boundary": "The worker runs in its own context window. Crossing in at spawn: the agent's markdown body as system prompt, the delegation message, the CLAUDE.md hierarchy, and the complete preloaded skill text (not just its description). Crossing out: only the worker's final report.",
+      "lifecycle": "Applies at the start of every spawn of that subagent type and stays in its context for the whole run. It ends with the subagent; nothing carries into the next invocation, and there is no mid-run re-trigger to worry about.",
+      "failure_mode": "Fails open, and quietly. If the named skill is missing, renamed or disabled, Claude Code skips it and writes a warning only to the debug log, so the worker runs with no conventions in front of it and your session shows no sign that the guarantee lapsed. Preloading also spends the full skill's tokens on every spawn.",
+      "version_caveat": "A skill that sets `disable-model-invocation: true` cannot be preloaded at all, because preloading draws from the same pool Claude can invoke; as of v2.1.215 that exclusion also covers the bundled `/verify` and `/code-review` skills. So the conventions skill must stay model-invocable to be preloadable.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "sub-agents.md",
+          "quote": "The full content of each listed skill is injected into the subagent's context at startup."
+        },
+        "lifecycle": {
+          "page": "sub-agents.md",
+          "quote": "This gives the subagent domain knowledge without requiring it to discover and load skills during execution."
+        },
+        "failure_mode": {
+          "page": "sub-agents.md",
+          "quote": "If a listed skill is missing or disabled, Claude Code skips it and logs a warning to the debug log."
+        },
+        "version_caveat": {
+          "page": "sub-agents.md",
+          "quote": "This includes the bundled `/verify` and `/code-review` skills: only you can run them, so they can't be preloaded either."
+        }
+      }
+    },
+    {
+      "id": "S037",
+      "primary": "A PreToolUse hook matching the shell tool (Bash, plus PowerShell where that tool is enabled) that parses the command, inspects the SQL it is about to run, and returns `permissionDecision: \"deny\"` for INSERT, UPDATE, DELETE and DDL. The reporting worker keeps its shell tool; the hook is the gate in front of it.",
+      "rejected_alternative": "A Bash permission deny rule such as `Bash(psql:*)`. It loses because permission rules match on command names and argument prefixes, not on SQL statement semantics buried inside a query argument, so the same `psql -c` invocation carries both a legal SELECT and an illegal UPDATE and the rule cannot tell them apart without banning the CLI outright.",
+      "enforcement_owner": "The harness. The hook is an external process Claude Code runs before dispatching the tool call, and hooks configured in settings, managed policy and plugins also run inside subagents, so the reporting worker's shell calls hit exactly the same gate as the main session's.",
+      "context_boundary": "The hook executes outside every model context, as an OS process receiving the tool input as JSON on stdin. The model never sees the matching logic; only the `permissionDecisionReason` string crosses back into the worker's context as the reason the call was refused.",
+      "lifecycle": "Fires after Claude has produced the tool parameters and before the tool call is processed, on every matching shell call in the session and in its subagents. It stops applying when the hook is removed from settings, or when the settings file providing it is not trusted for the workspace.",
+      "failure_mode": "Fails closed on an explicit deny, but fails OPEN on its own bugs: any non-zero exit other than 2 is treated as a non-blocking error and the command proceeds, so a crashed or mis-shelled hook silently lets a mutation through. It also only sees the command text, so an UPDATE hidden inside a .sql file, a here-doc, or a Python script that opens its own DB connection is invisible to it.",
+      "version_caveat": "There is no version gate on PreToolUse hooks themselves, but the fail-closed edge changed at v2.1.214: a hook that exits 2 while printing JSON that fails schema validation now still blocks, whereas before v2.1.214 that combination was a non-blocking error and the action proceeded.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "hooks.md",
+          "quote": "When a subagent calls a tool, tool events such as `PreToolUse` and `PostToolUse` fire the same configured hooks as in the main conversation"
+        },
+        "lifecycle": {
+          "page": "hooks.md",
+          "quote": "Runs after Claude creates tool parameters and before processing the tool call."
+        },
+        "failure_mode": {
+          "page": "hooks.md",
+          "quote": "Claude Code treats exit code 1 as a non-blocking error and proceeds with the action, even though 1 is the conventional Unix failure code."
+        },
+        "version_caveat": {
+          "page": "hooks.md",
+          "quote": "Before v2.1.214, Claude Code treated that combination as a non-blocking error and the action proceeded."
+        }
+      }
+    },
+    {
+      "id": "S038",
+      "primary": "A skill that users launch by name, whose frontmatter sets `disallowed-tools: AskUserQuestion` (paired with `disable-model-invocation: true` so it is only ever launched deliberately). The tool is removed from Claude's pool while the skill is active, which is precisely the documented use for autonomous background loops.",
+      "rejected_alternative": "A PreToolUse hook denying the AskUserQuestion tool. It loses because a hook has no natural notion of the routine being in progress: it would need its own state file to know when to deny, and nothing would restore the capability on the user's next message, so the auto-restore half of the requirement would have to be hand-built.",
+      "enforcement_owner": "The harness. `disallowed-tools` removes the tool from the pool Claude Code hands the model, so the model cannot call it at all; this is not a refusal the model has to remember to honour.",
+      "context_boundary": "The routine runs inline in the invoking session's own context window (no fork is implied), so the skill body and everything the cleanup does are visible in the main conversation. Nothing crosses a context boundary; the only thing that changes is the tool schema for that stretch of the session.",
+      "lifecycle": "Takes effect when the user invokes the skill by name and stays in force while the skill is active; the restriction clears when the user sends their next message, which is exactly the requested automatic restoration. Note the skill's text itself stays in context for the rest of the session even after the tool restriction lapses.",
+      "failure_mode": "Fails closed on the tool and advisory around it. The model can still end its turn and ask the question in plain prose, which interrupts the user just as effectively. And because the restriction is scoped to the current turn, a long routine that is still running when the user types anything at all loses the guard mid-run.",
+      "version_caveat": "The mirror documents no version gate on `disallowed-tools` itself. If the routine also uses boolean frontmatter such as `disable-model-invocation: yes`, note the parsing gate: forms like yes/no/on/off only work from v2.1.218, and before that only `true` and `false` were recognized.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "skills.md",
+          "quote": "Tools removed from Claude's available pool while this skill is active."
+        },
+        "lifecycle": {
+          "page": "skills.md",
+          "quote": "Use for autonomous skills that should never call certain tools, such as `AskUserQuestion` for a background loop."
+        },
+        "failure_mode": {
+          "page": "skills.md",
+          "quote": "The restriction clears when you send your next message."
+        },
+        "version_caveat": {
+          "page": "skills.md",
+          "quote": "Before v2.1.218, Claude Code recognized only `true` and `false`."
+        }
+      }
+    },
+    {
+      "id": "S039",
+      "primary": "An agent team: the main session acts as lead and spawns five teammates, each investigating one hypothesis, using teammate-to-teammate messaging and the shared task list to challenge each other and converge. This is the documented competing-hypotheses pattern, and five is inside the recommended three-to-five range.",
+      "rejected_alternative": "Five parallel subagents spawned from one conversation. It loses on the load-bearing requirement: subagents only report results back to the main agent and never talk to each other, so the adversarial cross-examination would have to be relayed through the coordinator, reintroducing the star topology the request rejects.",
+      "enforcement_owner": "Split. The harness owns the plumbing: it delivers teammate messages automatically, maintains the shared task list all agents can read and claim from, and notifies the lead when a teammate goes idle. The model owns the actual disproving and whatever consensus emerges; nothing enforces convergence.",
+      "context_boundary": "Each teammate is a separate Claude Code instance with its own fully independent context window. Crossing in at spawn: the lead's spawn prompt, plus CLAUDE.md, MCP servers and skills loaded from the working directory. The lead's conversation history does not carry over. Crossing between them afterwards: direct messages and shared task-list entries.",
+      "lifecycle": "Teammates start when the lead spawns them and run until they finish and go idle, are told to shut down, or the session exits, at which point cleanup happens automatically. A session has exactly one team scoped to that session, and `/resume` and `/rewind` do not restore in-process teammates.",
+      "failure_mode": "Advisory on the investigation, and coordination-fragile in practice. Teammates sometimes fail to mark tasks complete, which blocks dependent work and stalls the shared list; shutdown is slow because each finishes its current tool call first; teammates cannot spawn their own teammates; and token cost scales linearly with five parallel instances.",
+      "version_caveat": "Agent teams are experimental and disabled by default: they require `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in settings.json or the environment, without which no team is set up and Claude will not spawn teammates. The documented behaviour is as of v2.1.178, and split-pane mode additionally needs tmux or iTerm2.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "agent-teams.md",
+          "quote": "Shared task list with self-coordination"
+        },
+        "lifecycle": {
+          "page": "agent-teams.md",
+          "quote": "cleanup happens automatically when the session exits"
+        },
+        "failure_mode": {
+          "page": "agent-teams.md",
+          "quote": "teammates sometimes fail to mark tasks as completed, which blocks dependent tasks"
+        },
+        "version_caveat": {
+          "page": "agent-teams.md",
+          "quote": "Agent teams are experimental and disabled by default."
+        }
+      }
+    },
+    {
+      "id": "S040",
+      "primary": "Move the constraint out of the rules file and into `permissions.deny` in `.claude/settings.json` as `Read(vendor/**)` (plus `Edit(vendor/**)` if nothing may write there either). Permission rules are session-scoped and subagents inherit the main conversation's permission context, so delegated exploration is blocked by the same check that blocks the main session.",
+      "rejected_alternative": "Restating the vendor/ exclusion in every delegation prompt, which is the documentation's own suggested workaround. It loses because it is advisory and per-call: it depends on Claude remembering to include the sentence in each spawn prompt and on the delegated agent honouring it, which is the failure already being observed.",
+      "enforcement_owner": "The harness. Deny rules are evaluated by Claude Code on each tool call rather than by the model, Read rules are applied best-effort to the file-reading tools including Grep and Glob, and subagents inherit the permission context from the main conversation rather than starting with a clean slate.",
+      "context_boundary": "The rule itself never enters any context window as text; it is applied by the harness at the tool-call boundary in whichever context the call originates, main session or subagent. What crosses back into the delegated agent's context is only the denial, so it learns vendor/ is off limits by being refused rather than by being told.",
+      "lifecycle": "Applies from settings load, for the whole session and every subagent spawned from it, and stops when the rule is removed or the project settings file loses workspace trust. The reason today's CLAUDE.md rule lapses on delegation is that the built-in Explore and Plan agents omit CLAUDE.md entirely, and there is no per-agent setting to change that.",
+      "failure_mode": "Fails closed for built-in file tools and for file commands Claude Code recognizes inside Bash such as cat, head, tail and sed, but fails OPEN for arbitrary subprocesses: a Python or Node script that opens vendor/ files itself is not covered. Genuine OS-level blocking of every process requires enabling the sandbox instead.",
+      "version_caveat": "From v2.1.210, file permissions are checked only against `Edit(path)` and `Read(path)` rules. A `Glob(vendor/**)` rule is accepted and warned about at startup but never consulted, so the search-blocking half must be written as `Read(vendor/**)`; and from v2.1.208 a Read deny also blocks the Edit tool on the same path.",
+      "citations": {
+        "enforcement_owner": {
+          "page": "permissions.md",
+          "quote": "Claude makes a best-effort attempt to apply `Read` rules to all built-in tools that read files like Grep and Glob"
+        },
+        "lifecycle": {
+          "page": "sub-agents.md",
+          "quote": "Explore and Plan are the only subagents that omit CLAUDE.md and git status."
+        },
+        "failure_mode": {
+          "page": "permissions.md",
+          "quote": "They don't apply to arbitrary subprocesses that read or write files indirectly"
+        },
+        "version_caveat": {
+          "page": "permissions.md",
+          "quote": "and `Read(docs/**)` in place of `Glob(docs/**)`"
+        }
+      }
+    }
+  ]
+}
