@@ -17,7 +17,7 @@ in-repo and durable. `comments/` is gitignored as bulk; the two extracted files 
 | `design-statements.json` | 20 | Staff comments stating how something is SUPPOSED to behave, or declining to change it |
 | `version-facts.json` | 60 | Staff comments attaching a version number to a shipped behaviour change |
 | `harvest-stats.json` | | Staff-harvest provenance |
-| `corpus-stats.json` | | Full-population provenance, verified delta 0 |
+| `corpus-stats.json` | | Full-population provenance, verified against the boundary count, delta -1 |
 | `all-issues.jsonl` | 81,291 | The complete issue population, 239 MB, gitignored as bulk |
 | `comments/` | 1300 | Raw threads, gitignored. Re-derivable with `--extract-only` |
 
