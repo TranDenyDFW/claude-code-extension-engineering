@@ -532,8 +532,9 @@ So it is MEASURED. `tools/bash-recognition-run.mjs` runs paired arms, identical 
 deny rule, and admits a pass only when the rule arm held AND the control arm changed. Both
 arms unchanged means the command never ran and the pass is DISCARDED, because scoring that
 as a denial measures the model's caution and publishes it as a security property. The frozen
-result is `tools/bash-recognition.mjs`, drift-gated against the recorded measurement, and a
-shape absent from it is UNDETERMINED rather than allowed.
+result is a LITERAL in `tools/bash-recognition.mjs`, diffed by `--check` against the separate
+recorded measurement, and a shape absent from it is UNDETERMINED rather than allowed. That
+drift gate was itself defective on first write and is item 37.
 
 Four things came out of it that the documentation does not say. The calibration completed
 2026-08-06: eight shapes at n=10 paired, 200 sessions, both rig controls unanimous.
@@ -627,6 +628,46 @@ The reviewer raised a second, smaller point in the same pass: a claim note cited
 `tests/tier4/bash-recognition-n10.json` as its reproduction, which reads as a pointer to a
 committed file, while that artifact is the OUTPUT of the run being cited. Reworded to name
 the command and to say that the file's absence mid-run is the safe state.
+
+**37. The drift gate compared the table against itself, and three other findings from the
+same review.**
+Round 2 of the independent review passed all 49 spec checks and then found four things the
+spec could not ask about. The first is the worst thing in this cycle.
+
+- **`bash-recognition.mjs --check` could not fail.** It built the live table by reading
+  `bash-recognition-n10.json` at module load, then compared that against another read of the
+  same file. The two agreed by construction and both DRIFT loops were inert. The reviewer
+  PROVED it rather than arguing it: flipping `append-redirect` from DENIED to ALLOWED in the
+  measurement produced exit 0, no DRIFT, `PASS table matches the measurement`, and the
+  flipped verdict silently became what the prover would enforce. Fixed by making the table a
+  LITERAL (`FROZEN_TABLE`) so `--check` diffs two independent artifacts; eight self-test rows
+  now feed the differ known-bad pairs, and the flip test was re-run and goes red.
+- **Four docstrings described that gate as working.** `bash-recognition.mjs`,
+  `permissions.md` and this file all said "drift-gated" and "a hand-edit is a build failure".
+  Corrected to name WHICH two artifacts are compared, so the claim is checkable instead of
+  reassuring.
+- **A calibrated row was unreachable.** The classifier collapsed `Set-Content`,
+  `Add-Content` and `Out-File` into the single id `powershell-set-content`, while the
+  calibration measured `powershell-add-content`. So every PowerShell write returned
+  undetermined, the measured row was dead, and `--check` still counted it as coverage. Split
+  into one id per cmdlet, and a new reachability gate rejects any frozen key the classifier
+  cannot emit.
+- **Two of the four gate injections never ran the gate.** They restated the fixed behaviour
+  (`extractTarget(...) === 'infra/'`, `!('guard.mjs' in files)`) and passed whether or not
+  the gate would have caught anything. Worse, `GATE_INJECTIONS`, the object that would have
+  made the first one real, existed and was referenced nowhere: dead code standing in for a
+  check reads as coverage. All four now corrupt a seam, RE-RUN the whole gate, require it
+  red, restore, and require it green again.
+
+Two smaller ones from the same pass: a platform profile attributed a measurement made on CLI
+2.1.219 to build 2.1.220 (the docs were fetched against 2.1.220 and the CLI was one behind),
+and an inference from the documentation's SILENCE about PowerShell carried an `[OFFICIAL]`
+tag. A page not saying something is not the page saying it; retagged `[ENGINEERING]`.
+
+The pattern across all four is one thing: a check whose PASS did not depend on the code under
+test. That is the defect this project exists to name, found four times in the tooling written
+to name it, by someone who did not write it. Item 32 said the real defect was the missing
+gate; this says the second real defect is a gate nobody fed a known-bad input.
 
 ---
 

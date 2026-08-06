@@ -554,42 +554,42 @@ async function runGate({ quiet = false } = {}) {
   const { proveBundle } = await import('./extension-prove.mjs');
   let bad = 0;
   for (const p of GATE_PROBES) {
-    const a = analyse(p.requirement);
+    const a = SEAM.analyse(p.requirement);
     if (p.mechanism === null) {
-      if (a.supported !== false) { bad++; console.log(`  FAIL ${p.id} expected UNSUPPORTED, got ${a.mechanism}`); }
+      if (a.supported !== false) { bad++; if (!quiet) console.log(`  FAIL ${p.id} expected UNSUPPORTED, got ${a.mechanism}`); }
       else if (!quiet) console.log(`  ok   ${p.id} UNSUPPORTED, as frozen`);
       continue;
     }
-    if (a.mechanism !== p.mechanism) { bad++; console.log(`  FAIL ${p.id} mechanism ${a.mechanism}, frozen ${p.mechanism}`); continue; }
+    if (a.mechanism !== p.mechanism) { bad++; if (!quiet) console.log(`  FAIL ${p.id} mechanism ${a.mechanism}, frozen ${p.mechanism}`); continue; }
 
-    const { files, conf } = buildBundle(p.id, p.requirement, a);
-    if (!!conf.strict !== !!p.strict) { bad++; console.log(`  FAIL ${p.id} strict=${!!conf.strict}, frozen ${!!p.strict}`); continue; }
+    const { files, conf } = SEAM.buildBundle(p.id, p.requirement, a);
+    if (!!conf.strict !== !!p.strict) { bad++; if (!quiet) console.log(`  FAIL ${p.id} strict=${!!conf.strict}, frozen ${!!p.strict}`); continue; }
     const expectFiles = p.strict ? GATE_FILES_STRICT : GATE_FILES;
     const list = Object.keys(files).sort().join(',');
-    if (list !== expectFiles.join(',')) { bad++; console.log(`  FAIL ${p.id} file list ${list}, frozen ${expectFiles.join(',')}`); continue; }
+    if (list !== expectFiles.join(',')) { bad++; if (!quiet) console.log(`  FAIL ${p.id} file list ${list}, frozen ${expectFiles.join(',')}`); continue; }
     if (p.strict) {
       const prop = files['sandbox-managed-settings.json.proposal'];
-      if (!/"_what"/.test(prop) || /^\s*\{\s*"sandbox"/.test(prop)) { bad++; console.log(`  FAIL ${p.id} the sandbox proposal lost its non-adoption preamble`); continue; }
+      if (!/"_what"/.test(prop) || /^\s*\{\s*"sandbox"/.test(prop)) { bad++; if (!quiet) console.log(`  FAIL ${p.id} the sandbox proposal lost its non-adoption preamble`); continue; }
     }
     const deny = (JSON.parse(files['settings.json']).permissions || {}).deny || null;
-    if (JSON.stringify(deny) !== JSON.stringify(p.deny)) { bad++; console.log(`  FAIL ${p.id} deny ${JSON.stringify(deny)}, frozen ${JSON.stringify(p.deny)}`); continue; }
+    if (JSON.stringify(deny) !== JSON.stringify(p.deny)) { bad++; if (!quiet) console.log(`  FAIL ${p.id} deny ${JSON.stringify(deny)}, frozen ${JSON.stringify(p.deny)}`); continue; }
     const kinds = conf.cases.map((c) => c.kind).join(',');
-    if (kinds !== p.kinds) { bad++; console.log(`  FAIL ${p.id} kinds ${kinds}, frozen ${p.kinds}`); continue; }
+    if (kinds !== p.kinds) { bad++; if (!quiet) console.log(`  FAIL ${p.id} kinds ${kinds}, frozen ${p.kinds}`); continue; }
 
     const tmp = mkdtempSync(join(tmpdir(), `scaffold-gate-${p.id}-`));
     try {
       writeBundle(tmp, files);
       const res = proveBundle(tmp);
       const red = res.cases.filter((c) => !c.ok);
-      if (red.length) { bad++; console.log(`  FAIL ${p.id} ${red.length} case(s) red: ${red.map((c) => `${c.id}:${c.why && c.why[0]}`).join(' | ')}`); continue; }
+      if (red.length) { bad++; if (!quiet) console.log(`  FAIL ${p.id} ${red.length} case(s) red: ${red.map((c) => `${c.id}:${c.why && c.why[0]}`).join(' | ')}`); continue; }
       /**
        * A strict probe must report NOT DONE with every case green. That pairing
        * is the whole design: the cases are correct AND the requirement is not
        * met, and a gate that only counted red cases would call it a success.
        */
       const nr = (res.strictResidual || []).length;
-      if (p.strict && nr !== 1) { bad++; console.log(`  FAIL ${p.id} strict spec reported ${nr} surviving residual(s), frozen 1`); continue; }
-      if (!p.strict && nr !== 0) { bad++; console.log(`  FAIL ${p.id} non-strict spec reported ${nr} surviving residual(s), frozen 0`); continue; }
+      if (p.strict && nr !== 1) { bad++; if (!quiet) console.log(`  FAIL ${p.id} strict spec reported ${nr} surviving residual(s), frozen 1`); continue; }
+      if (!p.strict && nr !== 0) { bad++; if (!quiet) console.log(`  FAIL ${p.id} non-strict spec reported ${nr} surviving residual(s), frozen 0`); continue; }
       if (!quiet) console.log(`  ok   ${p.id} ${a.mechanism.padEnd(15)} ${conf.cases.length} cases, all green, frozen kinds match${p.strict ? ', NOT DONE on 1 residual as frozen' : ''}`);
     } finally { rmSync(tmp, { recursive: true, force: true }); }
   }
@@ -598,12 +598,53 @@ async function runGate({ quiet = false } = {}) {
 }
 
 /**
- * A gate nobody has watched fail is not a gate. Each injection restores exactly
- * one shipped defect and MUST redden the gate.
+ * THE SEAM THE INJECTIONS CORRUPT.
+ *
+ * `runGate` calls these through the object rather than directly, so an injection
+ * can put a SHIPPED DEFECT back and re-run the whole gate against it. That is the
+ * difference between an injection and an assertion, and independent review found
+ * that two of the four "injections" here were the latter: they restated the fixed
+ * behaviour (`extractTarget(...) === 'infra/'`, `!('guard.mjs' in files)`) and
+ * never ran the gate at all. A row like that passes whether or not the gate would
+ * have caught anything, which is the defect class this file exists to name.
+ *
+ * The object that WOULD have made injection 1 real, `GATE_INJECTIONS`, existed
+ * and was referenced nowhere. Dead code standing in for a check is worse than a
+ * missing check, because it reads as coverage.
  */
-const GATE_INJECTIONS = {
-  'period-glob': (M) => { const o = M.toGlob; M.toGlob = (t) => o(String(t)); return () => { M.toGlob = o; }; },
-};
+const SEAM = { analyse, buildBundle };
+
+/**
+ * The pre-fix extractor, kept verbatim so injection 1 restores the real defect
+ * rather than a simulation of it. The final segment was `[\w.*-]*`, greedy over
+ * `.`, so a sentence-terminating period was swallowed into the target and
+ * `toGlob` turned "infra/." into "infra/./**", which matches nothing.
+ */
+export function extractTargetLegacy(text) {
+  const backtick = text.match(/`([^`]+)`/);
+  if (backtick && /[/\\.*]/.test(backtick[1])) return backtick[1].trim();
+  const quoted = text.match(/"([^"]+)"|'([^']+)'/);
+  if (quoted) { const v = (quoted[1] || quoted[2]).trim(); if (/[/\\.*]/.test(v)) return v; }
+  const m = text.match(/(?:^|\s)((?:\.{0,2}[\w-]+(?:\.[\w-]+)*[/\\])+[\w.*-]*|\.[\w-]+(?:\.[\w-]+)*)(?=[\s,.]|$)/);
+  return m ? m[1].trim() : null;
+}
+
+/** The pre-fix glob builder: no /./ collapse, so the swallowed period survives. */
+export function toGlobLegacy(target) {
+  let t = String(target).replace(/\\/g, '/').trim();
+  if (t.endsWith('/**')) return t;
+  if (t.endsWith('/')) return t + '**';
+  if (t.includes('*')) return t;
+  if (/\.[A-Za-z0-9]+$/.test(t)) return t;
+  return t.replace(/\/$/, '') + '/**';
+}
+
+/** The handler the scaffold used to emit. Injection 2 puts it back. */
+const LEGACY_HANDLER = '#!/usr/bin/env node\n'
+  + "import { readFileSync } from 'node:fs';\n"
+  + "const i = JSON.parse(readFileSync(0, 'utf8'));\n"
+  + "const p = String((i.tool_input || {}).file_path || '');\n"
+  + "if (p.startsWith('infra/')) { console.error('denied'); process.exit(2); }\n";
 
 async function proveGateCanFail() {
   let bad = 0;
@@ -635,43 +676,48 @@ async function proveGateCanFail() {
   }
   console.log('  ok   BASELINE: --gate is green, so an injection reddening it means something');
 
-  // Injection 1: the pre-fix extractor, which swallowed a sentence-final period.
-  {
-    const target = extractTarget('Prevent any change to a file under infra/.');
-    check('MUST FAIL: the pre-fix extractor produced a target the deny rule cannot match',
-      target === 'infra/' && toGlob('infra/.') === 'infra/**',
-      `today target=${target}`);
-  }
-  // Injection 2: restoring the hook as a selectable mechanism.
-  {
-    const a = analyse('Block writes to `infra/` so people do not edit it casually.');
-    const forced = { ...a, mechanism: 'hook' };
-    const { files } = buildBundle('inj', 'r', forced);
-    check('MUST FAIL: a forced hook mechanism emits no handler, so the old bundle cannot be rebuilt',
-      !('guard.mjs' in files), Object.keys(files).join(','));
-  }
-  // Injection 3: advisory emitting enforce cases, which is defect D exactly.
-  {
-    const a = analyse('It would be good to protect `infra/` from accidental edits.');
-    const asEnforcing = { ...a, mechanism: 'permission-deny' };
-    const conf = conformanceFor('inj', 'r', asEnforcing);
-    const { proveBundle } = await import('./extension-prove.mjs');
-    const tmp = mkdtempSync(join(tmpdir(), 'scaffold-inj-'));
-    try {
-      // Enforcing SPEC against an ADVISORY settings.json: exactly defect D.
-      writeBundle(tmp, { 'settings.json': '{}\n', 'conformance.json': JSON.stringify(conf, null, 2) + '\n' });
-      const res = proveBundle(tmp);
-      check('MUST FAIL: an enforcing spec over an empty settings.json goes red',
-        res.cases.some((c) => !c.ok), 'this is the shape every advisory bundle shipped in');
-    } finally { rmSync(tmp, { recursive: true, force: true }); }
-  }
-  // Injection 4: the gate itself must be sensitive to a frozen-map change.
+  /**
+   * Every injection below follows the same three steps: put a shipped defect
+   * back, RE-RUN THE WHOLE GATE, and require it to go red, then restore and
+   * require it green again. The restore assertion matters as much as the first:
+   * an injection that leaves the tool broken would make every later row pass for
+   * the wrong reason.
+   */
+  const inject = async (name, apply, undo) => {
+    apply();
+    let red = 0;
+    try { red = await runGate({ quiet: true }); } finally { undo(); }
+    const back = await runGate({ quiet: true });
+    check(`MUST FAIL: ${name}`, red > 0, `gate stayed green with the defect restored`);
+    check(`...and the gate returns to green once it is undone`, back === 0, `${back} probe(s) still red`);
+  };
+
+  // Injection 1: the pre-fix extractor, which swallowed a sentence-final period
+  // and produced the glob infra/./**, matching nothing.
+  await inject('the pre-fix extractor produces a target the deny rule cannot match',
+    () => { SEAM.analyse = (r) => { const a = analyse(r); return a.supported ? { ...a, glob: toGlobLegacy(extractTargetLegacy(r) || '') } : a; }; },
+    () => { SEAM.analyse = analyse; });
+
+  // Injection 2: the permission-deny bundle shipping the hook its own README
+  // names as the rejected alternative. Defect C, restored for real.
+  await inject('the bundle ships the rejected alternative alongside the deny rule',
+    () => { SEAM.buildBundle = (n, r, a) => { const b = buildBundle(n, r, a); return { ...b, files: { ...b.files, 'guard.mjs': LEGACY_HANDLER } }; }; },
+    () => { SEAM.buildBundle = buildBundle; });
+  // Injection 3: an ADVISORY requirement emitting an ENFORCING spec, which is
+  // defect D exactly. Routed through the seam like the others, so the assertion
+  // is "the GATE catches it" rather than "proveBundle catches it": the second is
+  // true even of a tool nobody wired into CI, and the first is the property that
+  // actually protects anyone.
+  await inject('an advisory requirement emits an enforcing spec, and the gate catches it',
+    () => { SEAM.analyse = (r) => { const a = analyse(r); return a.supported && a.mechanism === 'advisory' ? { ...a, mechanism: 'permission-deny' } : a; }; },
+    () => { SEAM.analyse = analyse; });
+  // Injection 4: the FROZEN MAP itself. The other three corrupt the generator;
+  // this one corrupts the expectation, which is the other way a gate goes blind.
   {
     const saved = GATE_PROBES[4].kinds;
-    GATE_PROBES[4].kinds = 'enforce,near-miss';
-    const n = await runGate({ quiet: true });
-    GATE_PROBES[4].kinds = saved;
-    check('MUST FAIL: changing a frozen kind map reddens the gate', n > 0, `${n} probes diverged`);
+    await inject('changing a frozen kind map reddens the gate',
+      () => { GATE_PROBES[4].kinds = 'enforce,near-miss'; },
+      () => { GATE_PROBES[4].kinds = saved; });
   }
 
   console.log(bad === 0 ? '\nGATE IS NOT HOLLOW: every injection was rejected.' : `\nGATE IS HOLLOW: ${bad} injection(s) survived.`);
