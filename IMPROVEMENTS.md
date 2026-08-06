@@ -587,6 +587,26 @@ checklist item would be worse than leaving it open. The attested-fixture cohort 
 the 81,291-issue corpus is also still open; the corpus is harvested and verified
 (`data/gh/`), the cohort is not built.
 
+**36. The injection test could report success against an already-red gate.**
+Found by independent review 2026-08-05, and it is the sharpest finding of the cycle because
+it is this project's own signature defect turned on itself.
+`--gate --prove-gate-can-fail` ran its four injections, printed
+`GATE IS NOT HOLLOW: every injection was rejected.` and exited 0 during a window when the
+real gate was RED for an unrelated reason. "This injection reddens the gate" asserts nothing
+when the gate is already red: every injection agrees vacuously, and the strongest check in
+the tool becomes a check that cannot fail.
+
+CI happened not to expose it, because `--gate` runs first in the same step under
+`set -euo pipefail`. Relying on step ordering to make a hollow check look sound is not a
+defence; it is the reason nobody would have found it. The injection pass now runs the
+baseline gate FIRST and REFUSES with `CANNOT PROVE THE GATE: baseline not green`, exit 1,
+rather than reporting a result it cannot support.
+
+The reviewer raised a second, smaller point in the same pass: a claim note cited
+`tests/tier4/bash-recognition-n10.json` as its reproduction, which reads as a pointer to a
+committed file, while that artifact is the OUTPUT of the run being cited. Reworded to name
+the command and to say that the file's absence mid-run is the safe state.
+
 ---
 
 ## Deliberately not doing

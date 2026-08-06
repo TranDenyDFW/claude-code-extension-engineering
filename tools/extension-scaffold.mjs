@@ -609,6 +609,32 @@ async function proveGateCanFail() {
   let bad = 0;
   const check = (n, ok, d = '') => { if (ok) console.log(`  ok   ${n}`); else { bad++; console.log(`  FAIL ${n}${d ? ` (${d})` : ''}`); } };
 
+  /**
+   * THE BASELINE MUST BE GREEN FIRST, and this was missing.
+   *
+   * Found by independent review 2026-08-05: this ran to completion and printed
+   * GATE IS NOT HOLLOW with exit 0 during a window when the real gate was RED
+   * for an unrelated reason. That is the exact defect class this whole file
+   * exists to name. "This injection reddens the gate" asserts nothing when the
+   * gate is already red: every injection trivially agrees, and the strongest
+   * check in the tool becomes a check that cannot fail.
+   *
+   * CI happened not to expose it, because --gate runs first under
+   * `set -euo pipefail`. Relying on step ordering to make a hollow check look
+   * sound is not a defence, it is the reason nobody would have noticed.
+   */
+  const baseline = await runGate({ quiet: true });
+  if (baseline !== 0) {
+    console.log(`  FAIL BASELINE: --gate is already RED (${baseline} probe(s) diverged), so no injection can be shown to redden it.`);
+    console.log('');
+    console.log('This is REFUSED rather than reported. An injection test against an already-failing');
+    console.log('baseline passes vacuously: every injection "reddens" a gate that was never green.');
+    console.log('Fix --gate first, then re-run this.');
+    console.log('\nCANNOT PROVE THE GATE: baseline not green.');
+    return 1;
+  }
+  console.log('  ok   BASELINE: --gate is green, so an injection reddening it means something');
+
   // Injection 1: the pre-fix extractor, which swallowed a sentence-final period.
   {
     const target = extractTarget('Prevent any change to a file under infra/.');
