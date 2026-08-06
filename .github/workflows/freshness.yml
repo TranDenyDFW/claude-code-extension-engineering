@@ -104,6 +104,21 @@ jobs:
         # nothing about the extension; the run prints PROVER IS HOLLOW.
         run: node tools/extension-prove.mjs --prove-fail
 
+      - name: Extension-scaffold end-to-end gate
+        # The gate that was missing. --self-test exercises analyse() and
+        # conformanceFor() as functions and never GENERATES a bundle and PROVES
+        # it, which is how four defects shipped at once behind a green build:
+        # hook bundles failing their own spec since 63a3ecc, a sentence-final
+        # period becoming the glob infra/./** which matches nothing, the
+        # permission-deny bundle shipping the hook its README called rejected,
+        # and advisory bundles emitting enforce cases against an empty
+        # settings.json. --gate asserts a frozen case-kind map and file list per
+        # probe, so a pass count cannot hide any of them.
+        run: |
+          set -euo pipefail
+          node tools/extension-scaffold.mjs --gate
+          node tools/extension-scaffold.mjs --gate --prove-gate-can-fail
+
       - name: Extension-scaffold self-test
         # Mechanism selection (guarantee + fail-closed must pick the deny rule,
         # because a command hook fails open), target extraction, and that an

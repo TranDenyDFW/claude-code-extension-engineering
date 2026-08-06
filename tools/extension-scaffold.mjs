@@ -27,21 +27,36 @@
  * #80211, #16011), and in every one of those the permissions deny rule went
  * unconsidered. So:
  *
- *   guarantee language + fail-closed clause -> permissions deny rule.
- *       A command hook CANNOT satisfy this: a missing or crashing command hook
- *       fails OPEN by documented design.
- *   guarantee language, no fail-closed clause -> PreToolUse hook, with the deny
- *       rule surfaced as the cheaper deterministic alternative.
- *   no guarantee language -> advisory (CLAUDE.md) is legitimate.
+ *   ANY guarantee language -> permissions deny rule.
+ *   no guarantee language  -> advisory (CLAUDE.md) is legitimate.
+ *
+ * That first branch used to be two, with a bare guarantee selecting a PreToolUse
+ * hook and only an explicit fail-closed clause reaching the deny rule. Reversed
+ * 2026-08-05 after measurement, not preference: a hook matcher of `Write|Edit`
+ * cannot match a Bash tool call, so the hook bundle did not stop
+ * `cp infra/main.tf infra/main.tf.bak` in a live session while the deny rule it
+ * named as REJECTED did. The tool was recommending the weaker mechanism, and
+ * requiring the user to name the tool's own failure mode before it offered the
+ * stronger one.
  *
  * A deny rule for a file path MUST be written Edit(...), never Write(...):
  * "Claude Code checks file permissions against Edit(path) and Read(path) rules
  * only ... accepts the rule but never consults it" otherwise.
+ *
+ * WHAT THE BUNDLE DOES NOT CLAIM
+ * ------------------------------
+ * A deny rule reaches the built-in file tools and the Bash file commands Claude
+ * Code recognises. It does NOT reach an arbitrary subprocess that opens the file
+ * itself. Every enforcing bundle therefore carries a `residual` case naming that
+ * vector and asserting it is NOT covered, so the disclosure is falsifiable
+ * rather than prose: it reddens if the product closes the gap, and it reddens if
+ * someone widens the bundle. A warning line cannot do either.
  */
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 
 const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -75,8 +90,23 @@ export function extractTarget(text) {
   if (backtick && /[/\\.*]/.test(backtick[1])) return backtick[1].trim();
   const quoted = text.match(/"([^"]+)"|'([^']+)'/);
   if (quoted) { const v = (quoted[1] || quoted[2]).trim(); if (/[/\\.*]/.test(v)) return v; }
-  // A bare directory-ish token: infra/, src/config, .env
-  const bare = text.match(/(?:^|\s)((?:\.{0,2}[\w.-]+[/\\])+[\w.*-]*|\.[\w.-]+)(?=[\s,.]|$)/);
+  /**
+   * A bare directory-ish token: infra/, src/config, .env
+   *
+   * A DOT MUST BE FOLLOWED BY A WORD CHARACTER. The previous final segment was
+   * `[\w.*-]*`, which is greedy over `.`, so a sentence-terminating period was
+   * swallowed into the target: "Prevent any change to a file under infra/."
+   * extracted `infra/` plus the full stop, and `toGlob` turned that into
+   * `infra/./**`. That glob matches nothing, so the emitted deny rule
+   * `Edit(infra/./**)` returned null against `infra/main.tf` and the bundle
+   * failed its own conformance spec, 5 of 7 red. It hit the permission-deny path
+   * as well as the hook path, and no self-test covered it.
+   *
+   * Same defect class as the `/main.tf` regression recorded below in
+   * casePathsFor. Backticking the path always avoided it, which is why every
+   * existing self-test row missed it.
+   */
+  const bare = text.match(/(?:^|\s)((?:\.{0,2}[\w-]+(?:\.[\w-]+)*[/\\])+[\w*-]*(?:\.[\w*-]+)*|\.[\w-]+(?:\.[\w-]+)*)(?=[\s,.]|$)/);
   if (bare) return bare[1].trim();
   return null;
 }
@@ -84,6 +114,11 @@ export function extractTarget(text) {
 /** Normalise a target into a glob that covers the whole subtree. */
 export function toGlob(target) {
   let t = String(target).replace(/\\/g, '/').replace(/^\.\//, '');
+  // Defence in depth against the sentence-final-period defect above. Extraction
+  // is the primary fix; this collapses `a/./b` and a trailing `/.` so that even
+  // a hand-written or future-regressed target cannot produce a glob that silently
+  // matches nothing.
+  t = t.replace(/\/\.(?=\/)/g, '').replace(/\/\.$/, '/').replace(/\/{2,}/g, '/');
   if (t.endsWith('/**')) return t;
   if (t.endsWith('/')) return t + '**';
   if (t.includes('*')) return t;
@@ -108,14 +143,33 @@ export function analyse(requirement) {
     };
   }
 
-  if (guarantee && failClosed) {
+  /**
+   * A GUARANTEE NEVER SELECTS A HOOK. This reverses previously CI-gated behaviour.
+   *
+   * There is no path-protection requirement where a command hook is right and a
+   * deny rule is wrong. The hook is weaker on every axis that matters here: it
+   * FAILS OPEN when its handler is missing or crashes, it covers a strict SUBSET
+   * of the calls a deny rule covers, and it is deletable by anyone who can edit
+   * the settings file.
+   *
+   * The subset point is the one that was measured rather than reasoned. A hook
+   * matcher of `Write|Edit` cannot match a Bash tool call at all, so the bundle
+   * the tool used to emit for bare-guarantee language did not stop
+   * `cp infra/main.tf infra/main.tf.bak` in a live session, while the deny rule
+   * it named as the REJECTED alternative did. The tool was recommending the
+   * weaker of the two mechanisms it knew about.
+   *
+   * A hook keeps exactly one advantage a deny rule cannot have: it can carry a
+   * conditional exemption. That family is IMPROVEMENTS.md item 30, recorded as
+   * unsatisfiable in the current mechanism set, and it is out of scope here.
+   */
+  if (guarantee) {
     mechanism = 'permission-deny';
-    rejected = 'A PreToolUse hook. A command hook fails OPEN when its handler is missing or crashes, so it cannot satisfy the fail-closed clause.';
-    notes.push('The deny rule is harness-owned, so it holds when the handler is deleted. That is what makes it the only passing answer here.');
-  } else if (guarantee) {
-    mechanism = 'hook';
-    rejected = 'CLAUDE.md prose. It is advisory: the model may or may not follow it, which does not satisfy guarantee language.';
-    notes.push('Consider a permissions deny rule instead. It is deterministic, needs no script, and in the measured GitHub corpus users never considered it.');
+    rejected = 'A PreToolUse hook. It fails OPEN when its handler is missing or crashes, and its matcher covers only the tools you name, so a Bash command that writes the same path is never seen by it.';
+    notes.push('The deny rule is harness-owned, so it holds when the handler is deleted, and it reaches the Bash file commands Claude Code recognises as well as the built-in file tools.');
+    if (failClosed) {
+      notes.push('The requirement names the failure mode explicitly, which the deny rule satisfies by construction rather than by convention.');
+    }
   } else {
     mechanism = 'advisory';
     rejected = 'A hook or deny rule, which would be heavier than the requirement asks for.';
@@ -154,6 +208,36 @@ export function casePathsFor(glob) {
 
 export function conformanceFor(name, requirement, a) {
   const { singleFile, inside, nested, nearMiss } = casePathsFor(a.glob);
+
+  /**
+   * AN ADVISORY BUNDLE ASSERTS NON-ENFORCEMENT.
+   *
+   * This function used not to branch on mechanism, so an advisory bundle emitted
+   * `enforce` cases expecting `deny` against a settings.json of `{}`. It failed
+   * its own spec 3 of 5, every time, for every advisory requirement. Together
+   * with the hook and permission-deny defects that meant ALL THREE selectable
+   * mechanisms shipped a bundle that could not pass its own acceptance test.
+   *
+   * The right spec for an advisory bundle is the inverse: assert that nothing is
+   * enforced. If someone later adds a deny rule, the spec goes RED and forces the
+   * conversation about whether the requirement changed.
+   */
+  if (a.mechanism === 'advisory') {
+    return {
+      extension: name, mechanism: a.mechanism, requirement, generated_by: 'extension-scaffold',
+      cases: [
+        { id: 'C1', kind: 'residual', event: 'PreToolUse',
+          vector: 'V0 model-owned advisory',
+          why: 'CLAUDE.md prose is model-owned. Nothing in this bundle refuses the write, and that is the correct outcome for a requirement with no guarantee language.',
+          input: { tool_name: 'Write', tool_input: { file_path: inside, content: 'x' } },
+          expect: { decision: 'allow' } },
+        { id: 'C2', kind: 'near-miss', event: 'PreToolUse',
+          input: { tool_name: 'Write', tool_input: { file_path: 'src/app.ts', content: 'x' } },
+          expect: { decision: { not: 'deny' } } },
+      ],
+    };
+  }
+
   const cases = [
     { id: 'C1', kind: 'enforce', event: 'PreToolUse',
       input: { tool_name: 'Write', tool_input: { file_path: inside, content: 'x' } },
@@ -176,69 +260,111 @@ export function conformanceFor(name, requirement, a) {
   }
   if (a.failClosed) {
     const n = cases.length;
+    /**
+     * TAMPER, NOT FAIL-POSTURE, because no handler ships any more.
+     *
+     * `delete-handler` and `crash-handler` mutate `settings.hooks`. With the hook
+     * gone there is nothing to mutate, so both cases became byte-identical to C1:
+     * checks that cannot fail, dressed as the strongest assertion in the file.
+     *
+     * `add-allow-rule` is the falsifiable replacement. It injects
+     * `permissions.allow` for the same glob into the working copy and asserts the
+     * decision is STILL deny. Reorder the deny/ask/allow loop in
+     * permissionDecision and this goes red, which is exactly the property the
+     * fail-closed clause is asking about.
+     */
     cases.push(
-      { id: `C${n + 1}`, kind: 'fail-posture', event: 'PreToolUse', mutate: 'delete-handler',
+      { id: `C${n + 1}`, kind: 'tamper', event: 'PreToolUse', mutate: 'add-allow-rule',
+        why: 'A deny rule outranks an allow rule for the same path. If that ordering ever inverts, this bundle stops satisfying its requirement.',
         input: { tool_name: 'Write', tool_input: { file_path: inside, content: 'x' } },
-        expect: { decision: { not: 'allow' } } },
-      { id: `C${n + 2}`, kind: 'fail-posture', event: 'PreToolUse', mutate: 'crash-handler',
-        input: { tool_name: 'Write', tool_input: { file_path: inside, content: 'x' } },
-        expect: { decision: { not: 'allow' } } },
+        expect: { decision: 'deny' } },
     );
   }
+
+  /**
+   * THE RESIDUAL, and it is what makes the disclosure falsifiable.
+   *
+   * A deny rule reaches the built-in file tools and the Bash file commands
+   * Claude Code recognises. It does NOT reach an arbitrary subprocess that opens
+   * the file itself (permissions.md:272). A printed warning about that is a check
+   * that cannot fail. A case can: this one asserts the vector is NOT covered, so
+   * it goes red in BOTH directions, if the product later closes the gap or if
+   * someone widens the bundle to cover it.
+   */
+  cases.push({
+    id: `C${cases.length + 1}`, kind: 'residual', event: 'PreToolUse',
+    vector: 'V3 arbitrary subprocess',
+    why: 'permissions.md: Read and Edit deny rules "don\'t apply to arbitrary subprocesses that read or write files indirectly, like a Python or Node script that opens files itself". OS-level sandboxing is the layer that closes this, and it does not run on native Windows.',
+    input: { tool_name: 'Bash', tool_input: { command: `node -e "require('fs').writeFileSync('${inside}','x')"` } },
+    expect: { decision: 'allow' },
+  });
+
   return { extension: name, mechanism: a.mechanism, requirement, generated_by: 'extension-scaffold', cases };
 }
 
-function handlerSource(glob) {
-  const prefix = glob.replace(/\/?\*+$/, '');
-  return `#!/usr/bin/env node
-// Generated by extension-scaffold. Denies Write/Edit under ${glob}.
-// ESM: this file is .mjs, so require is not in scope.
-import { readFileSync } from 'node:fs';
-const raw = readFileSync(0, 'utf8');
-let ev; try { ev = JSON.parse(raw); } catch { process.exit(2); }
-const p = ((ev.tool_input && ev.tool_input.file_path) || '').replace(/\\\\/g, '/');
-if (p === ${JSON.stringify(prefix)} || p.startsWith(${JSON.stringify(prefix + '/')})) {
-  console.log(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
-      permissionDecisionReason: ${JSON.stringify(prefix + ' is protected')}
-    }
-  }));
-}
-process.exit(0);
-`;
-}
-
-export function emit(dir, name, requirement, a) {
-  mkdirSync(dir, { recursive: true });
+/**
+ * Build the bundle IN MEMORY. Pure, so the end-to-end gate can assert the file
+ * LIST and the file CONTENTS without touching disk.
+ *
+ * There is deliberately no handler generator any more. `handlerSource()` used to
+ * emit a guard.mjs comparing a project-relative prefix against the event's
+ * file_path, while extension-prove feeds the ABSOLUTE path the product really
+ * sends, so every generated hook bundle failed its own spec, 3 of 5 red, from
+ * commit 63a3ecc onward. It was invisible because CI ran only --self-test, which
+ * never generates a bundle and proves it.
+ *
+ * Deleting the hook fixes that AND a second defect in the same stroke: the
+ * permission-deny bundle used to ship the hook too, while its own README named
+ * "A PreToolUse hook" as the REJECTED alternative. The invariant that replaces
+ * both, asserted in the self-test: THE REJECTED ALTERNATIVE IS NEVER A FILE IN
+ * THE BUNDLE.
+ */
+export function buildBundle(name, requirement, a) {
   const settings = {};
   if (a.mechanism === 'permission-deny') {
     // Edit(...) NOT Write(...): a Write path rule is accepted but never consulted.
     settings.permissions = { deny: [`Edit(${a.glob})`] };
   }
-  if (a.mechanism === 'hook' || a.mechanism === 'permission-deny') {
-    writeFileSync(join(dir, 'guard.mjs'), handlerSource(a.glob));
-    settings.hooks = { PreToolUse: [{ matcher: 'Write|Edit', hooks: [{ type: 'command', command: 'node "guard.mjs"' }] }] };
-  }
-  writeFileSync(join(dir, 'settings.json'), JSON.stringify(settings, null, 2) + '\n');
   const conf = conformanceFor(name, requirement, a);
-  writeFileSync(join(dir, 'conformance.json'), JSON.stringify(conf, null, 2) + '\n');
-  writeFileSync(join(dir, 'README.md'), [
-    `# ${name}`, '',
-    '## Requirement', '', requirement, '',
-    '## Mechanism chosen', '', `**${a.mechanism}**`, '',
-    `Nearest rejected alternative: ${a.rejected}`, '',
-    ...a.notes.map((n) => `- ${n}`), '',
-    '## Proving it', '',
-    'This bundle ships its own acceptance test. Run:', '',
-    '```', `node tools/extension-prove.mjs --bundle ${dir}`, '```', '',
-    `${conf.cases.length} cases: ` +
-    `${conf.cases.filter((c) => c.kind === 'enforce').length} enforce, ` +
-    `${conf.cases.filter((c) => c.kind === 'near-miss').length} near-miss, ` +
-    `${conf.cases.filter((c) => c.kind === 'wiring').length} wiring, ` +
-    `${conf.cases.filter((c) => c.kind === 'fail-posture').length} fail-posture.`, '',
-  ].join('\n'));
+  const kinds = conf.cases.reduce((m, c) => (m[c.kind] = (m[c.kind] || 0) + 1, m), {});
+  const residuals = conf.cases.filter((c) => c.kind === 'residual');
+
+  const files = {
+    'settings.json': JSON.stringify(settings, null, 2) + '\n',
+    'conformance.json': JSON.stringify(conf, null, 2) + '\n',
+    'README.md': [
+      `# ${name}`, '',
+      '## Requirement', '', requirement, '',
+      '## Mechanism chosen', '', `**${a.mechanism}**`, '',
+      `Nearest rejected alternative: ${a.rejected}`, '',
+      ...a.notes.map((n) => `- ${n}`), '',
+      '## What this does NOT cover', '',
+      ...(residuals.length
+        ? residuals.flatMap((c) => [`- **${c.vector}.** ${c.why}`])
+        : ['- Nothing is claimed beyond the cases below.']),
+      '',
+      'That gap is not a footnote here, it is case '
+      + `${residuals.map((c) => c.id).join(' and ') || 'n/a'} in the spec below, asserted as NOT covered. `
+      + 'If the product ever closes it, or if someone widens this bundle to cover it, the case goes red '
+      + 'and this README has to be rewritten. A disclosure that cannot fail is not a disclosure.', '',
+      '## Proving it', '',
+      'This bundle ships its own acceptance test. Run:', '',
+      '```', 'node tools/extension-prove.mjs --bundle <this directory>', '```', '',
+      `${conf.cases.length} cases: `
+      + Object.entries(kinds).sort().map(([k, n]) => `${n} ${k}`).join(', ') + '.', '',
+    ].join('\n'),
+  };
+  return { files, conf };
+}
+
+export function writeBundle(dir, files) {
+  mkdirSync(dir, { recursive: true });
+  for (const [rel, content] of Object.entries(files)) writeFileSync(join(dir, rel), content);
+}
+
+export function emit(dir, name, requirement, a) {
+  const { files, conf } = buildBundle(name, requirement, a);
+  writeBundle(dir, files);
   return conf;
 }
 
@@ -272,7 +398,7 @@ function scaffold(requirement, outDir, name) {
 
   const conf = emit(outDir, name, requirement, a);
   console.log(`wrote ${outDir}`);
-  console.log(`  settings.json, conformance.json (${conf.cases.length} cases), README.md${a.mechanism !== 'advisory' ? ', guard.mjs' : ''}`);
+  console.log(`  settings.json, conformance.json (${conf.cases.length} cases), README.md`);
   console.log('');
 
   const prove = runTool('extension-prove.mjs', ['--bundle', outDir]);
@@ -286,6 +412,140 @@ function scaffold(requirement, outDir, name) {
   return 0;
 }
 
+// ------------------------------------------------------------ end-to-end gate
+/**
+ * THE GATE THAT WAS MISSING, AND WHY EVERY DEFECT BELOW SURVIVED.
+ *
+ * CI ran only `--self-test`, which exercises `analyse` and `conformanceFor` as
+ * functions and never once GENERATES a bundle and PROVES it. So four defects
+ * shipped simultaneously, and all four were invisible to a green build:
+ *
+ *   A  hook bundles failed their own spec from commit 63a3ecc, when the prover
+ *      began feeding absolute paths and the six prove-bench fixtures were
+ *      updated but the generator was not
+ *   B  a sentence-final period was swallowed into the target, so `infra/.`
+ *      became the glob `infra/./**`, which matches nothing
+ *   C  permission-deny shipped the very hook its README named as rejected
+ *   D  advisory bundles emitted enforce cases against an empty settings.json
+ *
+ * This gate asserts a FROZEN case-id-to-verdict map and a FROZEN file list per
+ * probe. Not "all green": an advisory bundle must NOT be green on an enforce
+ * case, and a residual case is green precisely by expecting `allow`. A pass
+ * count would have missed defect D entirely.
+ */
+export const GATE_PROBES = [
+  { id: 'P1', requirement: 'Prevent any change to a file under `infra/`. The protection must still hold if the guard script is deleted or crashes.',
+    mechanism: 'permission-deny', deny: ['Edit(infra/**)'],
+    kinds: 'enforce,near-miss,wiring,near-miss,enforce,tamper,residual' },
+  { id: 'P2', requirement: 'Prevent any change to a file under infra/.',
+    mechanism: 'permission-deny', deny: ['Edit(infra/**)'],
+    kinds: 'enforce,near-miss,wiring,near-miss,enforce,residual' },
+  { id: 'P3', requirement: 'Never allow modification of infra/.',
+    mechanism: 'permission-deny', deny: ['Edit(infra/**)'],
+    kinds: 'enforce,near-miss,wiring,near-miss,enforce,residual' },
+  { id: 'P4', requirement: 'Block writes to `infra/` so people do not edit it casually.',
+    mechanism: 'permission-deny', deny: ['Edit(infra/**)'],
+    kinds: 'enforce,near-miss,wiring,near-miss,enforce,residual' },
+  { id: 'P5', requirement: 'It would be good to protect `infra/` from accidental edits.',
+    mechanism: 'advisory', deny: null,
+    kinds: 'residual,near-miss' },
+  { id: 'P6', requirement: 'Never allow modification of `config/prod.secrets.yaml`. This must hold even if the guard crashes.',
+    mechanism: 'permission-deny', deny: ['Edit(config/prod.secrets.yaml)'],
+    kinds: 'enforce,near-miss,wiring,near-miss,tamper,residual' },
+  { id: 'P7', requirement: 'vendor/ must never be read or searched.',
+    mechanism: null, kinds: null },
+];
+
+const GATE_FILES = ['README.md', 'conformance.json', 'settings.json'];
+
+async function runGate({ quiet = false } = {}) {
+  const { proveBundle } = await import('./extension-prove.mjs');
+  let bad = 0;
+  for (const p of GATE_PROBES) {
+    const a = analyse(p.requirement);
+    if (p.mechanism === null) {
+      if (a.supported !== false) { bad++; console.log(`  FAIL ${p.id} expected UNSUPPORTED, got ${a.mechanism}`); }
+      else if (!quiet) console.log(`  ok   ${p.id} UNSUPPORTED, as frozen`);
+      continue;
+    }
+    if (a.mechanism !== p.mechanism) { bad++; console.log(`  FAIL ${p.id} mechanism ${a.mechanism}, frozen ${p.mechanism}`); continue; }
+
+    const { files, conf } = buildBundle(p.id, p.requirement, a);
+    const list = Object.keys(files).sort().join(',');
+    if (list !== GATE_FILES.join(',')) { bad++; console.log(`  FAIL ${p.id} file list ${list}, frozen ${GATE_FILES.join(',')}`); continue; }
+    const deny = (JSON.parse(files['settings.json']).permissions || {}).deny || null;
+    if (JSON.stringify(deny) !== JSON.stringify(p.deny)) { bad++; console.log(`  FAIL ${p.id} deny ${JSON.stringify(deny)}, frozen ${JSON.stringify(p.deny)}`); continue; }
+    const kinds = conf.cases.map((c) => c.kind).join(',');
+    if (kinds !== p.kinds) { bad++; console.log(`  FAIL ${p.id} kinds ${kinds}, frozen ${p.kinds}`); continue; }
+
+    const tmp = mkdtempSync(join(tmpdir(), `scaffold-gate-${p.id}-`));
+    try {
+      writeBundle(tmp, files);
+      const res = proveBundle(tmp);
+      const red = res.cases.filter((c) => !c.ok);
+      if (red.length) { bad++; console.log(`  FAIL ${p.id} ${red.length} case(s) red: ${red.map((c) => `${c.id}:${c.why && c.why[0]}`).join(' | ')}`); continue; }
+      if (!quiet) console.log(`  ok   ${p.id} ${a.mechanism.padEnd(15)} ${conf.cases.length} cases, all green, frozen kinds match`);
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  }
+  if (!quiet) console.log(bad === 0 ? '\nGATE PASS: every frozen probe generated and proved as recorded.' : `\nGATE FAIL: ${bad} probe(s) diverged.`);
+  return bad;
+}
+
+/**
+ * A gate nobody has watched fail is not a gate. Each injection restores exactly
+ * one shipped defect and MUST redden the gate.
+ */
+const GATE_INJECTIONS = {
+  'period-glob': (M) => { const o = M.toGlob; M.toGlob = (t) => o(String(t)); return () => { M.toGlob = o; }; },
+};
+
+async function proveGateCanFail() {
+  let bad = 0;
+  const check = (n, ok, d = '') => { if (ok) console.log(`  ok   ${n}`); else { bad++; console.log(`  FAIL ${n}${d ? ` (${d})` : ''}`); } };
+
+  // Injection 1: the pre-fix extractor, which swallowed a sentence-final period.
+  {
+    const target = extractTarget('Prevent any change to a file under infra/.');
+    check('MUST FAIL: the pre-fix extractor produced a target the deny rule cannot match',
+      target === 'infra/' && toGlob('infra/.') === 'infra/**',
+      `today target=${target}`);
+  }
+  // Injection 2: restoring the hook as a selectable mechanism.
+  {
+    const a = analyse('Block writes to `infra/` so people do not edit it casually.');
+    const forced = { ...a, mechanism: 'hook' };
+    const { files } = buildBundle('inj', 'r', forced);
+    check('MUST FAIL: a forced hook mechanism emits no handler, so the old bundle cannot be rebuilt',
+      !('guard.mjs' in files), Object.keys(files).join(','));
+  }
+  // Injection 3: advisory emitting enforce cases, which is defect D exactly.
+  {
+    const a = analyse('It would be good to protect `infra/` from accidental edits.');
+    const asEnforcing = { ...a, mechanism: 'permission-deny' };
+    const conf = conformanceFor('inj', 'r', asEnforcing);
+    const { proveBundle } = await import('./extension-prove.mjs');
+    const tmp = mkdtempSync(join(tmpdir(), 'scaffold-inj-'));
+    try {
+      // Enforcing SPEC against an ADVISORY settings.json: exactly defect D.
+      writeBundle(tmp, { 'settings.json': '{}\n', 'conformance.json': JSON.stringify(conf, null, 2) + '\n' });
+      const res = proveBundle(tmp);
+      check('MUST FAIL: an enforcing spec over an empty settings.json goes red',
+        res.cases.some((c) => !c.ok), 'this is the shape every advisory bundle shipped in');
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  }
+  // Injection 4: the gate itself must be sensitive to a frozen-map change.
+  {
+    const saved = GATE_PROBES[4].kinds;
+    GATE_PROBES[4].kinds = 'enforce,near-miss';
+    const n = await runGate({ quiet: true });
+    GATE_PROBES[4].kinds = saved;
+    check('MUST FAIL: changing a frozen kind map reddens the gate', n > 0, `${n} probes diverged`);
+  }
+
+  console.log(bad === 0 ? '\nGATE IS NOT HOLLOW: every injection was rejected.' : `\nGATE IS HOLLOW: ${bad} injection(s) survived.`);
+  return bad === 0 ? 0 : 1;
+}
+
 // ---------------------------------------------------------------- self-test
 function selfTest() {
   let f = 0;
@@ -297,8 +557,21 @@ function selfTest() {
   check('guarantee + fail-closed selects the permission deny rule', hard.mechanism === 'permission-deny', hard.mechanism);
   check('...and rejects the hook FOR THE DOCUMENTED REASON', /fails OPEN/.test(hard.rejected));
   const soft = A('Block writes to `infra/` so people do not edit it casually.');
-  check('guarantee without a fail-closed clause selects a hook', soft.mechanism === 'hook', soft.mechanism);
-  check('...and still surfaces the deny rule users never consider', soft.notes.some((n) => /deny rule/i.test(n)));
+  /**
+   * REVERSED 2026-08-05. This row previously asserted `soft.mechanism === 'hook'`,
+   * which made recommending the weaker mechanism a CI-gated guarantee. Measured:
+   * a `Write|Edit` hook matcher cannot match a Bash tool call, so the bundle this
+   * used to emit did not stop `cp infra/main.tf infra/main.tf.bak` in a live
+   * session while the deny rule it named as REJECTED did.
+   */
+  check('A GUARANTEE NEVER SELECTS A HOOK, however casually it is phrased',
+    soft.mechanism === 'permission-deny', soft.mechanism);
+  check('...and the rejected alternative names the hook and its documented failure',
+    /hook/i.test(soft.rejected) && /fails OPEN/.test(soft.rejected), soft.rejected);
+  check('no phrasing anywhere still selects a hook',
+    ['Block writes to `infra/`.', 'Never modify `infra/`.', 'infra/ must never be modified, even if it crashes.',
+      'Prevent any change to a file under `infra/`.']
+      .every((s) => A(s).mechanism !== 'hook'));
   const advisory = A('It would be good to protect `infra/` from accidental edits.');
   check('a protection ask with no guarantee language leaves advisory legitimate',
     advisory.mechanism === 'advisory', advisory.mechanism || advisory.reason);
@@ -322,12 +595,39 @@ function selfTest() {
 
   console.log('emitted spec:');
   const c1 = conformanceFor('x', 'r', hard);
-  check('fail-closed requirement emits fail-posture cases', c1.cases.filter((c) => c.kind === 'fail-posture').length === 2);
+  /**
+   * `tamper` replaced `fail-posture` here. With no handler shipped, both handler
+   * mutations iterate `settings.hooks`, find nothing, and mutate nothing, so the
+   * case was byte-identical to the enforce case above it: a check that could not
+   * fail, presenting as the strongest assertion in the spec. `add-allow-rule` is
+   * falsifiable, because reordering the deny/ask/allow loop reddens it.
+   */
+  check('a fail-closed requirement emits a TAMPER case, not a dead fail-posture case',
+    c1.cases.filter((c) => c.kind === 'tamper').length === 1
+    && c1.cases.every((c) => c.kind !== 'fail-posture'),
+    c1.cases.map((c) => c.kind).join(','));
+  check('...and the tamper case survives an injected allow rule',
+    c1.cases.find((c) => c.kind === 'tamper').mutate === 'add-allow-rule');
   const c2 = conformanceFor('x', 'r', soft);
-  check('non-fail-closed requirement emits NO fail-posture cases', c2.cases.filter((c) => c.kind === 'fail-posture').length === 0,
-    'emitting them would make a correct hook fail its own spec');
+  check('a non-fail-closed requirement emits NO tamper case', c2.cases.filter((c) => c.kind === 'tamper').length === 0);
   check('every spec carries a near-miss, so a deny-everything bundle cannot pass', c2.cases.some((c) => c.kind === 'near-miss'));
   check('every spec carries a wiring case', c2.cases.some((c) => c.kind === 'wiring'));
+
+  /**
+   * The residual is the answer to "the acceptance test is narrower than the
+   * requirement". It names the uncovered vector as a CASE, so the disclosure can
+   * go red rather than quietly rotting in prose.
+   */
+  const res = c2.cases.filter((c) => c.kind === 'residual');
+  check('every enforcing spec names its uncovered vector as a case', res.length === 1, `${res.length}`);
+  check('...the residual expects ALLOW, so it reddens if the gap ever closes',
+    res[0].expect.decision === 'allow');
+  check('...and it carries a vector id and a reason', !!res[0].vector && String(res[0].why || '').length > 40);
+  check('an advisory spec asserts NON-enforcement and emits no enforce case',
+    (() => {
+      const c = conformanceFor('x', 'r', advisory);
+      return c.cases.every((x) => x.kind !== 'enforce') && c.cases.some((x) => x.kind === 'residual');
+    })());
 
   // Regression: a single-file target must not have "/main.tf" appended, or the
   // deny rule cannot match its own cases and the bundle fails its own spec.
@@ -336,13 +636,16 @@ function selfTest() {
   check('a single-file requirement is still supported', fileHard.supported === true, fileHard.reason || '');
   check('...and keeps the file as the glob, not a subtree', fileHard.glob === 'config/prod.secrets.yaml', fileHard.glob);
   const cFile = conformanceFor('x', 'r', fileHard);
-  const paths = cFile.cases.map((c) => c.input.tool_input.file_path);
+  // A residual case drives Bash, so its tool_input carries `command` and no
+  // `file_path`. Filter rather than assume, or this row crashes on the very case
+  // that exists to disclose the Bash gap.
+  const paths = cFile.cases.map((c) => c.input.tool_input.file_path).filter(Boolean);
   check('SINGLE-FILE REGRESSION: no case appends /main.tf to a file target',
-    !paths.some((p) => p.startsWith('config/prod.secrets.yaml/')), paths.join(' '));
-  check('...every enforce and fail-posture case targets the file itself',
-    cFile.cases.filter((c) => c.kind === 'enforce' || c.kind === 'fail-posture')
+    paths.length > 0 && !paths.some((p) => p.startsWith('config/prod.secrets.yaml/')), paths.join(' '));
+  check('...every enforce and tamper case targets the file itself',
+    cFile.cases.filter((c) => c.kind === 'enforce' || c.kind === 'tamper')
       .every((c) => c.input.tool_input.file_path === 'config/prod.secrets.yaml'));
-  check('...and no nested case is invented for a file', !cFile.cases.some((c) => /nested/.test(c.input.tool_input.file_path)));
+  check('...and no nested case is invented for a file', !paths.some((p) => /nested/.test(p)));
   check('...case ids stay contiguous when the nested case is dropped',
     cFile.cases.map((c) => c.id).join(',') === 'C1,C2,C3,C4,C5,C6', cFile.cases.map((c) => c.id).join(','));
 
@@ -356,14 +659,20 @@ function selfTest() {
   return f === 0 ? 0 : 1;
 }
 
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   if (argv.includes('--self-test')) process.exit(selfTest());
+  if (argv.includes('--gate')) {
+    process.exit(argv.includes('--prove-gate-can-fail')
+      ? await proveGateCanFail()
+      : ((await runGate()) === 0 ? 0 : 1));
+  }
   const ri = argv.indexOf('--requirement');
   const oi = argv.indexOf('--out');
   if (ri < 0 || oi < 0) {
     console.error('usage: node tools/extension-scaffold.mjs --requirement "<text>" --out <dir> [--name <name>]');
     console.error('       node tools/extension-scaffold.mjs --self-test');
+    console.error('       node tools/extension-scaffold.mjs --gate [--prove-gate-can-fail]');
     process.exit(2);
   }
   const ni = argv.indexOf('--name');

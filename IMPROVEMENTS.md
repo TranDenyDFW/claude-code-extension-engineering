@@ -466,6 +466,51 @@ rule cannot carry allowlist exceptions, and both together means deny always wins
 `tests/results-prove-bench.md`. Short of OS-level sandboxing there is no composition that
 satisfies it, which is worth knowing before promising one.
 
+**31. All three mechanisms `extension-scaffold` could select emitted a bundle that failed its
+own acceptance test. The hook is no longer selectable.** Found 2026-08-05 while reproducing an
+external reviewer's charge that the scaffold's acceptance test is materially narrower than the
+requirement it claims to satisfy. That charge is true, and chasing it surfaced four more defects
+nobody had reported:
+
+- The hook bundle had been failing its own spec since commit `63a3ecc`, which made the prover
+  feed ABSOLUTE paths and updated the six prove-bench fixtures but not the scaffold's handler
+  template. `5 cases: 2 passed, 3 failed`, exit 1.
+- `extractTarget` swallowed a sentence-final period, so "Prevent any change to a file under
+  infra/." emitted `Edit(infra/./**)`. `permissionDecision` returns null for that glob, which
+  broke the permission-deny path too, not only the hook: 5 of 7 probes red.
+- The permission-deny bundle SHIPPED the hook its own README names as the rejected alternative,
+  because the emit branch was `hook || permission-deny` rather than a choice.
+- Advisory bundles emitted `enforce` cases expecting `deny` against a `settings.json` of `{}`.
+
+Fixed by deleting the hook as a selectable mechanism for this family rather than repairing its
+template. There is no path-protection requirement where a command hook is right and a deny rule
+is wrong: the hook fails open, covers a strict subset of the vectors, and is deletable. Its one
+real advantage, carrying a conditional exemption, belongs to the family item 30 already records
+as unsatisfiable. This REVERSES behaviour that two self-test rows previously gated, which is why
+it is recorded here rather than edited in silently. The new invariant is the one the third
+defect violated: **the rejected alternative must not be a file in the bundle.**
+
+Advisory bundles now emit a `residual` case asserting NON-enforcement, so adding a deny rule
+later turns the spec red and forces the conversation instead of silently upgrading the claim.
+Enforcing bundles get a `tamper` case (`add-allow-rule`) in place of `fail-posture`: with no
+handler shipped, `delete-handler` would make that case byte-identical to the live one, which is
+a check that cannot fail.
+
+**32. The gate that would have caught item 31 did not exist, and that is the real defect.**
+CI ran `extension-scaffold --self-test`, which exercises `analyse()` and `conformanceFor()` as
+functions and never once GENERATES a bundle and PROVES it. Four defects rode a green build
+because the only end-to-end path was a human running the CLI by hand. Now `--gate` runs seven
+frozen probe requirements through analyse, buildBundle and proveBundle in process, asserting the
+result equals a frozen case-id-to-verdict map AND file list. Not "all green": advisory must NOT
+be green on enforce cases, and a `residual` case is green by expecting `allow`, so a pass count
+alone would have hidden the fourth defect. `--gate --prove-gate-can-fail` applies four in-memory
+injections (`stale-handler`, `period-glob`, `both-mechanisms`, `advisory-enforce`) and requires
+every one to redden the gate; it is what would have gone red on `63a3ecc`. Both are CI steps.
+
+Residue: seven probes is a frozen set chosen by the same person who wrote the analyser, so it
+carries item 28's limit. It catches regressions against known phrasings, not phrasings nobody
+has tried yet, which is item 29.
+
 ---
 
 ## Deliberately not doing

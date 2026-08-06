@@ -178,8 +178,10 @@ current mechanism set short of OS-level sandboxing.
 ## Gates
 
 ```bash
-node tools/extension-prove.mjs --self-test      # 35 checks: matcher, verdict, permission rules, expect
-node tools/extension-prove.mjs --prove-fail     # 66 case-runs against empty and inert controls
+node tools/extension-prove.mjs --self-test      # 55 checks: matcher, verdict, permission rules, expect
+node tools/extension-prove.mjs --prove-fail     # 110 case-runs against empty and inert controls
+node tools/extension-scaffold.mjs --gate        # generate 7 bundles and PROVE each against a frozen map
+node tools/extension-scaffold.mjs --gate --prove-gate-can-fail   # 4 injections, each must redden it
 node tests/prove-bench/run-bench.mjs --self-test
 node tests/prove-bench/make-fixtures.mjs --check
 ```

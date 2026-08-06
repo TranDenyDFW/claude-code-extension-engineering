@@ -61,8 +61,22 @@ export const CITE = {
   'fail-posture': 'hooks.md: "jq is absent on many Windows installs, so the handler exits non-zero, fails open, and silently blocks nothing while looking installed."',
 };
 
-export const CASE_KINDS = new Set(['enforce', 'near-miss', 'wiring', 'fail-posture']);
-export const MUTATIONS = new Set(['delete-handler', 'crash-handler', 'none']);
+/**
+ * `residual` and `tamper` were added 2026-08-05, both because a check that could
+ * not fail was found where a strong assertion was being claimed.
+ *
+ * `residual` asserts a named vector is NOT covered. It is how a coverage
+ * disclosure becomes falsifiable: a printed warning goes stale in silence, a
+ * case goes red in BOTH directions, if the product later closes the gap or if
+ * someone widens the bundle to cover it. Carries `vector` and `why`.
+ *
+ * `tamper` replaces `fail-posture` for a bundle that ships no handler. Both
+ * handler mutations iterate `settings.hooks`; with no hook present they mutate
+ * nothing, so the case became byte-identical to the plain enforce case above it
+ * while presenting as the strongest assertion in the file.
+ */
+export const CASE_KINDS = new Set(['enforce', 'near-miss', 'wiring', 'fail-posture', 'residual', 'tamper']);
+export const MUTATIONS = new Set(['delete-handler', 'crash-handler', 'add-allow-rule', 'none']);
 
 // Events on which exit 2 blocks. From references/hook-events.md; kept small and
 // explicit rather than inferred, so an unlisted event is a hard error not a guess.
@@ -321,6 +335,27 @@ function matchExpect(expect, verdict) {
  */
 export function applyMutation(dir, settings, mutation) {
   if (!mutation || mutation === 'none') return;
+
+  /**
+   * add-allow-rule: the tamper mutation for a bundle with no handler to break.
+   *
+   * Injects `permissions.allow` for every path already denied, then the case
+   * asserts the decision is STILL deny. That is falsifiable in a way the handler
+   * mutations are not on a deny-only bundle: reorder the deny/ask/allow loop in
+   * permissionDecision and this goes red. It mutates the settings object the
+   * caller passes, which IS the working copy, so the change is real rather than
+   * notional.
+   */
+  if (mutation === 'add-allow-rule') {
+    const denied = ((settings.permissions || {}).deny || []).slice();
+    if (denied.length) {
+      settings.permissions = settings.permissions || {};
+      settings.permissions.allow = [...(settings.permissions.allow || []), ...denied];
+      writeFileSync(join(dir, 'settings.json'), JSON.stringify(settings, null, 2) + '\n');
+    }
+    return;
+  }
+
   const targets = [];
   for (const groups of Object.values(settings.hooks || {}))
     for (const g of groups) for (const h of (g.hooks || [])) targets.push(h.command);
