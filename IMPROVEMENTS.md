@@ -795,6 +795,29 @@ until a known-bad input has been put through THAT rule. Not through its neighbou
 through the function it calls. Three of the six above passed every existing test while
 checking nothing.
 
+**42. The Bash-recognition table is replicated on a second build, and the `cd` bypass survived
+a changelog entry that claims to have fixed it.**
+Claude Code 2.1.223 shipped "Fixed a Bash permission bypass where a crafted command could hide
+parts of itself from permission checks", plus a second fix for commands padded with invisible
+Unicode. The headline row of item 33, `cd infra && touch fresh.tf` writing through a live
+`Edit(infra/**)` deny rule, is a Bash permission bypass of exactly that shape, so the table
+might have been publishing a closed hole as an open one.
+
+Re-measured at n=10 on 2.1.224, five releases later: 200 more paired sessions, 400 in total.
+**Every shape reached the same verdict on both builds**, both rig controls held on both, and
+only the discard counts moved (cp 6 to 7 attributable, sed-i 9 to 10, rm 10 to 8). Which
+shapes get discarded moving while no verdict does is the clearest evidence yet that the
+discard rule separates signal from the model's own caution.
+
+2.1.224 is now canonical and the 2.1.219 record is kept beside it, because two independent
+measurements agreeing is evidence and one plus a claim is not. `--check` gained a REPLICATION
+block that compares verdicts across the two and fails on any disagreement, with five self-test
+rows including a flipped-verdict must-fail. Discard counts are deliberately NOT compared: a
+discard is model noise, and a gate red on noise gets ignored.
+
+What this does NOT establish: still one platform. Windows only, and `compatibility.md` records
+macOS and Linux as UNVERIFIED rather than assumed.
+
 ---
 
 ## Deliberately not doing
