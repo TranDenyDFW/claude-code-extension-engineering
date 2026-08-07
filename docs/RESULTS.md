@@ -114,6 +114,10 @@ recognition sentence names Bash and never PowerShell. And the arbitrary-subproce
 which this project previously carried as an official citation it had never observed, is now a
 local measurement.
 
+Scope: Windows, on two builds. That is what the table speaks for, and the reason it is stated
+rather than assumed is that the recognised command set has no documented contract anywhere, so
+there is nothing to generalise from. Another platform needs its own run.
+
 Detail, the 25-shape n=1 screen, and the shapes that could not be measured at all:
 [permissions.md](../skills/claude-code-extension-engineering/references/permissions.md).
 

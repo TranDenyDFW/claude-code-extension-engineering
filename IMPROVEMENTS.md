@@ -384,7 +384,7 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 452 source assignments in `claims.jsonl` were made by subagents with stated rules,
+The 451 source assignments in `claims.jsonl` were made by subagents with stated rules,
 not independently double-checked. The integrity gate catches structural drift, not a
 wrong-but-plausible source id. A second blind attribution pass with disagreement
 reporting would harden it. The 2026-08-05 monitors and channels pass is a worked example
@@ -574,8 +574,8 @@ observations.
 
 Residue: one platform, one build, eight shapes in the record plus a 25-shape n=1 screen that
 is published as a screen and never as a verdict. The recognised set may differ on macOS or
-Linux and nothing here covers that; `compatibility.md` records it as UNVERIFIED rather than
-leaving it to be assumed. Three screen shapes (`dd`, `truncate`, `chmod`) could not be
+Linux and nothing here covers that; `compatibility.md` publishes a Windows profile only, and
+no profile at all for the platforms nobody measured. Three screen shapes (`dd`, `truncate`, `chmod`) could not be
 measured at all because the model declined in both arms, and one (`powershell Out-File`)
 produced an anomaly; all four are recorded rather than dropped.
 
@@ -815,8 +815,8 @@ block that compares verdicts across the two and fails on any disagreement, with 
 rows including a flipped-verdict must-fail. Discard counts are deliberately NOT compared: a
 discard is model noise, and a gate red on noise gets ignored.
 
-What this does NOT establish: still one platform. Windows only, and `compatibility.md` records
-macOS and Linux as UNVERIFIED rather than assumed.
+What this does NOT establish: still one platform. The published profile is Windows only, and
+no profile exists for a platform nobody measured.
 
 ---
 
