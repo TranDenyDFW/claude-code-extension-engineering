@@ -1,6 +1,6 @@
 # Sources
 
-> Claude Code 2.1.220, verified 2026-07-29. Machine-readable form: [evidence/sources.json](../../../evidence/sources.json); per-claim attribution: [evidence/claims.jsonl](../../../evidence/claims.jsonl); integrity gate: tools/verify-evidence.mjs.
+> Claude Code 2.1.224, verified 2026-08-07. Machine-readable form: [evidence/sources.json](../../../evidence/sources.json); per-claim attribution: [evidence/claims.jsonl](../../../evidence/claims.jsonl); integrity gate: tools/verify-evidence.mjs.
 
 | Id | Title | URL | Retrieved | Build | Status | Redistributable | Licence |
 |---|---|---|---|---|---|---|---|

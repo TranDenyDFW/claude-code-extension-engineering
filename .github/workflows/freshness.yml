@@ -166,6 +166,19 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Verbatim quotes still exist upstream
+        # "Re-verify against the new build" used to be a manual sweep over 163
+        # version tags. This makes the narrowest part of it mechanical: a claim
+        # that quotes upstream verbatim is falsified the moment that sentence
+        # stops existing. --self-test pins the extractor AND its must-fail case;
+        # the live comparison needs the docs mirror, which is not committed
+        # (copyright), so it exits 2 (cannot check) on a runner and the build does
+        # not rest on it. It found two real defects on its first run, both OURS:
+        # a paraphrase and an uppercased word, each presented inside quotation
+        # marks as if verbatim.
+        run: |
+          node tools/quote-check.mjs --self-test
+          node tools/quote-check.mjs || [ $? -eq 2 ]
       - name: Tier 3 key quality
         # Key defects used to be found by graders AFTER a run and filed as
         # prose. Now they are a gate. The frozen v1 set is expected RED (15

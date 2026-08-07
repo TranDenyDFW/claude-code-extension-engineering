@@ -1628,7 +1628,24 @@ function selfTest() {
   // can then read backwards to a cause.
 
   const CAT = CATALOG;
-  const BUILDS = ['2.1.208', '2.1.220', '2.1.222', null];
+  /**
+   * The three build positions this section needs, DERIVED from the catalog
+   * rather than typed.
+   *
+   * They were hardcoded as '2.1.208', '2.1.220', '2.1.222', which encoded the
+   * assumption that the catalog is 2.1.220 forever. Bumping the catalog to
+   * 2.1.224 turned four rows red at once, not because anything regressed but
+   * because '2.1.222' stopped being NEWER than the catalog and the
+   * version-asymmetry fixtures were asserting the opposite. A fixture that
+   * breaks on a routine version bump gets edited to match rather than read, and
+   * that is how a real regression would slip through it.
+   */
+  const CAT_V = (CAT && CAT.catalogVersion) || '2.1.220';
+  const bumpPatch = (v, by) => v.replace(/(\d+)$/, (m) => String(Number(m) + by));
+  const OLDER = bumpPatch(CAT_V, -12);   // comfortably behind the catalog
+  const COVERED_V = CAT_V;               // exactly the catalog build
+  const NEWER = bumpPatch(CAT_V, 2);     // ahead of it, so absence proves nothing
+  const BUILDS = [OLDER, COVERED_V, NEWER, null];
   check('the capability catalog loads', !!CAT, CATALOG_ERROR || '');
 
   // THE REGRESSION. PowerShell shipped in 2.1.84 and the hand-typed Set never
@@ -1662,12 +1679,12 @@ function selfTest() {
     return c.class === 'invalid' && c.severity === 'BROKEN';
   })());
   check('NEGATIVE CONTROL: FrobnicateTool on a NEWER build is unknown and SILENT', (() => {
-    const c = classifyTool('FrobnicateTool', CAT, '2.1.222');
+    const c = classifyTool('FrobnicateTool', CAT, NEWER);
     return c.class === 'unknown' && c.severity === 'SILENT';
   })());
   check('NEGATIVE CONTROL: an UNKNOWN name is still REPORTED, not swallowed', (() => {
-    const c = classifyTool('FrobnicateTool', CAT, '2.1.222');
-    const f = nameFinding('tools', 'FrobnicateTool', c, 'x/agents/a.md', { catalog: CAT, signal: '2.1.222' });
+    const c = classifyTool('FrobnicateTool', CAT, NEWER);
+    const f = nameFinding('tools', 'FrobnicateTool', c, 'x/agents/a.md', { catalog: CAT, signal: NEWER });
     return !!f && f.check === 'agent-unverified-tool' && f.severity === 'SILENT' && f.citation.length > 10;
   })());
   check('a valid name produces NO finding', nameFinding('tools', 'Read', classifyTool('Read', CAT, '2.1.220'), 'x', { catalog: CAT }) === null);
@@ -1759,16 +1776,16 @@ function selfTest() {
   })());
 
   check('--strict-unknown promotes unknown to BROKEN', (() => {
-    const c = classifyTool('FrobnicateTool', CAT, '2.1.222', { strictUnknown: true });
+    const c = classifyTool('FrobnicateTool', CAT, NEWER, { strictUnknown: true });
     return c.class === 'unknown' && c.severity === 'BROKEN';
   })());
-  check('--strict-unknown does NOT promote unsupported', classifyTool('MultiEdit', CAT, '2.1.222', { strictUnknown: true }).severity === 'SILENT');
+  check('--strict-unknown does NOT promote unsupported', classifyTool('MultiEdit', CAT, NEWER, { strictUnknown: true }).severity === 'SILENT');
 
   check("cmpVersion('2.1.9','2.1.220') < 0", cmpVersion('2.1.9', '2.1.220') < 0, String(cmpVersion('2.1.9', '2.1.220')));
   check('cmpVersion is symmetric and reflexive', cmpVersion('2.1.220', '2.1.9') > 0 && cmpVersion('2.1.220', '2.1.220') === 0);
   check('absenceIsProof runs the right way round', (() => {
     const a = absenceIsProof({ catalogVersion: '2.1.220' }, '2.1.220');
-    const b = absenceIsProof({ catalogVersion: '2.1.220' }, '2.1.222');
+    const b = absenceIsProof({ catalogVersion: '2.1.220' }, NEWER);
     const c = absenceIsProof({ catalogVersion: '2.1.220' }, null);
     const d = absenceIsProof(null, '2.1.208');
     return a === true && b === false && c === false && d === false;
@@ -1790,7 +1807,7 @@ function selfTest() {
       for (const v of ['2.1.9', '2.1.100']) {
         mkdirSync(join(seeded, '.local', 'share', 'claude', 'versions', v), { recursive: true });
       }
-      writeFileSync(join(seeded, '.local', 'share', 'claude', 'versions', '2.1.222'), 'binary stand in');
+      writeFileSync(join(seeded, '.local', 'share', 'claude', 'versions', NEWER), 'binary stand in');
       mkdirSync(join(fileOnly, '.local', 'share', 'claude', 'versions'), { recursive: true });
       writeFileSync(join(fileOnly, '.local', 'share', 'claude', 'versions', '2.1.219'), 'binary stand in');
       mkdirSync(join(dirOnly, '.local', 'share', 'claude', 'versions', '2.1.219'), { recursive: true });
@@ -1804,9 +1821,9 @@ function selfTest() {
       // trees against the wrong build, and the asymmetry would point the wrong
       // way without ever saying so.
       check('detector reads from the home ARGUMENT, not os.homedir()',
-        got.version === '2.1.222' && String(got.source).startsWith(seeded),
+        got.version === NEWER && String(got.source).startsWith(seeded),
         `${got.version} from ${got.source}`);
-      check('detector picks the HIGHEST of several stored versions (numeric, not lexical)', got.version === '2.1.222', got.version);
+      check('detector picks the HIGHEST of several stored versions (numeric, not lexical)', got.version === NEWER, got.version);
       check('detector marks the versions store strong', got.confidence === 'strong' && got.rung === 'versions-store');
       // The layout defect this caught for real: the installer wrote a FILE, the
       // directories-only draft went blind, and detection fell to the weak rung
@@ -1847,7 +1864,7 @@ function selfTest() {
           check('npm global WINDOWS layout (prefix/node_modules, no lib) is detected strong',
             b.version === '2.1.231' && b.confidence === 'strong' && b.rung === 'npm-global', JSON.stringify(b));
           const c = detectInstalledVersion({ home: seeded });
-          check('the versions store outranks the npm rung', c.rung === 'versions-store' && c.version === '2.1.222', JSON.stringify(c));
+          check('the versions store outranks the npm rung', c.rung === 'versions-store' && c.version === NEWER, JSON.stringify(c));
         } finally {
           if (savedPrefix === undefined) delete process.env.npm_config_prefix;
           else process.env.npm_config_prefix = savedPrefix;
@@ -1936,8 +1953,8 @@ function selfTest() {
     /is covered by the catalog: an absent name is reported BROKEN\.$/.test(versionHeader(CAT, '2.1.220')),
     versionHeader(CAT, '2.1.220'));
   check('the header states the newer asymmetry when the build is ahead',
-    /installed build 2\.1\.222 .*is NEWER than the catalog: names absent from the catalog are reported UNVERIFIED, not BROKEN\.$/.test(versionHeader(CAT, '2.1.222')),
-    versionHeader(CAT, '2.1.222'));
+    new RegExp(`installed build ${NEWER.replace(/\./g, '\.')} .*is NEWER than the catalog: names absent from the catalog are reported UNVERIFIED, not BROKEN\.$`).test(versionHeader(CAT, NEWER)),
+    versionHeader(CAT, NEWER));
   check('the header says so when the build is undetectable',
     /could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN\.$/.test(versionHeader(CAT, null)),
     versionHeader(CAT, null));

@@ -4,7 +4,7 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-08-06 against Claude Code 2.1.220, the build in `evidence/VERIFIED_VERSION`.
+Last reviewed 2026-08-07 against Claude Code 2.1.224, the build in `evidence/VERIFIED_VERSION`.
 The 2026-08-05 pass reconciled items 20 to 23, 25 and 27 against their own artifacts and
 re-ran their gates; the 2026-08-06 pass added items 31 to 36 and closed the Bash-recognition
 measurement that item 33 rests on. Neither did a new version check, so the verified build is
@@ -668,6 +668,83 @@ The pattern across all four is one thing: a check whose PASS did not depend on t
 test. That is the defect this project exists to name, found four times in the tooling written
 to name it, by someone who did not write it. Item 32 said the real defect was the missing
 gate; this says the second real defect is a gate nobody fed a known-bad input.
+
+**38. The README carried six stale claims and the numbers gate could see one of them.**
+An external review reported one: `DirectoryAdded` described as absent from the hooks
+reference, a gap that had closed on 2026-08-05. There were six, and five were structurally
+invisible:
+
+Historical values, deliberately not written in the canonical phrasing so the numbers gate
+does not fire on this table:
+
+| Said | Live | Why the gate missed it |
+|---|---|---|
+| said fifteen, of committed fixtures | 30 | the word map stopped at thirteen |
+| "FOUR rounds of scoring hardening" | five | no rule read that heading |
+| `DirectoryAdded` "still absent" | closed 2026-08-05 | prose, not a number |
+| said 24, in a "(N cards)" table row | 28 | the rule only read the "N composition cards" phrasing |
+| said 30, in a "(N events" table row | 31 | the rule only read the "N hook-event contracts" phrasing |
+| "Verified against 2.1.220" | baseline stale | not a gated fact |
+
+The gate caught the canonical card phrasing on line 86 and missed the bare "(N cards)" form
+on line 241 OF THE SAME FILE, because both rules are keyed to one canonical phrasing and the README paraphrased
+itself. Four new facts were added and each was watched reddening against the real stale string
+BEFORE the README was fixed. Extending the word map DOWNWARD to one was tried and reverted in
+the same sitting: it produced three false positives on ordinary prose, because small
+word-numbers are quantifiers in English before they are claims.
+
+The README itself was rewritten from 302 lines to 144, with install at line 12 instead of 204.
+That followed evidence rather than taste: eight real plugin and skill READMEs were read out of
+the 99 zipped repo mirrors in `CCX-Extension-Research`, and NONE of them contains a single
+measured number. Every number moved to `docs/RESULTS.md`, which was added to the gate's scan
+list in the same edit and then proven by planting a wrong count and watching it redden.
+Relocating a claim from a gated file to an ungated one is how a claim stops being checked
+without anyone deciding it should.
+
+**39. "Re-verify against the new build" was a manual sweep, and is now a gate.**
+163 version tags across 25 reference files, 40 pinned to one build, and the only way to check
+them was to read. A manual sweep happens once.
+
+`tools/quote-check.mjs` makes the narrowest and most load-bearing part mechanical: a claim
+that quotes upstream verbatim is falsified the moment that sentence stops existing. It found
+TWO REAL DEFECTS on its first run, both ours rather than upstream's:
+
+- `permissions.md` quoted "applies to all built-in tools that edit files" where the page says
+  "`Edit` rules APPLY to all built-in tools that edit files". The verb was changed to fit our
+  sentence and left inside quotation marks.
+- `permissions.md` quoted "file commands Claude Code recognizes IN BASH", uppercasing two
+  words for emphasis inside a quotation.
+
+Both are small and both are the same error: presenting an edit as verbatim. The gate reached
+that answer only after four rounds of its own false positives, all of them ours (backticks
+inside quotes, inline markdown links, trailing punctuation, and quote-pairing across our own
+prose). Sixteen false alarms on the first run is a gate nobody keeps, so each cause is fixed
+in the comparator rather than exempted, and the one genuinely unresolvable case, a scare
+quote, sits in an exemption list whose SIZE the self-test asserts.
+
+What it does not do is stated in the file: a quote that still appears has not been shown to
+still MEAN the same thing.
+
+**40. The verified baseline moved to 2.1.224, and what that did and did not verify.**
+The review asked for 2.1.223; npm latest was 2.1.224 by the time the work started and 2.1.224
+is what was recorded, because chasing a named version guarantees being stale on arrival.
+
+Done: the docs mirror was refreshed to a dated revision (186 pages, 101 changed, 10 added, 1
+removed since 2026-08-04), all 34 verbatim quotes re-verified, the capability catalog
+regenerated and found UNCHANGED at 51 tools and 31 hook events, and 25 reference headers plus
+`evidence/VERIFIED_VERSION` bumped.
+
+NOT done, and the headers say so: 101 changed pages were not all re-read. The header wording
+was narrowed for that reason. It previously read "Delta from 2.1.219: none (changelog: bug
+fixes and reliability improvements only)", which is a changelog skim presented as a
+verification.
+
+One coupling surfaced: the doctor's self-test hardcoded 2.1.222 as its "newer than the
+catalog" fixture, so bumping the catalog to 2.1.224 turned four rows red at once. Nothing had
+regressed; the fixture had encoded the assumption that the catalog is 2.1.220 forever. The
+three build positions are now derived from `catalogVersion`. A fixture that breaks on a
+routine bump gets edited to match rather than read, which is how a real regression slips
+through one.
 
 ---
 

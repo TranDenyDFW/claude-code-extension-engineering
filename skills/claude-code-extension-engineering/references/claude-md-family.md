@@ -1,6 +1,6 @@
 # CLAUDE.md family
 
-> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
+> Claude Code 2.1.224, verified 2026-08-07. Re-verified MECHANICALLY against a refreshed docs mirror: every verbatim quote in this file still appears upstream (tools/quote-check.mjs), and the capability surface is unchanged at 51 tools and 31 hook events. 101 of 186 mirrored pages changed since 2.1.220 and were NOT all re-read, so this is a quote-and-capability check, not a full re-reading.
 
 
 Instruction files loaded into context automatically, every session. CLAUDE.md at four scopes (managed, user, project, directory), CLAUDE.local.md, @path imports that recurse up to four hops, and .claude/rules for modular or path-scoped sets. This is the only mechanism that costs context whether or not it is used, so it is the wrong home for anything procedural or long.
