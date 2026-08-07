@@ -384,7 +384,7 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 451 source assignments in `claims.jsonl` were made by subagents with stated rules,
+The 458 source assignments in `claims.jsonl` were made by subagents with stated rules,
 not independently double-checked. The integrity gate catches structural drift, not a
 wrong-but-plausible source id. A second blind attribution pass with disagreement
 reporting would harden it. The 2026-08-05 monitors and channels pass is a worked example
