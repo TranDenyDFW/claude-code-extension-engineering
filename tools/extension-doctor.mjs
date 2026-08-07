@@ -25,6 +25,17 @@ import { join, dirname, resolve, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 import { homedir, tmpdir } from 'os';
+/**
+ * The build the PowerShell result was measured on, IMPORTED rather than typed.
+ *
+ * Both strings below said 2.1.220 and independent review caught it: the docs were
+ * fetched against 2.1.220 while the CLI on the measuring machine was one release
+ * behind, and the measurement artifact records the CLI. A wrong version in a
+ * user-facing diagnostic is a factual defect even when the recommendation is
+ * right, and typing it a third time is exactly how it would come back.
+ */
+import { FROZEN_PROVENANCE } from './bash-recognition.mjs';
+const MEASURED_ON = FROZEN_PROVENANCE.cli.replace(/\s*\(Claude Code\)\s*$/, '');
 import {
   loadCatalog, currentNames, knownNames, statusOf, entryOf, citation as catalogCitation,
   cmpVersion, verifyCatalogIntegrity, CATALOG_PATH,
@@ -131,7 +142,7 @@ const CITE = {
   sandboxAbsentPlatform: 'sandboxing.md It does not run on Windows [OFFICIAL] [v2.1.220]: "The sandbox is built into Claude Code and runs on macOS, Linux, and WSL2. Native Windows is not supported." By default an unavailable sandbox warns and runs commands UNSANDBOXED',
   sandboxFailIfUnavailable: 'sandboxing.md failIfUnavailable [OFFICIAL] [v2.1.220]: making an unavailable sandbox a hard failure "is intended for managed deployments that require sandboxing as a security gate", and the documented delivery scope for the enforce keys is managed settings. Whether project scope is honoured is documented NEITHER WAY, and both answers are bad in a checked-in file: honoured means every developer on an unsupported platform cannot start Claude Code, not honoured means the key is theatre',
   sandboxProjectInert: 'sandboxing.md Scope restrictions [OFFICIAL] [v2.1.220]: this key is documented as unavailable from a repository settings file, so it is present, valid, and inert',
-  denyRulePowerShellGap: 'permissions.md PowerShell [OFFICIAL] plus [LOCAL_ENV, measured 2026-08-05]: the recognised-file-command sentence says "in Bash" and never mentions PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was observed on 2.1.220, paired against a control. PowerShell RULE parity is about rule SYNTAX and does not imply file-command recognition',
+  denyRulePowerShellGap: `permissions.md PowerShell [OFFICIAL] plus [LOCAL_ENV, measured 2026-08-05]: the recognised-file-command sentence says "in Bash" and never mentions PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was observed on CLI ${MEASURED_ON}, paired against a control. PowerShell RULE parity is about rule SYNTAX and does not imply file-command recognition`,
   nestedShadowing: 'settings precedence [OFFICIAL]: managed > CLI > local > project > user. Scalar keys SHADOW and array keys MERGE, so a nested scalar such as sandbox.enabled set at two scopes has exactly one winner while permissions.deny at two scopes has both. Skipping every object value, which this checker used to do, hid the shadowing case entirely',
 };
 
@@ -233,7 +244,7 @@ export function enforcementFindings(parsedSettings, platform) {
     const psReachable = ['allow', 'ask'].some(l => (perms[l] || []).some(r => /^PowerShell\b/.test(String(r))));
     if (fileDenies.length && psReachable) {
       out.push(F('SILENT', 'deny-rule-powershell-gap', `${s.scope}:${s.file}`,
-        `${fileDenies.length} file deny rule(s) coexist with a PowerShell allow; the deny rule's documented file-command recognition covers Bash and says nothing about PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was measured on 2.1.220`,
+        `${fileDenies.length} file deny rule(s) coexist with a PowerShell allow; the deny rule's documented file-command recognition covers Bash and says nothing about PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was measured on CLI ${MEASURED_ON}`,
         'Treat the PowerShell path as uncovered, or deny the writing cmdlets explicitly, for example PowerShell(Add-Content *), PowerShell(Set-Content *) and PowerShell(Out-File *).',
         CITE.denyRulePowerShellGap));
     }

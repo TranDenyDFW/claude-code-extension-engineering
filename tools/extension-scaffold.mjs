@@ -360,11 +360,22 @@ export function sandboxProposal(a) {
       'Confirm on a platform where the sandbox runs. It is absent on native Windows.',
       'failIfUnavailable makes startup FAIL where the sandbox is unavailable. In managed-policy scope that is deliberate and enforceable; in project scope, whether it is honoured is undocumented, and if it is, every Windows developer on the team is blocked from starting.',
       'Deny rules are still respected inside the sandbox, so this ADDS a layer rather than replacing the one already in settings.json.',
+      'allowUnsandboxedCommands:false is Strict sandbox mode and is REQUIRED here, not optional. The escape hatch is ON by default: when a command fails under the sandbox, Claude may retry it with dangerouslyDisableSandbox, and that retry goes through the normal permission flow rather than being refused. A requirement that says "cannot be bypassed" is not satisfied while it is available. The cost is that a command which genuinely cannot run sandboxed must then be listed in excludedCommands, which runs it OUTSIDE the sandbox, so that list is the new boundary and belongs under the same review as this file.',
     ],
     _scope: 'Intended for managed-settings (administrator policy), not for this bundle. Copy the sandbox object into the managed settings file if and only if the checks above pass.',
     sandbox: {
       enabled: true,
       failIfUnavailable: true,
+      /**
+       * Added 2026-08-06 after independent review found the proposal incomplete.
+       * Without this key the proposed remediation does not actually remove the
+       * bypass it is being proposed to remove: sandboxing.md records that the
+       * unsandboxed-retry escape hatch is ON by default, and that setting this to
+       * false is what disables it. Emitting the other three keys and omitting this
+       * one proposes a sandbox a command can still step outside of, which is the
+       * shape of defect this whole tool exists to name.
+       */
+      allowUnsandboxedCommands: false,
       autoAllowBashIfSandboxed: false,
       network: { allowUnixSockets: [], allowLocalBinding: false },
     },
@@ -570,6 +581,18 @@ async function runGate({ quiet = false } = {}) {
     if (p.strict) {
       const prop = files['sandbox-managed-settings.json.proposal'];
       if (!/"_what"/.test(prop) || /^\s*\{\s*"sandbox"/.test(prop)) { bad++; if (!quiet) console.log(`  FAIL ${p.id} the sandbox proposal lost its non-adoption preamble`); continue; }
+      /**
+       * Every key the proposal needs to actually close the vector, asserted by
+       * name. `allowUnsandboxedCommands` was MISSING until independent review
+       * found it: the proposal enabled the sandbox and left the documented
+       * escape hatch on, so the remediation it proposed did not remove the
+       * bypass. A preamble check cannot catch that, because the preamble was
+       * perfectly intact while the config underneath it was incomplete.
+       */
+      const sb = (JSON.parse(prop).sandbox) || {};
+      const REQUIRED = { enabled: true, failIfUnavailable: true, allowUnsandboxedCommands: false, autoAllowBashIfSandboxed: false };
+      const wrong = Object.entries(REQUIRED).filter(([k, v]) => sb[k] !== v).map(([k, v]) => `${k} should be ${v}, got ${JSON.stringify(sb[k])}`);
+      if (wrong.length) { bad++; if (!quiet) console.log(`  FAIL ${p.id} sandbox proposal: ${wrong.join('; ')}`); continue; }
     }
     const deny = (JSON.parse(files['settings.json']).permissions || {}).deny || null;
     if (JSON.stringify(deny) !== JSON.stringify(p.deny)) { bad++; if (!quiet) console.log(`  FAIL ${p.id} deny ${JSON.stringify(deny)}, frozen ${JSON.stringify(p.deny)}`); continue; }

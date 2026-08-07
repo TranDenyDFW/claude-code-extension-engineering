@@ -67,6 +67,25 @@ if (DOC_NUMBERS) {
   // hook-events.md holds several, and counting every pipe row in the file gave 36
   // against a real 31. A gate that miscounts cries wolf, which this file's own
   // header warns is worse than having no gate at all.
+  /**
+   * Word numbers. Extended UPWARD to fifty on 2026-08-06, and deliberately NOT
+   * downward past six.
+   *
+   * The old map stopped at thirteen, so "fifteen committed fixtures" in the README
+   * was read as a non-number and skipped rather than compared. The run still
+   * printed "none", which is worse than having no rule at all.
+   *
+   * Adding one to five was tried and REVERTED in the same sitting: it immediately
+   * produced three false positives on ordinary prose ("Two fixtures changed
+   * afterwards", "Three fixtures"), because small word-numbers are quantifiers in
+   * English before they are claims. The floor stays at six for that reason.
+   */
+  const WORDS = {
+    six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
+    fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+    twenty: 20, thirty: 30, forty: 40, fifty: 50,
+  };
+
   const tableRows = (file, header) => {
     if (!existsSync(join(SK, file))) return 0;
     const lines = readFileSync(join(SK, file), 'utf8').split(/\r?\n/);
@@ -83,6 +102,31 @@ if (DOC_NUMBERS) {
   };
   const cardCount = tableRows('composition-cards.md', 'Pairing');
   const eventCount = tableRows('hook-events.md', 'Event');
+  // Re-derived, never typed. The fixture count is the live tree count; the round
+  // count is read out of the heading that publishes it.
+  const benchFixtures = (() => {
+    try { return readdirSync(join(ROOT, 'tests', 'lint-bench', 'fixtures')).length; } catch { return null; }
+  })();
+  /**
+   * DERIVING a number and MATCHING one need different word maps, and conflating
+   * them produced a NaN on the first run.
+   *
+   * `WORDS` is the MATCH map and its floor is six on purpose, because "two" and
+   * "three" are quantifiers in prose. Here we are reading one specific heading in
+   * one specific file, so there is no ambiguity to protect against and the small
+   * words are legitimate. The published heading currently reads "Five".
+   */
+  const HEADING_WORDS = { ...WORDS, one: 1, two: 2, three: 3, four: 4, five: 5 };
+  const hardeningRounds = (() => {
+    try {
+      const m = readFileSync(join(ROOT, 'tests', 'results-lint-bench.md'), 'utf8')
+        .match(/^##\s+(\w+)\s+rounds of scoring hardening/mi);
+      if (!m) return null;
+      const w = m[1].toLowerCase();
+      const n = HEADING_WORDS[w] !== undefined ? HEADING_WORDS[w] : Number(w);
+      return Number.isFinite(n) ? n : null;
+    } catch { return null; }
+  })();
   const FACTS = [
     { label: 'checker fixtures', live: (checker.match(/^\s+name:/gm) || []).length, re: /(?:grown to\s+)?(\w+)\s+fixtures/gi },
     { label: 'ledger claims', live: claims.length, re: /(\d+)\s+source assignments/gi },
@@ -98,19 +142,48 @@ if (DOC_NUMBERS) {
     // did not scan the manifest, which is the FIRST surface a marketplace reader sees.
     { label: 'composition cards', live: cardCount, re: /(\d+)\s+composition cards/gi },
     { label: 'hook-event contracts', live: eventCount, re: /(\d+)\s+hook-event contracts/gi },
+    /**
+     * Added 2026-08-06. The two rules above are CANONICAL-PHRASE rules, and the
+     * README broke both by paraphrasing ITSELF: line 86 said "28 composition
+     * cards" and passed the gate, while line 241 of the same file said
+     * "(24 cards)" and line 243 said "(30 events + deltas)", both stale, both
+     * invisible. A gate keyed to one phrasing protects one phrasing.
+     *
+     * These two are anchored to the parenthesised table-row form, which is where
+     * a count sits next to a link rather than inside a sentence.
+     */
+    { label: 'composition cards (table row)', live: cardCount, re: /\((\d+)\s+cards\)/gi },
+    { label: 'hook events (table row)', live: eventCount, re: /\((\d+)\s+events\b/gi },
+    /**
+     * Added 2026-08-06 after the README was found claiming "fifteen committed
+     * fixtures" against a live 30. It slipped the 'checker fixtures' rule because
+     * that rule counts a DIFFERENT artifact, and it slipped the word conversion
+     * because WORDS stopped at thirteen.
+     */
+    { label: 'lint-bench fixtures', live: benchFixtures, re: /(\w+)\s+committed (?:fixtures|trees)/gi },
+    /**
+     * Added 2026-08-06. The README said FOUR rounds of scoring hardening while
+     * tests/results-lint-bench.md had said five ever since the fifth landed. Two
+     * files in the same repo disagreeing about the same countable thing is what
+     * this gate exists for, and nothing was reading the heading that publishes it.
+     */
+    { label: 'scoring-hardening rounds', live: hardeningRounds, re: /(\w+)\s+rounds of scoring hardening/gi },
   ];
-  const WORDS = { six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13 };
 
   // docs/SUBMISSION.md and .claude-plugin/plugin.json are the two MARKETPLACE-FACING
   // surfaces, and both were omitted here until 2026-08-05. A drift gate that skips the
   // listing copy protects the document nobody reads first.
-  const docs = ['README.md', 'IMPROVEMENTS.md', 'docs/SUBMISSION.md', '.claude-plugin/plugin.json',
+  // docs/RESULTS.md was added 2026-08-06 IN THE SAME EDIT that moved every measured
+  // number out of the README and into it. Relocating a claim from a gated file to an
+  // ungated one silently stops it being checked, which is the same defect class as the
+  // paraphrase misses above, so the list grows with the move rather than after it.
+  const docs = ['README.md', 'IMPROVEMENTS.md', 'docs/SUBMISSION.md', 'docs/RESULTS.md', '.claude-plugin/plugin.json',
     ...readdirSync(join(ROOT, 'tests'))
       .filter(f => /^results.*\.md$/.test(f)).map(f => join('tests', f))]
     .filter(rel => existsSync(join(ROOT, rel)));
 
   console.log('Live values re-derived from the artifacts:');
-  for (const f of FACTS) console.log(`  ${f.label.padEnd(22)}${f.live}`);
+  for (const f of FACTS) console.log(`  ${f.label.padEnd(32)}${f.live}`);
   console.log('\nDocumentation statements that disagree:');
   let hits = 0;
   for (const rel of docs) {

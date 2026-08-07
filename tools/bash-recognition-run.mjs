@@ -310,7 +310,33 @@ function main() {
   };
   // A filtered run is a probe, not the record. Writing it over the calibration
   // file would silently shrink the measured set to whatever was last probed.
-  const dest = only ? join(WORK, `probe-stage${stage}.json`) : (stage === 2 ? OUT_STAGE2 : OUT_STAGE1);
+  let dest = only ? join(WORK, `probe-stage${stage}.json`) : (stage === 2 ? OUT_STAGE2 : OUT_STAGE1);
+
+  /**
+   * A MEASUREMENT IS A RECORD, AND RECORDS ARE PER BUILD.
+   *
+   * Re-running stage 2 on a newer CLI used to overwrite the previous file in
+   * place, destroying the only evidence of what the older build did. This repo
+   * has already lost two corpora that way, and the standing rule is that a
+   * derived corpus goes to a revision directory and never over its predecessor.
+   *
+   * So a run against a DIFFERENT build is written beside the existing record,
+   * suffixed with the build it measured, and the caller decides which becomes
+   * canonical. Same build simply updates in place, which is a re-run rather than
+   * a replacement.
+   */
+  if (!only && existsSync(dest)) {
+    let prior = null;
+    try { prior = JSON.parse(readFileSync(dest, 'utf8')); } catch { prior = null; }
+    if (prior && prior.cli_version && prior.cli_version !== out.cli_version) {
+      const tag = String(out.cli_version).replace(/[^\w.]+/g, '') || 'unknown';
+      dest = dest.replace(/\.json$/, `-${tag}.json`);
+      say('');
+      say(`The existing record was measured on ${prior.cli_version} and this run is ${out.cli_version}.`);
+      say(`Writing BESIDE it rather than over it: ${dest}`);
+      say('Promoting this to the canonical record is a separate, deliberate step.');
+    }
+  }
   mkdirSync(dirname(dest), { recursive: true });
   writeFileSync(dest, JSON.stringify(out, null, 2));
   say(`\nwrote ${dest}`);
