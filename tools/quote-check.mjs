@@ -72,7 +72,48 @@ export function normalise(s) {
     // which is what pointed at it.
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1')
-    .replace(/[`*_]/g, '')
+    /**
+     * BACKTICKS ONLY. `*` and `_` were stripped here too and that was a silent
+     * hole, found by independent review: stripping `*` collapses
+     * `Edit(infra/**)` and `Edit(infra/*)` to the same string, so an upstream
+     * widening of a glob would have gone undetected by a gate whose whole job is
+     * detecting upstream change. Underscore went for the same reason: it is a
+     * character inside identifiers like CLAUDE_PLUGIN_ROOT, not decoration.
+     *
+     * The cost is real and accepted: markdown emphasis inside a quoted sentence
+     * will now cause a MISS rather than a silent match. A miss is visible and
+     * gets adjudicated; a silent match is the failure mode this file exists to
+     * avoid.
+     */
+    .replace(/`/g, '')
+    /**
+     * EMPHASIS PAIRS, not bare asterisks. This distinction is the whole fix.
+     *
+     * Stripping every `*` collapsed `Edit(infra/**)` and `Edit(infra/*)` into one
+     * string, so an upstream widening of a glob was invisible to a gate whose job
+     * is detecting upstream change. Independent review demonstrated it.
+     *
+     * But upstream also writes `**Sandboxing** provides OS-level enforcement`
+     * while we quote the plain word, so leaving `*` entirely alone produced a
+     * false miss on the very next run.
+     *
+     * A PAIR is markup; a lone asterisk is content. `**x**` and `*x*` need two
+     * delimiters with text between them, which `Bash(rm *)` and `infra/**)` do
+     * not have, so both survive intact and stay distinguishable.
+     */
+    /**
+     * ...and the pair must not span a PATH. The first pair-based attempt read
+     * `Edit(docs/**) and Read(docs/**)` as one bold span, because the two globs
+     * supply two `**` delimiters with text between them, and quietly deleted
+     * both globs. Its own new self-test row caught that immediately.
+     *
+     * Markdown bold in prose wraps a word or two: `**Sandboxing**`,
+     * `**failIfUnavailable**`. A span containing a slash or a parenthesis is a
+     * path or a rule, never emphasis, so those are left alone.
+     */
+    .replace(/\*\*([^*/()]+)\*\*/g, '$1')
+    .replace(/__([^_/()]+)__/g, '$1')
+    .replace(/\*([^*\s/()][^*/()]*?)\*/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -86,6 +127,21 @@ export function fragmentsOf(quote) {
   return String(quote).split(/\s*\.\.\.\s*|\s*\u2026\s*/)
     .map((f) => f.trim())
     .filter((f) => f.length >= 12);
+}
+
+/**
+ * Fragments an abridged quote DROPS, so the loss is reported rather than silent.
+ *
+ * Independent review found that a live quote loses one: "Use `Bash(rm *)` ...
+ * instead." splits into a long half and "instead.", and the short half is filtered
+ * out, so only half the quote was ever verified. The filtering is still right, a
+ * three-character fragment appears on every page and proves nothing, but doing it
+ * silently means the run reports full coverage of a quote it half-checked.
+ */
+export function droppedFragments(quote) {
+  return String(quote).split(/\s*\.\.\.\s*|\s*\u2026\s*/)
+    .map((f) => f.trim())
+    .filter((f) => f.length > 0 && f.length < 12);
 }
 
 /**
@@ -210,7 +266,15 @@ function main(argv) {
     return 1;
   }
   console.log('\nPASS every verbatim quote still appears upstream.');
-  console.log('NOTE this proves the sentence exists, NOT that its surrounding context still means the same thing.');
+  const partial = quotes.filter((q) => droppedFragments(q.quote).length);
+  if (partial.length) {
+    console.log(`\nPARTIAL COVERAGE on ${partial.length} abridged quote(s): a fragment shorter than`);
+    console.log('12 characters was dropped, so only the longer half was verified. Reported here rather');
+    console.log('than left silent, because a run claiming full coverage of a half-checked quote is the');
+    console.log('failure mode this file exists to avoid.');
+    for (const p of partial) console.log(`  ${p.file}:${p.line}  dropped ${JSON.stringify(droppedFragments(p.quote))}`);
+  }
+  console.log('\nNOTE this proves the sentence exists, NOT that its surrounding context still means the same thing.');
   return 0;
 }
 
@@ -223,7 +287,25 @@ function selfTest() {
     quotesIn('- "Rules are evaluated in order: deny, then ask, then allow." [OFFICIAL]').length === 1);
   check('a SHORT quote is ignored, because short quotes are green by construction',
     quotesIn('- he said "deny" loudly [OFFICIAL]').length === 0);
-  check('a backticked code span is not a quote', quotesIn('- use `Edit(docs/**)` here [OFFICIAL]').length === 0);
+  /**
+   * This row USED to read "a backticked code span is not a quote" and passed BY
+   * CONSTRUCTION: its input contained no double-quoted span at all, so quotesIn
+   * returned [] whatever the code did. Independent review caught it.
+   *
+   * The replacement asserts what the code ACTUALLY does rather than inventing a
+   * rule to make the old wording true. A quoted span of rule examples IS
+   * extracted and IS checked, which is the conservative behaviour: if we present
+   * it inside quotation marks then it should appear upstream, and if it does not,
+   * that miss is a finding worth seeing. What matters is that the globs survive
+   * normalisation intact, which is the property the emphasis guard above exists
+   * to protect.
+   */
+  {
+    const line = '- use "`Edit(docs/**)` and `Read(docs/**)`" here [OFFICIAL]';
+    const got = quotesIn(line);
+    check('a quoted span of rule examples IS extracted, and its globs survive intact',
+      got.length === 1 && got[0] === 'Edit(docs/**) and Read(docs/**)', JSON.stringify(got));
+  }
   check('a quoted JSON blob is ours, not upstream prose',
     quotesIn('- set "{ sandbox: enabled true, failIfUnavailable true }" [OFFICIAL]').length === 0,
     JSON.stringify(quotesIn('- set "{ sandbox: enabled true, failIfUnavailable true }" [OFFICIAL]')));
@@ -231,6 +313,21 @@ function selfTest() {
     quotesIn('- see "[a very long bracketed thing that is not prose]" [OFFICIAL]').length === 0);
   check('two quotes on one line are both extracted',
     quotesIn('- "the first long sentence here okay" and "the second long sentence here" [OFFICIAL]').length === 2);
+  /**
+   * THE GLOB HOLE, closed after independent review demonstrated it. Stripping
+   * every asterisk made two different globs identical, so an upstream widening
+   * was invisible. Emphasis PAIRS still collapse, because upstream bolds terms
+   * inside sentences we quote plainly.
+   */
+  check('two DIFFERENT globs stay different, so an upstream widening is visible',
+    normalise('Edit(infra/**)') !== normalise('Edit(infra/*)'));
+  check('...and a widened Bash glob stays different too',
+    normalise('Bash(rm *)') !== normalise('Bash(rm **)'));
+  check('bold emphasis collapses, because upstream bolds terms we quote plainly',
+    normalise('**Sandboxing** provides') === normalise('Sandboxing provides'));
+  check('single-asterisk emphasis collapses', normalise('*x y z* here') === normalise('x y z here'));
+  check('an identifier underscore SURVIVES, it is content not markup',
+    normalise('CLAUDE_PLUGIN_ROOT') === 'CLAUDE_PLUGIN_ROOT');
   check('smart quotes normalise to straight ones',
     normalise('\u201cx\u2019y\u201d') === '"x\'y"');
   check('line wrapping collapses, or every wrapped quote is a false miss',
@@ -256,6 +353,11 @@ function selfTest() {
    * the gate, while the extractor silently returning nothing still does. An
    * equality here would break on every honest edit and get deleted within a week.
    */
+  check('an abridged quote REPORTS the fragment it drops, rather than dropping it silently',
+    droppedFragments('Use Bash(rm *) ... instead.').length === 1,
+    JSON.stringify(droppedFragments('Use Bash(rm *) ... instead.')));
+  check('...and a quote with no ellipsis drops nothing',
+    droppedFragments('a plain sentence with no ellipsis in it at all').length === 0);
   const live = collectQuotes();
   check('the live reference set yields a non-trivial number of quotes (39 when written)',
     live.length >= 30, String(live.length));

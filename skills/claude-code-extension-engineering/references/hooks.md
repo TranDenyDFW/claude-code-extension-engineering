@@ -1,6 +1,6 @@
 # Hooks
 
-> Claude Code 2.1.224, verified 2026-08-07. Re-verified MECHANICALLY against a refreshed docs mirror: every verbatim quote in this file still appears upstream (tools/quote-check.mjs), and the capability surface is unchanged at 51 tools and 31 hook events. 101 of 186 mirrored pages changed since 2.1.220 and were NOT all re-read, so this is a quote-and-capability check, not a full re-reading.
+> Claude Code 2.1.224, verified 2026-08-07. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface is unchanged at 43 current tools and 31 current hook events. 101 of 186 mirrored pages changed since 2.1.220 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
 
 
 Code the HARNESS runs on a lifecycle event, independent of the model's judgment. This is the only mechanism whose FIRING the harness owns: the model cannot talk its way out of a hook running. Firing is not outcome, though. What happens after depends on the handler's failure policy (an HTTP handler fails OPEN on connection failure) and on the tamper boundary (disableAllHooks switches every hook off; only managed policy survives that), both covered below. Five handler types (command, http, mcp_tool, prompt, agent), and the last two carry judgment, so hooks are no longer purely mechanical.

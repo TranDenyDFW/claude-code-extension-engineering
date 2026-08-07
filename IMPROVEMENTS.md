@@ -680,7 +680,7 @@ does not fire on this table:
 | Said | Live | Why the gate missed it |
 |---|---|---|
 | said fifteen, of committed fixtures | 30 | the word map stopped at thirteen |
-| "FOUR rounds of scoring hardening" | five | no rule read that heading |
+| said FOUR, of rounds of hardening | five | no rule read the heading that publishes it |
 | `DirectoryAdded` "still absent" | closed 2026-08-05 | prose, not a number |
 | said 24, in a "(N cards)" table row | 28 | the rule only read the "N composition cards" phrasing |
 | said 30, in a "(N events" table row | 31 | the rule only read the "N hook-event contracts" phrasing |
@@ -688,8 +688,9 @@ does not fire on this table:
 
 The gate caught the canonical card phrasing on line 86 and missed the bare "(N cards)" form
 on line 241 OF THE SAME FILE, because both rules are keyed to one canonical phrasing and the README paraphrased
-itself. Four new facts were added and each was watched reddening against the real stale string
-BEFORE the README was fixed. Extending the word map DOWNWARD to one was tried and reverted in
+itself. Four new facts were added and three were watched reddening against the real stale string
+before the README was fixed. The fourth was NOT, and independent review found it inert; see
+item 41. Extending the word map DOWNWARD to one was tried and reverted in
 the same sitting: it produced three false positives on ordinary prose, because small
 word-numbers are quantifiers in English before they are claims.
 
@@ -745,6 +746,54 @@ regressed; the fixture had encoded the assumption that the catalog is 2.1.220 fo
 three build positions are now derived from `catalogVersion`. A fixture that breaks on a
 routine bump gets edited to match rather than read, which is how a real regression slips
 through one.
+
+**41. A new gate could not fail, again, and five smaller defects in the same round.**
+All 38 numbered checks of the independent review passed. It then found six issues the spec
+could not ask about, one blocking. The pattern is the same one as item 37 and it recurred
+inside the fix for item 38, which is worth saying plainly.
+
+- **BLOCKING. The `scoring-hardening rounds` rule compared nothing.** It derived its live
+  value with a word map that knows one to five, but MATCHED documents with the global map whose
+  floor is six, so any word from one to five parsed to NaN and was skipped. Both live sentences
+  say "Five", so the rule was inert repo-wide while appearing in the live-values list as though
+  it worked. The reviewer proved it by replaying the real pre-fix README through the current
+  gate: three disagreements, not four, silent on the string it was written for. That also made
+  item 38's claim that "each was watched reddening against the real stale string" FALSE for one
+  of the four, and that sentence has been corrected rather than left standing. The word map is
+  now per-fact; replaying the pre-fix README now yields four.
+- **`quote-check` let a meaning-changing edit through.** Stripping every asterisk collapsed
+  `Edit(infra/**)` and `Edit(infra/*)` into one string, so an upstream widening of a glob was
+  invisible to a gate whose entire job is detecting upstream change. Fixed by stripping
+  emphasis PAIRS rather than bare asterisks, then guarded again when the first pair-based
+  attempt read `Edit(docs/**) and Read(docs/**)` as one bold span and deleted both globs. A
+  pair containing a slash or parenthesis is a path, never emphasis.
+- **A self-test row was green by construction.** "A backticked code span is not a quote" fed an
+  input containing no quoted span at all, so it passed whatever the code did. Replaced with a
+  row asserting what the code ACTUALLY does, rather than inventing a rule to make the old
+  wording true.
+- **An abridged quote silently lost a fragment.** `"Use Bash(rm *) ... instead."` splits into a
+  long half and "instead.", and the short half is filtered out, so half the quote was never
+  verified while the run reported full coverage. The filtering is still correct; it now REPORTS
+  what it drops.
+- **The headers overstated for 21 of 25 files.** All 34 quotes come from 4 files, so "every
+  verbatim quote in this file still appears upstream" was vacuous everywhere else, and a claim
+  that is trivially true reads as evidence. Each header now states its own file's count, and
+  the 21 with none say so. The same headers said "51 tools", which is the total including
+  legacy and historical; the current count is 43.
+- **The overwrite guard failed open and had no self-test.** An unparseable prior record, or one
+  with no `cli_version`, fell through to overwriting the file the guard exists to protect.
+  Unknown provenance now means write beside, and six rows feed it known-bad inputs. One of them
+  immediately caught a corrupted character class, `/[^w.]+/` instead of `/[^\w.]+/`, that had
+  reduced the filename suffix to two dots. The safety property had held anyway.
+- **The drift gate did not scan the reference files**, and this round had just written a fresh
+  numeric claim into 22 of their headers. Its own header warns that prose drifts from its
+  artifact. The 25 references and SKILL.md are now scanned, and the header's claim is gated
+  against the catalog it cites.
+
+Recurring lesson, stated because writing it down has not been enough: a new rule is not a gate
+until a known-bad input has been put through THAT rule. Not through its neighbour, and not
+through the function it calls. Three of the six above passed every existing test while
+checking nothing.
 
 ---
 

@@ -116,6 +116,16 @@ if (DOC_NUMBERS) {
    * one specific file, so there is no ambiguity to protect against and the small
    * words are legitimate. The published heading currently reads "Five".
    */
+  // Current-status counts out of the capability catalog, which is itself gated by
+  // tools/capability-catalog.mjs --check-integrity. Derived, never typed.
+  const catCurrent = (sec) => {
+    try {
+      const cat = JSON.parse(readFileSync(join(ROOT, 'data', 'capabilities', 'catalog.json'), 'utf8'));
+      return Object.values(cat[sec] || {}).filter((v) => v.status === 'current').length;
+    } catch { return null; }
+  };
+  const currentTools = catCurrent('tools');
+  const currentEvents = catCurrent('hookEvents');
   const HEADING_WORDS = { ...WORDS, one: 1, two: 2, three: 3, four: 4, five: 5 };
   const hardeningRounds = (() => {
     try {
@@ -166,8 +176,32 @@ if (DOC_NUMBERS) {
      * tests/results-lint-bench.md had said five ever since the fifth landed. Two
      * files in the same repo disagreeing about the same countable thing is what
      * this gate exists for, and nothing was reading the heading that publishes it.
+     *
+     * `words: HEADING_WORDS` is LOAD-BEARING, and its absence made this rule a
+     * CHECK THAT COULD NOT FAIL for a day. Independent review found it by
+     * replaying the real pre-fix README: the gate reported three disagreements,
+     * not four, and stayed silent on "FOUR rounds of scoring hardening" sitting
+     * on its own line.
+     *
+     * Cause: the global WORDS map floors at six so that "two fixtures" in
+     * ordinary prose is not read as a claim, so "FOUR" parsed to NaN and was
+     * skipped entirely. Both live sentences say "Five", so this rule was
+     * comparing NOTHING repo-wide while appearing in the live-values list as
+     * though it were working. The floor is right for a GENERIC shape and wrong
+     * here, because "N rounds of scoring hardening" is canonical enough that a
+     * small word cannot be innocent prose. So the map is per-fact.
      */
-    { label: 'scoring-hardening rounds', live: hardeningRounds, re: /(\w+)\s+rounds of scoring hardening/gi },
+    { label: 'scoring-hardening rounds', live: hardeningRounds, words: HEADING_WORDS, re: /(\w+)\s+rounds of scoring hardening/gi },
+    /**
+     * Added 2026-08-06 after independent review pointed out that this gate does
+     * not scan the reference files, and that the same round had just written a
+     * fresh numeric claim into 22 of them: "the capability surface is unchanged
+     * at N current tools and M current hook events". A gate whose own header
+     * warns that prose drifts from its artifact, while not reading the 22 files
+     * that just gained a claim, is the defect it names.
+     */
+    { label: 'current tools', live: currentTools, re: /(\d+)\s+current tools/gi },
+    { label: 'current hook events', live: currentEvents, re: /(\d+)\s+current hook events/gi },
   ];
 
   // docs/SUBMISSION.md and .claude-plugin/plugin.json are the two MARKETPLACE-FACING
@@ -177,7 +211,21 @@ if (DOC_NUMBERS) {
   // number out of the README and into it. Relocating a claim from a gated file to an
   // ungated one silently stops it being checked, which is the same defect class as the
   // paraphrase misses above, so the list grows with the move rather than after it.
+  const SKILL_ROOT = join('skills', 'claude-code-extension-engineering');
+  // The reference files and SKILL.md, added 2026-08-06. They were never scanned,
+  // and this round wrote a numeric claim into 22 of them, so the omission stopped
+  // being theoretical. Every FACT regex here is canonical-phrase based, which is
+  // what makes scanning 26 more files affordable without crying wolf.
+  const refFiles = (() => {
+    try {
+      return readdirSync(join(ROOT, SKILL_ROOT, 'references'))
+        .filter((f) => f.endsWith('.md'))
+        .map((f) => join(SKILL_ROOT, 'references', f))
+        .concat([join(SKILL_ROOT, 'SKILL.md')]);
+    } catch { return []; }
+  })();
   const docs = ['README.md', 'IMPROVEMENTS.md', 'docs/SUBMISSION.md', 'docs/RESULTS.md', '.claude-plugin/plugin.json',
+    ...refFiles,
     ...readdirSync(join(ROOT, 'tests'))
       .filter(f => /^results.*\.md$/.test(f)).map(f => join('tests', f))]
     .filter(rel => existsSync(join(ROOT, rel)));
@@ -194,7 +242,10 @@ if (DOC_NUMBERS) {
         let m;
         while ((m = f.re.exec(line)) !== null) {
           const raw = m[1].replace(/,/g, '').toLowerCase();
-          const n = WORDS[raw] !== undefined ? WORDS[raw] : Number(raw);
+          // Per-fact word map, defaulting to the conservative global one. A fact
+          // whose phrasing is canonical enough can opt into the small words.
+          const W = f.words || WORDS;
+          const n = W[raw] !== undefined ? W[raw] : Number(raw);
           if (!Number.isFinite(n) || n === f.live) continue;
           hits++;
           console.log(`  ${rel}:${i + 1}  ${f.label}: doc says ${m[1]}, live is ${f.live}`);

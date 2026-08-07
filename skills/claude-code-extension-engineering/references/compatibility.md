@@ -1,6 +1,6 @@
 # Compatibility
 
-> Claude Code 2.1.224, verified 2026-08-07. Re-verified MECHANICALLY against a refreshed docs mirror: every verbatim quote in this file still appears upstream (tools/quote-check.mjs), and the capability surface is unchanged at 51 tools and 31 hook events. 101 of 186 mirrored pages changed since 2.1.220 and were NOT all re-read, so this is a quote-and-capability check, not a full re-reading.
+> Claude Code 2.1.224, verified 2026-08-07. What that means here: all 1 verbatim quote in this file re-checked against a refreshed docs mirror and still present (tools/quote-check.mjs); the capability surface is unchanged at 43 current tools and 31 current hook events. 101 of 186 mirrored pages changed since 2.1.220 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
 
 
 Which Claude Code build introduced each capability. Version gates only: this records when a feature appeared, never that an older build is unsupported. Verify against your own installed build before relying on any of it.
