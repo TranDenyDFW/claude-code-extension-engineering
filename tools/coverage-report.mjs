@@ -140,10 +140,21 @@ if (DOC_NUMBERS) {
    * results-prove-bench-validation.md could hold a stale number indefinitely.
    */
   let validationCaught = null;
+  let validationReadError = null;
   try {
     const r = JSON.parse(readFileSync(join(ROOT, 'tests', 'prove-bench', 'validation', 'results.json'), 'utf8'));
     validationCaught = (r.prove || {}).caught;
-  } catch { validationCaught = null; }
+    if (typeof validationCaught !== 'number') { validationReadError = 'results.json has no prove.caught number'; validationCaught = null; }
+  } catch (e) { validationReadError = e.message; validationCaught = null; }
+  /**
+   * AN UNREADABLE SOURCE IS A GATE FAILURE, NOT A DROPPED FACT.
+   *
+   * The first version swallowed the error and omitted the fact from FACTS entirely,
+   * so replacing results.json with garbage left `--doc-numbers` at exit 0 reporting
+   * "none", with the published 10 of 10 unguarded in two files. Independent review
+   * 2026-08-08. A fact whose absence is silent is worse than no fact, because the
+   * green run reads as coverage.
+   */
   const HEADING_WORDS = { ...WORDS, one: 1, two: 2, three: 3, four: 4, five: 5 };
   const hardeningRounds = (() => {
     try {
@@ -265,6 +276,13 @@ if (DOC_NUMBERS) {
   for (const f of FACTS) console.log(`  ${f.label.padEnd(32)}${f.live}`);
   console.log('\nDocumentation statements that disagree:');
   let hits = 0;
+  if (validationReadError) {
+    hits++;
+    console.log(`  tests/prove-bench/validation/results.json is unreadable (${validationReadError}), so the`);
+    console.log('  published validation-cohort number is guarded by NOTHING. Regenerate it with');
+    console.log('  `node tests/prove-bench/validation/run-bench.mjs --record` rather than letting this');
+    console.log('  gate go quiet: a fact that disappears with its source reads as coverage it does not have.');
+  }
   for (const rel of docs) {
     const lines = readFileSync(join(ROOT, rel), 'utf8').split(/\r?\n/);
     lines.forEach((line, i) => {

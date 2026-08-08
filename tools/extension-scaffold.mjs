@@ -54,7 +54,6 @@
  */
 import { writeFileSync, mkdirSync, existsSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 
@@ -101,6 +100,43 @@ export function emit(dir, name, requirement, a) {
 }
 
 // ------------------------------------------------------------------- verify
+
+/**
+ * THE FINAL VERDICT, AS DATA, because three rounds of review have now caught a
+ * falsehood in this one decision and none of the first two fixes were reachable by
+ * a test.
+ *
+ * `reportCode` returns 1 both when a case FAILED and when every case passed but a
+ * strict spec's residual survived. Reading only the exit code summarised a bundle
+ * that satisfied its spec exactly as "does not satisfy its own conformance spec".
+ * Fix one substring-matched the prover's stdout, which printed that sentence
+ * whenever a residual survived, failing cases or not. Fix two stopped the prover
+ * printing it in the wrong case and left the caller still parsing text.
+ *
+ * Fix three called `failureKind` on the result object, which was right and STILL
+ * untestable: it sat inside `scaffold()`, whose only caller is the CLI main block,
+ * so flipping the branch to `false` restored the original falsehood with all
+ * fifteen gates green. Independent review 2026-08-08 proved exactly that.
+ *
+ * So the decision is a pure function returning lines and an exit code, the printing
+ * is the caller's job, and the self-test asserts the sentences.
+ */
+export function finalVerdict(res) {
+  const kind = failureKind(res);
+  if (kind === 'strict') {
+    return {
+      code: 1,
+      lines: [
+        'NOT DONE: the bundle satisfies its own conformance spec, and the spec is STRICT because the',
+        'requirement is absolute. A residual vector is confirmed open, so the claim is refused rather',
+        'than the work. The bundle is written and is the strongest configuration available here.',
+      ],
+    };
+  }
+  if (kind) return { code: 1, lines: ['NOT DONE: the generated bundle does not satisfy its own conformance spec.'] };
+  return { code: 0, lines: ['DONE: the generated bundle satisfies its own conformance spec.'] };
+}
+
 /**
  * Generate, write and PROVE, for whichever pack the router selected. The
  * per-pack analysis lines are printed from what the pack reports rather than from
@@ -152,40 +188,12 @@ function scaffold(pack, input, outDir, name) {
   console.log(`  ${Object.keys(files).sort().join(', ')}  (${conf.cases.length} cases)`);
   console.log('');
 
-  /**
-   * TWO DIFFERENT NON-ZERO RUNS, and conflating them printed a falsehood.
-   *
-   * `reportCode` returns 1 both when a case FAILED and when every case passed but
-   * a strict spec's residual survived. This once read only the exit code, so an
-   * absolute requirement that satisfied its spec exactly was summarised as "the
-   * generated bundle does not satisfy its own conformance spec".
-   *
-   * The first fix substring-matched the prover's stdout, which independent review
-   * showed was ALSO wrong: that sentence printed whenever a residual survived,
-   * failing cases or not. The second fix stopped the prover printing it in the
-   * wrong case, and left the caller still parsing text for a decision the prover
-   * already computes.
-   *
-   * So the subprocess is gone. `failureKind` is called on the actual result
-   * object, the same function the prover's own reporter uses, and there is no
-   * longer a string for the two to disagree about.
-   */
   const res = proveBundle(outDir);
   report(res, false);
   console.log('');
-  const kind = failureKind(res);
-  if (kind === 'strict') {
-    console.log('NOT DONE: the bundle satisfies its own conformance spec, and the spec is STRICT because the');
-    console.log('requirement is absolute. A residual vector is confirmed open, so the claim is refused rather');
-    console.log('than the work. The bundle is written and is the strongest configuration available here.');
-    return 1;
-  }
-  if (kind) {
-    console.log('NOT DONE: the generated bundle does not satisfy its own conformance spec.');
-    return 1;
-  }
-  console.log('DONE: the generated bundle satisfies its own conformance spec.');
-  return 0;
+  const verdict = finalVerdict(res);
+  for (const l of verdict.lines) console.log(l);
+  return verdict.code;
 }
 
 // ------------------------------------------------------------ end-to-end gate
@@ -631,6 +639,34 @@ function selfTest() {
   check('...and no nested case is invented for a file', !paths.some((p) => /nested/.test(p)));
   check('...case ids stay contiguous when the nested case is dropped',
     cFile.cases.map((c) => c.id).join(',') === 'C1,C2,C3,C4,C5,C6', cFile.cases.map((c) => c.id).join(','));
+
+  /**
+   * THE FINAL VERDICT SENTENCES. Three review rounds found a falsehood here and no
+   * gate could reach any of the three fixes, because the decision lived inside a
+   * function whose only caller is the CLI. It is a pure function now, so the
+   * sentences themselves are asserted.
+   */
+  console.log('the sentence the CLI prints, which three rounds of review found wrong:');
+  {
+    const C = (ok) => ({ id: `c-${ok}`, kind: 'enforce', ok, why: ok ? [] : ['x'] });
+    const R = (cases, strictResidual, strict = true) => ({ cases, strict, strictResidual, mutatedSource: false });
+    const clean = finalVerdict(R([C(true)], [], false));
+    check('a clean run says DONE and exits 0', clean.code === 0 && /^DONE: /.test(clean.lines[0]), clean.lines.join(' '));
+    const failed = finalVerdict(R([C(false)], []));
+    check('a failing case says the bundle does NOT satisfy its spec',
+      failed.code === 1 && failed.lines.join(' ').includes('does not satisfy its own conformance spec'));
+    const strictOnly = finalVerdict(R([C(true)], [{ id: 'r', vector: 'v' }]));
+    check('a strict-only run says the bundle DOES satisfy its spec', strictOnly.code === 1
+      && strictOnly.lines.join(' ').includes('satisfies its own conformance spec'), strictOnly.lines.join(' '));
+    check('MUST NOT: tell the user a strict-only bundle failed its spec',
+      !strictOnly.lines.join(' ').includes('does not satisfy'), 'this is the exact falsehood, back again');
+    const both = finalVerdict(R([C(false)], [{ id: 'r', vector: 'v' }]));
+    check('a failing case OUTRANKS a surviving residual in the summary too',
+      both.lines.join(' ').includes('does not satisfy its own conformance spec'));
+    check('...and never claims the bundle satisfied its spec', !/\bsatisfies its own conformance spec/.test(both.lines.join(' ')));
+    check('every verdict returns at least one line and a numeric code',
+      [clean, failed, strictOnly, both].every((v) => v.lines.length > 0 && Number.isInteger(v.code)));
+  }
 
   console.log('vocabulary:');
   check('"Never allow modification of X" is recognised as protection',

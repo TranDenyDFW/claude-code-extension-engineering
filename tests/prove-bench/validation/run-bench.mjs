@@ -293,6 +293,28 @@ function selfTest() {
       recordDiff(prior, noCompetitor).some((d) => /NOT re-verified/.test(d)));
     ok('MUST NOTE: a record made without the competitor while this machine has it',
       recordDiff({ ...prior, testHookSh: { ...(prior.testHookSh || {}), na: 3 } }, prior.rows).some((d) => /nothing to compare against/.test(d)));
+    {
+      // The both-unmeasured branch was added by a fix and asserted by nothing:
+      // deleting its note left the self-test green. Independent review 2026-08-08.
+      const noneEither = prior.rows.map((r) => ({ ...r, testHookSh: { ...r.testHookSh, exit: null, score: 'n/a' } }));
+      ok('MUST NOTE: neither side measured the competitor',
+        recordDiff({ ...prior, testHookSh: { ...(prior.testHookSh || {}), na: 12 } }, noneEither).some((d) => /unverified on both sides/.test(d)));
+    }
+    {
+      // Moving the competitor's single catch between fixtures leaves every tally
+      // identical, which is why the per-fixture comparison exists.
+      const moved = JSON.parse(JSON.stringify(prior.rows));
+      const winner = moved.find((r) => r.testHookSh.score === 'CATCH');
+      const loser = moved.find((r) => !r.control && r.testHookSh.score === 'MISS');
+      if (winner && loser) {
+        const w = winner.testHookSh;
+        winner.testHookSh = { ...loser.testHookSh };
+        loser.testHookSh = { ...w };
+        const seen = recordDiff(prior, moved);
+        ok('MUST SEE: the competitor catch moving to a different fixture, with tallies unchanged',
+          seen.some((d) => /test-hook.sh score was/.test(d)), seen.join(' | ') || 'reported nothing');
+      } else ok('MUST SEE: the competitor catch moving to a different fixture', false, 'no CATCH/MISS pair in the record to swap');
+    }
     ok('...and the caught tally dropping with it', seen.some((d) => /^prove\.caught:/.test(d)));
     const missing = degraded.filter((r) => r.fixture !== victim.fixture);
     ok('MUST SEE: a fixture vanishing from the run', recordDiff(prior, missing).some((d) => /is in the record and absent/.test(d)));
@@ -364,6 +386,17 @@ export function recordDiff(prior, fresh) {
     const wantWas = [...(r.expectedFailures || [])].sort().join(',');
     const wantIs = [...(now.expectedFailures || [])].sort().join(',');
     if (wantWas !== wantIs) out.push(`${r.fixture}: DECLARED expectedFailures changed from [${wantWas}] to [${wantIs}]`);
+    /**
+     * The COMPETITOR is compared per fixture too, when both sides measured it. The
+     * tallies alone are a sum, so moving the competitor's single catch from one
+     * fixture to another left them identical and this function silent, while the
+     * write-up names the fixture that catch belongs to. Independent review
+     * 2026-08-08.
+     */
+    if (r.testHookSh && now.testHookSh && r.testHookSh.exit !== null && now.testHookSh.exit !== null) {
+      if (now.testHookSh.score !== r.testHookSh.score) out.push(`${r.fixture}: test-hook.sh score was ${r.testHookSh.score}, now ${now.testHookSh.score}`);
+      if (now.testHookSh.exit !== r.testHookSh.exit) out.push(`${r.fixture}: test-hook.sh exit was ${r.testHookSh.exit}, now ${now.testHookSh.exit}`);
+    }
   }
   for (const r of fresh) {
     if (!(prior.rows || []).some((p) => p.fixture === r.fixture)) out.push(`fixture "${r.fixture}" is in this run and absent from the record`);
@@ -382,7 +415,7 @@ if (IS_MAIN) {
     for (const d of diff) console.log(`  ${d}`);
     if (real.length) {
       console.log(`\nRECORD DIVERGED: ${real.length} difference(s). Either the tool regressed or the published`);
-      console.log('numbers are stale. Re-run without --verify-record to re-record, and update');
+      console.log('numbers are stale. Re-record deliberately with --record, and update');
       console.log('tests/results-prove-bench-validation.md in the same commit.');
       process.exit(1);
     }

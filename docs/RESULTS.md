@@ -228,8 +228,11 @@ directory, separate results file. Full write-up and limits:
 
 ```bash
 node tests/prove-bench/validation/make-fixtures.mjs --check
-node tests/prove-bench/validation/run-bench.mjs
+node tests/prove-bench/validation/run-bench.mjs --verify-record
 ```
+
+`--verify-record` re-runs the cohort and fails on any change to the prove column. A bare run
+reports and writes nothing; re-recording is `--record`, deliberately.
 
 ## Re-running any of it
 
