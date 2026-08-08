@@ -36,6 +36,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { score, scoreDiagnosis, wouldDropRecordedTools, TOOL_KEYS } from '../run-bench.mjs';
+import { proveArtifactGate } from '../../../tools/artifact-mutation.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..', '..');
@@ -411,9 +412,93 @@ export function recordDiff(prior, fresh) {
   return out;
 }
 
+/**
+ * --prove-can-fail: mutate the COMMITTED record and require `recordDiff` to reject
+ * each doctored copy for the reason the mutant DECLARES.
+ *
+ * `recordDiff` was hardened twice: once after review round 3 found a whole prove
+ * record could be fabricated behind an unchanged `score`, and once after round 4
+ * found that swapping two fixtures' competitor results leaves every aggregate
+ * tally identical. Both hardenings were verified by a reviewer's hand, once, into
+ * a document that then evaporated. This is that verification as an artifact.
+ *
+ * The self-test already feeds `recordDiff` doctored rows in memory. This is the
+ * other half: the real committed file, serialised and re-read, so a change to how
+ * the record is written cannot slip past a check that only ever saw objects.
+ */
+function proveCanFail() {
+  /**
+   * Map recordDiff's prose complaints onto stable reason codes, so a mutant can
+   * declare WHICH complaint must fire rather than merely "something did". Review
+   * round 3 found a guard that never fired while its gate went red for an
+   * unrelated reason; an exit-code-only proof scores that mutant killed.
+   */
+  const codeFor = (lines) => {
+    const out = new Set();
+    for (const l of lines) {
+      if (/^NOTE/.test(l)) continue;
+      if (/prove score was/.test(l)) out.add('SCORE_MOVED');
+      else if (/prove exit was/.test(l)) out.add('EXIT_MOVED');
+      else if (/failing case ids were/.test(l)) out.add('IDS_MOVED');
+      else if (/DECLARED expectedFailures changed/.test(l)) out.add('EXPECTATION_REWRITTEN');
+      else if (/absent from this run/.test(l)) out.add('FIXTURE_MISSING');
+      else if (/absent from the record/.test(l)) out.add('FIXTURE_ADDED');
+      else if (/test-hook\.sh score was/.test(l)) out.add('COMPETITOR_SCORE_MOVED');
+      else if (/test-hook\.sh exit was/.test(l)) out.add('COMPETITOR_EXIT_MOVED');
+      else if (/^prove\./.test(l.trim())) out.add('TALLY_MOVED');
+      else out.add('OTHER');
+    }
+    return [...out];
+  };
+  const victim = (rows) => rows.find((r) => !r.control && r.prove.score === 'CATCH');
+
+  return proveArtifactGate({
+    artifact: RESULTS,
+    label: 'validation record',
+    parse: (t) => JSON.parse(t),
+    serialise: (v) => JSON.stringify(v, null, 2) + '\n',
+    // The gate is the REAL comparison --verify-record runs: the committed record
+    // as the baseline, the candidate file standing in for a fresh measurement.
+    gate: (p) => {
+      const cand = JSON.parse(readFileSync(p, 'utf8'));
+      const prior = JSON.parse(readFileSync(RESULTS, 'utf8'));
+      return codeFor(recordDiff(prior, cand.rows));
+    },
+    mutants: [
+      { label: 'a CATCH turned into a MISS', expect: 'SCORE_MOVED',
+        mutate: (v) => { victim(v.rows).prove.score = 'MISS'; return v; } },
+      { label: 'the failing-id list fabricated behind an unchanged score', expect: 'IDS_MOVED',
+        mutate: (v) => { victim(v.rows).prove.failedIds = ['not-a-real-case']; return v; } },
+      { label: 'the exit code changed behind an unchanged score', expect: 'EXIT_MOVED',
+        mutate: (v) => { victim(v.rows).prove.exit = 99; return v; } },
+      { label: 'the DECLARED expectation quietly rewritten', expect: 'EXPECTATION_REWRITTEN',
+        mutate: (v) => { victim(v.rows).expectedFailures = []; return v; } },
+      { label: 'a fixture dropped from the run', expect: 'FIXTURE_MISSING',
+        mutate: (v) => { const name = victim(v.rows).fixture; v.rows = v.rows.filter((r) => r.fixture !== name); return v; } },
+      { label: 'a fixture smuggled in that the record never had', expect: 'FIXTURE_ADDED',
+        mutate: (v) => { v.rows.push({ ...JSON.parse(JSON.stringify(victim(v.rows))), fixture: 'smuggled-in' }); return v; } },
+      /**
+       * The compensating swap. Every aggregate tally is identical afterwards,
+       * which is precisely why comparing sums was not enough and why round 4
+       * found this one by hand.
+       */
+      { label: "the competitor's catch moved to another fixture, tallies unchanged", expect: 'COMPETITOR_SCORE_MOVED',
+        mutate: (v) => {
+          const w = v.rows.find((r) => r.testHookSh.score === 'CATCH');
+          const l = v.rows.find((r) => !r.control && r.testHookSh.score === 'MISS');
+          const keep = { ...w.testHookSh };
+          w.testHookSh = { ...l.testHookSh };
+          l.testHookSh = keep;
+          return v;
+        } },
+    ],
+  });
+}
+
 if (IS_MAIN) {
   const a = process.argv.slice(2);
   if (a.includes('--self-test')) process.exit(selfTest());
+  if (a.includes('--prove-can-fail')) process.exit(proveCanFail());
   const rows = bench();
   if (a.includes('--verify-record')) {
     if (!existsSync(RESULTS)) { console.error(`no committed record at ${RESULTS}`); process.exit(1); }

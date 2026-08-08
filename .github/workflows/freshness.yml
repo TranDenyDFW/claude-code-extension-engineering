@@ -215,6 +215,18 @@ jobs:
         # miss and n/a for an uninstalled tool, plus fixture-generator drift.
         run: node tests/prove-bench/run-bench.mjs --self-test
 
+      - name: Artifact gates can fail
+        # Mutate the COMMITTED artifacts a gate publishes numbers from, and
+        # require each doctored copy to be rejected for the reason the mutant
+        # DECLARES. A mutant caught by the wrong rule scores WRONG GATE and counts
+        # as survived, because "the gate went red" is not evidence it saw what you
+        # broke. Wiring the ledger proof immediately found that the drift check
+        # compared id SETS only, so a claim's file, line and text were unverified.
+        run: |
+          node tools/artifact-mutation.mjs --self-test
+          node tests/prove-bench/validation/run-bench.mjs --prove-can-fail
+          node tools/verify-evidence.mjs --prove-can-fail
+
       - name: Gates that existed and never ran
         # Four files shipped self-tests, drift checks and a full must-fail proof
         # that no workflow step invoked: about 110 authored assertion rows plus
