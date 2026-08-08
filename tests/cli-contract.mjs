@@ -135,6 +135,73 @@ export const CONTRACTS = [
     must: ['protect-path', 'validate-before-action', 'requires:', '--policy'],
     mustNot: [],
   },
+  /**
+   * BEYOND THE SCAFFOLD. Measured 2026-08-08: this repository's CLIs can print 86
+   * user-visible verdict lines across 25 files, and this file asserted 8 of them,
+   * all on one tool. That is 9.3% coverage of the exact boundary whose absence let
+   * one sentence stay wrong through five review rounds, each fix relocating it to
+   * the nearest place nothing was looking.
+   *
+   * The contracts below extend it to the other tools that PUBLISH A CLAIM: a gate
+   * whose verdict a human or a workflow acts on. Tools whose output is data rather
+   * than a verdict are deliberately not here.
+   */
+  {
+    id: 'the evidence ledger reports its own consistency',
+    why: 'the provenance record for 458 claims, and its drift check compared id sets only until 2026-08-08',
+    args: [], tool: 'tools/verify-evidence.mjs',
+    exit: 0,
+    must: ['PASS: evidence ledger is internally consistent'],
+    mustNot: ['FAIL:', 'DRIFT:'],
+  },
+  {
+    id: 'the ledger artifact proof names each rejection',
+    why: 'a mutant caught by the wrong rule must count as survived, not as a kill',
+    args: ['--prove-can-fail'], tool: 'tools/verify-evidence.mjs',
+    exit: 0,
+    must: ['EVIDENCE LEDGER GATE CAN FAIL', 'rejected  a claim text rewritten'],
+    mustNot: ['SURVIVED', 'WRONG GATE', 'HOLLOW'],
+  },
+  {
+    id: 'the catalog must-fail proof rejects all ten mutants by name',
+    why: 'the strongest must-fail proof in the repo, and nothing ran it until 2026-08-08',
+    args: ['--prove-fail'], tool: 'tools/capability-catalog.mjs',
+    exit: 0,
+    must: ['PROVE-FAIL PASS: all 10 mutants rejected by their named gate'],
+    mustNot: ['SURVIVED', 'WRONG GATE', 'HOLLOW'],
+  },
+  {
+    id: 'the numbers gate says none when nothing disagrees',
+    why: 'this gate printed a complaint and exited 0 in the same output for three review rounds',
+    args: ['--doc-numbers'], tool: 'tools/coverage-report.mjs',
+    exit: 0,
+    must: ['Documentation statements that disagree:', 'none'],
+    mustNot: ['guarded by NOTHING', 'disagreement(s)'],
+  },
+  {
+    id: 'the numbers gate can be shown to fail',
+    why: 'two fixes here were relocations because nothing fed it a known-bad input',
+    args: ['--prove-can-fail'], tool: 'tools/coverage-report.mjs',
+    exit: 0,
+    must: ['GATE CAN FAIL: every known-bad source was rejected'],
+    mustNot: ['GATE CANNOT FAIL'],
+  },
+  {
+    id: 'the validation record still reproduces',
+    why: 'the published 10 of 10, re-measured rather than read out of the file it publishes',
+    args: ['--verify-record'], tool: 'tests/prove-bench/validation/run-bench.mjs',
+    exit: 0,
+    must: ['PASS the committed record still reproduces (10 of 10 with the correct diagnosis).'],
+    mustNot: ['RECORD DIVERGED'],
+  },
+  {
+    id: 'a bare bench run writes nothing',
+    why: 'it used to overwrite the published record, and exits 0 unless the control is dirty',
+    args: [], tool: 'tests/prove-bench/validation/run-bench.mjs',
+    exit: 0,
+    must: ['results.json was NOT written', 'Re-record deliberately with --record'],
+    mustNot: ['wrote '],
+  },
 ];
 
 export const VERDICT_CONTRACTS = CONTRACTS.filter((c) => c.verdictContract);
@@ -166,7 +233,7 @@ export function checkContract(c) {
     c.prepare(c.proveOnly);
     res = runCli(['--bundle', c.proveOnly], { tool: join(REPO, 'tools', 'extension-prove.mjs') });
   } else {
-    res = runCli(c.args);
+    res = runCli(c.args, c.tool ? { tool: join(REPO, c.tool) } : {});
   }
   const bad = [];
   if (res.exit !== c.exit) bad.push(`exit ${res.exit}, expected ${c.exit}`);

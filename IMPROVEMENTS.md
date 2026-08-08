@@ -850,7 +850,26 @@ cost, and an absolute policy reports NOT DONE instead of quietly satisfied. Clos
 the same paired-arm measurement `bash-recognition-run.mjs` runs for file commands, applied to
 the rule form rather than the file form.
 
-**44. Most gates have no mechanical must-fail proof, and a reviewer's hand is doing that work.**
+**44. Most gates still have no mechanical must-fail proof. PARTLY CLOSED 2026-08-08.**
+Closed for five of them: capability-catalog's three entry points, gh-corpus-harvest,
+tier3-preflight and scaffold-parity's self-test were wired into CI (they existed and no workflow
+step invoked them), and `tools/artifact-mutation.mjs` gave the validation record and the evidence
+ledger proofs that mutate the COMMITTED file and require a NAMED rejection. Wiring the second one
+immediately found that the ledger's drift check compared id sets only, so every claim's recorded
+file, line and text was unverified while the docstring promised otherwise.
+
+Deliberately NOT done, with the measured reasons, so this is a decision and not an omission. A
+generic source-mutation harness was designed and rejected: a full run measures 2 to 5 hours (one
+region of one file is 3.4 hours), the equivalent-mutant rate is 35 to 55% and its justification
+registry becomes a rubber stamp at that scale, the `ok`/`FAIL` output convention it would parse
+does not exist (four incompatible formats across 24 emitter sites), and bound to the cheapest gate
+covering each file it would have relocated with the five-round defect and reported green every
+round. It mechanizes the bug. A replay proof claiming to reproduce all the historical defects
+would itself be the next defect in the series, since only about 60% of them are expressible as
+generic operators.
+
+What remains is the original wording, and it is still true of the roughly fifteen gates not
+listed above:
 Six independent review rounds found twenty-three defects in this project's own tooling, and the
 majority were assertions whose PASS did not depend on the code they claimed to test. The cure is
 known and this repo owns two working instances of it: `extension-scaffold --gate

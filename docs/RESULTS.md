@@ -226,6 +226,17 @@ all at exit 0, and breaks two of the eight contracts. The bare invocation also r
 that feed the comparator a known-wrong expectation, because a contract file whose comparator returned
 "no problems" would otherwise report every contract green.
 
+**Measured 2026-08-08, with the method stated so the ratio is falsifiable.** A verdict line is a
+`console.log` whose text begins with a word that tells the reader the outcome of the run. This
+repository's CLIs can print **86 of them across 25 files**. The contract asserted 8, all on one tool,
+which is 9.3% of the boundary whose absence let one sentence stay wrong through five review rounds.
+It now asserts **15 across 4 tools, 17.4%**, and the remainder is enumerated rather than estimated.
+
+The layered result, measured rather than argued. Neutering the evidence ledger's text-drift check
+leaves `verify-evidence` itself at **exit 0**, because a clean ledger has no text drift for the
+removed check to catch. Its artifact proof catches it, and so does the CLI contract. A tool's own run
+is the weakest of the three instruments, which is the whole reason the other two exist.
+
 Round six pushed the same question one level further: every must-fail proof that mutates a tool was
 being performed by a reviewer's hand once and then living only in a review document, and this repo
 applied its own cure to two of roughly twenty gates. The numbers gate now carries `--prove-can-fail`,
