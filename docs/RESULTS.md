@@ -201,6 +201,7 @@ node tools/extension-scaffold.mjs --gate
 node tools/extension-scaffold.mjs --gate --prove-gate-can-fail
 node tools/scaffold-parity.mjs --check
 node tests/cli-contract.mjs
+node tools/coverage-report.mjs --prove-can-fail
 ```
 
 ## The gate that five review rounds asked for
@@ -215,11 +216,23 @@ Four rounds of numbered checks produced zero failures on their own terms. Four r
 hunting produced fourteen issues. `tests/cli-contract.mjs` closes that gap: it spawns the tools as
 processes and asserts exit code, required sentences, and FORBIDDEN sentences. The last is the half
 that matters, because the two verdicts differ by three words and asserting only presence passes on
-either.
+either. Measured afterwards and worth stating: with all four forbidden-sentence lists emptied, the
+positive assertions alone still break 2 of 8, so the negative half is defence in depth rather than
+the load-bearing part. The first version of this section said otherwise and a reviewer falsified it.
 
 Measured rather than asserted: bypassing `finalVerdict` at its call site while leaving the function
 itself correct leaves `extension-scaffold --self-test`, `extension-prove --self-test` and `--gate`
-all at exit 0, and breaks two of the eight contracts.
+all at exit 0, and breaks two of the eight contracts. The bare invocation also runs three self-guards
+that feed the comparator a known-wrong expectation, because a contract file whose comparator returned
+"no problems" would otherwise report every contract green.
+
+Round six pushed the same question one level further: every must-fail proof that mutates a tool was
+being performed by a reviewer's hand once and then living only in a review document, and this repo
+applied its own cure to two of roughly twenty gates. The numbers gate now carries `--prove-can-fail`,
+which spawns it against an unreadable, an absent and a wrong-typed source and requires red each time,
+then green on the real tree. That is what would have caught two previous attempts at one defect there
+mechanically, instead of by a third review. Extending it to the remaining gates is
+[IMPROVEMENTS.md](../IMPROVEMENTS.md) item 44.
 
 ## A second prove-bench cohort: command validators
 

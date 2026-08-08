@@ -45,14 +45,17 @@ export function runCli(args, { tool = SCAFFOLD } = {}) {
 }
 
 /**
- * Every contract is a (exit code, must-contain, must-NOT-contain) triple. The
- * negative half is load-bearing: "does not satisfy its own conformance spec" is a
- * true sentence in one case and a falsehood in the other, so asserting only its
- * presence would pass in both.
+ * Every contract is a (exit code, must-contain, must-NOT-contain) triple.
+ *
+ * On what the negative half is worth, MEASURED rather than asserted: with all four
+ * `mustNot` arrays emptied, the positive assertions alone still break 2 of 8 under
+ * the call-site mutation this file exists to catch. So `mustNot` is defence in
+ * depth. An earlier version of this comment called it load-bearing, which
+ * independent review falsified by emptying the arrays and re-running.
  */
 export const CONTRACTS = [
   {
-    id: 'strict-policy-says-the-spec-is-satisfied',
+    id: 'strict-policy-says-the-spec-is-satisfied', verdictContract: true,
     why: 'the exact sentence that was wrong in four consecutive fixes',
     args: ['--policy', 'examples/policies/block-recursive-delete-absolute.json', '--out', join(OUT, 'strict'), '--name', 'strict'],
     exit: 1,
@@ -64,7 +67,7 @@ export const CONTRACTS = [
     mustNot: ['NOT DONE: the generated bundle does not satisfy its own conformance spec.'],
   },
   {
-    id: 'passing-policy-says-DONE',
+    id: 'passing-policy-says-DONE', verdictContract: true,
     why: 'the other side of the same decision, so neither sentence can print unconditionally',
     args: ['--policy', 'examples/policies/npm-allowlist.json', '--out', join(OUT, 'ok'), '--name', 'ok'],
     exit: 0,
@@ -72,7 +75,7 @@ export const CONTRACTS = [
     mustNot: ['NOT DONE'],
   },
   {
-    id: 'legacy-prose-path-still-works',
+    id: 'legacy-prose-path-still-works', verdictContract: true,
     why: 'protect-path is reached by a different argument shape and prints different analysis lines',
     args: ['--requirement', 'Prevent any change to a file under `infra/`. The protection must still hold if the guard script is deleted or crashes.',
       '--out', join(OUT, 'legacy'), '--name', 'legacy'],
@@ -88,7 +91,7 @@ export const CONTRACTS = [
      * the gate injections; what belongs here is the sentence a user actually sees
      * when they point the prover at a bundle whose handler has rotted.
      */
-    id: 'a-strict-bundle-with-failing-cases-is-not-called-satisfied',
+    id: 'a-strict-bundle-with-failing-cases-is-not-called-satisfied', verdictContract: true,
     why: 'a strict spec whose cases FAIL must not print the paragraph claiming every case passed',
     prepare: (dir) => {
       const f = join(dir, '.claude', 'hooks', 'validate.mjs');
@@ -134,6 +137,8 @@ export const CONTRACTS = [
   },
 ];
 
+export const VERDICT_CONTRACTS = CONTRACTS.filter((c) => c.verdictContract);
+
 const BAD_POLICY = {
   policySchema: 1, id: 'bad', tool: 'Bash', matcher: 'Bash',
   precedence: 'first-match-wins-in-declared-order', defaultDecision: 'allow',
@@ -178,7 +183,25 @@ function run({ quiet = false } = {}) {
     if (problems.length) { bad++; if (!quiet) { console.log(`  FAIL ${c.id}`); for (const p of problems) console.log(`         ${p}`); } }
     else if (!quiet) console.log(`  ok   ${c.id}`);
   }
-  if (!quiet) console.log(bad ? `\nCLI CONTRACT BROKEN: ${bad} of ${CONTRACTS.length}.` : `\nCLI CONTRACT HOLDS: ${CONTRACTS.length} contracts, asserted against the process's own stdout.`);
+  /**
+   * THE BARE RUN GUARDS ITSELF, because it is the command the docs publish and
+   * independent review showed it could not detect its own degradation: making
+   * `checkContract` return `[]` unconditionally left it reporting every contract
+   * green. The three probes below feed the checker a known-wrong expectation and
+   * require it to complain, so a neutered checker fails the same invocation.
+   */
+  const probes = [
+    ['a wrong exit code', { ...CONTRACTS[1], exit: 3 }],
+    ['a sentence the tool never prints', { ...CONTRACTS[1], must: [...CONTRACTS[1].must, 'a sentence this tool never prints'] }],
+    ['a forbidden sentence that IS printed', { ...VERDICT_CONTRACTS[1], mustNot: [...VERDICT_CONTRACTS[1].must] }],
+  ];
+  for (const [name, probe] of probes) {
+    if (checkContract(probe).length === 0) {
+      bad++;
+      if (!quiet) console.log(`  FAIL self-guard: the checker accepted ${name}, so it is not checking anything`);
+    } else if (!quiet) console.log(`  ok   self-guard: the checker rejects ${name}`);
+  }
+  if (!quiet) console.log(bad ? `\nCLI CONTRACT BROKEN: ${bad} problem(s) across ${CONTRACTS.length} contracts and ${probes.length} self-guards.` : `\nCLI CONTRACT HOLDS: ${CONTRACTS.length} contracts asserted against the process's own stdout, plus ${probes.length} self-guards proving the checker can fail.`);
   return bad;
 }
 
@@ -192,12 +215,24 @@ function selfTest() {
   ok('every contract explains why it exists', CONTRACTS.every((c) => c.why && c.why.length > 30));
   ok('contract ids are unique', new Set(CONTRACTS.map((c) => c.id)).size === CONTRACTS.length);
   /**
-   * The negative half is what makes the verdict contracts meaningful: the two
-   * sentences differ by three words, and asserting only presence would pass on
-   * either.
+   * The verdict contracts are selected by an explicit FLAG, not by matching their
+   * ids. Independent review 2026-08-08: the id regex missed one of the four and
+   * would have been voided silently by a rename, which is a guard that quietly
+   * stops guarding.
+   *
+   * On what the negative half is worth, measured rather than asserted: with all
+   * four `mustNot` arrays emptied, the positive assertions alone still break 2 of
+   * 8 under the call-site mutation. So `mustNot` is defence in depth, not the
+   * load-bearing half. Saying otherwise was an overstatement in an earlier version
+   * of this comment.
    */
-  ok('both halves of the verdict decision carry a mustNot',
-    CONTRACTS.filter((c) => /says-the-spec-is-satisfied|says-DONE|failing-cases/.test(c.id)).every((c) => c.mustNot.length > 0));
+  ok('every verdict contract is flagged and carries a mustNot',
+    VERDICT_CONTRACTS.length === 4 && VERDICT_CONTRACTS.every((c) => c.mustNot.length > 0),
+    `${VERDICT_CONTRACTS.length} flagged; missing mustNot: ${VERDICT_CONTRACTS.filter((c) => !c.mustNot.length).map((c) => c.id).join(',') || 'none'}`);
+  ok('...and every contract whose sentences mention satisfying a spec IS flagged, so a rename cannot drop one',
+    CONTRACTS.filter((c) => [...c.must, ...c.mustNot].some((m) => /conformance spec|Every case above passed/.test(m)))
+      .every((c) => c.verdictContract === true),
+    CONTRACTS.filter((c) => [...c.must, ...c.mustNot].some((m) => /conformance spec|Every case above passed/.test(m)) && !c.verdictContract).map((c) => c.id).join(','));
 
   console.log('the contracts themselves:');
   const bad = run({ quiet: false });

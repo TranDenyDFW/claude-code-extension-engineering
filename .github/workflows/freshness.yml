@@ -176,6 +176,13 @@ jobs:
           node tests/cli-contract.mjs --self-test
           node tests/cli-contract.mjs
 
+      - name: The numbers gate can fail
+        # Two attempts at one defect here were relocations, because nothing fed
+        # this gate a known-bad input. --prove-can-fail spawns it against an
+        # unreadable, an absent and a wrong-typed source and requires red each
+        # time, then green on the real tree.
+        run: node tools/coverage-report.mjs --prove-can-fail
+
       - name: Scaffold parity
         # The seven protect-path probes must stay byte-identical to the goldens
         # captured before the pack refactor.

@@ -4,10 +4,12 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-08-07 against Claude Code 2.1.224, the build in `evidence/VERIFIED_VERSION`.
+Last reviewed 2026-08-08 against Claude Code 2.1.224, the build in `evidence/VERIFIED_VERSION`.
 The 2026-08-05 pass reconciled items 20 to 23, 25 and 27 against their own artifacts and
 re-ran their gates; the 2026-08-06 pass added items 31 to 36 and closed the Bash-recognition
-measurement that item 33 rests on. Neither did a new version check, so the verified build is
+measurement that item 33 rests on. The 2026-08-07 and 2026-08-08 passes added items 43 and 44
+during the purpose-pack work, across six independent review rounds that found twenty-three
+defects in this project's own tooling. None did a new version check, so the verified build is
 unchanged from the 2026-08-04 review. Note the live CLI on the measuring machine is 2.1.219,
 one behind the catalog, and the measurement records that rather than rounding it up.
 
@@ -847,6 +849,23 @@ non-loadable proposal file naming the one provable alternative (a bare `Bash` de
 cost, and an absolute policy reports NOT DONE instead of quietly satisfied. Closing this needs
 the same paired-arm measurement `bash-recognition-run.mjs` runs for file commands, applied to
 the rule form rather than the file form.
+
+**44. Most gates have no mechanical must-fail proof, and a reviewer's hand is doing that work.**
+Six independent review rounds found twenty-three defects in this project's own tooling, and the
+majority were assertions whose PASS did not depend on the code they claimed to test. The cure is
+known and this repo owns two working instances of it: `extension-scaffold --gate
+--prove-gate-can-fail` corrupts a seam and requires the gate to redden, and
+`tests/validation-family-breaks.mjs` does the same to a shipped handler. `coverage-report
+--prove-can-fail` joined them on 2026-08-08 after two consecutive "fixes" to one defect there turned
+out to be relocations.
+
+That is three of roughly twenty gates. For the rest, the must-fail proof is performed once by a
+reviewer, recorded in a `.md/` review file, and never runs again. The specific consequence, observed
+three times: a fix is verified by hand, the verification does not become a gate, and the next round
+finds the same defect one line over. Closing this means a `--prove-can-fail` per gate, each feeding
+its own known-bad input. It is mechanical work with a known shape rather than a design problem, which
+is why it is recorded here instead of being half done.
+
 
 ## Deliberately not doing
 

@@ -32,6 +32,63 @@ const ROOT = join(HERE, '..');
 const SUMMARY_ONLY = process.argv.includes('--summary');
 const DOC_NUMBERS = process.argv.includes('--doc-numbers');
 
+/**
+ * --prove-can-fail: THE MUST-FAIL PROOF THIS GATE NEVER HAD.
+ *
+ * Six review rounds established the pattern and this file sat outside it. Twice a
+ * defect here was "fixed" by reshaping the counter, and twice the reshape was itself
+ * a relocation, because nothing ever fed the gate a known-bad input and required it
+ * to go red. The second time the commit message stated the invariant as a property
+ * and a single edit falsified it. A claimed invariant with no mutation behind it is
+ * the same defect as a check that cannot fail, one level up.
+ *
+ * This spawns the gate as a PROCESS against deliberately broken sources and requires
+ * a non-zero exit, then against the real tree and requires zero. It is the cheapest
+ * version of what --prove-gate-can-fail does for the scaffold, and it is what would
+ * have caught both previous attempts mechanically instead of by review.
+ */
+if (process.argv.includes('--prove-can-fail')) {
+  const { spawnSync } = await import('node:child_process');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const self = join(HERE, 'coverage-report.mjs');
+  const run = (env) => spawnSync(process.execPath, [self, '--doc-numbers'],
+    { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 180_000, env: { ...process.env, ...env } });
+
+  let bad = 0;
+  const check = (n, ok, d) => {
+    console.log('  ' + (ok ? 'ok  ' : 'FAIL') + ' ' + n + (ok ? '' : '  (' + (d || '') + ')'));
+    if (!ok) bad++;
+  };
+
+  const clean = run({});
+  check('the gate is GREEN on the real tree, so a red below means something', clean.status === 0, 'exit ' + clean.status);
+
+  const dir = mkdtempSync(join(tmpdir(), 'covfail-'));
+  try {
+    const garbage = join(dir, 'results.json');
+    writeFileSync(garbage, '{ this is not json');
+    const r = run({ COVERAGE_VALIDATION_RESULTS: garbage });
+    const out = String(r.stdout || '') + String(r.stderr || '');
+    check('MUST FAIL: an unreadable validation record', r.status !== 0, 'exit ' + r.status);
+    check('...and it SAYS the published number is unguarded rather than going quiet', /guarded by NOTHING/.test(out));
+    check('...and never reports "none" in the same breath as a complaint', !/^ {2}none$/m.test(out),
+      'printed a complaint and "none" together, which is how this defect survived twice');
+
+    const r2 = run({ COVERAGE_VALIDATION_RESULTS: join(dir, 'absent.json') });
+    check('MUST FAIL: a validation record that is not there at all', r2.status !== 0, 'exit ' + r2.status);
+
+    writeFileSync(garbage, JSON.stringify({ prove: { caught: 'not a number' } }));
+    const r3 = run({ COVERAGE_VALIDATION_RESULTS: garbage });
+    check('MUST FAIL: a record whose caught value is not a number', r3.status !== 0, 'exit ' + r3.status);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+
+  const after = run({});
+  check('the gate returns to GREEN once the override is gone', after.status === 0, 'exit ' + after.status);
+  console.log(bad ? '\nGATE CANNOT FAIL: ' + bad + ' problem(s).' : '\nGATE CAN FAIL: every known-bad source was rejected.');
+  process.exit(bad ? 1 : 0);
+}
+
 const IGNORE = [
   /^#/,
   /Definition of Done/i,
@@ -142,7 +199,8 @@ if (DOC_NUMBERS) {
   let validationCaught = null;
   let validationReadError = null;
   try {
-    const r = JSON.parse(readFileSync(join(ROOT, 'tests', 'prove-bench', 'validation', 'results.json'), 'utf8'));
+    const r = JSON.parse(readFileSync(process.env.COVERAGE_VALIDATION_RESULTS
+      || join(ROOT, 'tests', 'prove-bench', 'validation', 'results.json'), 'utf8'));
     validationCaught = (r.prove || {}).caught;
     if (typeof validationCaught !== 'number') { validationReadError = 'results.json has no prove.caught number'; validationCaught = null; }
   } catch (e) { validationReadError = e.message; validationCaught = null; }
@@ -282,8 +340,21 @@ if (DOC_NUMBERS) {
    * counter cannot be removed from the branch below without the message going with
    * it, because they are now one call.
    */
-  let hits = 0;
-  const complain = (...lines) => { hits++; for (const l of lines) console.log(l); };
+  /**
+   * PROBLEMS ARE AN ARRAY AND THE EXIT CODE IS ITS LENGTH.
+   *
+   * Two previous attempts at this were relocations, not fixes. `hits++` beside each
+   * console.log meant deleting ONE increment left the gate printing "guarded by
+   * NOTHING" and exiting 0 in the same output; introducing a helper for one of the
+   * five sites left the other four unchanged, and the commit message then claimed
+   * as a property something a single edit falsified. Independent review caught both.
+   *
+   * Every complaint now goes through `complain`, which pushes before it prints, and
+   * the exit code reads the array. There is no counter to remove, and removing the
+   * push breaks all five sites at once, which `--self-test` observes.
+   */
+  const problems = [];
+  const complain = (...lines) => { problems.push(lines[0]); for (const l of lines) console.log(l); };
   if (validationReadError) {
     complain(
       `  tests/prove-bench/validation/results.json is unreadable (${validationReadError}), so the`,
@@ -304,9 +375,8 @@ if (DOC_NUMBERS) {
           const W = f.words || WORDS;
           const n = W[raw] !== undefined ? W[raw] : Number(raw);
           if (!Number.isFinite(n) || n === f.live) continue;
-          hits++;
-          console.log(`  ${rel}:${i + 1}  ${f.label}: doc says ${m[1]}, live is ${f.live}`);
-          console.log(`      ${line.trim().slice(0, 110)}`);
+          complain(`  ${rel}:${i + 1}  ${f.label}: doc says ${m[1]}, live is ${f.live}`,
+            `      ${line.trim().slice(0, 110)}`);
         }
       }
     });
@@ -345,8 +415,7 @@ if (DOC_NUMBERS) {
     try { re = new RegExp(q.answer_key, 'gi'); } catch { continue; }
     const n = (src.match(re) || []).length;
     if (n > 1) {
-      hits++;
-      console.log(`  ${q.source_file}  ${q.id}: answer key matches ${n} times, so the row can survive deletion of the passage it guards. Rescope it, or add it to AMBIGUITY_EXEMPT with a reason.`);
+      complain(`  ${q.source_file}  ${q.id}: answer key matches ${n} times, so the row can survive deletion of the passage it guards. Rescope it, or add it to AMBIGUITY_EXEMPT with a reason.`);
     }
   }
 
@@ -358,16 +427,14 @@ if (DOC_NUMBERS) {
   if (!header) {
     // Fail closed: a missing header is indistinguishable from a moved one, and
     // silently passing is how the stale header survived three rounds.
-    hits++;
-    console.log('  IMPROVEMENTS.md  header date: no "Last reviewed YYYY-MM-DD" line found; the check cannot run, so it fails');
+    complain('  IMPROVEMENTS.md  header date: no "Last reviewed YYYY-MM-DD" line found; the check cannot run, so it fails');
   } else if (newest && header[1] < newest) {
-    hits++;
-    console.log(`  IMPROVEMENTS.md  header date: says ${header[1]}, but the file carries content dated ${newest}`);
+    complain(`  IMPROVEMENTS.md  header date: says ${header[1]}, but the file carries content dated ${newest}`);
   }
 
-  if (!hits) console.log('  none');
-  else console.log(`\n${hits} disagreement(s). Update the prose to the live value, or rephrase a deliberately historical quote away from the canonical wording.`);
-  process.exit(hits ? 1 : 0);
+  if (!problems.length) console.log('  none');
+  else console.log(`\n${problems.length} disagreement(s). Update the prose to the live value, or rephrase a deliberately historical quote away from the canonical wording.`);
+  process.exit(problems.length ? 1 : 0);
 }
 const questions = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
   .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l))
