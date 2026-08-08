@@ -453,13 +453,41 @@ We authored both the fixtures and the expected outcomes. The measured content is
 competitor column and the zero false positives on the control, not our own score. A
 third-party fixture set would be the real test, and none exists.
 
-**29. `extension-scaffold` covers exactly one requirement family.**
-Path protection only. Everything else is refused with a pointer to `create-plugin` rather
-than force-fitted. That refusal is asserted by two self-test cases, so the scope cannot widen
-silently. Requirement analysis is regex-based and will misread phrasings nobody has tried yet:
-independent review already found "Never allow modification of X" refused, and a single-file
-target emitting cases the deny rule could not match. Both fixed, both now regression-tested,
-but the class is open.
+**29. `extension-scaffold` covers two purpose packs, and the second one MOVES the risk
+rather than removing it.**
+`protect-path` handles path protection from prose; `validate-before-action` generates a
+PreToolUse validator from an explicit `--policy` file. Everything else is refused with a
+pointer to `create-plugin`, and routing is by REQUIRED INPUTS, never by classifying prose, so
+an unsupported requirement cannot fall through to a default generator.
+
+The open classes, listed separately because they are different failures:
+
+- **protect-path still reads English.** Requirement analysis is regex-based and will misread
+  phrasings nobody has tried yet: independent review already found "Never allow modification
+  of X" refused, and a single-file target emitting cases the deny rule could not match. Both
+  fixed, both regression-tested, but the class is open.
+- **validate-before-action reads no English at all**, which puts the risk on the policy
+  author. A policy that is valid, self-consistent and simply describes the wrong thing
+  generates a validator that enforces the wrong thing. The generator checks that every rule's
+  declared examples really match it, which catches the common version of that mistake, and
+  nothing checks that the policy is the policy you meant.
+- **The generated matcher is not a shell.** It reads `&&`, `||`, `;`, `|` and `&`, so a
+  compound command is inspected piece by piece, and it cannot resolve `$VAR`, `$( )`, `eval`,
+  `sh -c` or `xargs`. `absolute: true` denies those rather than ignoring them; every other
+  policy ships a residual case asserting the gap is open.
+- **A command hook fails open, and that is not fixable at this layer.** See item 32.
+
+**32. A `Bash(<command shape>)` deny rule is UNMEASURED here, so no bundle claims one.**
+The `permissions.deny` escalation that would survive handler deletion is not emitted. The
+documentation recommends the spelling ("Use `Bash(rm *)` ... instead") and never states what
+the pattern is matched against, and this repo has measured a leading `cd` hiding part of a
+command from the permission layer on 2.1.224. `extension-prove` therefore reports such a rule
+as UNDETERMINED, which fails every expectation including a negative one, so a tamper case
+built on it could not pass. `validate-before-action` writes the candidate rules to a
+non-loadable proposal file naming the one provable alternative (a bare `Bash` deny) and its
+cost, and an absolute policy reports NOT DONE instead of quietly satisfied. Closing this needs
+the same paired-arm measurement `bash-recognition-run.mjs` runs for file commands, applied to
+the rule form rather than the file form.
 
 **30. A requirement combining a conditional exemption with a hard guarantee has NO answer.**
 "Block writes under `infra/` unless the content carries an approval token, and hold even if the

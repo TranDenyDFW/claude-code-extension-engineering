@@ -89,8 +89,51 @@ rule is accepted and never consulted.
 ```bash
 node tools/extension-prove.mjs --bundle <dir>          # run the spec
 node tools/extension-prove.mjs --prove-fail            # prove the spec can fail
+node tools/extension-scaffold.mjs --list-packs
 node tools/extension-scaffold.mjs --requirement "..." --out <dir>
+node tools/extension-scaffold.mjs --policy <file> --out <dir>
 ```
+
+## Staging state a handler reads: `setup`
+
+A handler that runs a prerequisite check, or validates a document on disk, decides from state
+that is NOT in the tool payload. A case stages that state:
+
+```json
+{ "id": "gate-passes", "kind": "wiring",
+  "input": { "tool_name": "Bash", "tool_input": { "command": "deploy prod" } },
+  "setup": { "files": { "deploy/manifest.json": "{}" }, "env": { "GATE_TESTS": "1" } },
+  "expect": { "decision": { "not": "deny" } } }
+```
+
+Files are written into the per-case temp copy, never the bundle, and a path key that escapes
+that copy is refused. `env` is merged into the handler's environment; `CLAUDE_PROJECT_DIR`
+stays the harness's, so a case cannot repoint the project root and escape its own copy.
+
+**Pair every setup-bearing case with `"mutate": "ignore-setup"`.** That drops the setup, and
+the paired case must go the OTHER way. Without it, a staged file the handler never reads makes
+the first case pass for the wrong reason, which is a check that cannot fail wearing a
+prerequisite as a costume.
+
+## Generating a command validator
+
+`extension-scaffold` has two purpose packs. `protect-path` reads a path out of prose;
+`validate-before-action` generates a `PreToolUse` validator from an explicit `--policy` file,
+covering five validation families: command validation, dangerous-operation blocking, required
+checks, document schema validation, and pre-deployment gates. Routing is by required inputs, so
+prose can never reach the policy pack and a policy can never reach the prose pack.
+
+The policy is data, and the generator REFUSES rather than defaulting: an unknown key, an
+unanchored pattern, a check with no timeout, a command written as a string instead of an argv
+array, two rules with the same predicate and different decisions, or a policy in which nothing
+can ever deny. It also refuses a rule whose own declared `examples.match` does not actually
+match it, which is the mistake no structural validator can catch.
+
+Two things the generated validator does NOT do, both proved rather than documented. `allow` is
+not auto-approve: the handler emits a decision only to deny, so normal permission prompts still
+happen on every other path. And a command hook fails open, so every bundle carries a `residual`
+case for the deleted handler, and a policy declaring `absolute: true` is marked strict and
+reports NOT DONE rather than claiming a guarantee it cannot keep.
 
 ## Detail
 

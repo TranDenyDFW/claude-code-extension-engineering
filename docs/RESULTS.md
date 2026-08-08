@@ -177,6 +177,31 @@ column that only ever says `verified` measures nothing.
 A daily workflow compares the verified build against the latest npm release and opens a
 verification issue when Claude Code moves ahead. The README badge is that status.
 
+## The creator's own gate
+
+`extension-scaffold` generates 13 frozen probes across its two purpose packs and PROVES every
+one: each asserts a frozen case-kind sequence, a frozen file list and pack-specific checks, and
+then the generated bundle is run through `extension-prove`. A strict probe must report NOT DONE
+with every case green, which is the pairing a pass count would miss.
+
+`--gate --prove-gate-can-fail` then attacks that gate 11 times. Each injection puts a real
+defect back, RE-RUNS THE WHOLE GATE, requires red, restores, and requires green again: a wrong
+matcher tool, a deny decision flipped to allow, a near-miss over-blocked by a widened pattern,
+a required-check result ignored, an invalid policy accepted, a crashing handler modelled as
+success, and the frozen expectation map corrupted once per pack. An earlier version of this
+harness contained two rows that restated fixed behaviour instead of running the gate, and a row
+like that passes whether or not the gate works. That is why every row now re-runs it.
+
+Separately, one deliberately broken HANDLER per validation family is caught by a named case,
+in both directions for dangerous-operation: widened until it blocks a safe command, caught by
+the near-miss arm, and narrowed until it blocks nothing, caught by the enforce arm.
+
+```bash
+node tools/extension-scaffold.mjs --gate
+node tools/extension-scaffold.mjs --gate --prove-gate-can-fail
+node tools/scaffold-parity.mjs --check
+```
+
 ## Re-running any of it
 
 ```bash

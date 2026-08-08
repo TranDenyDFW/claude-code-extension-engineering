@@ -126,6 +126,14 @@ if (DOC_NUMBERS) {
   };
   const currentTools = catCurrent('tools');
   const currentEvents = catCurrent('hookEvents');
+
+  // Derived from the packs themselves, so a new pack or family updates the gate
+  // without anyone remembering to.
+  const { PACKS } = await import('./packs/index.mjs');
+  const { FAMILIES } = await import('./packs/policy-schema.mjs');
+  const packCount = PACKS.size;
+  const familyCount = FAMILIES.size;
+  const probeCount = [...PACKS.values()].reduce((n, p) => n + p.GATE_PROBES.length, 0);
   const HEADING_WORDS = { ...WORDS, one: 1, two: 2, three: 3, four: 4, five: 5 };
   const hardeningRounds = (() => {
     try {
@@ -202,6 +210,16 @@ if (DOC_NUMBERS) {
      */
     { label: 'current tools', live: currentTools, re: /(\d+)\s+current tools/gi },
     { label: 'current hook events', live: currentEvents, re: /(\d+)\s+current hook events/gi },
+    /**
+     * Added 2026-08-07 with the purpose-pack refactor. Every one is DERIVED from
+     * the code that owns it, never typed here: the creator went from one family to
+     * two packs in a single commit, and the number of places a stale "one
+     * requirement family" could sit is precisely why this gate exists. A count
+     * typed into this file would just be a second thing to forget.
+     */
+    { label: 'purpose packs', live: packCount, words: HEADING_WORDS, re: /(\w+)\s+purpose packs/gi },
+    { label: 'validation families', live: familyCount, words: HEADING_WORDS, re: /(\w+)\s+validation families/gi },
+    { label: 'scaffold gate probes', live: probeCount, re: /(\d+)\s+frozen (?:gate )?probes/gi },
   ];
 
   // docs/SUBMISSION.md and .claude-plugin/plugin.json are the two MARKETPLACE-FACING

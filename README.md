@@ -33,9 +33,11 @@ sessions do not read `~/.claude/skills`, see
 - **`extension-prove`** asserts an expected OUTCOME for a bundle and evaluates the wiring.
   Every shipped checker asks whether an extension is well-FORMED; none asks whether it
   behaves as specified.
-- **`extension-scaffold`** turns a path-protection requirement into a bundle plus a
-  `conformance.json` that `extension-prove` can fail, and refuses to report done while any
-  case is red.
+- **`extension-scaffold`** turns a requirement into a bundle plus a `conformance.json` that
+  `extension-prove` can fail, and refuses to report done while any case is red. Two purpose
+  packs: `protect-path` reads a path out of prose, `validate-before-action` generates a
+  PreToolUse command validator from an explicit policy file. Anything else is refused rather
+  than force-fitted.
 - **The reference**, twelve authored mechanisms across seven layers plus the enforcement
   layer you configure rather than author. Every claim evidence-tagged, version-gated, and
   backed by a machine-checked provenance ledger.
@@ -70,6 +72,19 @@ NOT DONE: the requirement is ABSOLUTE and a residual vector survives.
 
 Every case passed and the run still says NOT DONE. That is the point: a passing `residual`
 case is a measured statement that the vector is open, and "prevent ANY change" rules it out.
+
+Generate a command validator from a policy instead:
+
+```bash
+node tools/extension-scaffold.mjs \
+  --policy examples/policies/prod-deploy-gate.json \
+  --out ./my-validator
+```
+
+The policy is explicit, versioned data, not prose: command grammars, prerequisite programs
+and timeouts are never inferred. An unknown key, an unanchored pattern, a check with no
+timeout, two rules that contradict each other, or a policy where nothing can ever deny is
+REFUSED and nothing is generated. `--list-packs` shows what each pack needs.
 
 Prove an existing bundle instead:
 
