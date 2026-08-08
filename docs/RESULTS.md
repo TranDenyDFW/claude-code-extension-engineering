@@ -227,7 +227,9 @@ that feed the comparator a known-wrong expectation, because a contract file whos
 "no problems" would otherwise report every contract green.
 
 **Measured 2026-08-08, with the method stated so the ratio is falsifiable.** A verdict line is a
-`console.log` whose text begins with a word that tells the reader the outcome of the run. This
+`console.log` OR `console.error` whose text begins with a word that tells the reader the outcome of
+the run. The split is 78 and 8; an independent reviewer re-derived the total exactly and flagged
+that an earlier wording said `console.log` alone, which yields 78. This
 repository's CLIs can print **86 of them across 25 files**. The contract asserted 8, all on one tool,
 which is 9.3% of the boundary whose absence let one sentence stay wrong through five review rounds.
 It now asserts **15 across 4 tools, 17.4%**, and the remainder is enumerated rather than estimated.

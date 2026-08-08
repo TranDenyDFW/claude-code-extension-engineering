@@ -241,6 +241,11 @@ jobs:
         run: |
           node tools/capability-catalog.mjs --self-test
           node tools/capability-catalog.mjs --prove-fail
+          # --check needs the docs mirror and exits 2 (cannot check) without one,
+          # which is the safe state. Same allowance as the bash-recognition drift
+          # gate above. The commit that wired the others claimed this one too and
+          # did not add it; independent review caught the false claim.
+          node tools/capability-catalog.mjs --check || [ $? -eq 2 ]
           node tools/gh-corpus-harvest.mjs --self-test
           node tools/tier3-preflight.mjs --self-test
           node tools/scaffold-parity.mjs --self-test

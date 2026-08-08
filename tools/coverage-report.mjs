@@ -191,6 +191,10 @@ if (DOC_NUMBERS) {
   const packCount = PACKS.size;
   const familyCount = FAMILIES.size;
   const probeCount = [...PACKS.values()].reduce((n, p) => n + p.GATE_PROBES.length, 0);
+  let contractCount = null;
+  try {
+    contractCount = (readFileSync(join(ROOT, 'tests', 'cli-contract.mjs'), 'utf8').match(/^ {4}id: '/gm) || []).length;
+  } catch { contractCount = null; }
   /**
    * The validation cohort's headline, read out of its own results file. Independent
    * review 2026-08-07: nothing re-measured it and no fact covered it, so
@@ -299,6 +303,17 @@ if (DOC_NUMBERS) {
     { label: 'purpose packs', live: packCount, words: HEADING_WORDS, re: /(\w+)\s+purpose packs/gi },
     { label: 'validation families', live: familyCount, words: HEADING_WORDS, re: /(\w+)\s+validation families/gi },
     { label: 'scaffold gate probes', live: probeCount, re: /(\d+)\s+frozen (?:gate )?probes/gi },
+    /**
+     * The CLI contract's own count, DERIVED. Independent review 2026-08-08 pointed
+     * out that the coverage figures published in docs/RESULTS.md sat outside this
+     * gate entirely, which is the same class of stale-count risk the gate exists
+     * for. The denominator (the verdict-line total) moves only when a tool gains
+     * or loses an outcome line; the numerator moves whenever anyone edits the
+     * contract file, so it is the half worth guarding mechanically.
+     */
+    ...(contractCount === null ? [] : [
+      { label: 'cli contracts', live: contractCount, re: /now asserts \*\*(\d+) across/gi },
+    ]),
     ...(validationCaught === null ? [] : [
       { label: 'validation cohort caught', live: validationCaught, re: /(\d+) of \d+ caught with the correct diagnosis/gi },
     ]),

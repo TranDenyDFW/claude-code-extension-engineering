@@ -1239,6 +1239,33 @@ export function proveFail(opts = {}) {
     return d.ok ? [] : d.errors.map((e) => e.code);
   };
 
+  /**
+   * THE BASELINE MUST BE CLEAN, and this proof shipped without that check.
+   *
+   * Reproduced 2026-08-08 by independent review: set `counts.toolsCurrent` from 43
+   * to 50 in the committed catalog and `--check-integrity` correctly exits 1 with
+   * INTEGRITY_MISMATCH and COUNTS_MISMATCH, while `--prove-fail` still exits 0
+   * printing "all 10 mutants rejected by their named gate". Every mutant is
+   * "rejected" by the pre-existing failure, so the strongest must-fail proof in
+   * this repository reported success at the exact moment the thing it guards was
+   * broken.
+   *
+   * Three other proofs here already carry this guard: extension-scaffold's
+   * injection harness (added after it printed its success banner against a red
+   * gate), coverage-report --prove-can-fail, and artifact-mutation. The commit
+   * that wired this command into CI called it the strongest proof in the repo and
+   * did not back-apply the guard that same commit's new helper implements. Fixed
+   * by refusing rather than reporting: an unprovable run is not a passing one.
+   */
+  const baseline = gate(JSON.parse(JSON.stringify(base)));
+  if (baseline.length) {
+    console.log(`CANNOT PROVE: the committed catalog already fails its own gate (${baseline.join(', ')}).`);
+    console.log('Every mutant below would be "rejected" by that pre-existing failure, which proves nothing.');
+    console.log('Fix the catalog first, then re-run this.');
+    rmSync(tmp, { recursive: true, force: true });
+    return 1;
+  }
+
   const mutants = [
     {
       label: 'drop the PowerShell tool',

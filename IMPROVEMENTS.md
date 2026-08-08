@@ -851,12 +851,20 @@ the same paired-arm measurement `bash-recognition-run.mjs` runs for file command
 the rule form rather than the file form.
 
 **44. Most gates still have no mechanical must-fail proof. PARTLY CLOSED 2026-08-08.**
-Closed for five of them: capability-catalog's three entry points, gh-corpus-harvest,
+Closed for five of them: capability-catalog's self-test, --prove-fail and --check, gh-corpus-harvest,
 tier3-preflight and scaffold-parity's self-test were wired into CI (they existed and no workflow
 step invoked them), and `tools/artifact-mutation.mjs` gave the validation record and the evidence
 ledger proofs that mutate the COMMITTED file and require a NAMED rejection. Wiring the second one
 immediately found that the ledger's drift check compared id sets only, so every claim's recorded
 file, line and text was unverified while the docstring promised otherwise.
+
+Independent review then found that capability-catalog's --prove-fail, the proof the same commit
+called the strongest in the repository, had NO CLEAN-BASELINE GUARD: with the committed catalog
+dirtied, --check-integrity exits 1 while --prove-fail still printed "all 10 mutants rejected" and
+exited 0. Three other proofs here already carried that guard and the commit that wired this one did
+not back-apply it. It now refuses rather than reporting, because an unprovable run is not a passing
+one. The same review found --check claimed as wired when it was not, and the published coverage
+figures sitting outside the numbers gate; both fixed.
 
 Deliberately NOT done, with the measured reasons, so this is a decision and not an omission. A
 generic source-mutation harness was designed and rejected: a full run measures 2 to 5 hours (one
