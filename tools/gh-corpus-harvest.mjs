@@ -280,8 +280,14 @@ function selfTest() {
       `boundary=${s.search_api_total_at_boundary} delta=${s.delta_vs_search}`);
   }
 
-  console.log(`\n${fail === 0 ? 'SELF-TEST PASS' : 'SELF-TEST FAIL'} ${pass} passed, ${fail} failed`);
-  return fail === 0 ? 0 : 1;
+  // ONE expression decides both the printed verdict and the exit code. They were
+  // two, so editing one and not the other would print PASS while exiting 1, or
+  // print FAIL while exiting 0. Same divergence shape as the separately
+  // incremented counter that survived three review rounds elsewhere in this repo,
+  // and found here by mutating this exact line while wiring the gate into CI.
+  const ok = fail === 0;
+  console.log(`\n${ok ? 'SELF-TEST PASS' : 'SELF-TEST FAIL'} ${pass} passed, ${fail} failed`);
+  return ok ? 0 : 1;
 }
 
 async function main() {

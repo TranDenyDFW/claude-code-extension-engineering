@@ -215,6 +215,24 @@ jobs:
         # miss and n/a for an uninstalled tool, plus fixture-generator drift.
         run: node tests/prove-bench/run-bench.mjs --self-test
 
+      - name: Gates that existed and never ran
+        # Four files shipped self-tests, drift checks and a full must-fail proof
+        # that no workflow step invoked: about 110 authored assertion rows plus
+        # capability-catalog --prove-fail, which is the STRONGEST must-fail proof
+        # in this repository (ten mutants of the committed catalog, each re-sealed
+        # so it cannot trip the outer hash check, each declaring the error code
+        # that must reject it, and a WRONG GATE verdict when a mutant is caught
+        # by the wrong rule). Found while root-causing six review rounds: this
+        # project enforces "a check that cannot fail is a defect" on what it
+        # generates and had four of its own strongest gates switched off.
+        # Measured cost of this whole step: about 1.5 seconds.
+        run: |
+          node tools/capability-catalog.mjs --self-test
+          node tools/capability-catalog.mjs --prove-fail
+          node tools/gh-corpus-harvest.mjs --self-test
+          node tools/tier3-preflight.mjs --self-test
+          node tools/scaffold-parity.mjs --self-test
+
   # ---------------------------------------------------------------- tier3 ----
   tier3:
     name: tier 3 instrument and artifacts
