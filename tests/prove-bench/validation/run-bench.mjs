@@ -23,9 +23,11 @@
  * it. The control is checked for exactly that here too.
  *
  * usage:
- *   node tests/prove-bench/validation/run-bench.mjs            run and write results.json
- *   node tests/prove-bench/validation/run-bench.mjs --out <f>  write elsewhere
- *   node tests/prove-bench/validation/run-bench.mjs --json     print, write nothing
+ *   node tests/prove-bench/validation/run-bench.mjs                  run and REPORT, writing nothing
+ *   node tests/prove-bench/validation/run-bench.mjs --verify-record  re-run and require the record to reproduce
+ *   node tests/prove-bench/validation/run-bench.mjs --record         deliberately re-record results.json
+ *   node tests/prove-bench/validation/run-bench.mjs --out <f>        write elsewhere
+ *   node tests/prove-bench/validation/run-bench.mjs --json           print JSON, write nothing
  *   node tests/prove-bench/validation/run-bench.mjs --self-test
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdtempSync, rmSync, mkdirSync, chmodSync } from 'node:fs';
@@ -260,6 +262,37 @@ function selfTest() {
     victim.prove.score = 'MISS';
     const seen = recordDiff(prior, degraded);
     ok('MUST SEE: a CATCH turning into a MISS', seen.some((d) => new RegExp(`^${victim.fixture}: prove score`).test(d)), seen.join(' | '));
+    /**
+     * The score is not the only thing that can move. Independent review 2026-08-08
+     * fabricated a fixture's whole prove record while leaving `score` intact and
+     * this function said nothing, while its own docstring claimed it failed on ANY
+     * change to the prove column.
+     */
+    const idsMoved = JSON.parse(JSON.stringify(prior.rows));
+    idsMoved.find((r) => r.fixture === victim.fixture).prove.failedIds = ['not-a-real-case'];
+    ok('MUST SEE: a fabricated failing-id list behind an unchanged score',
+      recordDiff(prior, idsMoved).some((d) => /failing case ids were/.test(d)), recordDiff(prior, idsMoved).join(' | '));
+    const exitMoved = JSON.parse(JSON.stringify(prior.rows));
+    exitMoved.find((r) => r.fixture === victim.fixture).prove.exit = 99;
+    ok('MUST SEE: a changed exit code behind an unchanged score',
+      recordDiff(prior, exitMoved).some((d) => /prove exit was/.test(d)));
+    const declMoved = JSON.parse(JSON.stringify(prior.rows));
+    declMoved.find((r) => r.fixture === victim.fixture).expectedFailures = [];
+    ok('MUST SEE: the DECLARED expectation being quietly rewritten',
+      recordDiff(prior, declMoved).some((d) => /DECLARED expectedFailures changed/.test(d)));
+    const added = [...JSON.parse(JSON.stringify(prior.rows)), { fixture: 'smuggled-in', control: false, expectedFailures: [], prove: { score: 'CATCH', exit: 1, failedIds: [] }, testHookSh: { score: 'MISS', exit: 0 } }];
+    ok('MUST SEE: a fixture appearing that the record never had',
+      recordDiff(prior, added).some((d) => /is in this run and absent from the record/.test(d)));
+    /**
+     * The competitor column must never fall SILENT. Every combination of measured
+     * and not-measured gets a note, because the case it used to skip in silence is
+     * precisely the one where the comparison changes meaning.
+     */
+    const noCompetitor = JSON.parse(JSON.stringify(prior.rows)).map((r) => ({ ...r, testHookSh: { ...r.testHookSh, exit: null, score: 'n/a' } }));
+    ok('MUST NOTE: this machine cannot re-verify a competitor column the record has',
+      recordDiff(prior, noCompetitor).some((d) => /NOT re-verified/.test(d)));
+    ok('MUST NOTE: a record made without the competitor while this machine has it',
+      recordDiff({ ...prior, testHookSh: { ...(prior.testHookSh || {}), na: 3 } }, prior.rows).some((d) => /nothing to compare against/.test(d)));
     ok('...and the caught tally dropping with it', seen.some((d) => /^prove\.caught:/.test(d)));
     const missing = degraded.filter((r) => r.fixture !== victim.fixture);
     ok('MUST SEE: a fixture vanishing from the run', recordDiff(prior, missing).some((d) => /is in the record and absent/.test(d)));
@@ -278,10 +311,11 @@ function selfTest() {
  * degraded numbers and still exited 0. `wouldDropRecordedTools` guards against
  * losing a tool COLUMN, not against a score moving. Independent review 2026-08-07.
  *
- * This compares a fresh run against the committed record and fails on ANY change to
- * the prove column. The competitor column is compared only when it was measured on
- * this machine, because a machine without test-hook.sh legitimately cannot
- * reproduce it and must not be able to erase it either.
+ * This compares a fresh run against the committed record and fails on any change to
+ * a fixture's prove score, exit code, failing-id list or DECLARED expectedFailures,
+ * and on any fixture appearing or disappearing. The competitor column is compared
+ * only when both the record and this run measured it, and every other combination
+ * emits a NOTE rather than falling silent.
  */
 export function recordDiff(prior, fresh) {
   const out = [];
@@ -290,20 +324,49 @@ export function recordDiff(prior, fresh) {
   for (const k of ['caught', 'of', 'falsePos', 'wrongDiagnosis', 'knownMiss']) {
     if (rec[k] !== undefined && rec[k] !== pt[k]) out.push(`prove.${k}: record says ${rec[k]}, this run measured ${pt[k]}`);
   }
+  /**
+   * The competitor column is compared only when BOTH sides measured it, and every
+   * other combination says so out loud. The first version fell silent whenever the
+   * record carried a nonzero `na` while this machine did not, which is exactly the
+   * case where the comparison changes meaning. Independent review 2026-08-08.
+   */
   const tt = tally(fresh, 'testHookSh');
   const trec = prior.testHookSh || {};
-  if (tt.na === 0 && trec.na === 0) {
+  const recNa = trec.na || 0;
+  if (tt.na === 0 && recNa === 0) {
     for (const k of ['caught', 'of', 'falsePos']) {
       if (trec[k] !== undefined && trec[k] !== tt[k]) out.push(`testHookSh.${k}: record says ${trec[k]}, this run measured ${tt[k]}`);
     }
-  } else if (tt.na > 0) {
-    out.push(`NOTE test-hook.sh is not installed here (${tt.na} row(s) n/a), so its column was not re-measured`);
+  } else if (tt.na > 0 && recNa === 0) {
+    out.push(`NOTE test-hook.sh is not installed here (${tt.na} row(s) n/a) but the record measured it, so its column was NOT re-verified`);
+  } else if (tt.na === 0 && recNa > 0) {
+    out.push(`NOTE the record was made without test-hook.sh (${recNa} row(s) n/a) and this machine has it, so there is nothing to compare against; re-record to capture the competitor column`);
+  } else {
+    out.push('NOTE neither the record nor this run measured test-hook.sh, so that column is unverified on both sides');
   }
+
+  /**
+   * Per fixture, compare the WHOLE prove record, not just the score. The first
+   * version compared `score` alone, so a fixture's exit code and failing-id list
+   * could be fabricated wholesale while the score was left intact, and this
+   * function's own docstring claimed it failed on ANY change to the prove column.
+   * It now does.
+   */
   const byName = new Map(fresh.map((r) => [r.fixture, r]));
   for (const r of (prior.rows || [])) {
     const now = byName.get(r.fixture);
     if (!now) { out.push(`fixture "${r.fixture}" is in the record and absent from this run`); continue; }
     if (now.prove.score !== r.prove.score) out.push(`${r.fixture}: prove score was ${r.prove.score}, now ${now.prove.score}`);
+    if (now.prove.exit !== r.prove.exit) out.push(`${r.fixture}: prove exit was ${r.prove.exit}, now ${now.prove.exit}`);
+    const was = [...(r.prove.failedIds || [])].sort().join(',');
+    const is = [...(now.prove.failedIds || [])].sort().join(',');
+    if (was !== is) out.push(`${r.fixture}: failing case ids were [${was}], now [${is}]`);
+    const wantWas = [...(r.expectedFailures || [])].sort().join(',');
+    const wantIs = [...(now.expectedFailures || [])].sort().join(',');
+    if (wantWas !== wantIs) out.push(`${r.fixture}: DECLARED expectedFailures changed from [${wantWas}] to [${wantIs}]`);
+  }
+  for (const r of fresh) {
+    if (!(prior.rows || []).some((p) => p.fixture === r.fixture)) out.push(`fixture "${r.fixture}" is in this run and absent from the record`);
   }
   return out;
 }
@@ -329,7 +392,27 @@ if (IS_MAIN) {
   const code = report(rows);
   if (a.includes('--json')) { console.log(JSON.stringify({ rows, prove: tally(rows, 'prove'), testHookSh: tally(rows, 'testHookSh') }, null, 2)); process.exit(code); }
 
+  /**
+   * WRITING THE RECORD IS OPT-IN, and it did not used to be.
+   *
+   * A plain run overwrote results.json, and `report()` returns non-zero only for a
+   * dirty control or a wrong diagnosis, so a total prover collapse reported
+   * "0 of 10", exited 0, and replaced the published record with the degraded
+   * numbers. The write-up's own "Re-running it" section named that command.
+   * Independent review 2026-08-08 called the previous fix half closed for exactly
+   * that reason: --verify-record existed, and nothing made it the default path.
+   *
+   * So a bare run now REPORTS and writes nothing. Re-recording is `--record`, which
+   * is a deliberate act, and it still refuses when the run would drop a tool column.
+   */
   const oi = a.indexOf('--out');
+  const wantsRecord = a.includes('--record');
+  if (oi < 0 && !wantsRecord) {
+    console.log('');
+    console.log('Reported only; results.json was NOT written. Re-record deliberately with --record,');
+    console.log('or check the committed record still reproduces with --verify-record.');
+    process.exit(code);
+  }
   const dest = oi >= 0 ? resolve(a[oi + 1]) : RESULTS;
   // A run against overridden fixtures or an overridden prover is an EXPERIMENT, not
   // a record. Letting one land in results.json would publish a number produced by a

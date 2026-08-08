@@ -144,8 +144,14 @@ Both overrides refuse to write `results.json`: an experiment must not land in th
 
 ```bash
 node tests/prove-bench/validation/make-fixtures.mjs --check
-node tests/prove-bench/validation/run-bench.mjs
+node tests/prove-bench/validation/run-bench.mjs --verify-record
 ```
+
+A bare `run-bench.mjs` reports and writes NOTHING. Re-recording is `--record`, deliberately, and
+that is a change of default: it used to overwrite `results.json` on every run, and the runner exits
+zero unless the control is dirty, so a total prover collapse would have reported "0 of 10", exited
+0, and replaced the published numbers with the degraded ones. This page named that command until
+independent review pointed it out.
 
 `--check` asserts the committed fixtures still match the generator and that all twelve still share
 one `conformance.json`. The runner refuses to overwrite `results.json` if the re-run would drop a

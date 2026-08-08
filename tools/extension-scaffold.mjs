@@ -73,7 +73,7 @@ import * as protectPath from './packs/protect-path.mjs';
 import * as vba from './packs/validate-before-action.mjs';
 import { PACKS, listPacks, packById, route, PackRefusal } from './packs/index.mjs';
 import { loadPolicy } from './packs/policy-schema.mjs';
-import { STRICT_NOT_DONE } from './extension-prove.mjs';
+import { proveBundle, report, failureKind } from './extension-prove.mjs';
 
 export const {
   GUARANTEE, FAIL_CLOSED, PROTECT, ABSOLUTE,
@@ -101,11 +101,6 @@ export function emit(dir, name, requirement, a) {
 }
 
 // ------------------------------------------------------------------- verify
-function runTool(script, args) {
-  const r = spawnSync(process.execPath, [join(HERE, script), ...args], { encoding: 'utf8', windowsHide: true, timeout: 180_000 });
-  return { exit: r.status, out: `${r.stdout || ''}${r.stderr || ''}` };
-}
-
 /**
  * Generate, write and PROVE, for whichever pack the router selected. The
  * per-pack analysis lines are printed from what the pack reports rather than from
@@ -157,27 +152,35 @@ function scaffold(pack, input, outDir, name) {
   console.log(`  ${Object.keys(files).sort().join(', ')}  (${conf.cases.length} cases)`);
   console.log('');
 
-  const prove = runTool('extension-prove.mjs', ['--bundle', outDir]);
-  console.log(prove.out.trim());
-  console.log('');
   /**
    * TWO DIFFERENT NON-ZERO RUNS, and conflating them printed a falsehood.
    *
    * `reportCode` returns 1 both when a case FAILED and when every case passed but
-   * a strict spec's residual survived. This read only the exit code, so an
+   * a strict spec's residual survived. This once read only the exit code, so an
    * absolute requirement that satisfied its spec exactly was summarised as "the
-   * generated bundle does not satisfy its own conformance spec", directly
-   * contradicting the paragraph the prover had just printed. Independent review
-   * 2026-08-07. The prover now exports the exact strict line, so the two cannot
-   * drift apart again.
+   * generated bundle does not satisfy its own conformance spec".
+   *
+   * The first fix substring-matched the prover's stdout, which independent review
+   * showed was ALSO wrong: that sentence printed whenever a residual survived,
+   * failing cases or not. The second fix stopped the prover printing it in the
+   * wrong case, and left the caller still parsing text for a decision the prover
+   * already computes.
+   *
+   * So the subprocess is gone. `failureKind` is called on the actual result
+   * object, the same function the prover's own reporter uses, and there is no
+   * longer a string for the two to disagree about.
    */
-  if (prove.exit !== 0) {
-    if (prove.out.includes(STRICT_NOT_DONE)) {
-      console.log('NOT DONE: the bundle satisfies its own conformance spec, and the spec is STRICT because the');
-      console.log('requirement is absolute. A residual vector is confirmed open, so the claim is refused rather');
-      console.log('than the work. The bundle is written and is the strongest configuration available here.');
-      return 1;
-    }
+  const res = proveBundle(outDir);
+  report(res, false);
+  console.log('');
+  const kind = failureKind(res);
+  if (kind === 'strict') {
+    console.log('NOT DONE: the bundle satisfies its own conformance spec, and the spec is STRICT because the');
+    console.log('requirement is absolute. A residual vector is confirmed open, so the claim is refused rather');
+    console.log('than the work. The bundle is written and is the strongest configuration available here.');
+    return 1;
+  }
+  if (kind) {
     console.log('NOT DONE: the generated bundle does not satisfy its own conformance spec.');
     return 1;
   }
@@ -286,13 +289,25 @@ async function runGate({ quiet = false } = {}) {
          * `fail-posture` whose PASS did not depend on the generated extension at
          * all, counted in the headline and in this gate's own "all green".
          *
-         * The `checked === 0` guard is NOT about the probe, which the frozen kind
-         * map already pins. It guards the DETECTOR: if `proveFailSurvivors` ever
-         * returned nothing, the survivors check below would pass vacuously on
-         * every probe forever.
+         * `claimsEnforcement` READS THE FROZEN MAP, `p.kinds`, NEVER the generated
+         * `kinds`, and the two operands being independent is the entire point.
+         *
+         * I broke this while tidying the comment: switching that one word to
+         * `kinds` made both sides of `claimsEnforcement && hollow.checked === 0`
+         * derive from the same generated case list, so the guard could no longer
+         * fire. Independent review 2026-08-08 proved it with a counterfactual:
+         * retagging every enforce case in the pack yields ZERO "detector ran
+         * nothing" complaints on the self-referential version and SIX on this one.
+         * It is the self-reference the previous round had just named, reintroduced
+         * one line over.
+         *
+         * The guard is not about the probe, which the kind-map comparison already
+         * pins. It guards the DETECTOR: if `proveFailSurvivors` ever returned
+         * nothing, the survivors check below would pass vacuously on every probe
+         * forever, and only an independent reference can notice that.
          */
         const hollow = proveFailSurvivors([tmp]);
-        const claimsEnforcement = /\b(enforce|wiring|fail-posture)\b/.test(kinds);
+        const claimsEnforcement = /\b(enforce|wiring|fail-posture)\b/.test(p.kinds);
         if (claimsEnforcement && hollow.checked === 0) problems.push('cases claim enforcement but the detector ran nothing, so the survivor check below asserts nothing');
         if (!claimsEnforcement && hollow.checked !== 0) problems.push(`an advisory spec produced ${hollow.checked} enforcing case-run(s); asserting enforcement from prose is exactly defect D`);
         if (hollow.survivors.length) problems.push(`${hollow.survivors.length} case(s) still PASS with nothing installed: ${hollow.survivors.map((s) => s.split(' :: ')[1]).join(' | ')}`);

@@ -837,7 +837,7 @@ export function reportCode(res) {
   return failureKind(res) ? 1 : 0;
 }
 
-function report(res, json) {
+export function report(res, json) {
   if (json) { console.log(JSON.stringify(res, null, 2)); return reportCode(res); }
   console.log(`extension-prove  ${res.extension || '(unnamed)'}  mechanism=${res.mechanism || '?'}`);
   console.log('');
@@ -1080,6 +1080,45 @@ function selfTest() {
   // run is reported. An audit found that promise asserted by nothing: replacing
   // `const after = hashTree(dir)` with `const after = before` forces
   // mutatedSource:false forever and every gate stays green.
+  /**
+   * WHICH OF THE TWO EXIT-1 REASONS APPLIES, and what gets PRINTED for each.
+   *
+   * Independent review 2026-08-08: the fix that stopped the reporter claiming
+   * "Every case above passed" while cases had failed was covered by NOTHING. A
+   * one-line revert left all eleven gates at exit 0 and restored the false line.
+   * These rows capture the printed text, because the text is the artifact both a
+   * reader and a caller act on.
+   */
+  console.log('the two exit-1 reasons, and the sentence each one prints:');
+  {
+    const C = (ok) => ({ id: `c-${ok}`, kind: 'enforce', ok, why: ok ? [] : ['x'], verdict: { decision: 'allow', fired: 1, notes: [] } });
+    const R = (cases, strictResidual) => ({ extension: 'x', mechanism: 'hook', cases, strict: true, strictResidual, mutatedSource: false });
+    const clean = { extension: 'x', mechanism: 'hook', cases: [C(true)], strict: false, strictResidual: [], mutatedSource: false };
+    check('a clean run has no failure kind', failureKind(clean) === null);
+    check('a failing case is "cases"', failureKind(R([C(false)], [])) === 'cases');
+    check('a surviving residual with everything green is "strict"', failureKind(R([C(true)], [{ id: 'r', vector: 'v' }])) === 'strict');
+    check('a failing case OUTRANKS a surviving residual', failureKind(R([C(false)], [{ id: 'r', vector: 'v' }])) === 'cases');
+    check('a mutated source tree is "cases" whatever else happened',
+      failureKind({ ...R([C(true)], [{ id: 'r', vector: 'v' }]), mutatedSource: true }) === 'cases');
+
+    const capture = (res) => {
+      const lines = [];
+      const real = console.log;
+      console.log = (...a) => lines.push(a.join(' '));
+      try { report(res, false); } finally { console.log = real; }
+      return lines.join('\n');
+    };
+    const strictOnly = capture(R([C(true)], [{ id: 'r', vector: 'the vector' }]));
+    check('a strict-only run prints the NOT DONE line', strictOnly.includes(STRICT_NOT_DONE));
+    check('...and says every case passed, because they did', strictOnly.includes('Every case above passed'));
+    const alsoFailed = capture(R([C(false), C(true)], [{ id: 'r', vector: 'the vector' }]));
+    check('MUST NOT: claim every case passed when one did not', !alsoFailed.includes('Every case above passed'),
+      'the reporter told the reader a broken bundle was fine');
+    check('...and MUST NOT print the strict NOT DONE line either', !alsoFailed.includes(STRICT_NOT_DONE));
+    check('...while still listing the residual vectors for completeness', alsoFailed.includes('the vector'));
+    check('...and saying outright that the absolute claim is not the reason', /not the reason/.test(alsoFailed));
+  }
+
   console.log('read-only detection (the docstring promises this):');
   {
     const tmp = mkdtempSync(join(tmpdir(), 'xprove-ro-'));
