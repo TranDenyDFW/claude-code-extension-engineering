@@ -1,0 +1,35 @@
+{
+  "policySchema": 1,
+  "id": "block-recursive-delete",
+  "tool": "Bash",
+  "matcher": "Bash",
+  "precedence": "first-match-wins-in-declared-order",
+  "defaultDecision": "allow",
+  "rules": [
+    {
+      "id": "no-rm-rf",
+      "family": "dangerous-operation",
+      "decision": "deny",
+      "reason": "recursive force delete is blocked by policy",
+      "when": {
+        "commandMatches": {
+          "exec": "rm",
+          "anyFlag": [
+            "-rf"
+          ]
+        }
+      },
+      "examples": {
+        "match": [
+          "rm -rf build",
+          "cd /tmp && rm -r -f cache"
+        ],
+        "miss": [
+          "rm build/one.o",
+          "ls -la"
+        ]
+      }
+    }
+  ],
+  "absolute": true
+}

@@ -1,0 +1,54 @@
+{
+  "policySchema": 1,
+  "id": "tests-before-push",
+  "tool": "Bash",
+  "matcher": "Bash",
+  "precedence": "first-match-wins-in-declared-order",
+  "defaultDecision": "allow",
+  "rules": [
+    {
+      "id": "tests-must-pass",
+      "family": "required-check",
+      "decision": "deny",
+      "reason": "the required checks did not pass",
+      "when": {
+        "commandMatches": {
+          "exec": "git",
+          "argsPattern": "^push.*$"
+        },
+        "checksPass": [
+          {
+            "id": "unit",
+            "command": [
+              "node",
+              "-e",
+              "process.exit(process.env.TESTS_GREEN === \"1\" ? 0 : 1)"
+            ],
+            "timeoutMs": 10000
+          }
+        ]
+      },
+      "examples": {
+        "match": [
+          "git push origin main"
+        ],
+        "miss": [
+          "git status",
+          "git commit -m x"
+        ]
+      },
+      "gateSetup": {
+        "pass": {
+          "env": {
+            "TESTS_GREEN": "1"
+          }
+        },
+        "fail": {
+          "env": {
+            "TESTS_GREEN": "0"
+          }
+        }
+      }
+    }
+  ]
+}

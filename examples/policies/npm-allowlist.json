@@ -1,0 +1,32 @@
+{
+  "policySchema": 1,
+  "id": "npm-allowlist",
+  "tool": "Bash",
+  "matcher": "Bash",
+  "precedence": "first-match-wins-in-declared-order",
+  "defaultDecision": "deny",
+  "rules": [
+    {
+      "id": "approved-npm",
+      "family": "command-validation",
+      "decision": "allow",
+      "reason": "only npm run test and npm run build are approved",
+      "when": {
+        "commandMatches": {
+          "exec": "npm",
+          "argsPattern": "^run (test|build)$"
+        }
+      },
+      "examples": {
+        "match": [
+          "npm run test",
+          "npm run build"
+        ],
+        "miss": [
+          "npm run deploy",
+          "npm publish"
+        ]
+      }
+    }
+  ]
+}

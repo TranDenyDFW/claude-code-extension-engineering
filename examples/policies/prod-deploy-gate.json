@@ -1,0 +1,86 @@
+{
+  "policySchema": 1,
+  "id": "prod-deploy-gate",
+  "tool": "Bash",
+  "matcher": "Bash",
+  "precedence": "first-match-wins-in-declared-order",
+  "defaultDecision": "allow",
+  "rules": [
+    {
+      "id": "no-force-push",
+      "family": "dangerous-operation",
+      "decision": "deny",
+      "reason": "force push to a shared branch is blocked",
+      "when": {
+        "commandMatches": {
+          "exec": "git",
+          "anyFlag": [
+            "--force"
+          ]
+        }
+      },
+      "examples": {
+        "match": [
+          "git push --force origin main"
+        ],
+        "miss": [
+          "git push origin main"
+        ]
+      }
+    },
+    {
+      "id": "prod-gates",
+      "family": "deployment-gate",
+      "decision": "deny",
+      "reason": "the pre-deployment gates are not green",
+      "when": {
+        "commandMatches": {
+          "exec": "deploy",
+          "argsPattern": "^prod$"
+        },
+        "gates": [
+          {
+            "id": "tests",
+            "command": [
+              "node",
+              "-e",
+              "process.exit(process.env.GATE_TESTS === \"1\" ? 0 : 1)"
+            ],
+            "timeoutMs": 10000
+          },
+          {
+            "id": "signoff",
+            "command": [
+              "node",
+              "-e",
+              "process.exit(process.env.GATE_SIGNOFF === \"1\" ? 0 : 1)"
+            ],
+            "timeoutMs": 10000
+          }
+        ]
+      },
+      "examples": {
+        "match": [
+          "deploy prod"
+        ],
+        "miss": [
+          "deploy staging"
+        ]
+      },
+      "gateSetup": {
+        "pass": {
+          "env": {
+            "GATE_TESTS": "1",
+            "GATE_SIGNOFF": "1"
+          }
+        },
+        "fail": {
+          "env": {
+            "GATE_TESTS": "1",
+            "GATE_SIGNOFF": "0"
+          }
+        }
+      }
+    }
+  ]
+}
