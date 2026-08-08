@@ -1,0 +1,22 @@
+{
+  "_what": "A PROPOSAL, not a config. The .proposal suffix means Claude Code never loads this file.",
+  "_why": "A permissions deny rule does not reach an arbitrary subprocess that opens the file itself. OS-level sandboxing is the layer that does. It does not run on native Windows, so this could not be tested where the bundle was generated.",
+  "_before_adopting": [
+    "Confirm on a platform where the sandbox runs. It is absent on native Windows.",
+    "failIfUnavailable makes startup FAIL where the sandbox is unavailable. In managed-policy scope that is deliberate and enforceable; in project scope, whether it is honoured is undocumented, and if it is, every Windows developer on the team is blocked from starting.",
+    "Deny rules are still respected inside the sandbox, so this ADDS a layer rather than replacing the one already in settings.json.",
+    "allowUnsandboxedCommands:false is Strict sandbox mode and is REQUIRED here, not optional. The escape hatch is ON by default: when a command fails under the sandbox, Claude may retry it with dangerouslyDisableSandbox, and that retry goes through the normal permission flow rather than being refused. A requirement that says \"cannot be bypassed\" is not satisfied while it is available. The cost is that a command which genuinely cannot run sandboxed must then be listed in excludedCommands, which runs it OUTSIDE the sandbox, so that list is the new boundary and belongs under the same review as this file."
+  ],
+  "_scope": "Intended for managed-settings (administrator policy), not for this bundle. Copy the sandbox object into the managed settings file if and only if the checks above pass.",
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": false,
+    "network": {
+      "allowUnixSockets": [],
+      "allowLocalBinding": false
+    }
+  },
+  "_residual_it_would_close": "writes to config/prod.secrets.yaml by a subprocess the deny rule cannot see"
+}

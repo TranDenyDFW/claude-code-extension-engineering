@@ -230,9 +230,64 @@ function selfTest() {
   // The generator must not have drifted, or the scores describe fixtures nobody committed.
   const gen = spawnSync(process.execPath, [join(HERE, 'make-fixtures.mjs'), '--check'], { encoding: 'utf8', windowsHide: true });
   check('committed fixtures match the generator', gen.status === 0);
+
+  /**
+   * The overwrite guard, fed known-bad pairs. Added 2026-08-07: this harness
+   * wrote results.json unconditionally, so a run on a machine without
+   * test-hook.sh silently deleted the competitor column the published comparison
+   * rests on. lint-bench grew the same guard two days earlier for the same reason.
+   */
+  const row = (prove, hook) => ({ fixture: 'f', tools: undefined, prove: { exit: prove }, testHookSh: { exit: hook } });
+  check('MUST FAIL: a run where the competitor is absent would DROP it',
+    wouldDropRecordedTools([row(1, 0)], [row(1, null)]).join(',') === 'testHookSh');
+  check('...and a run that keeps both measured drops nothing',
+    wouldDropRecordedTools([row(1, 0)], [row(1, 0)]).length === 0);
+  check('...and losing OUR OWN tool is reported too, not just the competitor',
+    wouldDropRecordedTools([row(1, 0)], [row(null, 0)]).join(',') === 'prove');
+  check('...and gaining a tool is never reported as a loss',
+    wouldDropRecordedTools([row(1, null)], [row(1, 0)]).length === 0);
+  check('exit 0 is MEASURED data, not absence, so a clean control still counts',
+    wouldDropRecordedTools([row(0, 0)], [row(0, null)]).join(',') === 'testHookSh');
+  check('a missing prior record cannot manufacture a loss',
+    wouldDropRecordedTools(null, [row(1, 1)]).length === 0);
+  check('the guard reads the REAL committed row shape, not an invented one',
+    wouldDropRecordedTools(JSON.parse(readFileSync(join(HERE, 'results.json'), 'utf8')), []).length > 0);
   if (gen.status !== 0) console.log('       ' + String(gen.stdout || gen.stderr).trim().split('\n')[0]);
   console.log(`\n${f === 0 ? 'SELF-TEST PASS' : `SELF-TEST FAIL (${f})`}`);
   return f === 0 ? 0 : 1;
+}
+
+/**
+ * Would writing these rows DROP a competitor column the committed record has?
+ *
+ * results.json is not an output, it is the record of a run against a competitor
+ * installed on the machine that produced it and possibly nowhere else.
+ * `test-hook.sh` resolves under `~/.claude/plugins/marketplaces/...`; on a machine
+ * without it every row scores `n/a`, and writing that over the record silently
+ * deletes a measured column while reporting success.
+ *
+ * lint-bench grew exactly this guard on 2026-08-05, after a re-run destroyed the
+ * agnix tool list the capability catalog anchors its crosscheck to. prove-bench
+ * never got it, and was found without it on 2026-08-07 while reading the harness
+ * to add a second cohort: same class, same file shape, one directory across.
+ *
+ * Exported and pure so the self-test can feed it a known-bad pair.
+ */
+export const TOOL_KEYS = ['prove', 'testHookSh'];
+
+export function wouldDropRecordedTools(prior, fresh) {
+  // A tool counts as MEASURED on a row when it actually ran: `exit === null` is
+  // how the harness records "not installed" and must never look like data.
+  //
+  // The first version of this read `r.tools` as a map, which this file has never
+  // produced: rows carry the tool keys at top level. That version found nothing
+  // on any input and was therefore a guard that could not fail, caught by reading
+  // the committed record instead of trusting the shape.
+  const measured = (rows) => new Set((rows || []).flatMap((r) => TOOL_KEYS
+    .filter((k) => r && r[k] && r[k].exit !== null && r[k].exit !== undefined)));
+  const had = measured(prior);
+  const has = measured(fresh);
+  return [...had].filter((t) => !has.has(t)).sort();
 }
 
 function main() {
@@ -241,8 +296,28 @@ function main() {
   if (!existsSync(FIXTURES)) { console.error('no fixtures; run make-fixtures.mjs first'); process.exit(1); }
   const rows = bench();
   const code = report(rows, argv.includes('--json'));
-  mkdirSync(join(HERE), { recursive: true });
-  writeFileSync(join(HERE, 'results.json'), JSON.stringify(rows, null, 2) + '\n');
+
+  const oi = argv.indexOf('--out');
+  const dest = oi >= 0 ? resolve(argv[oi + 1]) : join(HERE, 'results.json');
+  if (oi < 0 && existsSync(dest)) {
+    let prior = null;
+    try { prior = JSON.parse(readFileSync(dest, 'utf8')); } catch { prior = null; }
+    const lost = wouldDropRecordedTools(prior, rows);
+    if (lost.length) {
+      console.error('');
+      console.error(`REFUSING to overwrite ${dest}: this run would DROP recorded data for ${lost.join(', ')}.`);
+      console.error('Those tools are not installed here, so their columns would vanish from the record');
+      console.error('rather than be re-measured, and the published comparison in');
+      console.error('tests/results-prove-bench.md rests on them.');
+      console.error('');
+      console.error('Re-run where they are installed, or send this run elsewhere:');
+      console.error('  node tests/prove-bench/run-bench.mjs --out tests/prove-bench/results-<name>.json');
+      process.exit(1);
+    }
+  }
+  mkdirSync(dirname(dest), { recursive: true });
+  writeFileSync(dest, JSON.stringify(rows, null, 2) + '\n');
+  console.log(`\nwrote ${dest}`);
   process.exit(code);
 }
 

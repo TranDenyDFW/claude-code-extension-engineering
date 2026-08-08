@@ -73,6 +73,14 @@ export const CITE = {
   'near-miss': 'hooks.md failure modes: "Overly broad matcher, so it fires everywhere and gets disabled out of annoyance."',
   wiring: 'hooks.md: "Matcher: exact string, list (A|B), or regex (unanchored)" and "Tool events match tool_name."',
   'fail-posture': 'hooks.md: "jq is absent on many Windows installs, so the handler exits non-zero, fails open, and silently blocks nothing while looking installed."',
+  /**
+   * `residual` and `tamper` had NO entry, so every one of those cases reported
+   * `citation: undefined`. The citation floor exists because an uncited complaint
+   * is an opinion, and these two kinds carry the strongest claims in a spec: what
+   * is NOT covered, and what survives tampering.
+   */
+  residual: 'permissions.md: Read and Edit deny rules "don\'t apply to arbitrary subprocesses that read or write files indirectly". A residual case asserts a named vector is NOT covered, so it goes red in both directions: if the product closes the gap, or if the bundle widens to cover it.',
+  tamper: 'permissions.md: "Rules are evaluated in order: deny, then ask, then allow. The first match in that order determines the outcome, and rule specificity doesn\'t change the order." A tamper case asserts the decision survives a hostile edit to the bundle.',
 };
 
 /**
@@ -385,7 +393,23 @@ export const UNDETERMINED = 'undetermined';
 
 function matchExpect(expect, verdict) {
   const fails = [];
-  for (const [k, want] of Object.entries(expect || {})) {
+  /**
+   * A CASE WITH NO EXPECTATION IS NOT A PASSING CASE.
+   *
+   * `Object.entries(undefined || {})` is empty, so an `expect`-less case
+   * produced no failures and reported ok. A conformance.json of ten such cases
+   * printed "10 case(s): 10 passed, 0 failed" while asserting nothing whatever.
+   * Reproduced 2026-08-07 before this fix: two cases, no expect, exit 0.
+   *
+   * That is the defect class this whole tool exists to name, sitting in the
+   * function that decides whether anything was proved. An absent expectation is
+   * now a FAILURE, because a spec that forgot its assertion is a defect in the
+   * spec and silence is the worst possible way to report it.
+   */
+  if (!expect || typeof expect !== 'object' || Array.isArray(expect) || Object.keys(expect).length === 0) {
+    return ['case declares no `expect`, so it asserts nothing; an assertion-free case is a defect in the spec, not a pass'];
+  }
+  for (const [k, want] of Object.entries(expect)) {
     if (k === 'decision') {
       const got = verdict.decision;
       if (got === UNDETERMINED) {
@@ -418,6 +442,23 @@ function matchExpect(expect, verdict) {
  */
 export function applyMutation(dir, settings, mutation) {
   if (!mutation || mutation === 'none') return;
+  /**
+   * AN UNRECOGNISED MUTATION IS A TYPO, NOT A NO-OP.
+   *
+   * `MUTATIONS` was exported and never consulted, so `mutate: 'delete-handlers'`
+   * fell through every branch and mutated nothing. The fail-posture case then ran
+   * against an INTACT bundle, the handler denied as normal, and the case passed:
+   * the single strongest assertion in a spec, reporting success because its
+   * plural was wrong. Reproduced 2026-08-07 before this fix, with the correct
+   * spelling failing (exit 1) and the typo passing (exit 0) on the same bundle.
+   *
+   * Throwing is deliberate. Returning a soft failure would let a spec keep
+   * running with an unknown intent; the caller cannot know what was meant.
+   */
+  if (!MUTATIONS.has(mutation)) {
+    throw new Error(`unknown mutation "${mutation}"; expected one of ${[...MUTATIONS].join(', ')}. `
+      + 'An unrecognised mutation used to silently do nothing, which made the case pass against an unmutated bundle.');
+  }
 
   /**
    * add-allow-rule: the tamper mutation for a bundle with no handler to break.
@@ -518,7 +559,14 @@ export function proveBundle(bundleDir, { onlyKinds = null } = {}) {
     try {
       cpSync(bundleDir, tmp, { recursive: true });
       const settings = JSON.parse(readFileSync(join(tmp, 'settings.json'), 'utf8'));
-      applyMutation(tmp, settings, c.mutate);
+      // A bad mutation fails THIS CASE with a named reason rather than aborting
+      // the run, so a spec with one typo still reports on its other cases.
+      try {
+        applyMutation(tmp, settings, c.mutate);
+      } catch (e) {
+        out.push({ id: c.id, kind: c.kind, ok: false, why: [String(e.message)], verdict: { decision: null, fired: 0, notes: [] }, citation: CITE[c.kind] });
+        continue;
+      }
       const event = c.event || 'PreToolUse';
       const toolName = (c.input && c.input.tool_name) || '';
       const handlers = resolveHandlers(settings, event, toolName, (c.input || {}).tool_input);
@@ -814,6 +862,43 @@ function selfTest() {
         thrown2 instanceof UnsupportedMechanism && /settings\.json/.test(thrown2.message));
     } finally { rmSync(tmp, { recursive: true, force: true }); }
   }
+
+  /**
+   * REGRESSION ROWS for two defects reproduced on 2026-08-07, both of the
+   * "assertion does not depend on the code under test" class, both found while
+   * reading the prover to build a second generator on top of it.
+   */
+  console.log('an assertion-free case is a DEFECT, not a pass:');
+  const V = { decision: 'deny', fired: 1 };
+  check('a case with NO expect fails, naming the missing assertion',
+    matchExpect(undefined, V).length === 1 && /asserts nothing/.test(matchExpect(undefined, V)[0]));
+  check('...and an EMPTY expect object fails too, which is the same defect written out',
+    matchExpect({}, V).length === 1);
+  check('...and a non-object expect fails rather than being coerced',
+    matchExpect('deny', V).length === 1 && matchExpect(['deny'], V).length === 1);
+  check('...while a real expectation still evaluates normally', matchExpect({ decision: 'deny' }, V).length === 0);
+
+  console.log('an unrecognised mutation is a TYPO, not a no-op:');
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'xprove-mut-'));
+    try {
+      let threw = null;
+      try { applyMutation(tmp, {}, 'delete-handlers'); } catch (e) { threw = e; }
+      check('a misspelled mutation THROWS instead of silently doing nothing', !!threw);
+      check('...and the message names the accepted set', threw && /delete-handler/.test(threw.message) && /unknown mutation/.test(threw.message));
+      let ok = true;
+      try { applyMutation(tmp, {}, 'none'); applyMutation(tmp, {}, undefined); } catch { ok = false; }
+      check('...while "none" and undefined stay no-ops, because they are the documented way to say so', ok);
+      for (const m of MUTATIONS) {
+        let bad = null;
+        try { applyMutation(tmp, { permissions: { deny: [] }, hooks: {} }, m); } catch (e) { bad = e; }
+        check(`...and the declared mutation "${m}" is accepted`, !bad, bad && bad.message);
+      }
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  }
+  check('every case kind has a citation, residual and tamper included',
+    [...CASE_KINDS].every((k) => typeof CITE[k] === 'string' && CITE[k].length > 20),
+    [...CASE_KINDS].filter((k) => !CITE[k]).join(', '));
 
   console.log('expect matching:');
   check('decision equality', matchExpect({ decision: 'deny' }, { decision: 'deny', fired: 1 }).length === 0);
