@@ -200,7 +200,26 @@ the near-miss arm, and narrowed until it blocks nothing, caught by the enforce a
 node tools/extension-scaffold.mjs --gate
 node tools/extension-scaffold.mjs --gate --prove-gate-can-fail
 node tools/scaffold-parity.mjs --check
+node tests/cli-contract.mjs
 ```
+
+## The gate that five review rounds asked for
+
+Every gate above tests at the FUNCTION boundary. One sentence, the final verdict the creator
+prints, was wrong in four consecutive fixes and moved location each time: a stdout substring match,
+then the prover's reporter, then a branch inside `scaffold()`, then the three lines calling the
+function that had just been made correct. Every fix was right where it was tested, and nothing ever
+ran the CLI and read its output, so the sentence relocated to the nearest place nobody was looking.
+
+Four rounds of numbered checks produced zero failures on their own terms. Four rounds of open-ended
+hunting produced fourteen issues. `tests/cli-contract.mjs` closes that gap: it spawns the tools as
+processes and asserts exit code, required sentences, and FORBIDDEN sentences. The last is the half
+that matters, because the two verdicts differ by three words and asserting only presence passes on
+either.
+
+Measured rather than asserted: bypassing `finalVerdict` at its call site while leaving the function
+itself correct leaves `extension-scaffold --self-test`, `extension-prove --self-test` and `--gate`
+all at exit 0, and breaks two of the eight contracts.
 
 ## A second prove-bench cohort: command validators
 

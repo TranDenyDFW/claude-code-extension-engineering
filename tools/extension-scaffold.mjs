@@ -218,7 +218,10 @@ function scaffold(pack, input, outDir, name) {
  * count would have missed defect D entirely.
  */
 async function runGate({ quiet = false } = {}) {
-  const { proveBundle, proveFailSurvivors } = await import('./extension-prove.mjs');
+  // proveBundle is already imported statically at the top of this file; binding it
+  // a second time here was harmless and misleading. Only proveFailSurvivors needs
+  // the dynamic import, which exists to keep the module graph acyclic at load time.
+  const { proveFailSurvivors } = await import('./extension-prove.mjs');
   let bad = 0;
   for (const pack of PACKS.values()) {
     const seam = SEAM.packs.get(pack.id) || pack;

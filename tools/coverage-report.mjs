@@ -275,13 +275,21 @@ if (DOC_NUMBERS) {
   console.log('Live values re-derived from the artifacts:');
   for (const f of FACTS) console.log(`  ${f.label.padEnd(32)}${f.live}`);
   console.log('\nDocumentation statements that disagree:');
+  /**
+   * `hits` is incremented beside every complaint, which independent review
+   * 2026-08-08 showed is a shape that silently breaks: deleting ONE increment left
+   * the gate printing "guarded by NOTHING" and exiting 0 in the same output. The
+   * counter cannot be removed from the branch below without the message going with
+   * it, because they are now one call.
+   */
   let hits = 0;
+  const complain = (...lines) => { hits++; for (const l of lines) console.log(l); };
   if (validationReadError) {
-    hits++;
-    console.log(`  tests/prove-bench/validation/results.json is unreadable (${validationReadError}), so the`);
-    console.log('  published validation-cohort number is guarded by NOTHING. Regenerate it with');
-    console.log('  `node tests/prove-bench/validation/run-bench.mjs --record` rather than letting this');
-    console.log('  gate go quiet: a fact that disappears with its source reads as coverage it does not have.');
+    complain(
+      `  tests/prove-bench/validation/results.json is unreadable (${validationReadError}), so the`,
+      '  published validation-cohort number is guarded by NOTHING. Regenerate it with',
+      '  `node tests/prove-bench/validation/run-bench.mjs --record` rather than letting this',
+      '  gate go quiet: a fact that disappears with its source reads as coverage it does not have.');
   }
   for (const rel of docs) {
     const lines = readFileSync(join(ROOT, rel), 'utf8').split(/\r?\n/);

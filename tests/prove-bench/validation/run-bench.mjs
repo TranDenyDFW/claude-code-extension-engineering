@@ -313,6 +313,13 @@ function selfTest() {
         const seen = recordDiff(prior, moved);
         ok('MUST SEE: the competitor catch moving to a different fixture, with tallies unchanged',
           seen.some((d) => /test-hook.sh score was/.test(d)), seen.join(' | ') || 'reported nothing');
+        // The exit code is compared on its own line and had no row of its own, so
+        // deleting that line kept the self-test green. Independent review 2026-08-08.
+        const exitOnly = JSON.parse(JSON.stringify(prior.rows));
+        exitOnly.find((r) => r.fixture === winner.fixture).testHookSh.exit = 77;
+        ok('MUST SEE: a competitor exit code moving behind an unchanged score',
+          recordDiff(prior, exitOnly).some((d) => /test-hook.sh exit was/.test(d)),
+          recordDiff(prior, exitOnly).join(' | ') || 'reported nothing');
       } else ok('MUST SEE: the competitor catch moving to a different fixture', false, 'no CATCH/MISS pair in the record to swap');
     }
     ok('...and the caught tally dropping with it', seen.some((d) => /^prove\.caught:/.test(d)));
