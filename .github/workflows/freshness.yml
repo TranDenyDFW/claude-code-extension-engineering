@@ -184,6 +184,14 @@ jobs:
           node tests/prove-bench/validation/make-fixtures.mjs --check
           node tests/prove-bench/validation/run-bench.mjs --self-test
 
+      - name: Validation cohort record still reproduces
+        # RE-MEASURES the published 10 of 10 and fails on any change to the prove
+        # column. Nothing did this until 2026-08-07: report() returns zero unless
+        # the control is dirty, so a regression that turned every row into a MISS
+        # exited 0 and a re-run would have overwritten the record with it. The
+        # competitor column is compared only where test-hook.sh is installed.
+        run: node tests/prove-bench/validation/run-bench.mjs --verify-record
+
       - name: Prove-bench runner self-test
         # Scoring logic incl. false-positive-on-the-control weighted like a
         # miss and n/a for an uninstalled tool, plus fixture-generator drift.

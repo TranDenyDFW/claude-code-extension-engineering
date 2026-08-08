@@ -234,57 +234,70 @@ async function runGate({ quiet = false } = {}) {
       if (!a.supported) { fail(`expected a bundle, got UNSUPPORTED: ${a.reason}`); continue; }
 
       const { files, conf } = seam.buildBundle(p.id, input, a);
-      if (!!conf.strict !== !!p.strict) { fail(`strict=${!!conf.strict}, frozen ${!!p.strict}`); continue; }
+
+      /**
+       * EVERY CHECK RUNS ON EVERY PROBE. This used to `continue` on the first
+       * problem, and the ordering made the strongest check in the function
+       * UNREACHABLE: the frozen kind-map comparison sat in front of the hollowness
+       * detector, so retagging a case reddened the gate through the kind map and
+       * the detector was never evaluated. Independent review 2026-08-07 proved it
+       * by doing exactly that and observing no survivor line.
+       *
+       * A gate whose later checks only run when its earlier ones pass reports the
+       * cheapest failure and hides the expensive one. Problems accumulate now, and
+       * the only hard bail left is a bundle too broken to prove at all.
+       */
+      const problems = [];
+      if (!!conf.strict !== !!p.strict) problems.push(`strict=${!!conf.strict}, frozen ${!!p.strict}`);
       const list = Object.keys(files).sort().join(',');
       const expectFiles = pack.filesFor(p).slice().sort().join(',');
-      if (list !== expectFiles) { fail(`file list ${list}, frozen ${expectFiles}`); continue; }
+      if (list !== expectFiles) problems.push(`file list ${list}, frozen ${expectFiles}`);
       const kinds = conf.cases.map((c) => c.kind).join(',');
-      if (kinds !== p.kinds) { fail(`kinds ${kinds}, frozen ${p.kinds}`); continue; }
+      if (kinds !== p.kinds) problems.push(`kinds ${kinds}, frozen ${p.kinds}`);
       // Assertions only the pack can make: the mechanism it selected, the deny
-      // rule it emitted, the preamble on a proposal file it alone ships.
-      const packProblems = pack.checkProbe(p, files, conf, a);
-      if (packProblems.length) { fail(packProblems.join('; ')); continue; }
+      // rule it emitted, the wiring and preamble of files it alone ships.
+      problems.push(...pack.checkProbe(p, files, conf, a));
 
+      const wantResiduals = p.strict ? (p.strictResiduals ?? 1) : 0;
       const tmp = mkdtempSync(join(tmpdir(), `scaffold-gate-${p.id}-`));
       try {
         writeBundle(tmp, files);
+        // A missing settings.json makes proveBundle throw; that is the one state
+        // where nothing further can be measured.
+        if (!existsSync(join(tmp, 'settings.json'))) { fail([...problems, 'the bundle has no settings.json, so nothing can be proved'].join('; ')); continue; }
         const res = proveBundle(tmp);
         const red = res.cases.filter((c) => !c.ok);
-        if (red.length) { fail(`${red.length} case(s) red: ${red.map((c) => `${c.id}:${c.why && c.why[0]}`).join(' | ')}`); continue; }
+        if (red.length) problems.push(`${red.length} case(s) red: ${red.map((c) => `${c.id}:${c.why && c.why[0]}`).join(' | ')}`);
         /**
          * A strict probe must report NOT DONE with every case green. That pairing
          * is the whole design: the cases are correct AND the requirement is not
          * met, and a gate that only counted red cases would call it a success.
          */
         const nr = (res.strictResidual || []).length;
-        const wantResiduals = p.strict ? (p.strictResiduals ?? 1) : 0;
-        if (nr !== wantResiduals) { fail(`${p.strict ? 'strict' : 'non-strict'} spec reported ${nr} surviving residual(s), frozen ${wantResiduals}`); continue; }
+        if (nr !== wantResiduals) problems.push(`${p.strict ? 'strict' : 'non-strict'} spec reported ${nr} surviving residual(s), frozen ${wantResiduals}`);
 
         /**
          * THE HOLLOWNESS DETECTOR, RUN AGAINST WHAT WE GENERATE.
          *
          * `--prove-fail` existed and only ever ran against the hand-written
          * prove-bench fixtures, so the contract it enforces was never applied to
-         * the generator. Independent review 2026-08-07 ran it against six
-         * generated bundles and found 27 survivors across three case shapes: an
-         * assertion labelled `wiring` or `fail-posture` whose PASS did not depend
-         * on the generated extension at all, counted in the headline and in this
-         * gate's own "all green". Applying the contract here is the fix; retagging
-         * those three cases was only the symptom.
+         * the generator. Independent review found 27 survivors across three case
+         * shapes on six generated bundles: assertions labelled `wiring` or
+         * `fail-posture` whose PASS did not depend on the generated extension at
+         * all, counted in the headline and in this gate's own "all green".
+         *
+         * The `checked === 0` guard is NOT about the probe, which the frozen kind
+         * map already pins. It guards the DETECTOR: if `proveFailSurvivors` ever
+         * returned nothing, the survivors check below would pass vacuously on
+         * every probe forever.
          */
         const hollow = proveFailSurvivors([tmp]);
-        /**
-         * An ADVISORY bundle legitimately has NO enforcing case: P5 asserts that
-         * CLAUDE.md prose does not enforce, and inventing an enforce case for it
-         * was defect D. So the requirement is two-sided and keyed to the FROZEN
-         * kind map, not to what the bundle happened to produce: a probe frozen as
-         * enforcing must have falsifiable cases, and a probe frozen as advisory
-         * must have none. Either one sprouting the other is the failure.
-         */
-        const claimsEnforcement = /\b(enforce|wiring|fail-posture)\b/.test(p.kinds);
-        if (claimsEnforcement && hollow.checked === 0) { fail('the frozen kinds claim enforcement but no case runs against a control, so nothing is falsifiable'); continue; }
-        if (!claimsEnforcement && hollow.checked !== 0) { fail(`an advisory probe produced ${hollow.checked} enforcing case-run(s); asserting enforcement from prose is exactly defect D`); continue; }
-        if (hollow.survivors.length) { fail(`${hollow.survivors.length} case(s) still PASS with nothing installed: ${hollow.survivors.map((s) => s.split(' :: ')[1]).join(' | ')}`); continue; }
+        const claimsEnforcement = /\b(enforce|wiring|fail-posture)\b/.test(kinds);
+        if (claimsEnforcement && hollow.checked === 0) problems.push('cases claim enforcement but the detector ran nothing, so the survivor check below asserts nothing');
+        if (!claimsEnforcement && hollow.checked !== 0) problems.push(`an advisory spec produced ${hollow.checked} enforcing case-run(s); asserting enforcement from prose is exactly defect D`);
+        if (hollow.survivors.length) problems.push(`${hollow.survivors.length} case(s) still PASS with nothing installed: ${hollow.survivors.map((s) => s.split(' :: ')[1]).join(' | ')}`);
+
+        if (problems.length) { fail(problems.join('; ')); continue; }
         if (!quiet) console.log(`  ok   ${p.id} ${String(a.mechanism).padEnd(15)} ${conf.cases.length} cases, all green, frozen kinds match${p.strict ? `, NOT DONE on ${wantResiduals} residual(s) as frozen` : ''}`);
       } finally { rmSync(tmp, { recursive: true, force: true }); }
     }

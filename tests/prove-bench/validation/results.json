@@ -87,7 +87,7 @@
       "defect": "the handler emits permissionDecision \"allow\" on its non-deny path, which in production BYPASSES the permission system and auto-approves calls the user would otherwise be asked about",
       "citation": "hooks.md: an \"allow\" decision from a PreToolUse hook skips the permission system for that call. A validator written this way silently converts every unmatched command into an approved one.",
       "expectedFailures": [],
-      "knownMiss": "extension-prove models an explicit permissionDecision \"allow\" and an absent decision as the same verdict, so no case in the shared spec can see this. Reported as a MISS rather than hidden, and the row flips to a catch the day the verdict model is widened.",
+      "knownMiss": "extension-prove models an explicit permissionDecision \"allow\" and an absent decision as the same verdict, so no case in the shared spec can see this. Reported as a MISS rather than hidden. It does not become a catch by itself if the model is widened: expectedFailures is empty, so a run that detected it would score WRONG-DIAGNOSIS, and that is the signal to re-declare this fixture against the new case id.",
       "prove": {
         "exit": 0,
         "failedIds": [],

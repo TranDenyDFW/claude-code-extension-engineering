@@ -34,7 +34,12 @@
  * would otherwise be asked about. extension-prove cannot currently see it: its
  * verdict model treats an explicit allow and an absent decision as the same thing.
  * Shipping the fixture and scoring it MISS reports that blind spot instead of
- * hiding it, and the row flips to a catch the day the model is widened.
+ * hiding it. It does NOT silently become a catch when the model is widened: the
+ * fixture declares no expected failures, so a future run that detected the defect
+ * would score WRONG-DIAGNOSIS, which is the signal to re-declare it against the new
+ * case id. An earlier version of this comment claimed it "flips to a catch", which
+ * was false in code and was caught by independent review evaluating scoreDiagnosis
+ * directly.
  *
  * usage:
  *   node tests/prove-bench/validation/make-fixtures.mjs           write fixtures
@@ -268,7 +273,7 @@ export const COHORT = [
   },
   {
     name: 'explicit-allow-decision',
-    knownMiss: 'extension-prove models an explicit permissionDecision "allow" and an absent decision as the same verdict, so no case in the shared spec can see this. Reported as a MISS rather than hidden, and the row flips to a catch the day the verdict model is widened.',
+    knownMiss: 'extension-prove models an explicit permissionDecision "allow" and an absent decision as the same verdict, so no case in the shared spec can see this. Reported as a MISS rather than hidden. It does not become a catch by itself if the model is widened: expectedFailures is empty, so a run that detected it would score WRONG-DIAGNOSIS, and that is the signal to re-declare this fixture against the new case id.',
     defect: 'the handler emits permissionDecision "allow" on its non-deny path, which in production BYPASSES the permission system and auto-approves calls the user would otherwise be asked about',
     citation: 'hooks.md: an "allow" decision from a PreToolUse hook skips the permission system for that call. A validator written this way silently converts every unmatched command into an approved one.',
     expectedFailures: [],
@@ -367,7 +372,10 @@ function selfTest() {
   ok('every fixture has a distinct name', new Set(COHORT.map((f) => f.name)).size === COHORT.length);
   ok('every defective fixture cites something', COHORT.filter((f) => !f.control).every((f) => f.citation && f.citation.length > 40));
 
-  const conf = JSON.parse(all.get('correct-validator')['conformance.json']);
+  const controlName = COHORT.filter((f) => f.control).map((f) => f.name);
+  ok('exactly one fixture is declared the control, found BY FLAG not by index', controlName.length === 1, controlName.join(','));
+  ok('...and it is the one checkSpecIsConstant uses as its reference', controlName[0] === 'correct-validator');
+  const conf = JSON.parse(all.get(controlName[0])['conformance.json']);
   ok('the spec case ids are the frozen list', conf.cases.map((c) => c.id).join(',') === CASE_IDS.join(','), conf.cases.map((c) => c.id).join(','));
   ok('the spec is byte-identical across all twelve fixtures', checkSpecIsConstant(all).length === 0, checkSpecIsConstant(all).join('; '));
 
@@ -381,10 +389,21 @@ function selfTest() {
     const unknown = f.expectedFailures.filter((id) => !known.has(id));
     ok(`${f.name}: every expected id exists in the spec`, unknown.length === 0, unknown.join(','));
   }
-  ok('the control expects nothing to fail', COHORT[0].expectedFailures.length === 0);
-  ok('exactly one fixture is declared a known miss', COHORT.filter((f) => f.knownMiss).length === 1);
-  ok('...and it is the one that expects no failures while not being the control',
-    COHORT.filter((f) => !f.control && f.expectedFailures.length === 0).every((f) => f.knownMiss));
+  ok('the control expects nothing to fail', COHORT.find((f) => f.control).expectedFailures.length === 0);
+  const knownMisses = COHORT.filter((f) => f.knownMiss);
+  ok('exactly one fixture is declared a known miss', knownMisses.length === 1);
+  /**
+   * `.every()` on this filter passes VACUOUSLY when the filter is empty, which
+   * independent review flagged: it was pinned only by the row above happening to
+   * assert a count of one. The set is now measured first, so an empty set is a
+   * failure rather than a silent pass.
+   */
+  const silentZeroExpect = COHORT.filter((f) => !f.control && f.expectedFailures.length === 0);
+  ok('at least one non-control fixture expects nothing to fail, so the row below has something to check',
+    silentZeroExpect.length > 0, 'nothing to check');
+  ok('...and every one of those is a DECLARED known miss, never an accident',
+    silentZeroExpect.length > 0 && silentZeroExpect.every((f) => f.knownMiss),
+    silentZeroExpect.filter((f) => !f.knownMiss).map((f) => f.name).join(','));
 
   /**
    * Every transform must CHANGE something. A transform that silently matched
@@ -402,6 +421,26 @@ function selfTest() {
   let threw = false;
   try { sub('this anchor does not exist anywhere', 'x')('abc'); } catch { threw = true; }
   ok('MUST THROW: a transform whose anchor is missing', threw);
+
+  /**
+   * THE SPEC-CONSTANT INVARIANT, SHOWN ABLE TO FAIL. Independent review pointed out
+   * that both rows asserting it are true by construction while every transform is
+   * built from editHandler or editSettings, so they assert nothing about today's
+   * cohort. They are regression guards, and a regression guard nobody has watched
+   * fail is not yet a guard. Fed a cohort whose transform edits the spec, the
+   * checker must complain.
+   */
+  {
+    const doctored = new Map(all);
+    const victim = COHORT.find((f) => !f.control).name;
+    const files = { ...doctored.get(victim) };
+    files['conformance.json'] = files['conformance.json'].replace('"cases"', '"casesX"');
+    doctored.set(victim, files);
+    const seen = checkSpecIsConstant(doctored);
+    ok('MUST SEE: a transform that edits conformance.json breaks the invariant',
+      seen.some((l) => l.startsWith(victim)), seen.join(' | ') || 'reported nothing');
+    ok('...and the untouched cohort still reports clean', checkSpecIsConstant(all).length === 0);
+  }
 
   console.log(fails ? `\nSELF-TEST FAIL (${fails})` : '\nSELF-TEST PASS');
   return fails ? 1 : 0;

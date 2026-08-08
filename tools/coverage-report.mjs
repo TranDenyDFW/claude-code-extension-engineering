@@ -134,6 +134,16 @@ if (DOC_NUMBERS) {
   const packCount = PACKS.size;
   const familyCount = FAMILIES.size;
   const probeCount = [...PACKS.values()].reduce((n, p) => n + p.GATE_PROBES.length, 0);
+  /**
+   * The validation cohort's headline, read out of its own results file. Independent
+   * review 2026-08-07: nothing re-measured it and no fact covered it, so
+   * results-prove-bench-validation.md could hold a stale number indefinitely.
+   */
+  let validationCaught = null;
+  try {
+    const r = JSON.parse(readFileSync(join(ROOT, 'tests', 'prove-bench', 'validation', 'results.json'), 'utf8'));
+    validationCaught = (r.prove || {}).caught;
+  } catch { validationCaught = null; }
   const HEADING_WORDS = { ...WORDS, one: 1, two: 2, three: 3, four: 4, five: 5 };
   const hardeningRounds = (() => {
     try {
@@ -220,6 +230,9 @@ if (DOC_NUMBERS) {
     { label: 'purpose packs', live: packCount, words: HEADING_WORDS, re: /(\w+)\s+purpose packs/gi },
     { label: 'validation families', live: familyCount, words: HEADING_WORDS, re: /(\w+)\s+validation families/gi },
     { label: 'scaffold gate probes', live: probeCount, re: /(\d+)\s+frozen (?:gate )?probes/gi },
+    ...(validationCaught === null ? [] : [
+      { label: 'validation cohort caught', live: validationCaught, re: /(\d+) of \d+ caught with the correct diagnosis/gi },
+    ]),
   ];
 
   // docs/SUBMISSION.md and .claude-plugin/plugin.json are the two MARKETPLACE-FACING

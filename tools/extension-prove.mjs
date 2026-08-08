@@ -853,16 +853,38 @@ function report(res, json) {
   const failed = res.cases.filter((c) => !c.ok).length;
   if (res.mutatedSource) console.log('\nFAIL  the bundle mutated its own source tree during the run');
   console.log(`\n${res.cases.length} case(s): ${res.cases.length - failed} passed, ${failed} failed.`);
+  /**
+   * THE STRICT PARAGRAPH IS PRINTED ONLY WHEN NOTHING ELSE FAILED.
+   *
+   * It used to print whenever a residual survived, so a run with three FAILING
+   * cases still announced "Every case above passed. That is the point", and a
+   * caller reading for that marker then summarised a broken bundle as satisfying
+   * its spec. Independent review 2026-08-07 reproduced exactly that.
+   *
+   * `failureKind` is the single place that decides which of the two exit-1 reasons
+   * applies, so the printed text and any caller reading it cannot disagree. When
+   * cases failed, the failures are the headline and the surviving residuals are
+   * still listed, without the claim that everything passed.
+   */
+  const kind = failureKind(res);
   if ((res.strictResidual || []).length) {
     console.log('');
-    console.log(STRICT_NOT_DONE);
-    for (const r of res.strictResidual) console.log(`  ${r.id}  ${r.vector}  is confirmed NOT covered`);
-    console.log('');
-    console.log('Every case above passed. That is the point: a passing residual case is a MEASURED');
-    console.log('statement that the vector is open, and an absolute requirement rules it out. The');
-    console.log('bundle is still the strongest configuration available here; what is refused is the');
-    console.log('claim that it is total. Narrow the requirement, or close the vector at a layer this');
-    console.log('bundle cannot reach.');
+    if (kind === 'strict') {
+      console.log(STRICT_NOT_DONE);
+      for (const r of res.strictResidual) console.log(`  ${r.id}  ${r.vector}  is confirmed NOT covered`);
+      console.log('');
+      console.log('Every case above passed. That is the point: a passing residual case is a MEASURED');
+      console.log('statement that the vector is open, and an absolute requirement rules it out. The');
+      console.log('bundle is still the strongest configuration available here; what is refused is the');
+      console.log('claim that it is total. Narrow the requirement, or close the vector at a layer this');
+      console.log('bundle cannot reach.');
+    } else {
+      console.log('This spec is STRICT and these residual vectors are confirmed NOT covered:');
+      for (const r of res.strictResidual) console.log(`  ${r.id}  ${r.vector}`);
+      console.log('');
+      console.log('That is reported for completeness, NOT as the verdict. Cases failed above, so the');
+      console.log('bundle does not satisfy its own spec and the absolute claim is not the reason.');
+    }
   }
   return reportCode(res);
 }

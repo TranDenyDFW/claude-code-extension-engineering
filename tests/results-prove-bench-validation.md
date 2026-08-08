@@ -47,6 +47,13 @@ test-hook.sh    :  1 of 11 caught,                            0 false positives 
 known blind spot: 1 fixture, excluded from the denominator and named below
 ```
 
+**Read that 10 as 9 pre-registered plus 1 fitted.** Nine fixtures' expected failure sets were
+declared before the bench ran and matched on the first run. One, `handler-path-bare-variable`, was
+declared wrong, reported WRONG-DIAGNOSIS, and re-declared after reading the evidence, so its CATCH
+restates an observation rather than predicting one. The reasoning is in the fixture and the episode
+is written up under "Proving the number can be wrong" below. Nine of nine pre-registered is the
+number to quote if you want the strict one.
+
 | fixture | defect | extension-prove | test-hook.sh |
 |---|---|---|---|
 | `correct-validator` | control | clean | clean |
@@ -77,20 +84,32 @@ otherwise be asked about, converting an unmatched command into an approved one.
 as the same outcome, so no case in the shared spec can distinguish them. The fixture ships anyway,
 scores MISS, and is excluded from the denominator rather than counted against a competitor that
 has the same gap for a different reason. It is listed here so the gap is a measured statement
-rather than an absence, and the row flips to a catch the day the verdict model is widened.
+rather than an absence.
+
+It does not become a catch by itself. The fixture declares no expected failures, so a future run
+that DID detect the defect would score WRONG-DIAGNOSIS, not CATCH, and `tally` excludes the row
+from the denominator either way. WRONG-DIAGNOSIS is the signal to re-declare the fixture against
+whatever case id the widened verdict model turns red. An earlier version of this page said the row
+"flips to a catch", which was false in code; independent review found it by evaluating
+`scoreDiagnosis` directly.
 
 ## Proving the number can be wrong
 
 Three ways, all run:
 
-**One prediction was wrong, and it was reported rather than reconciled.**
+**One prediction was wrong. It was reported, then reconciled, and both halves are the point.**
 `handler-path-bare-variable` was declared to fail its two `fired: {min: 1}` cases as well, on the
 reasoning that a handler which cannot be found does not fire. The first run reported
 WRONG-DIAGNOSIS. The evidence says the tool was right: the interpreter exists and only the script
 is missing, so node starts, fails to load the module and exits 1, and the verdict records
 `fired: 1` with the note "handler exit 1 is a non-blocking error on PreToolUse (fails open)". The
-declaration was corrected and the reasoning kept in the fixture, because silently editing an
-expectation to match the tool is exactly the circularity the design forbids. Worth knowing
+declaration was corrected and the reasoning kept in the fixture.
+
+Be precise about what that costs. The file's own rule is that expected failures are never read back
+from the tool, and this row's final value WAS read back from the tool. What the rule protects is the
+case where an expectation is edited silently: the disagreement here was surfaced, investigated
+against the actual verdict notes, and the correction is disclosed with its reasoning. It is still a
+fitted row and it is still one of the ten, which is why the headline above says so. Worth knowing
 separately: `fired` counts a handler PROCESS that ran, not a handler SCRIPT that ran.
 
 **The control can go FALSE-POS.** Gutting the control's handler in a copied fixture tree

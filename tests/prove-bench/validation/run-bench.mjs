@@ -248,16 +248,84 @@ function selfTest() {
     const prior = JSON.parse(readFileSync(RESULTS, 'utf8'));
     ok('the committed record has twelve rows', (prior.rows || []).length === 12, String((prior.rows || []).length));
     ok('...and a control that both tools saw', (prior.rows || []).some((r) => r.control));
+    /**
+     * recordDiff must be able to SEE a score change. Fed the real record against a
+     * doctored copy of its own rows, it has to complain; fed the record against
+     * itself, it has to stay quiet apart from an n/a note.
+     */
+    const same = recordDiff(prior, prior.rows);
+    ok('recordDiff is quiet when a run reproduces the record', same.filter((d) => !d.startsWith('NOTE')).length === 0, same.join(' | '));
+    const degraded = JSON.parse(JSON.stringify(prior.rows));
+    const victim = degraded.find((r) => !r.control && r.prove.score === 'CATCH');
+    victim.prove.score = 'MISS';
+    const seen = recordDiff(prior, degraded);
+    ok('MUST SEE: a CATCH turning into a MISS', seen.some((d) => new RegExp(`^${victim.fixture}: prove score`).test(d)), seen.join(' | '));
+    ok('...and the caught tally dropping with it', seen.some((d) => /^prove\.caught:/.test(d)));
+    const missing = degraded.filter((r) => r.fixture !== victim.fixture);
+    ok('MUST SEE: a fixture vanishing from the run', recordDiff(prior, missing).some((d) => /is in the record and absent/.test(d)));
   }
 
   console.log(fails ? `\nSELF-TEST FAIL (${fails})` : '\nSELF-TEST PASS');
   return fails ? 1 : 0;
 }
 
+/**
+ * RE-MEASURE THE PUBLISHED NUMBER AND REFUSE A SILENT CHANGE.
+ *
+ * `report()` returns non-zero only for a dirty control or a wrong diagnosis, so a
+ * prover regression that turned every row into a MISS exited 0, and a re-run per
+ * the write-up's own instructions would have overwritten results.json with the
+ * degraded numbers and still exited 0. `wouldDropRecordedTools` guards against
+ * losing a tool COLUMN, not against a score moving. Independent review 2026-08-07.
+ *
+ * This compares a fresh run against the committed record and fails on ANY change to
+ * the prove column. The competitor column is compared only when it was measured on
+ * this machine, because a machine without test-hook.sh legitimately cannot
+ * reproduce it and must not be able to erase it either.
+ */
+export function recordDiff(prior, fresh) {
+  const out = [];
+  const pt = tally(fresh, 'prove');
+  const rec = prior.prove || {};
+  for (const k of ['caught', 'of', 'falsePos', 'wrongDiagnosis', 'knownMiss']) {
+    if (rec[k] !== undefined && rec[k] !== pt[k]) out.push(`prove.${k}: record says ${rec[k]}, this run measured ${pt[k]}`);
+  }
+  const tt = tally(fresh, 'testHookSh');
+  const trec = prior.testHookSh || {};
+  if (tt.na === 0 && trec.na === 0) {
+    for (const k of ['caught', 'of', 'falsePos']) {
+      if (trec[k] !== undefined && trec[k] !== tt[k]) out.push(`testHookSh.${k}: record says ${trec[k]}, this run measured ${tt[k]}`);
+    }
+  } else if (tt.na > 0) {
+    out.push(`NOTE test-hook.sh is not installed here (${tt.na} row(s) n/a), so its column was not re-measured`);
+  }
+  const byName = new Map(fresh.map((r) => [r.fixture, r]));
+  for (const r of (prior.rows || [])) {
+    const now = byName.get(r.fixture);
+    if (!now) { out.push(`fixture "${r.fixture}" is in the record and absent from this run`); continue; }
+    if (now.prove.score !== r.prove.score) out.push(`${r.fixture}: prove score was ${r.prove.score}, now ${now.prove.score}`);
+  }
+  return out;
+}
+
 if (IS_MAIN) {
   const a = process.argv.slice(2);
   if (a.includes('--self-test')) process.exit(selfTest());
   const rows = bench();
+  if (a.includes('--verify-record')) {
+    if (!existsSync(RESULTS)) { console.error(`no committed record at ${RESULTS}`); process.exit(1); }
+    const diff = recordDiff(JSON.parse(readFileSync(RESULTS, 'utf8')), rows);
+    const real = diff.filter((d) => !d.startsWith('NOTE'));
+    for (const d of diff) console.log(`  ${d}`);
+    if (real.length) {
+      console.log(`\nRECORD DIVERGED: ${real.length} difference(s). Either the tool regressed or the published`);
+      console.log('numbers are stale. Re-run without --verify-record to re-record, and update');
+      console.log('tests/results-prove-bench-validation.md in the same commit.');
+      process.exit(1);
+    }
+    console.log(`\nPASS the committed record still reproduces (${tally(rows, 'prove').caught} of ${tally(rows, 'prove').of} with the correct diagnosis).`);
+    process.exit(0);
+  }
   const code = report(rows);
   if (a.includes('--json')) { console.log(JSON.stringify({ rows, prove: tally(rows, 'prove'), testHookSh: tally(rows, 'testHookSh') }, null, 2)); process.exit(code); }
 

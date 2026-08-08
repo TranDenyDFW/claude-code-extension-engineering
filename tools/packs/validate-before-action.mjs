@@ -863,7 +863,16 @@ export const GATE_PROBES = [
     id: 'V3', summary: 'command-validation as an allowlist: approved shape permitted, everything else denied by default',
     strict: false,
     policy: {
-      policySchema: 1, id: 'npm-allowlist', tool: 'Bash', matcher: 'Bash',
+      /**
+       * A matcher that is NOT the bare tool name, so checkProbe's matcher
+       * comparison has something to catch. Every probe declaring 'Bash' made that
+       * assertion tautological, and independent review 2026-08-07 proved it by
+       * hardcoding 'Bash' in settingsFor and discarding the policy field: the pack
+       * self-test, --gate, the family-break harness and the fixture drift check all
+       * stayed green. Write is still absent from the alternation, so
+       * matcher-scopes-to-the-declared-tool still holds.
+       */
+      policySchema: 1, id: 'npm-allowlist', tool: 'Bash', matcher: 'Bash|BashOutput',
       precedence: PRECEDENCE, defaultDecision: 'deny',
       rules: [{
         id: 'approved-npm', family: 'command-validation', decision: 'allow',
@@ -1140,6 +1149,14 @@ function selfTest() {
     check('the handler embeds only what the runtime reads, not the examples', !src.includes('examples') && src.includes('"defaultDecision"'));
     check('the wiring uses ${CLAUDE_PROJECT_DIR}, never the bare form',
       /\$\{CLAUDE_PROJECT_DIR\}/.test(JSON.stringify(settingsFor(a.policy))));
+    /**
+     * settingsFor must be a FUNCTION of the policy. Hardcoding 'Bash' passed every
+     * gate in this repository, because every probe happened to declare exactly that,
+     * which independent review 2026-08-07 proved by doing it.
+     */
+    check('the emitted matcher follows the policy rather than a hardcoded name',
+      settingsFor({ ...a.policy, matcher: 'Bash|BashOutput' }).hooks.PreToolUse[0].matcher === 'Bash|BashOutput'
+      && settingsFor({ ...a.policy, matcher: 'Bash' }).hooks.PreToolUse[0].matcher === 'Bash');
     check('the handler never emits an allow decision, only a deny', !/permissionDecision: 'allow'/.test(src) && !/"allow"/.test(src.split('const POLICY')[1].split('let buf')[0].replace(/defaultDecision[^,]*/, '')));
   }
 
