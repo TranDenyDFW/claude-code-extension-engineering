@@ -117,8 +117,21 @@ function selfTest() {
     [...PACKS.values()].every((p) => p.id && p.summary && typeof p.applies === 'function'
       && typeof p.analyse === 'function' && typeof p.buildBundle === 'function'
       && Array.isArray(p.GATE_PROBES) && typeof p.filesFor === 'function'));
-  check('--list reports a summary and required inputs for each',
-    listPacks().every((p) => p.summary.length > 30 && Array.isArray(p.requires)));
+  /**
+   * `Array.isArray(p.requires)` was the second half of this row and could not
+   * fail: `listPacks` builds every row as `requires: p.requires || []`, so the
+   * array is manufactured here regardless of what the pack declares. Independent
+   * review 2026-08-07. What the row's NAME promises is that a pack with required
+   * inputs reports them, so that is what it now checks, against the pack itself.
+   */
+  check('--list reports a summary for each', listPacks().every((p) => p.summary.length > 30));
+  check('...and every required input a pack declares survives into the listing',
+    [...PACKS.values()].every((p) => {
+      const row = listPacks().find((r) => r.id === p.id);
+      return JSON.stringify(row.requires) === JSON.stringify(p.requires || []);
+    }));
+  check('...and at least one pack actually declares one, so the row above has something to carry',
+    listPacks().some((p) => p.requires.length > 0));
 
   check('an explicit id resolves', packById('protect-path').id === 'protect-path');
   for (const bad of ['nope', '', 'PROTECT-PATH', 'protect_path', 'validate']) {

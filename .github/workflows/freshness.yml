@@ -149,6 +149,41 @@ jobs:
         # requirement is REFUSED rather than force-fitted.
         run: node tools/extension-scaffold.mjs --self-test
 
+      - name: Pack registry, policy schema and validate-before-action self-tests
+        # Routing that refuses rather than defaulting, the policy validator's
+        # refusals (which are most of its behaviour), and the emitted runtime.
+        run: |
+          node tools/packs/index.mjs --self-test
+          node tools/packs/policy-schema.mjs --self-test
+          node tools/packs/validate-before-action.mjs --self-test
+
+      - name: Scaffold end-to-end gate
+        # Generates all 13 frozen probes across both packs and PROVES each one,
+        # including running the hollowness detector against what it just
+        # generated. Nothing in CI did that until 2026-08-07, and an independent
+        # review then found 27 case-runs whose PASS did not depend on the
+        # extension at all.
+        run: node tools/extension-scaffold.mjs --gate
+
+      - name: Scaffold parity
+        # The seven protect-path probes must stay byte-identical to the goldens
+        # captured before the pack refactor.
+        run: node tools/scaffold-parity.mjs --check
+
+      - name: One broken handler per validation family
+        # The gate injections corrupt the generator; this corrupts the SHIPPED
+        # handler and requires a NAMED case to go red for each family.
+        run: node tests/validation-family-breaks.mjs
+
+      - name: Validation cohort fixture drift
+        # Committed fixtures must match the generator, and all twelve must still
+        # share one conformance.json: the spec is the constant, the
+        # implementation is the single variable.
+        run: |
+          node tests/prove-bench/validation/make-fixtures.mjs --self-test
+          node tests/prove-bench/validation/make-fixtures.mjs --check
+          node tests/prove-bench/validation/run-bench.mjs --self-test
+
       - name: Prove-bench runner self-test
         # Scoring logic incl. false-positive-on-the-control weighted like a
         # miss and n/a for an uninstalled tool, plus fixture-generator drift.

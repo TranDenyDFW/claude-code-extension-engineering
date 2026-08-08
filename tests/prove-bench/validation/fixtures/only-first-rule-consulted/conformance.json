@@ -1,0 +1,305 @@
+{
+  "extension": "release-guard",
+  "mechanism": "hook",
+  "strict": false,
+  "policy": "release-guard",
+  "cases": [
+    {
+      "id": "no-rm-rf-blocks-1",
+      "kind": "enforce",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm -rf build"
+        }
+      },
+      "expect": {
+        "decision": "deny",
+        "fired": {
+          "min": 1
+        }
+      }
+    },
+    {
+      "id": "no-rm-rf-blocks-2",
+      "kind": "enforce",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "cd /tmp && rm -rf cache"
+        }
+      },
+      "expect": {
+        "decision": "deny",
+        "fired": {
+          "min": 1
+        }
+      }
+    },
+    {
+      "id": "no-rm-rf-near-miss-1",
+      "kind": "near-miss",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm build/one.o"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    },
+    {
+      "id": "no-rm-rf-near-miss-2",
+      "kind": "near-miss",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "echo \"never run rm -rf here\""
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    },
+    {
+      "id": "tests-before-push-blocks-when-unmet",
+      "kind": "enforce",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin main"
+        }
+      },
+      "setup": {
+        "env": {
+          "TESTS_GREEN": "0"
+        }
+      },
+      "expect": {
+        "decision": "deny",
+        "fired": {
+          "min": 1
+        }
+      }
+    },
+    {
+      "id": "tests-before-push-permits-when-met",
+      "kind": "near-miss",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin main"
+        }
+      },
+      "setup": {
+        "env": {
+          "TESTS_GREEN": "1"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "deny"
+        },
+        "fired": {
+          "min": 1
+        }
+      }
+    },
+    {
+      "id": "tests-before-push-setup-is-load-bearing",
+      "kind": "enforce",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git push origin main"
+        }
+      },
+      "setup": {
+        "env": {
+          "TESTS_GREEN": "1"
+        }
+      },
+      "mutate": "ignore-setup",
+      "expect": {
+        "decision": "deny"
+      }
+    },
+    {
+      "id": "tests-before-push-near-miss-1",
+      "kind": "near-miss",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "git status"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    },
+    {
+      "id": "manifest-valid-blocks-invalid-document",
+      "kind": "enforce",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "deploy apply prod"
+        }
+      },
+      "setup": {
+        "files": {
+          "deploy/manifest.json": "{\n  \"replicas\": 1\n}"
+        }
+      },
+      "expect": {
+        "decision": "deny",
+        "fired": {
+          "min": 1
+        }
+      }
+    },
+    {
+      "id": "manifest-valid-permits-valid-document",
+      "kind": "near-miss",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "deploy apply prod"
+        }
+      },
+      "setup": {
+        "files": {
+          "deploy/manifest.json": "{\n  \"env\": \"staging\",\n  \"replicas\": 1\n}"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "deny"
+        },
+        "fired": {
+          "min": 1
+        }
+      }
+    },
+    {
+      "id": "manifest-valid-blocks-missing-document",
+      "kind": "enforce",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "deploy apply prod"
+        }
+      },
+      "expect": {
+        "decision": "deny"
+      }
+    },
+    {
+      "id": "manifest-valid-document-is-load-bearing",
+      "kind": "enforce",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "deploy apply prod"
+        }
+      },
+      "setup": {
+        "files": {
+          "deploy/manifest.json": "{\n  \"env\": \"staging\",\n  \"replicas\": 1\n}"
+        }
+      },
+      "mutate": "ignore-setup",
+      "expect": {
+        "decision": "deny"
+      }
+    },
+    {
+      "id": "manifest-valid-near-miss-1",
+      "kind": "near-miss",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "deploy status"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    },
+    {
+      "id": "matcher-scopes-to-the-declared-tool",
+      "kind": "near-miss",
+      "input": {
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "src/app.ts"
+        }
+      },
+      "expect": {
+        "fired": 0
+      }
+    },
+    {
+      "id": "crashing-handler-fails-open",
+      "kind": "residual",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm -rf build"
+        }
+      },
+      "mutate": "crash-handler",
+      "vector": "the handler crashes, times out, or its interpreter is missing",
+      "why": "a command hook exiting non-zero is a non-blocking error and the tool call proceeds. Nothing in a hook bundle survives its own handler failing, which is why an absolute policy here is reported NOT DONE.",
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    },
+    {
+      "id": "deleted-handler-fails-open",
+      "kind": "residual",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "rm -rf build"
+        }
+      },
+      "mutate": "delete-handler",
+      "vector": "the handler file is deleted, renamed, or never installed",
+      "why": "a command hook is not a harness-owned layer. Nothing in the bundle survives its own handler being removed, and this repository could not prove a permissions.deny escalation for a Bash command shape (see permissions-deny.json.proposal).",
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    },
+    {
+      "id": "indirection-is-not-inspected",
+      "kind": "residual",
+      "input": {
+        "tool_name": "Bash",
+        "tool_input": {
+          "command": "sh -c \"rm -rf build\""
+        }
+      },
+      "vector": "a command wrapped in sh -c, eval, $( ), backticks, xargs or an unexpanded variable",
+      "why": "the matcher reads shell operators, not shell semantics, and this policy allows by default. Set `absolute: true` to DENY what cannot be read, or `defaultDecision: deny` to allowlist. This case goes red in both directions, so closing the gap is as visible as widening it.",
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    }
+  ]
+}

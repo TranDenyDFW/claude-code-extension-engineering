@@ -560,6 +560,26 @@ export function staticDecisionFor(policy, command) {
   return policy.defaultDecision;
 }
 
+/**
+ * WHY NO CASE HERE CARRIES KIND `wiring`, stated because its absence reads as an
+ * omission and is not.
+ *
+ * `--prove-fail` requires every enforce, wiring and fail-posture case to go RED
+ * against an empty bundle AND against an inert one whose handler fires and does
+ * nothing. For a hook, the only observable separating "my handler ran and decided"
+ * from "some handler ran and did nothing" is a DENY: the verdict records how many
+ * handlers fired, never which one. So a case asserting the hook PERMITS something
+ * cannot satisfy that contract, and every wiring fact worth having here (the
+ * matcher admits the tool, the handler resolves at the path settings names, the
+ * emitted runtime loads) is already carried by the enforce cases, which do go red
+ * against both controls.
+ *
+ * Labelling those cases `wiring` inflated the evidence: they were counted in the
+ * headline and in the gate's "all green" while asserting nothing an empty
+ * directory does not also satisfy. Independent review found it by running this
+ * repository's own hollowness detector against the generated bundles, which
+ * nothing in CI had ever done. `runGate` now does.
+ */
 export function conformanceFor(name, policy, a) {
   const cases = [];
   const setupOf = (s) => (s && (s.files || s.env) ? { setup: s } : {});
@@ -572,7 +592,7 @@ export function conformanceFor(name, policy, a) {
       r.examples.match.slice(0, 2).forEach((cmd, n) => {
         cases.push(r.decision === 'deny'
           ? { id: `${r.id}-blocks-${n + 1}`, kind: 'enforce', input: B(cmd), expect: { decision: 'deny', fired: { min: 1 } } }
-          : { id: `${r.id}-permits-${n + 1}`, kind: 'wiring', input: B(cmd), expect: { decision: { not: 'deny' }, fired: { min: 1 } } });
+          : { id: `${r.id}-permits-${n + 1}`, kind: 'near-miss', input: B(cmd), expect: { decision: { not: 'deny' }, fired: { min: 1 } } });
       });
     }
 
@@ -583,7 +603,7 @@ export function conformanceFor(name, policy, a) {
       });
       if (r.gateSetup) {
         cases.push({
-          id: `${r.id}-permits-when-met`, kind: 'wiring', input: B(match0),
+          id: `${r.id}-permits-when-met`, kind: 'near-miss', input: B(match0),
           ...setupOf(r.gateSetup.pass), expect: { decision: { not: 'deny' }, fired: { min: 1 } },
         });
         // The paired arm. Without it, a gateSetup the handler never reads would
@@ -603,7 +623,7 @@ export function conformanceFor(name, policy, a) {
         setup: { files: { [at]: JSON.stringify(docs.invalid, null, 2) } }, expect: { decision: 'deny', fired: { min: 1 } },
       });
       cases.push({
-        id: `${r.id}-permits-valid-document`, kind: 'wiring', input: B(match0),
+        id: `${r.id}-permits-valid-document`, kind: 'near-miss', input: B(match0),
         setup: { files: { [at]: JSON.stringify(docs.valid, null, 2) } }, expect: { decision: { not: 'deny' }, fired: { min: 1 } },
       });
       cases.push({
@@ -632,10 +652,26 @@ export function conformanceFor(name, policy, a) {
     });
   }
 
-  // The wiring the shipped tester never evaluates: a hook whose matcher names one
-  // tool must not fire for another.
+  /**
+   * KIND `near-miss`, NOT `wiring`, and the difference is a contract rather than a
+   * label.
+   *
+   * `--prove-fail` runs every enforce, wiring and fail-posture case against an
+   * EMPTY and an INERT bundle and requires each to go RED, because a case that
+   * passes with nothing installed asserts nothing about the extension. This case
+   * asserts `fired: 0` for a tool the matcher does not name, and zero handlers
+   * firing is exactly what an empty settings.json produces, so as a `wiring` case
+   * it walked past the detector. Independent review 2026-08-07 ran
+   * `--prove-fail --bundles` over the six generated bundles and found 27 survivors
+   * across three case shapes, this being one.
+   *
+   * The assertion is worth keeping: it is what catches a matcher pointed at the
+   * wrong tool. What was wrong is the kind. `near-miss` and `residual` are
+   * excluded from the detector precisely because a claim that something is NOT
+   * blocked cannot go red on a tree where nothing is installed.
+   */
   cases.push({
-    id: 'matcher-scopes-to-the-declared-tool', kind: 'wiring',
+    id: 'matcher-scopes-to-the-declared-tool', kind: 'near-miss',
     input: { tool_name: 'Write', tool_input: { file_path: 'src/app.ts' } },
     expect: { fired: 0 },
   });
@@ -643,8 +679,25 @@ export function conformanceFor(name, policy, a) {
   const firstDeny = policy.rules.find((r) => r.decision === 'deny') || policy.rules[0];
   const denyCmd = firstDeny.examples.match[0];
 
+  /**
+   * KIND `residual`, NOT `fail-posture`, for the same reason and a sharper one.
+   *
+   * In this repository `fail-posture` means the protection HOLDS despite the
+   * mutation: protect-path's deny rule is harness-owned, so it still denies with
+   * the handler deleted and its case expects a DENY, which goes red against a
+   * control. A command hook makes the opposite claim, and "the decision is not
+   * deny once the handler crashes" is equally true of an empty directory.
+   *
+   * That is not a labelling problem to work around, it IS the finding: a hook has
+   * no fail-posture to assert. It has a residual, a named vector confirmed not
+   * covered, and under a strict spec a surviving residual is what makes the run
+   * report NOT DONE rather than claiming a guarantee it cannot keep.
+   */
   cases.push({
-    id: 'crashing-handler-fails-open', kind: 'fail-posture', input: B(denyCmd), mutate: 'crash-handler',
+    id: 'crashing-handler-fails-open', kind: 'residual', input: B(denyCmd), mutate: 'crash-handler',
+    vector: 'the handler crashes, times out, or its interpreter is missing',
+    why: 'a command hook exiting non-zero is a non-blocking error and the tool call proceeds. Nothing in a hook '
+      + 'bundle survives its own handler failing, which is why an absolute policy here is reported NOT DONE.',
     expect: { decision: { not: 'deny' } },
   });
   cases.push({
@@ -799,12 +852,12 @@ export const GATE_PROBES = [
   {
     id: 'V1', summary: 'dangerous-operation, the smallest useful policy',
     policy: RM(), strict: false,
-    kinds: 'enforce,enforce,near-miss,near-miss,wiring,fail-posture,residual,residual',
+    kinds: 'enforce,enforce,near-miss,near-miss,near-miss,residual,residual,residual',
   },
   {
     id: 'V2', summary: 'the same policy declared absolute: strict, and indirection becomes a deny',
     policy: RM({ absolute: true }), strict: true,
-    kinds: 'enforce,enforce,near-miss,near-miss,wiring,fail-posture,residual,enforce',
+    kinds: 'enforce,enforce,near-miss,near-miss,near-miss,residual,residual,enforce', strictResiduals: 2,
   },
   {
     id: 'V3', summary: 'command-validation as an allowlist: approved shape permitted, everything else denied by default',
@@ -819,7 +872,7 @@ export const GATE_PROBES = [
         examples: { match: ['npm run test', 'npm run build'], miss: ['npm run deploy', 'npm publish'] },
       }],
     },
-    kinds: 'wiring,wiring,near-miss,near-miss,wiring,fail-posture,residual,enforce',
+    kinds: 'near-miss,near-miss,near-miss,near-miss,near-miss,residual,residual,enforce',
   },
   {
     id: 'V4', summary: 'required-check with both arms staged, so the passing arm is proved too',
@@ -838,7 +891,7 @@ export const GATE_PROBES = [
         gateSetup: { pass: { env: { TESTS_GREEN: '1' } }, fail: { env: { TESTS_GREEN: '0' } } },
       }],
     },
-    kinds: 'enforce,wiring,enforce,near-miss,near-miss,wiring,fail-posture,residual,residual',
+    kinds: 'enforce,near-miss,enforce,near-miss,near-miss,near-miss,residual,residual,residual',
   },
   {
     id: 'V5', summary: 'schema-validation over a document, with derived valid and invalid pair',
@@ -860,7 +913,7 @@ export const GATE_PROBES = [
         examples: { match: ['deploy apply prod'], miss: ['deploy status', 'kubectl apply -f x'] },
       }],
     },
-    kinds: 'enforce,wiring,enforce,enforce,near-miss,near-miss,wiring,fail-posture,residual,residual',
+    kinds: 'enforce,near-miss,enforce,enforce,near-miss,near-miss,near-miss,residual,residual,residual',
   },
   {
     id: 'V6', summary: 'deployment-gate with two programs, plus a second rule so precedence is exercised',
@@ -893,7 +946,7 @@ export const GATE_PROBES = [
         },
       ],
     },
-    kinds: 'enforce,near-miss,enforce,wiring,enforce,near-miss,wiring,fail-posture,residual,residual',
+    kinds: 'enforce,near-miss,enforce,near-miss,enforce,near-miss,near-miss,residual,residual,residual',
   },
 ];
 
@@ -921,13 +974,43 @@ export function checkProbe(probe, files) {
   for (const f of ['function decide(', 'function matchesShape(', 'function splitSegments(']) {
     if (!h.includes(f)) bad.push(`the generated handler is missing ${f}), so the runtime was not emitted`);
   }
-  if (/\$CLAUDE_PROJECT_DIR/.test(files['settings.json']) && !/\$\{CLAUDE_PROJECT_DIR\}/.test(files['settings.json'])) {
-    bad.push('settings.json uses the BARE $CLAUDE_PROJECT_DIR form, which resolves to $null on Windows');
+  /**
+   * settings.json is asserted POSITIVELY, by value.
+   *
+   * The previous version's only settings assertion was negative: complain IF the
+   * bare placeholder is present AND the braced one is not. A settings.json with no
+   * hook, no placeholder, or entirely different content produced no complaint at
+   * all, which is how an experiment that overwrote the whole file with the deny
+   * proposal walked straight past this function. Independent review 2026-08-07.
+   * protect-path's checkProbe already compared its deny array by value; this one
+   * now does the same for the wiring it is responsible for.
+   */
+  let s = null;
+  try { s = JSON.parse(files['settings.json']); } catch (e) { bad.push(`settings.json is not valid JSON (${e.message})`); }
+  if (s) {
+    const groups = (s.hooks && s.hooks.PreToolUse) || [];
+    const handlers = groups.flatMap((g) => g.hooks || []);
+    if (groups.length !== 1) bad.push(`settings.json declares ${groups.length} PreToolUse group(s), expected exactly 1`);
+    if (handlers.length !== 1) bad.push(`settings.json declares ${handlers.length} handler(s), expected exactly 1`);
+    if (groups[0] && groups[0].matcher !== probe.policy.matcher) bad.push(`matcher is ${JSON.stringify(groups[0].matcher)}, the policy declares ${JSON.stringify(probe.policy.matcher)}`);
+    const cmd = String((handlers[0] || {}).command || '');
+    if (cmd !== `node "\${CLAUDE_PROJECT_DIR}/${HANDLER_POSIX}"`) bad.push(`hook command is ${JSON.stringify(cmd)}, expected the braced-placeholder wiring for ${HANDLER_POSIX}`);
+    if (!(Number((handlers[0] || {}).timeout) > 0)) bad.push('the handler declares no positive timeout, so a hung hook has no bound');
+    /**
+     * No bundle from this pack may ship a permissions rule. The escalation is
+     * deliberately unadopted, and emitting one would claim a layer this repository
+     * has measured nothing about.
+     */
+    if (s.permissions) bad.push('settings.json carries a permissions block; this pack must not claim a layer it cannot prove');
   }
+
   if (files['permissions-deny.json.proposal']) {
     const p = files['permissions-deny.json.proposal'];
     if (!/"_what"/.test(p) || !/"_why_not_adopted"/.test(p)) bad.push('the deny proposal lost its non-adoption preamble');
     if (!/UNDETERMINED/.test(p)) bad.push('the deny proposal no longer says why the rule is unproven');
+    let parsed = null;
+    try { parsed = JSON.parse(p); } catch (e) { bad.push(`the deny proposal is not valid JSON (${e.message})`); }
+    if (parsed && Object.keys(parsed)[0] !== '_what') bad.push('the deny proposal no longer OPENS with its preamble, so a reader meets the rules before the reason not to adopt them');
   }
   const conf = JSON.parse(files['conformance.json']);
   if (!!probe.strict !== !!conf.strict) bad.push(`conformance strict is ${conf.strict}, expected ${probe.strict}`);
@@ -1044,8 +1127,6 @@ function selfTest() {
     const p = RM();
     p.rules[0].when.commandMatches = { exec: 'rm', argsPattern: '^-rf .*$' };
     p.rules[0].examples = { match: ['rm -rf build'], miss: ['rm build'] };
-    const bad = JSON.parse(JSON.stringify(p));
-    bad.documentExamples = undefined;
     check('a rule can be edited freely as long as its OWN examples still hold', analyse({ policy: p }).supported);
   }
 
@@ -1100,7 +1181,29 @@ function selfTest() {
     const { files } = buildBundle('x', { policy: RM() }, a);
     const p = files['permissions-deny.json.proposal'];
     check('it exists for a static-shape deny rule', !!p);
-    check('it is NOT named settings.json', !Object.keys(files).includes('permissions.json') && !/^settings\.json$/.test('permissions-deny.json.proposal'));
+    /**
+     * THIS ROW USED TO BE UNFALSIFIABLE, and it was guarding the property its own
+     * name promises. It read:
+     *
+     *   !Object.keys(files).includes('permissions.json')
+     *     && !/^settings\.json$/.test('permissions-deny.json.proposal')
+     *
+     * The second conjunct tests a STRING LITERAL, which no code in this repository
+     * can change. The first looks for a key `buildBundle` never emits. Independent
+     * review 2026-08-07 reproduced it by making buildBundle write the proposal
+     * INTO settings.json: the whole self-test still exited 0 with this row green.
+     *
+     * The real property is that the proposal is a SEPARATE, non-loadable file and
+     * that settings.json is still the wiring. Asserted against the actual bytes.
+     */
+    check('the proposal is a separate file and settings.json is still the wiring',
+      files['permissions-deny.json.proposal'] !== files['settings.json']
+      && !/_why_not_adopted/.test(files['settings.json'])
+      && /"hooks"/.test(files['settings.json']));
+    check('...and its filename cannot be loaded as settings by anything',
+      Object.keys(files).filter((k) => /(^|\/)settings\.json$/.test(k)).join(',') === 'settings.json');
+    check('...and settings.json carries NO permissions block, adopted or otherwise',
+      !('permissions' in JSON.parse(files['settings.json'])));
     check('it opens with the non-adoption preamble, not with "permissions"', /^\{\s*\n\s*"_what"/.test(p));
     check('it says the rule is UNDETERMINED here rather than implying it works', /UNDETERMINED/.test(p));
     check('it names the one provable alternative and its cost', /_the_one_provable_alternative/.test(p) && /blocks EVERY Bash command/.test(p));

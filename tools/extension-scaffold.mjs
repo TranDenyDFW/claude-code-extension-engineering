@@ -73,6 +73,7 @@ import * as protectPath from './packs/protect-path.mjs';
 import * as vba from './packs/validate-before-action.mjs';
 import { PACKS, listPacks, packById, route, PackRefusal } from './packs/index.mjs';
 import { loadPolicy } from './packs/policy-schema.mjs';
+import { STRICT_NOT_DONE } from './extension-prove.mjs';
 
 export const {
   GUARANTEE, FAIL_CLOSED, PROTECT, ABSOLUTE,
@@ -159,7 +160,24 @@ function scaffold(pack, input, outDir, name) {
   const prove = runTool('extension-prove.mjs', ['--bundle', outDir]);
   console.log(prove.out.trim());
   console.log('');
+  /**
+   * TWO DIFFERENT NON-ZERO RUNS, and conflating them printed a falsehood.
+   *
+   * `reportCode` returns 1 both when a case FAILED and when every case passed but
+   * a strict spec's residual survived. This read only the exit code, so an
+   * absolute requirement that satisfied its spec exactly was summarised as "the
+   * generated bundle does not satisfy its own conformance spec", directly
+   * contradicting the paragraph the prover had just printed. Independent review
+   * 2026-08-07. The prover now exports the exact strict line, so the two cannot
+   * drift apart again.
+   */
   if (prove.exit !== 0) {
+    if (prove.out.includes(STRICT_NOT_DONE)) {
+      console.log('NOT DONE: the bundle satisfies its own conformance spec, and the spec is STRICT because the');
+      console.log('requirement is absolute. A residual vector is confirmed open, so the claim is refused rather');
+      console.log('than the work. The bundle is written and is the strongest configuration available here.');
+      return 1;
+    }
     console.log('NOT DONE: the generated bundle does not satisfy its own conformance spec.');
     return 1;
   }
@@ -189,7 +207,7 @@ function scaffold(pack, input, outDir, name) {
  * count would have missed defect D entirely.
  */
 async function runGate({ quiet = false } = {}) {
-  const { proveBundle } = await import('./extension-prove.mjs');
+  const { proveBundle, proveFailSurvivors } = await import('./extension-prove.mjs');
   let bad = 0;
   for (const pack of PACKS.values()) {
     const seam = SEAM.packs.get(pack.id) || pack;
@@ -239,9 +257,35 @@ async function runGate({ quiet = false } = {}) {
          * met, and a gate that only counted red cases would call it a success.
          */
         const nr = (res.strictResidual || []).length;
-        if (p.strict && nr !== 1) { fail(`strict spec reported ${nr} surviving residual(s), frozen 1`); continue; }
-        if (!p.strict && nr !== 0) { fail(`non-strict spec reported ${nr} surviving residual(s), frozen 0`); continue; }
-        if (!quiet) console.log(`  ok   ${p.id} ${String(a.mechanism).padEnd(15)} ${conf.cases.length} cases, all green, frozen kinds match${p.strict ? ', NOT DONE on 1 residual as frozen' : ''}`);
+        const wantResiduals = p.strict ? (p.strictResiduals ?? 1) : 0;
+        if (nr !== wantResiduals) { fail(`${p.strict ? 'strict' : 'non-strict'} spec reported ${nr} surviving residual(s), frozen ${wantResiduals}`); continue; }
+
+        /**
+         * THE HOLLOWNESS DETECTOR, RUN AGAINST WHAT WE GENERATE.
+         *
+         * `--prove-fail` existed and only ever ran against the hand-written
+         * prove-bench fixtures, so the contract it enforces was never applied to
+         * the generator. Independent review 2026-08-07 ran it against six
+         * generated bundles and found 27 survivors across three case shapes: an
+         * assertion labelled `wiring` or `fail-posture` whose PASS did not depend
+         * on the generated extension at all, counted in the headline and in this
+         * gate's own "all green". Applying the contract here is the fix; retagging
+         * those three cases was only the symptom.
+         */
+        const hollow = proveFailSurvivors([tmp]);
+        /**
+         * An ADVISORY bundle legitimately has NO enforcing case: P5 asserts that
+         * CLAUDE.md prose does not enforce, and inventing an enforce case for it
+         * was defect D. So the requirement is two-sided and keyed to the FROZEN
+         * kind map, not to what the bundle happened to produce: a probe frozen as
+         * enforcing must have falsifiable cases, and a probe frozen as advisory
+         * must have none. Either one sprouting the other is the failure.
+         */
+        const claimsEnforcement = /\b(enforce|wiring|fail-posture)\b/.test(p.kinds);
+        if (claimsEnforcement && hollow.checked === 0) { fail('the frozen kinds claim enforcement but no case runs against a control, so nothing is falsifiable'); continue; }
+        if (!claimsEnforcement && hollow.checked !== 0) { fail(`an advisory probe produced ${hollow.checked} enforcing case-run(s); asserting enforcement from prose is exactly defect D`); continue; }
+        if (hollow.survivors.length) { fail(`${hollow.survivors.length} case(s) still PASS with nothing installed: ${hollow.survivors.map((s) => s.split(' :: ')[1]).join(' | ')}`); continue; }
+        if (!quiet) console.log(`  ok   ${p.id} ${String(a.mechanism).padEnd(15)} ${conf.cases.length} cases, all green, frozen kinds match${p.strict ? `, NOT DONE on ${wantResiduals} residual(s) as frozen` : ''}`);
       } finally { rmSync(tmp, { recursive: true, force: true }); }
     }
   }
@@ -398,14 +442,33 @@ async function proveGateCanFail() {
           : r)) } };
     }));
 
-  await inject('validate-before-action: an invalid policy is accepted instead of refused', 'validate-before-action',
+  /**
+   * THIS INJECTION USED TO TEST THE WRONG SEAM. It called the REAL `V.analyse`,
+   * which runs `validatePolicy`, and only then flipped decisions to allow, making
+   * it a near-duplicate of the injection above and leaving `policy-schema`'s
+   * refusal guarded by nothing. Independent review 2026-08-07: stubbing
+   * `validatePolicy` to always return ok would not have reddened it.
+   *
+   * It now BYPASSES validation entirely, which is the actual defect, and feeds
+   * through a policy the validator refuses: an UNANCHORED `argsPattern`. Unanchored
+   * means substring, so `^run test` matches `run test; rm -rf /`, and the probe's
+   * own near-miss example starts matching. The gate must catch that.
+   */
+  await inject('validate-before-action: policy validation is skipped, so an unanchored pattern ships', 'validate-before-action',
     { analyse: (i) => {
-      // The defect: skip validation and trust the policy. Reproduced by handing
-      // analyse a policy with a rule that declares no reason and an unanchored
-      // pattern, which the real validator refuses.
-      const a = V.analyse(i);
-      if (!a.supported) return a;
-      return { ...a, policy: { ...a.policy, defaultDecision: 'allow', rules: a.policy.rules.map((r) => ({ ...r, decision: 'allow' })) } };
+      const policy = JSON.parse(JSON.stringify(i.policy));
+      for (const r of policy.rules) {
+        if (!r.when.commandMatches) continue;
+        delete r.when.commandMatches.anyFlag;
+        delete r.when.commandMatches.anyArgPattern;
+        r.when.commandMatches.argsPattern = '.*';       // no ^ or $: validatePolicy refuses this
+      }
+      // Hand-built analysis, so nothing here ever consults validatePolicy.
+      return {
+        supported: true, policy, mechanism: 'hook', strict: !!policy.absolute,
+        families: [...new Set(policy.rules.map((r) => r.family))].sort(), notes: [],
+        denyCandidates: policy.rules.filter((r) => r.decision === 'deny' && r.when.commandMatches),
+      };
     } });
 
   await inject('validate-before-action: a crashing handler is modelled as still blocking', 'validate-before-action',

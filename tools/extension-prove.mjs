@@ -593,8 +593,11 @@ function matchExpect(expect, verdict) {
  * `hook-only-no-deny-rule` flipped from "5 passed, 2 failed" to "7 passed, 0
  * failed". Cause: --prove-fail filtered to enforce and wiring cases only, so the
  * fail-posture kind, which carries the project's central claim that a command
- * hook fails open, was never exercised by any gate. `mutationSelfTest` below now
- * asserts it actually mutates, and --prove-fail no longer excludes fail-posture.
+ * hook fails open, was never exercised by any gate. The "mutation engine" rows in
+ * selfTest() below now assert it actually mutates, and --prove-fail no longer
+ * excludes fail-posture. (That sentence used to name a `mutationSelfTest`
+ * function, which does not exist and never did; the rows are real, the reference
+ * was not.)
  */
 export function applyMutation(dir, settings, mutation) {
   if (!mutation || mutation === 'none') return;
@@ -809,9 +812,29 @@ export function proveBundle(bundleDir, { onlyKinds = null } = {}) {
 }
 
 // --------------------------------------------------------------------- reporting
+
+/**
+ * The exact line a strict NOT-DONE run prints, exported so a CALLER can tell the
+ * two exit-1 reasons apart without re-typing the sentence.
+ *
+ * Independent review 2026-08-07: extension-scaffold read only the exit code, so a
+ * run reporting "8 case(s): 8 passed, 0 failed" followed by this line was then
+ * summarised as "NOT DONE: the generated bundle does not satisfy its own
+ * conformance spec", which is FALSE. The bundle satisfies its spec exactly; what
+ * fails is the absolute claim. That is the confusion the strict design exists to
+ * prevent, reintroduced one layer up by a caller that could not see the
+ * difference.
+ */
+export const STRICT_NOT_DONE = 'NOT DONE: the requirement is ABSOLUTE and a residual vector survives.';
+
+/** Why a run is non-zero: 'cases' (something failed) or 'strict' (all green, claim refused). */
+export function failureKind(res) {
+  if (res.cases.some((c) => !c.ok) || res.mutatedSource) return 'cases';
+  return (res.strictResidual || []).length ? 'strict' : null;
+}
+
 export function reportCode(res) {
-  if (res.cases.some((c) => !c.ok) || res.mutatedSource) return 1;
-  return (res.strictResidual || []).length ? 1 : 0;
+  return failureKind(res) ? 1 : 0;
 }
 
 function report(res, json) {
@@ -832,7 +855,7 @@ function report(res, json) {
   console.log(`\n${res.cases.length} case(s): ${res.cases.length - failed} passed, ${failed} failed.`);
   if ((res.strictResidual || []).length) {
     console.log('');
-    console.log('NOT DONE: the requirement is ABSOLUTE and a residual vector survives.');
+    console.log(STRICT_NOT_DONE);
     for (const r of res.strictResidual) console.log(`  ${r.id}  ${r.vector}  is confirmed NOT covered`);
     console.log('');
     console.log('Every case above passed. That is the point: a passing residual case is a MEASURED');
@@ -1105,7 +1128,7 @@ function selfTest() {
     check('...and is reported with the quote rather than swallowed', got.notes.some((n) => /emits a startup warning/.test(n)));
   }
   check('an UNDETERMINED rule fails a not-deny expectation too, which is the whole point',
-    matcherMatches('Bash', 'Bash') && (() => {
+    (() => {
       const v = { decision: UNDETERMINED, fired: 1, notes: [], undeterminedWhy: ['unmeasured'] };
       return matchExpect({ decision: { not: 'deny' } }, v).length > 0 && matchExpect({ decision: 'deny' }, v).length > 0;
     })());
@@ -1132,10 +1155,20 @@ function selfTest() {
   check('a rule that plainly does not apply is still null, not undetermined',
     permissionDecision(S(['Edit(infra/**)']), 'Read', { file_path: 'src/a.ts' }).decision === null);
   if (RECOGNIZED_WRITE_SHAPES.size) {
+    /**
+     * The per-key guards used to be `!RECOGNIZED_WRITE_SHAPES.get(key) || <assertion>`,
+     * which degrades in the WRONG direction: rename or drop a calibration key and
+     * the row passes vacuously instead of failing. Independent review 2026-08-07.
+     * The key's PRESENCE is now asserted first, so a missing key is a failure and
+     * the assertion behind it still has to hold.
+     */
+    check('the calibration still names the shapes these rows are about',
+      !!RECOGNIZED_WRITE_SHAPES.get('append-redirect') && !!RECOGNIZED_WRITE_SHAPES.get('opaque-subprocess'),
+      `have: ${[...RECOGNIZED_WRITE_SHAPES.keys()].join(', ')}`);
     check('a CALIBRATED denied shape decides deny',
-      !RECOGNIZED_WRITE_SHAPES.get('append-redirect') || B("printf 'x' >> infra/main.tf").decision === 'deny');
+      B("printf 'x' >> infra/main.tf").decision === 'deny');
     check('a CALIBRATED residual shape decides null, and cites the measurement',
-      !RECOGNIZED_WRITE_SHAPES.get('opaque-subprocess') || B('node writer.mjs').decision === null);
+      B('node writer.mjs').decision === null);
   } else {
     console.log('  ..   no calibration file yet, so every Bash shape is undetermined by construction');
   }
@@ -1246,7 +1279,15 @@ function selfTest() {
  * An enforce case that still PASSES against either is asserting nothing about the
  * extension. Mirrors run-tests.mjs's SUITE IS HOLLOW.
  */
-function proveFail(bundleDirs) {
+/**
+ * The survivor list, split out from the reporting so a GENERATOR can gate itself
+ * on it. Independent review 2026-08-07 found that every bundle
+ * `validate-before-action` emitted violated this contract in three places, and
+ * that nothing in CI ran this detector against a generated bundle: it only ever
+ * saw the hand-written prove-bench fixtures. A contract enforced on the fixtures
+ * and not on the generator is a contract the generator does not have.
+ */
+export function proveFailSurvivors(bundleDirs) {
   const survivors = [];
   let checked = 0;
   for (const dir of bundleDirs) {
@@ -1271,6 +1312,11 @@ function proveFail(bundleDirs) {
       } finally { rmSync(tmp, { recursive: true, force: true }); }
     }
   }
+  return { checked, survivors };
+}
+
+function proveFail(bundleDirs) {
+  const { checked, survivors } = proveFailSurvivors(bundleDirs);
   console.log(`prove-fail: ${checked} enforce/wiring/fail-posture case-runs against empty and inert controls`);
   if (checked === 0) {
     // A gate that passes on zero cases is the defect it exists to catch.

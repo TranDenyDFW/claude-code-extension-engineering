@@ -202,6 +202,35 @@ node tools/extension-scaffold.mjs --gate --prove-gate-can-fail
 node tools/scaffold-parity.mjs --check
 ```
 
+## A second prove-bench cohort: command validators
+
+The first cohort asked whether a behavioural spec catches a defective path protection. The
+validation cohort asks the same about a command validator, which is harder: the extension now runs
+programs, reads documents, and decides from state that is not in the tool payload.
+
+One policy, one generated bundle as the control, eleven defective implementations sharing a
+byte-identical `conformance.json`. Expected failures are hand-declared, never read back from the
+tool, because deriving them would make the score a check that cannot fail.
+
+```
+extension-prove : 10 of 10 caught with the correct diagnosis, 0 false positives on the control
+test-hook.sh    :  1 of 11 caught,                            0 false positives on the control
+```
+
+The competitor's single catch is the fixture where the handler file could not be found at all: it
+caught a missing file, not a validation defect. One fixture is declared a MISS on purpose, because
+`extension-prove` cannot yet distinguish an explicit `permissionDecision: "allow"` from no decision
+at all, and naming that blind spot is better than omitting the fixture. Weakening the prover so no
+handler code runs collapses the score to 4 of 10 with a false positive on the control, which is
+what a control is for. The published 10-of-10-versus-3-of-10 experiment is untouched: separate
+directory, separate results file. Full write-up and limits:
+[results-prove-bench-validation.md](../tests/results-prove-bench-validation.md).
+
+```bash
+node tests/prove-bench/validation/make-fixtures.mjs --check
+node tests/prove-bench/validation/run-bench.mjs
+```
+
 ## Re-running any of it
 
 ```bash

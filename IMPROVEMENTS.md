@@ -475,19 +475,7 @@ The open classes, listed separately because they are different failures:
   compound command is inspected piece by piece, and it cannot resolve `$VAR`, `$( )`, `eval`,
   `sh -c` or `xargs`. `absolute: true` denies those rather than ignoring them; every other
   policy ships a residual case asserting the gap is open.
-- **A command hook fails open, and that is not fixable at this layer.** See item 32.
-
-**32. A `Bash(<command shape>)` deny rule is UNMEASURED here, so no bundle claims one.**
-The `permissions.deny` escalation that would survive handler deletion is not emitted. The
-documentation recommends the spelling ("Use `Bash(rm *)` ... instead") and never states what
-the pattern is matched against, and this repo has measured a leading `cd` hiding part of a
-command from the permission layer on 2.1.224. `extension-prove` therefore reports such a rule
-as UNDETERMINED, which fails every expectation including a negative one, so a tamper case
-built on it could not pass. `validate-before-action` writes the candidate rules to a
-non-loadable proposal file naming the one provable alternative (a bare `Bash` deny) and its
-cost, and an absolute policy reports NOT DONE instead of quietly satisfied. Closing this needs
-the same paired-arm measurement `bash-recognition-run.mjs` runs for file commands, applied to
-the rule form rather than the file form.
+- **A command hook fails open, and that is not fixable at this layer.** See item 34.
 
 **30. A requirement combining a conditional exemption with a hard guarantee has NO answer.**
 "Block writes under `infra/` unless the content carries an approval token, and hold even if the
@@ -856,3 +844,16 @@ no profile exists for a platform nobody measured.
   the short files adds no non-derivable information, which is the standard set in
   `references/composition-cards.md`.
 - **A CHANGELOG.** Commit-SHA versioning makes the git log the changelog.
+
+
+**34. A `Bash(<command shape>)` deny rule is UNMEASURED here, so no bundle claims one.**
+The `permissions.deny` escalation that would survive handler deletion is not emitted. The
+documentation recommends the spelling ("Use `Bash(rm *)` ... instead") and never states what
+the pattern is matched against, and this repo has measured a leading `cd` hiding part of a
+command from the permission layer on 2.1.224. `extension-prove` therefore reports such a rule
+as UNDETERMINED, which fails every expectation including a negative one, so a tamper case
+built on it could not pass. `validate-before-action` writes the candidate rules to a
+non-loadable proposal file naming the one provable alternative (a bare `Bash` deny) and its
+cost, and an absolute policy reports NOT DONE instead of quietly satisfied. Closing this needs
+the same paired-arm measurement `bash-recognition-run.mjs` runs for file commands, applied to
+the rule form rather than the file form.
