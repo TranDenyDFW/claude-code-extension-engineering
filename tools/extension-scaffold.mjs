@@ -22,7 +22,11 @@
  *
  * THE SELECTION RULE, and why it is not a style preference
  * -------------------------------------------------------
- * Measured across 81,002 anthropics/claude-code issues: the dominant confusion is
+ * Measured 2026-08-03 across the then-complete 81,002 anthropics/claude-code
+ * issues. The corpus has since been re-harvested to 81,291 (data/gh/corpus-stats.json,
+ * 2026-08-06); the ANALYSIS was not re-run, so the population it speaks for is the
+ * smaller one and the number is left as measured rather than silently refreshed to
+ * match a corpus the finding never saw. The dominant confusion is
  * users writing advisory prose and expecting a hard guarantee (#17908, #56383,
  * #80211, #16011), and in every one of those the permissions deny rule went
  * unconsidered. So:
