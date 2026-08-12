@@ -4,7 +4,7 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-08-08 against Claude Code 2.1.224, the build in `evidence/VERIFIED_VERSION`.
+Last reviewed 2026-08-12 against Claude Code 2.1.224, the build in `evidence/VERIFIED_VERSION`.
 The 2026-08-05 pass reconciled items 20 to 23, 25 and 27 against their own artifacts and
 re-ran their gates; the 2026-08-06 pass added items 31 to 36 and closed the Bash-recognition
 measurement that item 33 rests on. The 2026-08-07 and 2026-08-08 passes added items 43 and 44
@@ -386,9 +386,31 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 458 source assignments in `claims.jsonl` were made by subagents with stated rules,
+The 501 source assignments in `claims.jsonl` were made by subagents with stated rules,
 not independently double-checked. The integrity gate catches structural drift, not a
-wrong-but-plausible source id. A second blind attribution pass with disagreement
+wrong-but-plausible source id.
+
+**This is no longer hypothetical, measured 2026-08-12.** The 43 claims added with the
+status line, session and safety-classifier references were attributed by a mechanical
+rule: `[ENGINEERING]` to `CCX_RESEARCH`, otherwise the page the file was written from,
+with the checkpoint half of `sessions.md` routed to `SRC_CHECKPOINTING` by a keyword
+regex. That regex included `restore`, and the three bullets under "What a resumed
+session restores" contain the word, so `CLM-sessions-024/025/026` were attributed to
+the Checkpointing page when their content is on the Manage sessions page. Three of 43,
+about 7 percent, wrong.
+
+Every automated gate passed on them. `verify-evidence.mjs` checks that a source id
+RESOLVES, never that the cited source SUPPORTS the text, so a wrong pointer is
+invisible to it by construction. An independent reviewer caught it by fetching the
+cited page and finding the content absent, which is the only method that can.
+
+Two durable lessons. First, the mechanics of attribution belong in code but the
+DECISION does not: a keyword shared by two topics decided which page a claim came from.
+Second, the gap is specific and nameable, so a future pass could close part of it by
+checking each claim's text against the spot_checks already recorded on its cited
+source, which would have caught exactly this case.
+
+A second blind attribution pass with disagreement
 reporting would harden it. The 2026-08-05 monitors and channels pass is a worked example
 of the risk and of one cheap mitigation: 117 claims needed attribution, and checking each
 one against the page it named turned up a claim whose source page was not in the ledger

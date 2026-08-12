@@ -97,6 +97,9 @@ before it is a syntax question.
 | The tone or response format config seems to do nothing, or replaced more than expected | [output-styles.md](output-styles.md) |
 | One integration is skipped at startup while the others load, and validation passes | [lsp.md](lsp.md), [plugins.md](plugins.md) |
 | An agent definition's tools or frontmatter is ignored when it runs as a peer | [agent-teams.md](agent-teams.md), [subagents.md](subagents.md) |
+| It answered, but a different model answered than the one I picked | [safety-classifier.md](safety-classifier.md) |
+| A refusal on work that is obviously benign, sometimes on the very first request | [safety-classifier.md](safety-classifier.md) |
+| My display script runs far more or far less often than I expected | [statusline.md](statusline.md) |
 | I need to isolate which layer is responsible | [testing.md](testing.md) |
 
 ## "What context does this get, and what does it skip?"
@@ -110,6 +113,10 @@ before it is a syntax question.
 | Can a subagent keep its own persistent notes, separate from the main conversation? | [auto-memory.md](auto-memory.md), [context-modes.md](context-modes.md) |
 | Where do Claude's own written-back notes live, and are they a policy file? | [auto-memory.md](auto-memory.md), [claude-md-family.md](claude-md-family.md) |
 | How do CLAUDE.md, rules and imports compose? | [claude-md-family.md](claude-md-family.md) |
+| I resumed and something I had configured is gone | [sessions.md](sessions.md) |
+| Can I undo what it just did to my files? | [sessions.md](sessions.md) |
+| Where is the conversation actually stored, and can I read it from a script? | [sessions.md](sessions.md) |
+| I can see the number on screen but I cannot get at it | [statusline.md](statusline.md) |
 
 ## "Can a server or outside system reach into a session?"
 

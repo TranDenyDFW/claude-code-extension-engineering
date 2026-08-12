@@ -91,6 +91,9 @@ Keyed by mechanism. If you do not already know which mechanism owns the answer, 
 | Plugins | [plugins.md](references/plugins.md) |
 | Agent SDK | [agent-sdk.md](references/agent-sdk.md) |
 | Claude Code GitHub Action | [github-action.md](references/github-action.md) |
+| Status line: showing state Claude Code already tracks | [statusline.md](references/statusline.md) |
+| Sessions, transcripts, what /rewind can undo | [sessions.md](references/sessions.md) |
+| Safety refusals and automatic model fallback | [safety-classifier.md](references/safety-classifier.md) |
 | Choosing between them | [selection.md](references/selection.md) |
 | Combining two mechanisms | [composition-cards.md](references/composition-cards.md) |
 | Hook event contracts | [hook-events.md](references/hook-events.md) |
