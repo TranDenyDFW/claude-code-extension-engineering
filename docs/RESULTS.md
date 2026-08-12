@@ -279,6 +279,44 @@ node tests/prove-bench/validation/run-bench.mjs --verify-record
 `--verify-record` re-runs the cohort and fails on any change to the prove column. A bare run
 reports and writes nothing; re-recording is `--record`, deliberately.
 
+## The INDEX.md routing rows: positive in direction, below the bar
+
+**Pooled +5.83 of 42 against a preregistered floor of 6, so it does NOT clear the bar it was
+measured against.** Three repeats, 60 sessions, two independent blind graders per repeat.
+Measured 2026-08-12 on claude-sonnet-5, preregistered as `route-index-20260812` and sealed
+before the first session.
+
+The change under test is the twelve rows added to `references/INDEX.md`, which make six
+reference files reachable from the symptom index rather than only from the mechanism table.
+ARM A is the bundle without them; ARM D is the same bundle with them, asserted to differ in
+exactly two files by sha256 over the whole skill tree.
+
+| | pass 1 | pass 2 | pass 3 | pooled |
+|---|---|---|---|---|
+| seven symptom-shaped rows | +11.0 | +5.5 | +1.0 | **+5.83** |
+| three rows naming their mechanism | 0.0 | +0.5 | 0.0 | +0.17 |
+
+The comparison rows are flat, so the movement is not drift. The sign is positive in all three
+repeats. The magnitude is below the floor, and one repeat returned +1.0.
+
+**Pass 1 alone returned +11.0 and would have been published as clearing the floor.** It did not
+replicate, and that is the finding worth keeping. Both rows carrying pass 1 failed to repeat:
+on ROUTE-04 the control arm mis-routed to `subagents.md` once in three sessions and reached the
+right answer the other two, and on ROUTE-05 the treatment arm scored the same as the control in
+pass 3. The intermittent mis-route is real; a reliable one it is not.
+
+The instrument is the limiting factor rather than the intervention. Two of seven rows were at
+ceiling in every repeat, 6/6 in both arms, so they cannot detect anything and their zeros are
+not a null. One never moved and never triggered invocation. Two of seven were live
+discriminators, and both were noisy.
+
+Two integrity defects were found and fixed during the campaign rather than after it. Sessions
+can unblind themselves, because a run directory is named `<stamp>-<ARM>-<PROMPT>` and a session
+that prints its working directory puts the arm letter in its answer; one row did this in all
+three repeats. And the arena is not a sandbox: `CLAUDE_CONFIG_DIR` redirects where Claude Code
+loads config but does not confine the Read tool, so a session read the host's real config file.
+Across all 60 runs, zero sessions read anything answer-bearing, so the numbers stand.
+
 ## Re-running any of it
 
 ```bash
