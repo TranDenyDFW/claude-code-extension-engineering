@@ -51,6 +51,8 @@ mechanism that refuses, and several events exist purely to observe.
 | Can a watcher or monitor refuse an action? | [selection.md](selection.md), [monitors.md](monitors.md) |
 | Can an MCP server force a human confirmation? | [mcp.md](mcp.md) |
 | Can a permission rule stop a shell command that writes the same file? | [permissions.md](permissions.md), [compatibility.md](compatibility.md) |
+| Do parallel workers' plans get approved without asking me first? | [agent-teams.md](agent-teams.md) |
+| Can I set a different permission mode per parallel worker? | [agent-teams.md](agent-teams.md) |
 | Which layer can actually guarantee a "must not"? | [selection.md](selection.md) |
 
 ## "Will this setting take effect where I am putting it?"
@@ -66,6 +68,9 @@ before it is a syntax question.
 | Does a custom path field in a plugin manifest replace the default folder or add to it? | [plugins.md](plugins.md) |
 | Where does persistent plugin state belong so it survives an update? | [plugins.md](plugins.md) |
 | Does this need declaring under an experimental manifest key? | [themes.md](themes.md), [monitors.md](monitors.md), [plugins.md](plugins.md) |
+| Do these fields go at the top level of the file or inside the per-server object? | [lsp.md](lsp.md) |
+| Which permissions and secrets apply when this runs in CI rather than locally? | [github-action.md](github-action.md) |
+| Do my local settings, hooks and permission rules apply when I drive this from my own program? | [agent-sdk.md](agent-sdk.md) |
 
 ## "Will this work on my platform, provider, or version?"
 
@@ -75,6 +80,7 @@ before it is a syntax question.
 | Does a telemetry or non-essential-traffic switch disable it? | [compatibility.md](compatibility.md) |
 | What is the minimum version, and what happens on older builds? | [compatibility.md](compatibility.md) |
 | Does this run on native Windows? | [sandboxing.md](sandboxing.md), [compatibility.md](compatibility.md) |
+| Do split panes work in my terminal, and do parallel workers inherit my model? | [agent-teams.md](agent-teams.md) |
 | Was this behaviour verified against a specific build? | [compatibility.md](compatibility.md), [sources.md](sources.md) |
 
 ## "It is installed but it never fires / it runs but ignores its instructions"
@@ -87,6 +93,10 @@ before it is a syntax question.
 | An MCP server is configured but no tools appear | [mcp.md](mcp.md) |
 | A plugin loads but one component type is missing | [plugins.md](plugins.md) |
 | Something works by hand but not from a real session | [hooks.md](hooks.md), [hook-events.md](hook-events.md), [testing.md](testing.md) |
+| I edited a config mid-session and nothing changed | [output-styles.md](output-styles.md), [testing.md](testing.md) |
+| The tone or response format config seems to do nothing, or replaced more than expected | [output-styles.md](output-styles.md) |
+| One integration is skipped at startup while the others load, and validation passes | [lsp.md](lsp.md), [plugins.md](plugins.md) |
+| An agent definition's tools or frontmatter is ignored when it runs as a peer | [agent-teams.md](agent-teams.md), [subagents.md](subagents.md) |
 | I need to isolate which layer is responsible | [testing.md](testing.md) |
 
 ## "What context does this get, and what does it skip?"
@@ -97,6 +107,8 @@ before it is a syntax question.
 | What does a named subagent receive that a built-in does not? | [context-modes.md](context-modes.md), [subagents.md](subagents.md) |
 | Why are documented conventions ignored during exploration? | [context-modes.md](context-modes.md) |
 | Which context does a skill, fork, or teammate run in? | [context-modes.md](context-modes.md) |
+| Can a subagent keep its own persistent notes, separate from the main conversation? | [auto-memory.md](auto-memory.md), [context-modes.md](context-modes.md) |
+| Where do Claude's own written-back notes live, and are they a policy file? | [auto-memory.md](auto-memory.md), [claude-md-family.md](claude-md-family.md) |
 | How do CLAUDE.md, rules and imports compose? | [claude-md-family.md](claude-md-family.md) |
 
 ## "Can a server or outside system reach into a session?"
