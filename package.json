@@ -1,0 +1,28 @@
+{
+  "name": "claude-code-extension-engineering",
+  "private": true,
+  "description": "Architecture decision reference, diagnostics and behavioural-conformance tooling for Claude Code extensions. Not published to npm; installed as a Claude Code plugin or by copying the skill directory.",
+  "license": "MIT",
+  "author": "TranDenyDFW",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TranDenyDFW/claude-code-extension-engineering.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node tests/run-tests.mjs",
+    "test:prove-fail": "node tests/run-tests.mjs --prove-fail",
+    "verify": "node tools/verify-evidence.mjs",
+    "verify:prove-fail": "node tools/verify-evidence.mjs --prove-can-fail",
+    "numbers": "node tools/coverage-report.mjs --doc-numbers",
+    "numbers:prove-fail": "node tools/coverage-report.mjs --prove-can-fail",
+    "doctor": "node tools/extension-doctor.mjs",
+    "quotes": "node tools/quote-check.mjs"
+  },
+  "_scriptsAreNotTheCiContract": "CI runs about fifty distinct commands (.github/workflows/freshness.yml). These eight are the ones a contributor needs by hand, and they are deliberately NOT a mirror of the workflow. A duplicated list would be a second place for the truth to rot, which is the exact defect tools/coverage-report.mjs --doc-numbers exists to catch elsewhere in this repo. The workflow is the contract; read it.",
+  "_noDependencies": "There are none, and that is a property worth keeping. All 78 .mjs files import node: built-ins and each other. This file exists to declare the Node floor and give `npm test` a meaning, not to add a dependency graph.",
+  "_typeModule": "Set explicitly even though every source file is .mjs and is therefore ESM regardless. It is here so that a future .js file does not silently arrive as CommonJS."
+}

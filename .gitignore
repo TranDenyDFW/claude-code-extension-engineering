@@ -5,3 +5,30 @@ desktop.ini
 
 # session-scoped harness state, never committed
 .claude/hooks/.exec-state-*.json
+
+# Secrets. None of these has ever been committed here, and this list exists so that
+# stays true by default rather than by attention. The live case that prompted it: a
+# sibling benchmark repo accumulated eight copies of a real OAuth credential on disk
+# in a single afternoon, because an isolation harness seeds each run's config dir by
+# copying one. That is a normal thing for a harness to do, and exactly why the
+# pattern belongs here before the harness that needs it arrives.
+.env
+.env.*
+!.env.example
+.credentials.json
+**/.claude/.credentials.json
+*.pem
+*.key
+!**/fixtures/**/*.key
+id_rsa
+id_ed25519
+*.p12
+*.pfx
+.npmrc
+.netrc
+
+# Local scratch. tmp/ is the project-root scratch directory; anything under it is
+# throwaway by construction and must never reach a commit.
+tmp/
+tmp-*.out
+*.local.json
