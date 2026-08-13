@@ -1,6 +1,6 @@
 # Sandboxing
 
-> Claude Code 2.1.224, verified 2026-08-07. Sources fetched live that day; the sandbox itself could NOT be exercised here, because this machine is native Windows and the sandbox does not run there. Every line below is documentation, tagged accordingly, and nothing in this file is a local observation.
+> Claude Code 2.1.229, verified 2026-08-13. Sources fetched live that day; the sandbox itself could NOT be exercised here, because this machine is native Windows and the sandbox does not run there. Every line below is documentation, tagged accordingly, and nothing in this file is a local observation.
 
 
 OS-level enforcement for Bash commands and their child processes. It is the only layer in Claude Code that a process cannot talk its way past: the operating system, not the model and not the harness, holds the boundary. It is also the narrowest layer, because it sees Bash and nothing else.
@@ -15,7 +15,8 @@ meets this fact in a footnote has already written a plan around a layer they do 
 - "The sandbox is built into Claude Code and runs on macOS, Linux, and WSL2. Native Windows is not supported. On Windows, run Claude Code inside a WSL2 distribution." [OFFICIAL]  [v2.1.220]
 - The practical consequence is not "less isolation on Windows", it is NONE. A Windows developer configuring a path protection has exactly two layers available, a permission deny rule and a command hook, and both are described in [permissions.md](permissions.md) and [hooks.md](hooks.md) as leaking at the subprocess boundary. On that platform the subprocess vector has no answer  [ENGINEERING]
 - WSL2 counts as supported, so "run Claude Code inside WSL2" is a real migration and not a shrug. It changes the whole session, not one setting: paths, line endings, the toolchain, and which binaries are reachable  [ENGINEERING]
-- On WSL2 the sandbox blocks the Windows-interop path: "sandboxed commands cannot launch Windows binaries such as `cmd.exe`, `powershell.exe`, or anything under `/mnt/c/`", because "WSL hands these off to the Windows host over a Unix socket, which the sandbox blocks". A command that needs one has to be listed in `excludedCommands`, which runs it OUTSIDE the sandbox [OFFICIAL]  [v2.1.220]
+- On WSL2 the Windows-interop path is CONDITIONAL, not blocked: "WSL hands a launch of a Windows binary such as `cmd.exe`, `powershell.exe`, or anything under `/mnt/c/` to the Windows host over a Unix socket", so whether a sandboxed command can launch one follows the sandbox's Unix-socket settings, and "the optional seccomp filter has to be installed to block the socket in the first place". "To allow these launches, set `allowAllUnixSockets`"; to keep them out of the sandbox entirely, list the command in `excludedCommands`, which runs it OUTSIDE the sandbox [OFFICIAL]  [v2.1.229]
+- This reverses what this file said through v2.1.224, which was that the sandbox "blocks" that path outright. It does not, by itself. The component that blocks it is OPTIONAL and has to be installed, so a reader who configured a Windows-interop containment on the strength of the old wording has a guarantee that may never have been in force. Treat WSL2 interop as reachable unless you have verified the seccomp filter is present  [ENGINEERING]  [v2.1.229]
 
 ## It covers Bash and its children, and NOTHING else
 

@@ -1,6 +1,6 @@
 # Permission rules
 
-> Claude Code 2.1.224, verified 2026-08-07. Source fetched live that day. The Bash-boundary section is MEASURED on this machine, paired against a control, and is the only section here that is not documentation.
+> Claude Code 2.1.229, verified 2026-08-13. Source fetched live that day. The Bash-boundary section is MEASURED on this machine, paired against a control, and is the only section here that is not documentation.
 
 
 Harness-owned allow, ask and deny rules over tool calls. This is the layer that still holds when a hook's handler is deleted, and the one to reach for when a requirement says "must" rather than "should". It is also the layer whose edge you cannot read out of the documentation, because the set of Bash commands it recognises is given by example and never enumerated.

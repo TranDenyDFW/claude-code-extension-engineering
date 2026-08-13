@@ -386,9 +386,14 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 501 source assignments in `claims.jsonl` were made by subagents with stated rules,
-not independently double-checked. The integrity gate catches structural drift, not a
-wrong-but-plausible source id.
+Of the 502 source assignments in `claims.jsonl`, all but two were made by subagents with
+stated rules, not independently double-checked. The integrity gate catches structural
+drift, not a wrong-but-plausible source id.
+
+The two exceptions are `CLM-sandboxing-018` and `-019`, attributed during the 2.1.229
+re-verification by reading the page each cites rather than by applying a rule. That is a
+smaller sample, not a different method: it is still one model's judgment, and the reason
+it was done by hand is recorded immediately below.
 
 **This is no longer hypothetical, measured 2026-08-12.** The 43 claims added with the
 status line, session and safety-classifier references were attributed by a mechanical

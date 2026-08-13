@@ -1,6 +1,6 @@
 # Status line
 
-> Claude Code 2.1.224, verified 2026-08-12. What that means here: every claim below was checked
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: every claim below was checked
 > against a live fetch of the Status line page on that date, not against the docs mirror, because
 > this file is new and had no prior verification to inherit. It carries NO verbatim quotes, so the
 > quote gate says nothing about it.

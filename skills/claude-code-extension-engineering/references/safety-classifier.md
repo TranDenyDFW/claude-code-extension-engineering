@@ -1,6 +1,6 @@
 # Safety classifiers and model fallback
 
-> Claude Code 2.1.224, verified 2026-08-12. What that means here: every claim below was checked
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: every claim below was checked
 > against a live fetch of the Model configuration page on that date. Its sourcing is THINNER than
 > its siblings and that is recorded rather than glossed: this file rests on one page, where the
 > status line and session references each rest on dedicated pages of their own. The refusal-message

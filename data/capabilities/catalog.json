@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": "2.1.224",
-  "generated": "2026-08-07T07:09:54.191Z",
+  "catalogVersion": "2.1.229",
+  "generated": "2026-08-13T01:36:30.716Z",
   "generator": "tools/capability-catalog.mjs --from-mirror P:/ClaudeExt/CCX-Extension-Research/sources/docs/md",
   "quotePolicy": "Quotes are markdown-link-flattened, whitespace-collapsed, truncated to 140 chars, and dash-family characters (U+2010..U+2015, U+2212) are replaced with ' - ' per the repo house rule. For byte-verbatim text, read the cited line from the source whose sha256 is recorded in sources[].",
   "statuses": [
@@ -15,46 +15,46 @@
     {
       "id": "agent-sdk__python.md",
       "role": "supporting",
-      "sha256": "8f9fe520e09156c0eb3c354a100f75760d54294d2204f31d9068bfd0bb1a74dc",
-      "bytes": 195188
+      "sha256": "70e2375cce624102a4497080343c6e6dbf0a6817514f83948fbea914692865fe",
+      "bytes": 194071
     },
     {
       "id": "agent-sdk__typescript.md",
       "role": "supporting",
-      "sha256": "a1ff3a3c112e380f473729209ab225d75f395e07db034c186fbfce6a81aea4c5",
-      "bytes": 263071
+      "sha256": "880e70abaa10647efa340f880527d40a9eea867a0456609dc8496e9192a5b2b5",
+      "bytes": 281585
     },
     {
       "id": "changelog.md",
       "role": "supporting",
-      "sha256": "9f79dd5150b5ddf57597c8a3d3e11c421622b9944ad655408ef75cac5104e7f5",
-      "bytes": 522310
+      "sha256": "0a028c085d9e862aad66d6246c71f70588d11aa830b2c50859863790131a39fd",
+      "bytes": 532663
     },
     {
       "id": "errors.md",
       "role": "supporting",
-      "sha256": "3788be24a5ea62768dba5c4cd3c7a80f3619fa77b32e2f5f220cd67292847b27",
-      "bytes": 165115
+      "sha256": "4c8e7a3092a95239691751e8c8b054dc25efe2d025de7a55f6c9c630b6b58dd6",
+      "bytes": 223030
     },
     {
       "id": "hooks.md",
       "role": "primary",
-      "sha256": "7823a5867393672cd8e65f1ceadd47c464a357ddeb2421e7cc6e508cf25528cd",
-      "bytes": 248694
+      "sha256": "ee62289b6ecfb7298af7d833436872c76900f543313c69f926779667fcbe6d27",
+      "bytes": 267242
     },
     {
       "id": "mirror-index",
       "role": "absence-scan",
-      "sha256": "029af3fe0a86ab1904bef9372bf46b03b533102c4c33a7f6b693313959fdfcff",
-      "bytes": 16020,
-      "pages": 187,
+      "sha256": "6cbd09161472a9fe2d46b0e50afceaf4c1e3a9076e92b38320c60d72008cb46f",
+      "bytes": 16376,
+      "pages": 191,
       "note": "sha256 over the sorted \"<page> <sha256>\" index of every mirrored page; cited by entries whose evidence is absence"
     },
     {
       "id": "permissions.md",
       "role": "supporting",
-      "sha256": "8e378d4475066f1d6b2bbd15f37c96811e8601e2755ebcb974a92f95a095e7da",
-      "bytes": 60055
+      "sha256": "98f4f417d0f1b9fc77f1978d3b768e5e5e8df7d5465e792fe067859f0f853d87",
+      "bytes": 60974
     },
     {
       "id": "tests/lint-bench/results.json",
@@ -66,15 +66,15 @@
     {
       "id": "tools-reference.md",
       "role": "primary",
-      "sha256": "0b911848d098b1f4025d0f8f48d6ff091d78ea76f7b3608330b8f366e293929f",
-      "bytes": 96719
+      "sha256": "dd3918bfd80a2c551879ea498eb7a75663ef92c7741af4ed09124cf6cd352021",
+      "bytes": 89863
     }
   ],
   "counts": {
-    "toolsTotal": 51,
-    "toolsCurrent": 43,
+    "toolsTotal": 52,
+    "toolsCurrent": 44,
     "toolsByStatus": {
-      "current": 43,
+      "current": 44,
       "legacy": 5,
       "historical": 2,
       "sdk-only": 0,
@@ -92,8 +92,8 @@
     "sources": 9
   },
   "versionAwareness": {
-    "catalogVersion": "2.1.224",
-    "newestChangelogVersion": "2.1.224",
+    "catalogVersion": "2.1.229",
+    "newestChangelogVersion": "2.1.229",
     "catalogVersionIsNewestDocumented": true,
     "namesNewerThanCatalogVersion": [],
     "note": "names announced after catalogVersion are documented but may not exist on the verified build"
@@ -106,7 +106,9 @@
     "status": "never the arbiter: a competitor assertion, recorded because it was more current than our own hardcoded list",
     "toolCount": 47,
     "agreesWithDocsOn": 43,
-    "docsCurrentItLacks": [],
+    "docsCurrentItLacks": [
+      "ListAgents"
+    ],
     "assertsDocumentedElsewhere": [
       "Task"
     ],
@@ -164,7 +166,7 @@
       "provenance": [
         {
           "source": "agent-sdk__python.md",
-          "line": 3047,
+          "line": 2958,
           "quote": "**Tool name:** `TaskOutput`. The previous name `BashOutput` is still accepted as an alias."
         }
       ]
@@ -219,7 +221,7 @@
         },
         {
           "source": "changelog.md",
-          "line": 283,
+          "line": 368,
           "quote": "* Added the EndConversation tool: Claude can end sessions with highly abusive users or jailbreak attempts, as on claude.ai since 2025 - s..."
         }
       ],
@@ -265,7 +267,7 @@
         },
         {
           "source": "changelog.md",
-          "line": 3201,
+          "line": 3286,
           "quote": "* Added `ExitWorktree` tool to leave an `EnterWorktree` session"
         }
       ],
@@ -298,7 +300,7 @@
       "provenance": [
         {
           "source": "agent-sdk__python.md",
-          "line": 3072,
+          "line": 2983,
           "quote": "**Tool name:** `TaskStop`. The previous names `KillShell` and `KillBash` are still accepted as aliases."
         }
       ]
@@ -310,7 +312,7 @@
       "provenance": [
         {
           "source": "agent-sdk__python.md",
-          "line": 3072,
+          "line": 2983,
           "quote": "**Tool name:** `TaskStop`. The previous names `KillShell` and `KillBash` are still accepted as aliases."
         }
       ]
@@ -321,7 +323,7 @@
       "provenance": [
         {
           "source": "changelog.md",
-          "line": 5252,
+          "line": 5337,
           "quote": "* Renamed tools for consistency: LSTool -> LS, View -> Read, etc."
         }
       ]
@@ -331,23 +333,33 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 37,
+          "line": 38,
           "quote": "Code intelligence via language servers: jump to definitions, find references, report type errors and warnings. See LSP tool behavior"
         },
         {
           "source": "changelog.md",
-          "line": 4206,
+          "line": 4291,
           "quote": "* Added LSP (Language Server Protocol) tool for code intelligence features like go-to-definition, find references, and hover documentation"
         }
       ],
       "since": "2.0.74"
+    },
+    "ListAgents": {
+      "status": "current",
+      "provenance": [
+        {
+          "source": "tools-reference.md",
+          "line": 36,
+          "quote": "Lists the agents Claude can message with `SendMessage`, apart from agent team teammates, which Claude reaches through the team's roster:..."
+        }
+      ]
     },
     "ListMcpResourcesTool": {
       "status": "current",
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 36,
+          "line": 37,
           "quote": "Lists resources exposed by connected MCP servers"
         }
       ]
@@ -357,12 +369,12 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 38,
+          "line": 39,
           "quote": "Runs a command in the background and feeds each output line back to Claude, so it can react to log entries, file changes, or polled statu..."
         },
         {
           "source": "changelog.md",
-          "line": 2498,
+          "line": 2583,
           "quote": "* Added Monitor tool for streaming events from background scripts"
         }
       ],
@@ -379,7 +391,7 @@
         },
         {
           "source": "errors.md",
-          "line": 1740,
+          "line": 2133,
           "quote": "...)`, `NotebookEdit(path)`, and legacy `MultiEdit(path)` rules with `Edit(path)`. `Edit` rules cover all file-editing tools."
         }
       ]
@@ -389,7 +401,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 39,
+          "line": 40,
           "quote": "Modifies Jupyter notebook cells. See NotebookEdit tool behavior"
         }
       ]
@@ -401,7 +413,7 @@
         {
           "source": "mirror-index",
           "line": 0,
-          "quote": "absence scan: zero occurrences of NotebookRead across all 187 mirrored pages"
+          "quote": "absence scan: zero occurrences of NotebookRead across all 191 mirrored pages"
         }
       ]
     },
@@ -410,12 +422,12 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 40,
+          "line": 41,
           "quote": "Executes PowerShell commands natively. See PowerShell tool for availability"
         },
         {
           "source": "changelog.md",
-          "line": 2820,
+          "line": 2905,
           "quote": "* Added PowerShell tool for Windows as an opt-in preview. Learn more at https://code.claude.com/docs/en/tools-reference#powershell-tool"
         }
       ],
@@ -426,7 +438,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 41,
+          "line": 42,
           "quote": "Sends a desktop notification, and a phone push when Remote Control is connected, so a long-running task or scheduled task can reach you w..."
         }
       ]
@@ -436,7 +448,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 42,
+          "line": 43,
           "quote": "Reads the contents of files. See Read tool behavior"
         }
       ]
@@ -446,7 +458,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 43,
+          "line": 44,
           "quote": "Reads a specific MCP resource by URI"
         }
       ]
@@ -456,8 +468,8 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 44,
-          "quote": "Creates, updates, runs, and lists Routines on claude.ai. Backs the `/schedule` command. Routines live on claude.ai and require a Pro, Max..."
+          "line": 45,
+          "quote": "Creates, updates, runs, and lists Routines on claude.ai. Backs the `/schedule` command. The `RemoteTrigger` input reference documents eve..."
         }
       ]
     },
@@ -466,7 +478,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 45,
+          "line": 46,
           "quote": "Reports code-review findings as a structured list, with a file, summary, and failure scenario per finding, so Claude Code can render them..."
         }
       ]
@@ -476,7 +488,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 46,
+          "line": 47,
           "quote": "Reschedules the next iteration of a self-paced `/loop`. Claude calls this at the end of each iteration to pick when the next one runs, be..."
         }
       ]
@@ -486,8 +498,8 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 47,
-          "quote": "Sends a message to an agent team teammate, or resumes a subagent by its agent ID or name. A completed subagent auto-resumes in the backgr..."
+          "line": 48,
+          "quote": "Sends a message to another agent: an agent team teammate, a subagent it resumes by agent ID or name, or one of your other Claude Code ses..."
         }
       ]
     },
@@ -496,7 +508,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 48,
+          "line": 49,
           "quote": "Sends files from the session to you with an optional caption, so a generated report, diagram, screenshot, or built artifact reaches your..."
         }
       ]
@@ -506,7 +518,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 49,
+          "line": 50,
           "quote": "Uploads `ONBOARDING.md` and returns a share link teammates can open in Claude Code. Called from `/team-onboarding` after the guide is wri..."
         }
       ]
@@ -516,7 +528,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 50,
+          "line": 51,
           "quote": "Executes a skill within the main conversation"
         }
       ]
@@ -527,7 +539,7 @@
       "provenance": [
         {
           "source": "changelog.md",
-          "line": 4694,
+          "line": 4779,
           "quote": "* Added SlashCommand tool, which enables Claude to invoke your slash commands. [https://code.claude.com/docs/en/slash-commands#SlashComman"
         }
       ],
@@ -540,17 +552,17 @@
       "provenance": [
         {
           "source": "agent-sdk__python.md",
-          "line": 2460,
+          "line": 2368,
           "quote": "**Tool name:** `Agent`. The previous name `Task` is still accepted as an alias, and the `tools` list in the init `SystemMessage` reports..."
         },
         {
           "source": "agent-sdk__typescript.md",
-          "line": 2248,
+          "line": 2222,
           "quote": "**Tool name:** `Agent`. The previous name `Task` is still accepted as an alias, and the `tools` array in the `SDKSystemMessage` init mess..."
         },
         {
           "source": "agent-sdk__typescript.md",
-          "line": 2952,
+          "line": 2938,
           "quote": "**Tool name:** `Agent`. The previous name `Task` is still accepted as an alias, and the `tools` array in the `SDKSystemMessage` init mess..."
         }
       ]
@@ -560,7 +572,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 51,
+          "line": 52,
           "quote": "Creates a new task in the task list"
         }
       ]
@@ -570,7 +582,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 52,
+          "line": 53,
           "quote": "Retrieves full details for a specific task"
         }
       ]
@@ -580,7 +592,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 53,
+          "line": 54,
           "quote": "Lists all tasks with their current status"
         }
       ]
@@ -590,7 +602,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 54,
+          "line": 55,
           "quote": "Retrieves output from a background task. Deprecated in favor of `Read` on the task's output file path. When no task matches the ID, the e..."
         }
       ]
@@ -600,7 +612,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 55,
+          "line": 56,
           "quote": "Stops a running background task by ID. It also accepts an agent-team teammate or a named background agent by agent ID or name. Before v2...."
         }
       ]
@@ -610,7 +622,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 56,
+          "line": 57,
           "quote": "Updates task status, dependencies, details, or deletes tasks"
         }
       ]
@@ -620,7 +632,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 57,
+          "line": 58,
           "quote": "Manages the session task checklist. Disabled by default as of v2.1.142 in favor of `TaskCreate`, `TaskGet`, `TaskList`, and `TaskUpdate`...."
         }
       ]
@@ -630,7 +642,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 58,
+          "line": 59,
           "quote": "Searches for and loads deferred tools when tool search is enabled"
         }
       ]
@@ -640,7 +652,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 59,
+          "line": 60,
           "quote": "Waits for one or more MCP servers that are still connecting in the background, so a request can use their tools without restarting the se..."
         }
       ]
@@ -650,7 +662,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 60,
+          "line": 61,
           "quote": "Fetches content from a specified URL. See WebFetch tool behavior"
         }
       ]
@@ -660,7 +672,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 61,
+          "line": 62,
           "quote": "Performs web searches. See WebSearch tool behavior"
         }
       ]
@@ -670,7 +682,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 62,
+          "line": 63,
           "quote": "Runs a dynamic workflow: a script that orchestrates many subagents in the background and returns one consolidated result"
         }
       ]
@@ -680,7 +692,7 @@
       "provenance": [
         {
           "source": "tools-reference.md",
-          "line": 63,
+          "line": 64,
           "quote": "Creates or overwrites files. See Write tool behavior"
         }
       ]
@@ -692,12 +704,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2474,
+          "line": 2530,
           "quote": "Runs when a configuration file changes during a session. Use this to audit settings changes, enforce security policies, or block unauthor..."
         },
         {
           "source": "changelog.md",
-          "line": 3568,
+          "line": 3653,
           "quote": "* Added `ConfigChange` hook event that fires when configuration files change during a session, enabling enterprise security auditing and..."
         }
       ],
@@ -708,12 +720,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2543,
+          "line": 2601,
           "quote": "Runs when the working directory changes during a session, for example when Claude executes a `cd` command. Use this to react to directory..."
         },
         {
           "source": "changelog.md",
-          "line": 2864,
+          "line": 2949,
           "quote": "* Added `CwdChanged` and `FileChanged` hook events for reactive environment management (e.g., direnv)"
         }
       ],
@@ -724,12 +736,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2576,
-          "quote": "Runs after a working directory is added mid-session, with the `/add-dir` command or the SDK `register_repo_root` control request. Use thi..."
+          "line": 2636,
+          "quote": "Runs after you add a working directory mid-session with the `/add-dir` command, or after an SDK client adds one with the `register_repo_r..."
         },
         {
           "source": "changelog.md",
-          "line": 142,
+          "line": 227,
           "quote": "* Added `DirectoryAdded` hook that fires after `/add-dir` or the SDK `register_repo_root` control request registers a new working directo..."
         }
       ],
@@ -740,7 +752,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2854,
+          "line": 2930,
           "quote": "Runs when an MCP server requests user input mid-task. By default, Claude Code shows an interactive dialog for the user to respond. Hooks..."
         }
       ]
@@ -750,7 +762,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2924,
+          "line": 3002,
           "quote": "Runs after a user responds to an MCP elicitation. Hooks can observe, modify, or block the response before it is sent back to the MCP server."
         }
       ]
@@ -760,7 +772,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2614,
+          "line": 2682,
           "quote": "Runs when a watched file changes on disk. Useful for reloading environment variables when project configuration files are modified."
         }
       ]
@@ -770,12 +782,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1186,
+          "line": 1217,
           "quote": "Fires when a `CLAUDE.md` or `.claude/rules/*.md` file is loaded into context. This event fires at session start for eagerly-loaded files..."
         },
         {
           "source": "changelog.md",
-          "line": 3327,
+          "line": 3412,
           "quote": "* Added `InstructionsLoaded` hook event that fires when CLAUDE.md or `.claude/rules/*.md` files are loaded into context"
         }
       ],
@@ -786,7 +798,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1329,
+          "line": 1364,
           "quote": "Runs while an assistant message streams to the screen. Claude Code displays the message in increments: each time a batch of newly complet..."
         }
       ]
@@ -796,7 +808,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2059,
+          "line": 2102,
           "quote": "Runs when Claude Code sends notifications. Matches on notification type. Omit the matcher to run hooks for all notification types."
         }
       ]
@@ -806,12 +818,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2013,
-          "quote": "Runs when the auto mode classifier denies a tool call. This hook only fires in auto mode: it doesn't run when you manually deny a permiss..."
+          "line": 2054,
+          "quote": "Runs when auto mode denies a tool call, including when it denies without a classifier verdict because a safety check separate from auto m..."
         },
         {
           "source": "changelog.md",
-          "line": 2701,
+          "line": 2786,
           "quote": "* Added `PermissionDenied` hook that fires after auto mode classifier denials - return `{retry: true}` to tell the model it can retry"
         }
       ],
@@ -822,12 +834,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1734,
+          "line": 1771,
           "quote": "Runs when Claude Code is about to ask you for permission. In sessions that can't show a prompt, such as background subagents in non-inter..."
         },
         {
           "source": "changelog.md",
-          "line": 4426,
+          "line": 4511,
           "quote": "* Added `PermissionRequest` hook to automatically approve or deny tool permission requests with custom logic"
         }
       ],
@@ -838,12 +850,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2788,
+          "line": 2864,
           "quote": "Runs after Claude Code completes a compact operation. Use this event to react to the new compacted state, for example to log the generate..."
         },
         {
           "source": "changelog.md",
-          "line": 3093,
+          "line": 3178,
           "quote": "* Added `PostCompact` hook that fires after compaction completes"
         }
       ],
@@ -854,7 +866,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1956,
+          "line": 1997,
           "quote": "Runs once after every tool call in a batch has resolved, before Claude Code sends the next request to the model. `PostToolUse` fires once..."
         }
       ]
@@ -864,7 +876,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1824,
+          "line": 1865,
           "quote": "Runs immediately after a tool completes successfully."
         }
       ]
@@ -874,7 +886,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1894,
+          "line": 1935,
           "quote": "Runs when a tool that started executing fails: the tool threw an error, or an MCP tool returned an error result. Use this to log failures..."
         }
       ]
@@ -884,12 +896,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2758,
+          "line": 2832,
           "quote": "Runs before Claude Code is about to run a compact operation."
         },
         {
           "source": "changelog.md",
-          "line": 2408,
+          "line": 2493,
           "quote": "* Added PreCompact hook support: hooks can now block compaction by exiting with code 2 or returning `{\"decision\":\"block\"}`"
         }
       ],
@@ -900,7 +912,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1461,
+          "line": 1496,
           "quote": "Runs after Claude creates tool parameters and before processing the tool call. Matches on tool name: `Bash`, `PowerShell`, `Edit`, `Write..."
         }
       ]
@@ -910,7 +922,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2816,
+          "line": 2892,
           "quote": "Runs when a Claude Code session ends. Useful for cleanup tasks, logging session"
         }
       ]
@@ -920,7 +932,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1012,
+          "line": 1045,
           "quote": "Runs when Claude Code starts a new session or resumes an existing session. Useful for loading development context like existing issues or..."
         }
       ]
@@ -930,7 +942,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1130,
+          "line": 1163,
           "quote": "Fires only when you launch Claude Code with `--init-only`, or with `--init` or `--maintenance` in non-interactive mode with the `-p` flag..."
         }
       ]
@@ -940,7 +952,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2299,
+          "line": 2353,
           "quote": "Runs when the main Claude Code agent has finished responding. Does not run if"
         }
       ]
@@ -950,12 +962,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2399,
-          "quote": "Runs instead of Stop when the turn ends due to an API error. Output and exit code are ignored. Use this to log failures, send alerts, or..."
+          "line": 2455,
+          "quote": "Runs instead of Stop when the turn ends due to an API error. Claude Code ignores the hook's output and exit code, apart from `terminalSeq..."
         },
         {
           "source": "changelog.md",
-          "line": 3013,
+          "line": 3098,
           "quote": "* Added `StopFailure` hook event that fires when the turn ends due to an API error (rate limit, auth failure, etc.)"
         }
       ],
@@ -966,12 +978,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2123,
+          "line": 2177,
           "quote": "Runs when a Claude Code subagent is spawned via the Agent tool. Supports matchers to filter by agent type name. For built-in agents, this..."
         },
         {
           "source": "changelog.md",
-          "line": 4434,
+          "line": 4519,
           "quote": "* Added the `SubagentStart` hook event"
         }
       ],
@@ -982,7 +994,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2159,
+          "line": 2213,
           "quote": "Runs when a Claude Code subagent has finished responding. Matches on agent type, same values as SubagentStart."
         }
       ]
@@ -992,7 +1004,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2243,
+          "line": 2297,
           "quote": "Runs when a task is being marked as completed. This fires in two situations: when any agent explicitly marks a task as completed through..."
         }
       ]
@@ -1002,12 +1014,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2188,
+          "line": 2242,
           "quote": "Runs when a task is being created via the `TaskCreate` tool. Use this to enforce naming conventions, require task descriptions, or preven..."
         },
         {
           "source": "changelog.md",
-          "line": 2823,
+          "line": 2908,
           "quote": "* Added `TaskCreated` hook that fires when a task is created via `TaskCreate`"
         }
       ],
@@ -1018,12 +1030,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2427,
+          "line": 2483,
           "quote": "Runs when an agent team teammate is about to go idle after finishing its turn. Use this to enforce quality gates before a teammate stops..."
         },
         {
           "source": "changelog.md",
-          "line": 3749,
+          "line": 3834,
           "quote": "* Added `TeammateIdle` and `TaskCompleted` hook events for multi-agent workflows"
         }
       ],
@@ -1034,7 +1046,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1281,
+          "line": 1314,
           "quote": "Runs when a user-typed command expands into a prompt before reaching Claude. Use this to block specific commands from direct invocation,..."
         }
       ]
@@ -1044,7 +1056,7 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 1221,
+          "line": 1252,
           "quote": "Runs when the user submits a prompt, before Claude processes it. This allows you"
         }
       ]
@@ -1054,12 +1066,12 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2655,
+          "line": 2725,
           "quote": "Runs when a worktree is being created, whether from `claude --worktree`, from a subagent using `isolation: \"worktree\"`, or for a backgrou..."
         },
         {
           "source": "changelog.md",
-          "line": 3521,
+          "line": 3606,
           "quote": "* Added `WorktreeCreate` and `WorktreeRemove` hook events, enabling custom VCS setup and teardown when agent worktree isolation creates o..."
         }
       ],
@@ -1070,11 +1082,11 @@
       "provenance": [
         {
           "source": "hooks.md",
-          "line": 2711,
+          "line": 2783,
           "quote": "Runs when a worktree is being removed. This is the cleanup counterpart to WorktreeCreate. The event fires when:"
         }
       ]
     }
   },
-  "integrity": "3b5187d114ab9c0cba7a0bc7eb41fe95143c3ebd8c0969bf75ee1ae265877e76"
+  "integrity": "aff0bed3a25b182124493d488af7e054c50c1538ef37e1c164f2392396da8ac3"
 }
