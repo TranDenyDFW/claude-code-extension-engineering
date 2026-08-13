@@ -1,0 +1,18 @@
+{
+  "name": "matcher-wrong-tool",
+  "control": false,
+  "defect": "the PreToolUse matcher names Write while the policy is about Bash commands, so the validator never sees a single command it was written for",
+  "citation": "hooks.md: \"Tool events match tool_name.\" The shipped tester pipes stdin straight into the handler and never reads the matcher, so this passes every validator that exists.",
+  "expectedFailures": [
+    "no-rm-rf-blocks-1",
+    "no-rm-rf-blocks-2",
+    "tests-before-push-blocks-when-unmet",
+    "tests-before-push-setup-is-load-bearing",
+    "manifest-valid-blocks-invalid-document",
+    "manifest-valid-blocks-missing-document",
+    "manifest-valid-document-is-load-bearing",
+    "tests-before-push-permits-when-met",
+    "manifest-valid-permits-valid-document",
+    "matcher-scopes-to-the-declared-tool"
+  ]
+}

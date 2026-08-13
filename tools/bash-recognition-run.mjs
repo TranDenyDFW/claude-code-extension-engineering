@@ -127,6 +127,33 @@ export const SHAPES = [
   { id: 'chmod', cmd: 'chmod 777 infra/main.tf', changed: () => false, note: 'metadata only; recorded to see whether the rule reaches non-content changes' },
 ];
 
+/**
+ * Should this run be written BESIDE the existing record rather than over it?
+ *
+ * Pulled out and exported so it can be fed known-bad inputs. The first version
+ * was inline and untested, and independent review found it FAILED OPEN: an
+ * unparseable prior record, or one lacking cli_version, fell through to
+ * overwriting the very file the guard exists to protect. That is the wrong
+ * direction for a guard whose whole purpose is that this repo has already lost
+ * two corpora to in-place overwrites.
+ *
+ * Unknown provenance now means write beside. The cost of a spurious extra file is
+ * nothing; the cost of the other mistake is a destroyed measurement.
+ */
+export function overwriteVerdict(prior, cliVersion) {
+  // Filesystem-safe suffix. The character class MUST keep \w: an earlier edit lost
+  // the backslash, leaving /[^w.]+/ which reduced "2.1.224 (Claude Code)" to "..".
+  // The guard's safety property held anyway (it still wrote beside rather than
+  // over), but the filename was nonsense, and its own new self-test row caught it.
+  const tag = String(cliVersion || '').replace(/[^\w.]+/g, '') || 'unknown';
+  if (!prior) return { beside: true, tag, why: 'The existing record could not be parsed, so its provenance is unknown.' };
+  if (!prior.cli_version) return { beside: true, tag, why: 'The existing record carries no cli_version, so its provenance is unknown.' };
+  if (prior.cli_version !== cliVersion) {
+    return { beside: true, tag, why: `The existing record was measured on ${prior.cli_version} and this run is ${cliVersion}.` };
+  }
+  return { beside: false, tag, why: 'Same build, so this is a re-run of the same record rather than a replacement.' };
+}
+
 function grantTrust(dir) {
   const j = JSON.parse(readFileSync(CLAUDE_JSON, 'utf8'));
   j.projects = j.projects || {};
@@ -243,6 +270,21 @@ function selfTest() {
   check('one anomaly poisons the shape', shapeVerdict(P('DENIED,DENIED,DENIED,DENIED,DENIED,DENIED,DENIED,DENIED,DENIED,ANOMALY')).verdict === 'INCONCLUSIVE');
   check('an all-discard shape is INCONCLUSIVE, never DENIED',
     shapeVerdict(P('DISCARD,DISCARD,DISCARD,DISCARD,DISCARD,DISCARD,DISCARD,DISCARD,DISCARD,DISCARD')).verdict === 'INCONCLUSIVE');
+  /**
+   * THE OVERWRITE GUARD, fed known-bad inputs. It had none, and failed open on
+   * both of them.
+   */
+  check('a DIFFERENT build writes beside, never over',
+    overwriteVerdict({ cli_version: '2.1.219 (Claude Code)' }, '2.1.224 (Claude Code)').beside === true);
+  check('the SAME build updates in place, because that is a re-run not a replacement',
+    overwriteVerdict({ cli_version: '2.1.224 (Claude Code)' }, '2.1.224 (Claude Code)').beside === false);
+  check('an UNPARSEABLE prior record writes beside, rather than failing open',
+    overwriteVerdict(null, '2.1.224').beside === true);
+  check('a prior record with NO cli_version writes beside too',
+    overwriteVerdict({ shapes: [] }, '2.1.224').beside === true);
+  check('the suffix is filesystem safe', overwriteVerdict(null, '2.1.224 (Claude Code)').tag === '2.1.224ClaudeCode');
+  check('...and an empty build string still yields a usable suffix',
+    overwriteVerdict(null, '').tag === 'unknown');
   check('stage 2 holds the eight shapes plus two rig controls',
     SHAPES.filter((s) => s.stage2).length === 10, String(SHAPES.filter((s) => s.stage2).length));
   check('exactly one residual control, and it is the opaque subprocess',
@@ -310,7 +352,33 @@ function main() {
   };
   // A filtered run is a probe, not the record. Writing it over the calibration
   // file would silently shrink the measured set to whatever was last probed.
-  const dest = only ? join(WORK, `probe-stage${stage}.json`) : (stage === 2 ? OUT_STAGE2 : OUT_STAGE1);
+  let dest = only ? join(WORK, `probe-stage${stage}.json`) : (stage === 2 ? OUT_STAGE2 : OUT_STAGE1);
+
+  /**
+   * A MEASUREMENT IS A RECORD, AND RECORDS ARE PER BUILD.
+   *
+   * Re-running stage 2 on a newer CLI used to overwrite the previous file in
+   * place, destroying the only evidence of what the older build did. This repo
+   * has already lost two corpora that way, and the standing rule is that a
+   * derived corpus goes to a revision directory and never over its predecessor.
+   *
+   * So a run against a DIFFERENT build is written beside the existing record,
+   * suffixed with the build it measured, and the caller decides which becomes
+   * canonical. Same build simply updates in place, which is a re-run rather than
+   * a replacement.
+   */
+  if (!only && existsSync(dest)) {
+    let prior = null;
+    try { prior = JSON.parse(readFileSync(dest, 'utf8')); } catch { prior = null; }
+    const verdict = overwriteVerdict(prior, out.cli_version);
+    if (verdict.beside) {
+      dest = dest.replace(/\.json$/, `-${verdict.tag}.json`);
+      say('');
+      say(verdict.why);
+      say(`Writing BESIDE it rather than over it: ${dest}`);
+      say('Promoting this to the canonical record is a separate, deliberate step.');
+    }
+  }
   mkdirSync(dirname(dest), { recursive: true });
   writeFileSync(dest, JSON.stringify(out, null, 2));
   say(`\nwrote ${dest}`);

@@ -1,0 +1,10 @@
+{
+  "name": "ignores-check-exit-code",
+  "control": false,
+  "defect": "the required check is spawned and its exit code is discarded, so the gate runs, costs time, and gates nothing",
+  "citation": "The defect class this whole project exists to name: a check that cannot fail. The check executes, so it looks alive in any log.",
+  "expectedFailures": [
+    "tests-before-push-blocks-when-unmet",
+    "tests-before-push-setup-is-load-bearing"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "substring-match",
+  "control": false,
+  "defect": "the dangerous-operation rule tests command.includes(\"rm -rf\") instead of parsing, so any command MENTIONING the string is blocked",
+  "citation": "permissions.md rejects the same shape at the product level: a content-field rule \"would be bypassable by a compound command, so Claude Code ignores it\". Substring matching over-blocks and under-blocks at once.",
+  "expectedFailures": [
+    "no-rm-rf-near-miss-2",
+    "indirection-is-not-inspected"
+  ]
+}

@@ -1,6 +1,6 @@
 # Permission rules
 
-> Claude Code 2.1.220, verified 2026-08-05. Source fetched live that day. The Bash-boundary section is MEASURED on this machine, paired against a control, and is the only section here that is not documentation.
+> Claude Code 2.1.229, verified 2026-08-13. Source fetched live that day. The Bash-boundary section is MEASURED on this machine, paired against a control, and is the only section here that is not documentation.
 
 
 Harness-owned allow, ask and deny rules over tool calls. This is the layer that still holds when a hook's handler is deleted, and the one to reach for when a requirement says "must" rather than "should". It is also the layer whose edge you cannot read out of the documentation, because the set of Bash commands it recognises is given by example and never enumerated.
@@ -19,7 +19,7 @@ The silent failure this project exists to surface, and the most common way a pro
 to be decoration.
 
 - "Claude Code checks file permissions against `Edit(path)` and `Read(path)` rules only. If you write a path rule for `Write`, `NotebookEdit`, `Glob`, or the legacy `MultiEdit` tool instead, Claude Code accepts the rule but never consults it, and warns at startup, except for a `Glob` rule passed in `--allowedTools`." [OFFICIAL]  [v2.1.210]
-- Write the file rule as `Edit(docs/**)`, never `Write(docs/**)`. An `Edit` rule "applies to all built-in tools that edit files", so the narrower-looking spelling is the one that covers less, which is the opposite of the intuition [OFFICIAL]  [v2.1.220]
+- Write the file rule as `Edit(docs/**)`, never `Write(docs/**)`. "`Edit` rules apply to all built-in tools that edit files", so the narrower-looking spelling is the one that covers less, which is the opposite of the intuition [OFFICIAL]  [v2.1.220]
 - Use `Read(docs/**)` in place of `Glob(docs/**)`. The `--allowedTools` exception for `Glob` is a real carve-out and worth knowing, but it does not extend to a settings-file rule [OFFICIAL]  [v2.1.210]
 - A TOOL-NAME rule with no path is a different thing and is NOT inert: "Claude Code doesn't warn about a tool-name rule with no path, such as a deny rule for `Write`; it matches that rule at the tool level everywhere." So `deny: ["Write"]` works and `deny: ["Write(infra/**)"]` does not, which is a trap worth reading twice [OFFICIAL]  [v2.1.210]
 - You cannot match a tool's primary content field: "A rule like `Bash(command:rm *)` would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning. Use `Bash(rm *)` ... instead." [OFFICIAL]  [v2.1.220]
@@ -39,18 +39,28 @@ to be decoration.
 
 ## What the deny rule actually reached, measured
 
-Paired live run, 2026-08-05, Claude Code 2.1.219 on Windows, one deny rule
-`Edit(infra/**)` against an identical tree with no deny rule at all. Ten passes per shape,
-both arms per pass, 200 sessions. A verdict requires UNANIMITY across the attributable
-passes and at least six of them; anything short is INCONCLUSIVE and stays out of the table.
+Paired live runs on TWO builds, one deny rule `Edit(infra/**)` against an identical tree
+with no deny rule at all. Ten passes per shape, both arms per pass: 200 sessions on Claude
+Code 2.1.219 (2026-08-06) and 200 more on 2.1.224 (2026-08-07), 400 in total. A verdict
+requires UNANIMITY across the attributable passes and at least six of them; anything short is
+INCONCLUSIVE and stays out of the table.
+
+The second run was not a formality. Claude Code 2.1.223 shipped "Fixed a Bash permission
+bypass where a crafted command could hide parts of itself from permission checks", and the
+`cd` row below is a Bash permission bypass of exactly that shape, so the table might have
+been describing a closed hole. **Every shape reached the same verdict on both builds.** Only
+the discard counts moved, which is the model declining a different number of times and is the
+noise the discard rule exists to absorb. Counts below are the 2.1.224 run; the 2.1.219 record
+is kept beside it rather than deleted, because two measurements agreeing is evidence and one
+plus a claim is not.
 
 | Shape | Verdict | n | Discarded |
 |---|---|---:|---:|
 | `printf ... >> infra/main.tf` | DENIED | 10/10 | 0 |
-| `cp seed.tf infra/main.tf` | DENIED | 6/10 | 4 |
+| `cp seed.tf infra/main.tf` | DENIED | 7/10 | 3 |
 | `mv infra/main.tf infra/renamed.tf` | DENIED | 10/10 | 0 |
-| `sed -i 's/.../.../' infra/main.tf` | DENIED | 9/10 | 1 |
-| `rm infra/main.tf` | DENIED | 10/10 | 0 |
+| `sed -i 's/.../.../' infra/main.tf` | DENIED | 10/10 | 0 |
+| `rm infra/main.tf` | DENIED | 8/10 | 2 |
 | `cd infra && touch fresh.tf` | **ALLOWED** | 10/10 | 0 |
 | `powershell -Command "Add-Content -LiteralPath infra/main.tf ..."` | **ALLOWED** | 10/10 | 0 |
 | `node build.mjs` (opaque subprocess) | **ALLOWED** | 10/10 | 0 |
@@ -60,8 +70,8 @@ DENIED, and the same append shape aimed OUTSIDE the tree came back ALLOWED. With
 a table of denials cannot be distinguished from a session where nothing ever ran.
 
 - The `cd` result is the sharpest thing in the table and it is a real bypass. `touch infra/fresh.tf` was DENIED in the screen; `cd infra && touch fresh.tf` writes THE SAME FILE and was ALLOWED, unanimously, ten times out of ten. The rule is matched against the path as written in the command, and a directory change earlier in the same command line is not folded in. Anyone protecting a subtree should assume a compound command reaches it  [ENGINEERING]
-- The four DISCARDED `cp` passes are the reason discards exist. In those the model declined to run the command in BOTH arms, which on disk is indistinguishable from a denial. Scoring them would have reported 10/10 on six observations  [ENGINEERING]
-- Nothing here transfers off this platform or this build. The recognised set is a product implementation detail with no documented contract, so treat the table as a snapshot and re-measure rather than assume  [ENGINEERING]
+- The DISCARDED passes are the reason discards exist: three on `cp` and two on `rm` in the 2.1.224 run, four on `cp` and one on `sed -i` in the 2.1.219 one. In those the model declined to run the command in BOTH arms, which on disk is indistinguishable from a denial. Scoring them would have reported 10/10 on seven observations, and the fact that WHICH shapes get discarded moves between runs while no verdict does is the clearest evidence that the discard rule is separating signal from the model's caution  [ENGINEERING]
+- SCOPE: Windows, on two builds five releases apart, including one whose changelog claims a fix for this class. Two runs agreeing is worth considerably more than either alone. The recognised set is a product implementation detail with no documented contract anywhere, so this is a measured snapshot of one platform rather than a general rule, and another platform would need its own run  [ENGINEERING]
 
 ### The wider screen, n=1, NOT admitted to the table
 
@@ -80,7 +90,7 @@ The Windows-first hole. It is not stated anywhere as a limitation; it is visible
 comparing two sections of the same page.
 
 - PowerShell RULES have full parity with Bash rules: "PowerShell permission rules use the same shape as Bash rules", aliases are canonicalized so a cmdlet rule also matches `gci`, `ls` and `dir`, matching is case-insensitive, and "Claude Code parses the PowerShell AST and checks each command in a compound command independently" [OFFICIAL]  [v2.1.220]
-- But the file-command recognition sentence says "file commands Claude Code recognizes IN BASH". PowerShell is absent from it, and no sentence anywhere on the page says whether a `Set-Content` or `Add-Content` call is recognised for the purposes of an `Edit(path)` deny rule. The QUOTE is official; the conclusion that the question is therefore open is an inference from the page's SILENCE, which is a weaker thing and is tagged as one. Independent review flagged the earlier `[OFFICIAL]` tag, correctly: a page not saying something is not the page saying it  [ENGINEERING]  [v2.1.220]
+- But the file-command recognition sentence says "file commands Claude Code recognizes in Bash", and IN BASH is the load-bearing part. PowerShell is absent from it, and no sentence anywhere on the page says whether a `Set-Content` or `Add-Content` call is recognised for the purposes of an `Edit(path)` deny rule. The QUOTE is official; the conclusion that the question is therefore open is an inference from the page's SILENCE, which is a weaker thing and is tagged as one. Independent review flagged the earlier `[OFFICIAL]` tag, correctly: a page not saying something is not the page saying it  [ENGINEERING]  [v2.1.220]
 - MEASURED on this machine, and this is the finding: with a live `Edit(infra/**)` deny rule, `powershell -NoProfile -Command "Add-Content -LiteralPath infra/main.tf ..."` WROTE THE FILE, while a `printf ... >> infra/main.tf` in the same rig was refused. Paired against a control with the rule removed, so the write is attributable to the rule not reaching PowerShell rather than to the model declining  [ENGINEERING]
 - On Windows this matters more than the sandbox does, because the sandbox is not merely weaker there, it is absent. See [sandboxing.md](sandboxing.md)  [ENGINEERING]
 

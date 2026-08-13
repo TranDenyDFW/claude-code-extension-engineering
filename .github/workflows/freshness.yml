@@ -33,9 +33,27 @@ env:
 
 jobs:
   # ---------------------------------------------------------------- suite ----
+  # Cross-platform, because Windows behaviour is a first-class claim in this reference
+  # (native Windows has no OS sandbox, WSL2 cannot launch Windows binaries from a
+  # sandboxed command without the optional seccomp filter, and the deny-rule recognition
+  # measurement is Windows-specific) while every job here ran only on Ubuntu. A reference
+  # that documents platform differences and tests one platform is asserting something it
+  # does not check.
+  #
+  # Only the DETERMINISTIC jobs are matrixed. The tier3, manifest and freshness jobs stay
+  # single-runner: they install the CLI, query npm or write to the repo, and running three
+  # copies of those would triple the network work and, for freshness, race three bots onto
+  # one branch.
+  #
+  # fail-fast is off so a Windows-only failure does not hide a macOS-only one, which is
+  # the whole reason for adding two platforms rather than one.
   suite:
     name: deterministic suite and evidence ledger
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -149,10 +167,134 @@ jobs:
         # requirement is REFUSED rather than force-fitted.
         run: node tools/extension-scaffold.mjs --self-test
 
+      - name: Pack registry, policy schema and validate-before-action self-tests
+        # Routing that refuses rather than defaulting, the policy validator's
+        # refusals (which are most of its behaviour), and the emitted runtime.
+        run: |
+          node tools/packs/index.mjs --self-test
+          node tools/packs/policy-schema.mjs --self-test
+          node tools/packs/validate-before-action.mjs --self-test
+
+      - name: Scaffold end-to-end gate
+        # Generates all 13 frozen probes across both packs and PROVES each one,
+        # including running the hollowness detector against what it just
+        # generated. Nothing in CI did that until 2026-08-07, and an independent
+        # review then found 27 case-runs whose PASS did not depend on the
+        # extension at all.
+        run: node tools/extension-scaffold.mjs --gate
+
+      - name: CLI contract
+        # Spawns the tools as PROCESSES and asserts their stdout. Five review
+        # rounds chased one wrong sentence across four locations because every
+        # gate tested at the function boundary while the product's claim is
+        # emitted by a process. Verified: bypassing finalVerdict at its call site
+        # leaves the scaffold self-test, the prover self-test and --gate all at
+        # exit 0, and breaks two contracts here.
+        run: |
+          node tests/cli-contract.mjs --self-test
+          node tests/cli-contract.mjs
+
+      - name: The numbers gate can fail
+        # Two attempts at one defect here were relocations, because nothing fed
+        # this gate a known-bad input. --prove-can-fail spawns it against an
+        # unreadable, an absent and a wrong-typed source and requires red each
+        # time, then green on the real tree.
+        run: node tools/coverage-report.mjs --prove-can-fail
+
+      - name: Scaffold parity
+        # The seven protect-path probes must stay byte-identical to the goldens
+        # captured before the pack refactor.
+        run: node tools/scaffold-parity.mjs --check
+
+      - name: One broken handler per validation family
+        # The gate injections corrupt the generator; this corrupts the SHIPPED
+        # handler and requires a NAMED case to go red for each family.
+        run: node tests/validation-family-breaks.mjs
+
+      - name: Validation cohort fixture drift
+        # Committed fixtures must match the generator, and all twelve must still
+        # share one conformance.json: the spec is the constant, the
+        # implementation is the single variable.
+        run: |
+          node tests/prove-bench/validation/make-fixtures.mjs --self-test
+          node tests/prove-bench/validation/make-fixtures.mjs --check
+          node tests/prove-bench/validation/run-bench.mjs --self-test
+
+      - name: Validation cohort record still reproduces
+        # RE-MEASURES the published 10 of 10 and fails on any change to the prove
+        # column. Nothing did this until 2026-08-07: report() returns zero unless
+        # the control is dirty, so a regression that turned every row into a MISS
+        # exited 0 and a re-run would have overwritten the record with it. The
+        # competitor column is compared only where test-hook.sh is installed.
+        run: node tests/prove-bench/validation/run-bench.mjs --verify-record
+
       - name: Prove-bench runner self-test
         # Scoring logic incl. false-positive-on-the-control weighted like a
         # miss and n/a for an uninstalled tool, plus fixture-generator drift.
         run: node tests/prove-bench/run-bench.mjs --self-test
+
+      - name: Artifact gates can fail
+        # Mutate the COMMITTED artifacts a gate publishes numbers from, and
+        # require each doctored copy to be rejected for the reason the mutant
+        # DECLARES. A mutant caught by the wrong rule scores WRONG GATE and counts
+        # as survived, because "the gate went red" is not evidence it saw what you
+        # broke. Wiring the ledger proof immediately found that the drift check
+        # compared id SETS only, so a claim's file, line and text were unverified.
+        run: |
+          node tools/artifact-mutation.mjs --self-test
+          node tests/prove-bench/validation/run-bench.mjs --prove-can-fail
+          node tools/verify-evidence.mjs --prove-can-fail
+
+      - name: Gates that existed and never ran
+        # Four files shipped self-tests, drift checks and a full must-fail proof
+        # that no workflow step invoked: about 110 authored assertion rows plus
+        # capability-catalog --prove-fail, which is the STRONGEST must-fail proof
+        # in this repository (ten mutants of the committed catalog, each re-sealed
+        # so it cannot trip the outer hash check, each declaring the error code
+        # that must reject it, and a WRONG GATE verdict when a mutant is caught
+        # by the wrong rule). Found while root-causing six review rounds: this
+        # project enforces "a check that cannot fail is a defect" on what it
+        # generates and had four of its own strongest gates switched off.
+        # Measured cost of this whole step: about 1.5 seconds.
+        run: |
+          node tools/capability-catalog.mjs --self-test
+          # --prove-fail ALSO needs the docs mirror: two of its ten mutants cannot be
+          # built without it, so on a runner it reports "PARTIAL PROOF: 8 mutants
+          # rejected, 2 skipped for want of the docs mirror" and exits 2. The --check
+          # line below has carried that allowance for a while and this one never did,
+          # which is why this job failed on every push since 2026-08-08 and nobody
+          # noticed: the branch had no PR, so nothing surfaced the red.
+          #
+          # NOT a bare `|| [ $? -eq 2 ]`. Exit 2 also means "CANNOT PROVE: no catalog
+          # at ...", and swallowing that would hide a missing artifact behind a rule
+          # written for a missing mirror. The output has to SAY it was the mirror.
+          set +e
+          out="$(node tools/capability-catalog.mjs --prove-fail 2>&1)"; rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ]; then
+            if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'PARTIAL PROOF: .* skipped for want of the docs mirror'; then
+              echo "accepted: the docs mirror is not present on a runner, and the tool said so rather than claiming a full proof"
+            else
+              echo "REFUSING to accept exit $rc from --prove-fail; this is not the mirror case"
+              exit "$rc"
+            fi
+          fi
+          # --check needs the docs mirror and exits 2 (cannot check) without one,
+          # which is the safe state. Same allowance as the bash-recognition drift
+          # gate above. The commit that wired the others claimed this one too and
+          # did not add it; independent review caught the false claim.
+          node tools/capability-catalog.mjs --check || [ $? -eq 2 ]
+          node tools/gh-corpus-harvest.mjs --self-test
+          node tools/tier3-preflight.mjs --self-test
+          node tools/scaffold-parity.mjs --self-test
+          # The comment-corpus pair. gh-comments-coverage carries the anti-truncation
+          # guard: the repo-wide comments endpoint caps at page 300, so a naive harvest
+          # returns HTTP 200 for every request and produces a clean-looking file holding
+          # about a tenth of the 293,226 comments that exist. Ungated, the one check that
+          # can tell those apart could regress unnoticed.
+          node tools/gh-comments-harvest.mjs --self-test
+          node tools/gh-comments-coverage.mjs --self-test
 
   # ---------------------------------------------------------------- tier3 ----
   tier3:
@@ -166,6 +308,19 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Verbatim quotes still exist upstream
+        # "Re-verify against the new build" used to be a manual sweep over 163
+        # version tags. This makes the narrowest part of it mechanical: a claim
+        # that quotes upstream verbatim is falsified the moment that sentence
+        # stops existing. --self-test pins the extractor AND its must-fail case;
+        # the live comparison needs the docs mirror, which is not committed
+        # (copyright), so it exits 2 (cannot check) on a runner and the build does
+        # not rest on it. It found two real defects on its first run, both OURS:
+        # a paraphrase and an uppercased word, each presented inside quotation
+        # marks as if verbatim.
+        run: |
+          node tools/quote-check.mjs --self-test
+          node tools/quote-check.mjs || [ $? -eq 2 ]
       - name: Tier 3 key quality
         # Key defects used to be found by graders AFTER a run and filed as
         # prose. Now they are a gate. The frozen v1 set is expected RED (15
@@ -235,7 +390,29 @@ jobs:
 
       - name: Validate plugin manifest
         run: |
-          npm install -g @anthropic-ai/claude-code
+          # PINNED to evidence/VERIFIED_VERSION, not `latest`.
+          #
+          # This is a REQUIRED gate, and a required gate that installs whatever npm
+          # serves under `latest` is not reproducible: the same commit can pass today
+          # and fail tomorrow with nothing in the repo having changed, and the cause is
+          # invisible in the diff. It also means every build implicitly trusts an
+          # upstream publish at the moment it happens.
+          #
+          # Detecting a newer release is a real need, and it already has a home: the
+          # freshness job below queries `latest` on a schedule and opens an issue. That
+          # is the canary. This path is the deterministic one, and the two are separate
+          # on purpose. When a new version is reviewed and accepted, VERIFIED_VERSION is
+          # bumped and this pin moves with it, in one commit, reviewably.
+          PINNED="$(cat evidence/VERIFIED_VERSION | tr -d '[:space:]')"
+          echo "pinning @anthropic-ai/claude-code@${PINNED} (from evidence/VERIFIED_VERSION)"
+          npm install -g "@anthropic-ai/claude-code@${PINNED}"
+          # Fail loudly if npm gave us something else, rather than validating the
+          # manifest against a build nobody declared.
+          GOT="$(claude --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+          if [ "$GOT" != "$PINNED" ]; then
+            echo "REFUSING: pinned ${PINNED} but the installed CLI reports ${GOT}"
+            exit 1
+          fi
           # Commit-SHA versioning is deliberate, so --strict would fail on the
           # "No version specified" advisory. The checker enforces, by set
           # subtraction, that the advisory is the ONLY warning; its ability to
@@ -293,17 +470,44 @@ jobs:
           echo "state=$STATE" >> "$GITHUB_OUTPUT"
           echo "latest=$L" >> "$GITHUB_OUTPUT"
 
-      - name: Commit status.json when changed
+      - name: Open or update a PR with the status change
         # Only on main. On a feature branch this would push a bot commit into
         # someone's open work, which is a surprise nobody asked for.
+        #
+        # A PR, NOT A DIRECT PUSH. Two reasons, and the first is mechanical: once main
+        # requires status checks, a direct push from this job is rejected and the badge
+        # silently stops updating. Fixing that after the fact means debugging a bot
+        # whose failure mode is "nothing happened". The second is that this is the only
+        # job in the workflow holding `contents: write`, so it is the one place where a
+        # compromised token could rewrite the default branch. A PR leaves the mutation
+        # reviewable and leaves a record when nobody reviews it.
+        #
+        # The branch is FIXED rather than dated, so repeated runs update one PR instead
+        # of opening a new one per release. force-with-lease, not force: if someone has
+        # pushed to the bot's branch, that is a surprise worth failing on.
         if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if ! git diff --quiet evidence/status.json; then
-            git config user.name "freshness-bot"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add evidence/status.json
-            git commit -m "chore: freshness status ${{ steps.status.outputs.state }} (latest ${{ steps.status.outputs.latest }})"
-            git push
+          if git diff --quiet evidence/status.json; then
+            echo "status.json unchanged; nothing to open"
+            exit 0
+          fi
+          BRANCH=bot/freshness-status
+          TITLE="chore: freshness status ${{ steps.status.outputs.state }} (latest ${{ steps.status.outputs.latest }})"
+          git config user.name "freshness-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add evidence/status.json
+          git commit -m "$TITLE"
+          git push --force-with-lease origin "$BRANCH"
+          if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$BRANCH" --title "$TITLE"
+            echo "updated existing PR on $BRANCH"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$TITLE" \
+              --body 'Automated freshness status update from `.github/workflows/freshness.yml`. Only `evidence/status.json` changes. Opened as a PR rather than pushed directly so the one job holding `contents: write` cannot rewrite the default branch, and so this keeps working once `main` requires status checks.'
+            echo "opened PR on $BRANCH"
           fi
 
       - name: Open verification issue when stale

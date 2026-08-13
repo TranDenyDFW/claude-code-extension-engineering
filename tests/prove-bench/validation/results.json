@@ -1,0 +1,371 @@
+{
+  "rows": [
+    {
+      "fixture": "blocks-everything",
+      "control": false,
+      "defect": "the handler denies every Bash command, which is the failure mode that gets a hook deleted rather than fixed",
+      "citation": "hooks.md failure modes: \"Overly broad matcher, so it fires everywhere and gets disabled out of annoyance.\"",
+      "expectedFailures": [
+        "no-rm-rf-near-miss-1",
+        "no-rm-rf-near-miss-2",
+        "tests-before-push-permits-when-met",
+        "tests-before-push-near-miss-1",
+        "manifest-valid-permits-valid-document",
+        "manifest-valid-near-miss-1",
+        "indirection-is-not-inspected"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "no-rm-rf-near-miss-1",
+          "no-rm-rf-near-miss-2",
+          "tests-before-push-permits-when-met",
+          "tests-before-push-near-miss-1",
+          "manifest-valid-permits-valid-document",
+          "manifest-valid-near-miss-1",
+          "indirection-is-not-inspected"
+        ],
+        "parsed": true,
+        "detail": "failed no-rm-rf-near-miss-1,no-rm-rf-near-miss-2,tests-before-push-permits-when-met,tests-before-push-near-miss-1,manifest-valid-permits-valid-document,manifest-valid-near-miss-1,indirection-is-not-inspected",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    },
+    {
+      "fixture": "correct-validator",
+      "control": true,
+      "defect": "none: the bundle extension-scaffold generates from the shared policy, unmodified",
+      "citation": "CONTROL. Both tools must report it clean. Without a control the bench is a check that cannot fail.",
+      "expectedFailures": [],
+      "prove": {
+        "exit": 0,
+        "failedIds": [],
+        "parsed": true,
+        "detail": "all cases pass",
+        "score": "clean"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "clean"
+      }
+    },
+    {
+      "fixture": "document-read-not-validated",
+      "control": false,
+      "defect": "the schema rule reads the document and returns no problems whatever it contains, including when the file is absent",
+      "citation": "Same class as ignores-check-exit-code, one evaluator over. The read succeeds, so strace, logs and a code review all show a validator doing work.",
+      "expectedFailures": [
+        "manifest-valid-blocks-invalid-document",
+        "manifest-valid-blocks-missing-document",
+        "manifest-valid-document-is-load-bearing"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "manifest-valid-blocks-invalid-document",
+          "manifest-valid-blocks-missing-document",
+          "manifest-valid-document-is-load-bearing"
+        ],
+        "parsed": true,
+        "detail": "failed manifest-valid-blocks-invalid-document,manifest-valid-blocks-missing-document,manifest-valid-document-is-load-bearing",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    },
+    {
+      "fixture": "explicit-allow-decision",
+      "control": false,
+      "defect": "the handler emits permissionDecision \"allow\" on its non-deny path, which in production BYPASSES the permission system and auto-approves calls the user would otherwise be asked about",
+      "citation": "hooks.md: an \"allow\" decision from a PreToolUse hook skips the permission system for that call. A validator written this way silently converts every unmatched command into an approved one.",
+      "expectedFailures": [],
+      "knownMiss": "extension-prove models an explicit permissionDecision \"allow\" and an absent decision as the same verdict, so no case in the shared spec can see this. Reported as a MISS rather than hidden. It does not become a catch by itself if the model is widened: expectedFailures is empty, so a run that detected it would score WRONG-DIAGNOSIS, and that is the signal to re-declare this fixture against the new case id.",
+      "prove": {
+        "exit": 0,
+        "failedIds": [],
+        "parsed": true,
+        "detail": "all cases pass",
+        "score": "MISS"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    },
+    {
+      "fixture": "first-segment-only",
+      "control": false,
+      "defect": "the handler inspects only the command up to the first shell operator, so `cd /tmp && rm -rf cache` walks straight through",
+      "citation": "This is the exact bypass this repository MEASURED against the product on 2.1.224: `cd infra && touch fresh.tf` wrote the file ten times out of ten while the same write without the cd was denied.",
+      "expectedFailures": [
+        "no-rm-rf-blocks-2"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "no-rm-rf-blocks-2"
+        ],
+        "parsed": true,
+        "detail": "failed no-rm-rf-blocks-2",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    },
+    {
+      "fixture": "handler-path-bare-variable",
+      "control": false,
+      "defect": "the hook command uses a bare $CLAUDE_PROJECT_DIR instead of the braced form, so on Windows the path resolves to nothing and the handler never runs",
+      "citation": "hooks.md: \"bare $CLAUDE_PROJECT_DIR parses as an undefined variable and resolves to $null\". A path trap that leaves a correct handler sitting unused on disk.",
+      "expectedFailures": [
+        "no-rm-rf-blocks-1",
+        "no-rm-rf-blocks-2",
+        "tests-before-push-blocks-when-unmet",
+        "tests-before-push-setup-is-load-bearing",
+        "manifest-valid-blocks-invalid-document",
+        "manifest-valid-blocks-missing-document",
+        "manifest-valid-document-is-load-bearing"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "no-rm-rf-blocks-1",
+          "no-rm-rf-blocks-2",
+          "tests-before-push-blocks-when-unmet",
+          "tests-before-push-setup-is-load-bearing",
+          "manifest-valid-blocks-invalid-document",
+          "manifest-valid-blocks-missing-document",
+          "manifest-valid-document-is-load-bearing"
+        ],
+        "parsed": true,
+        "detail": "failed no-rm-rf-blocks-1,no-rm-rf-blocks-2,tests-before-push-blocks-when-unmet,tests-before-push-setup-is-load-bearing,manifest-valid-blocks-invalid-document,manifest-valid-blocks-missing-document,manifest-valid-document-is-load-bearing",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 1,
+        "detail": "no verdict line",
+        "score": "CATCH"
+      }
+    },
+    {
+      "fixture": "ignores-check-exit-code",
+      "control": false,
+      "defect": "the required check is spawned and its exit code is discarded, so the gate runs, costs time, and gates nothing",
+      "citation": "The defect class this whole project exists to name: a check that cannot fail. The check executes, so it looks alive in any log.",
+      "expectedFailures": [
+        "tests-before-push-blocks-when-unmet",
+        "tests-before-push-setup-is-load-bearing"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "tests-before-push-blocks-when-unmet",
+          "tests-before-push-setup-is-load-bearing"
+        ],
+        "parsed": true,
+        "detail": "failed tests-before-push-blocks-when-unmet,tests-before-push-setup-is-load-bearing",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    },
+    {
+      "fixture": "matcher-wrong-tool",
+      "control": false,
+      "defect": "the PreToolUse matcher names Write while the policy is about Bash commands, so the validator never sees a single command it was written for",
+      "citation": "hooks.md: \"Tool events match tool_name.\" The shipped tester pipes stdin straight into the handler and never reads the matcher, so this passes every validator that exists.",
+      "expectedFailures": [
+        "no-rm-rf-blocks-1",
+        "no-rm-rf-blocks-2",
+        "tests-before-push-blocks-when-unmet",
+        "tests-before-push-setup-is-load-bearing",
+        "manifest-valid-blocks-invalid-document",
+        "manifest-valid-blocks-missing-document",
+        "manifest-valid-document-is-load-bearing",
+        "tests-before-push-permits-when-met",
+        "manifest-valid-permits-valid-document",
+        "matcher-scopes-to-the-declared-tool"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "no-rm-rf-blocks-1",
+          "no-rm-rf-blocks-2",
+          "tests-before-push-blocks-when-unmet",
+          "tests-before-push-permits-when-met",
+          "tests-before-push-setup-is-load-bearing",
+          "manifest-valid-blocks-invalid-document",
+          "manifest-valid-permits-valid-document",
+          "manifest-valid-blocks-missing-document",
+          "manifest-valid-document-is-load-bearing",
+          "matcher-scopes-to-the-declared-tool"
+        ],
+        "parsed": true,
+        "detail": "failed no-rm-rf-blocks-1,no-rm-rf-blocks-2,tests-before-push-blocks-when-unmet,tests-before-push-permits-when-met,tests-before-push-setup-is-load-bearing,manifest-valid-blocks-invalid-document,manifest-valid-permits-valid-document,manifest-valid-blocks-missing-document,manifest-valid-document-is-load-bearing,matcher-scopes-to-the-declared-tool",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    },
+    {
+      "fixture": "no-op-validator",
+      "control": false,
+      "defect": "the handler parses the payload and always exits 0 without deciding: installed, inert, and invisible in any log",
+      "citation": "hooks.md: exit 0 with no hookSpecificOutput is an ALLOW. The most common shape of a guard that looks installed and blocks nothing.",
+      "expectedFailures": [
+        "no-rm-rf-blocks-1",
+        "no-rm-rf-blocks-2",
+        "tests-before-push-blocks-when-unmet",
+        "tests-before-push-setup-is-load-bearing",
+        "manifest-valid-blocks-invalid-document",
+        "manifest-valid-blocks-missing-document",
+        "manifest-valid-document-is-load-bearing"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "no-rm-rf-blocks-1",
+          "no-rm-rf-blocks-2",
+          "tests-before-push-blocks-when-unmet",
+          "tests-before-push-setup-is-load-bearing",
+          "manifest-valid-blocks-invalid-document",
+          "manifest-valid-blocks-missing-document",
+          "manifest-valid-document-is-load-bearing"
+        ],
+        "parsed": true,
+        "detail": "failed no-rm-rf-blocks-1,no-rm-rf-blocks-2,tests-before-push-blocks-when-unmet,tests-before-push-setup-is-load-bearing,manifest-valid-blocks-invalid-document,manifest-valid-blocks-missing-document,manifest-valid-document-is-load-bearing",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    },
+    {
+      "fixture": "only-first-rule-consulted",
+      "control": false,
+      "defect": "the rule loop returns after the first rule regardless of whether it matched, so rules 2 and 3 are dead configuration",
+      "citation": "permissions.md: \"Rules are evaluated in order ... The first match in that order determines the outcome.\" First-match is not first-rule, and the difference is silent.",
+      "expectedFailures": [
+        "tests-before-push-blocks-when-unmet",
+        "tests-before-push-setup-is-load-bearing",
+        "manifest-valid-blocks-invalid-document",
+        "manifest-valid-blocks-missing-document",
+        "manifest-valid-document-is-load-bearing"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "tests-before-push-blocks-when-unmet",
+          "tests-before-push-setup-is-load-bearing",
+          "manifest-valid-blocks-invalid-document",
+          "manifest-valid-blocks-missing-document",
+          "manifest-valid-document-is-load-bearing"
+        ],
+        "parsed": true,
+        "detail": "failed tests-before-push-blocks-when-unmet,tests-before-push-setup-is-load-bearing,manifest-valid-blocks-invalid-document,manifest-valid-blocks-missing-document,manifest-valid-document-is-load-bearing",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    },
+    {
+      "fixture": "stdout-theatre",
+      "control": false,
+      "defect": "the handler prints a BLOCKED banner as plain text and exits 0, so it reads as working in a terminal and allows everything",
+      "citation": "hooks.md: a decision must be structured JSON on stdout. Printed text is not a decision, and scoring never reads raw text for exactly this reason.",
+      "expectedFailures": [
+        "no-rm-rf-blocks-1",
+        "no-rm-rf-blocks-2",
+        "tests-before-push-blocks-when-unmet",
+        "tests-before-push-setup-is-load-bearing",
+        "manifest-valid-blocks-invalid-document",
+        "manifest-valid-blocks-missing-document",
+        "manifest-valid-document-is-load-bearing"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "no-rm-rf-blocks-1",
+          "no-rm-rf-blocks-2",
+          "tests-before-push-blocks-when-unmet",
+          "tests-before-push-setup-is-load-bearing",
+          "manifest-valid-blocks-invalid-document",
+          "manifest-valid-blocks-missing-document",
+          "manifest-valid-document-is-load-bearing"
+        ],
+        "parsed": true,
+        "detail": "failed no-rm-rf-blocks-1,no-rm-rf-blocks-2,tests-before-push-blocks-when-unmet,tests-before-push-setup-is-load-bearing,manifest-valid-blocks-invalid-document,manifest-valid-blocks-missing-document,manifest-valid-document-is-load-bearing",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    },
+    {
+      "fixture": "substring-match",
+      "control": false,
+      "defect": "the dangerous-operation rule tests command.includes(\"rm -rf\") instead of parsing, so any command MENTIONING the string is blocked",
+      "citation": "permissions.md rejects the same shape at the product level: a content-field rule \"would be bypassable by a compound command, so Claude Code ignores it\". Substring matching over-blocks and under-blocks at once.",
+      "expectedFailures": [
+        "no-rm-rf-near-miss-2",
+        "indirection-is-not-inspected"
+      ],
+      "prove": {
+        "exit": 1,
+        "failedIds": [
+          "no-rm-rf-near-miss-2",
+          "indirection-is-not-inspected"
+        ],
+        "parsed": true,
+        "detail": "failed no-rm-rf-near-miss-2,indirection-is-not-inspected",
+        "score": "CATCH"
+      },
+      "testHookSh": {
+        "exit": 0,
+        "detail": "reported success",
+        "score": "MISS"
+      }
+    }
+  ],
+  "prove": {
+    "caught": 10,
+    "of": 10,
+    "wrongDiagnosis": 0,
+    "falsePos": 0,
+    "knownMiss": 1,
+    "na": 0
+  },
+  "testHookSh": {
+    "caught": 1,
+    "of": 11,
+    "wrongDiagnosis": 0,
+    "falsePos": 0,
+    "knownMiss": 1,
+    "na": 0
+  }
+}

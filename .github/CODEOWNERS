@@ -1,0 +1,22 @@
+# Review ownership. Has effect only once branch protection requires review; until then it
+# records intent rather than enforcing it.
+#
+# There is one human maintainer, so a CODEOWNERS file cannot manufacture a second reviewer.
+# What it can do is make the security-shaped surfaces explicit, so that anyone adding a
+# second maintainer later inherits the boundary instead of rediscovering it.
+
+# Everything, by default.
+*                                   @TranDenyDFW
+
+# Generated enforcement. A defect in these produces a hook or permission rule that looks
+# like it enforces something and does not, which is silent by construction.
+/tools/packs/                       @TranDenyDFW
+/tools/extension-scaffold.mjs       @TranDenyDFW
+/tools/extension-prove.mjs          @TranDenyDFW
+
+# Supply chain and the only job that holds contents: write.
+/.github/                           @TranDenyDFW
+
+# The evidence ledger. Prose here is load-bearing: it is what the skill routes readers to.
+/evidence/                          @TranDenyDFW
+/skills/                            @TranDenyDFW

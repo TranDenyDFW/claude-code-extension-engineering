@@ -1,0 +1,33 @@
+{
+  "_what": "A PROPOSAL, deliberately not loadable. Rename to settings.json fragments only after measuring the behaviour described below.",
+  "_why_not_adopted": [
+    "permissions.md gives the spelling for a Bash command rule (\"Use Bash(rm *) ... instead\") and never states",
+    "what the pattern is matched against: the whole command, the first word, or each segment of a compound",
+    "command. Nothing in this repository has measured it, and this repository has measured that a leading `cd`",
+    "hid part of a command from the permission layer on Claude Code 2.1.224 across 400 paired sessions.",
+    "extension-prove therefore reports such a rule as UNDETERMINED rather than as a deny, so a bundle shipping",
+    "it would be claiming a layer it cannot prove."
+  ],
+  "_the_one_provable_alternative": [
+    "A bare tool-name rule, permissions.deny: [\"Bash\"], IS documented as matching at the tool level everywhere",
+    "(\"Claude Code doesn't warn about a tool-name rule with no path ... it matches that rule at the tool level",
+    "everywhere\") and extension-prove evaluates it as a real deny. It also blocks EVERY Bash command, not the",
+    "ones this policy names, so it is a different requirement and is not emitted for you."
+  ],
+  "_how_to_adopt_honestly": [
+    "Measure a Bash(<shape>) deny rule with paired arms the way tools/bash-recognition-run.mjs does,",
+    "then add the measured shapes to the table and regenerate. Do not adopt on the strength of the spelling."
+  ],
+  "candidateRules": [
+    {
+      "fromRule": "no-rm-rf",
+      "candidate": "Bash(rm *)",
+      "note": "broader than the rule it came from: the exec name alone, with none of the argument constraints."
+    }
+  ],
+  "permissions": {
+    "deny": [
+      "Bash(rm *)"
+    ]
+  }
+}

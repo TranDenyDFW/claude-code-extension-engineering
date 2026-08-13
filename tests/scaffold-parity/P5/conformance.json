@@ -1,0 +1,42 @@
+{
+  "extension": "P5",
+  "mechanism": "advisory",
+  "requirement": "It would be good to protect `infra/` from accidental edits.",
+  "generated_by": "extension-scaffold",
+  "cases": [
+    {
+      "id": "C1",
+      "kind": "residual",
+      "event": "PreToolUse",
+      "vector": "V0 model-owned advisory",
+      "why": "CLAUDE.md prose is model-owned. Nothing in this bundle refuses the write, and that is the correct outcome for a requirement with no guarantee language.",
+      "input": {
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "infra/main.tf",
+          "content": "x"
+        }
+      },
+      "expect": {
+        "decision": "allow"
+      }
+    },
+    {
+      "id": "C2",
+      "kind": "near-miss",
+      "event": "PreToolUse",
+      "input": {
+        "tool_name": "Write",
+        "tool_input": {
+          "file_path": "src/app.ts",
+          "content": "x"
+        }
+      },
+      "expect": {
+        "decision": {
+          "not": "deny"
+        }
+      }
+    }
+  ]
+}

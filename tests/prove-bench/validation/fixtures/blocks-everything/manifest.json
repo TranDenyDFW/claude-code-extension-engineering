@@ -1,0 +1,15 @@
+{
+  "name": "blocks-everything",
+  "control": false,
+  "defect": "the handler denies every Bash command, which is the failure mode that gets a hook deleted rather than fixed",
+  "citation": "hooks.md failure modes: \"Overly broad matcher, so it fires everywhere and gets disabled out of annoyance.\"",
+  "expectedFailures": [
+    "no-rm-rf-near-miss-1",
+    "no-rm-rf-near-miss-2",
+    "tests-before-push-permits-when-met",
+    "tests-before-push-near-miss-1",
+    "manifest-valid-permits-valid-document",
+    "manifest-valid-near-miss-1",
+    "indirection-is-not-inspected"
+  ]
+}

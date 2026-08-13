@@ -1,0 +1,15 @@
+{
+  "name": "handler-path-bare-variable",
+  "control": false,
+  "defect": "the hook command uses a bare $CLAUDE_PROJECT_DIR instead of the braced form, so on Windows the path resolves to nothing and the handler never runs",
+  "citation": "hooks.md: \"bare $CLAUDE_PROJECT_DIR parses as an undefined variable and resolves to $null\". A path trap that leaves a correct handler sitting unused on disk.",
+  "expectedFailures": [
+    "no-rm-rf-blocks-1",
+    "no-rm-rf-blocks-2",
+    "tests-before-push-blocks-when-unmet",
+    "tests-before-push-setup-is-load-bearing",
+    "manifest-valid-blocks-invalid-document",
+    "manifest-valid-blocks-missing-document",
+    "manifest-valid-document-is-load-bearing"
+  ]
+}

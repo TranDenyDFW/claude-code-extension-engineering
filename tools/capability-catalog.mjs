@@ -1153,9 +1153,27 @@ export function selfTest() {
     const realNaive = naiveToolScan(toolsMd);
     const realParsed = parseToolsTable(toolsMd).map((r) => r.name);
     const realEvents = parseHookEvents(hooksMd).map((e) => e.name);
-    check(`MUST FAIL: the naive scan over the real page returns ${realNaive.length}, not 43`, realNaive.length === 46, `got ${realNaive.length}`);
-    check('the real tools table has 43 rows', realParsed.length === 43, `got ${realParsed.length}`);
-    check('the real hook-events section has 31 headings', realEvents.length === 31, `got ${realEvents.length}`);
+    /* DERIVED, not typed. These three were hardcoded at 46 / 43 / 31 and went red the
+       moment the docs mirror was refreshed for 2.1.229, where the tools table grew by one
+       row. A count typed into a test is the same defect this repo's doc-numbers gate
+       exists to catch, one level down: it makes an ordinary upstream change look like a
+       parser regression, and the cheap way out is to edit the number until it is green
+       again, which is how a real regression eventually gets waved through.
+
+       The invariants that actually matter and do not move with the docs:
+         - the naive scan OVER-counts, by exactly the non-tool rows it cannot exclude
+         - the real parse agrees with the committed catalogue's current-tool set
+         - the hook-events parse agrees with the committed catalogue */
+    const committed = JSON.parse(readFileSync(CATALOG_PATH, 'utf8'));
+    const catalogTools = Object.entries(committed.tools || {}).filter(([, v]) => v.status === 'current').map(([k]) => k);
+    const catalogEvents = Object.keys(committed.hookEvents || {});
+    const NAIVE_OVERCOUNT = 3;
+    check(`MUST FAIL: the naive scan over-counts the real page by ${NAIVE_OVERCOUNT} (naive ${realNaive.length}, parsed ${realParsed.length})`,
+      realNaive.length - realParsed.length === NAIVE_OVERCOUNT, `over-count was ${realNaive.length - realParsed.length}`);
+    check('the real tools table matches the committed catalogue\'s current tools',
+      realParsed.length === catalogTools.length, `page ${realParsed.length}, catalogue ${catalogTools.length}`);
+    check('the real hook-events section matches the committed catalogue',
+      realEvents.length === catalogEvents.length, `page ${realEvents.length}, catalogue ${catalogEvents.length}`);
     check('PowerShell is a real documented tool', realParsed.includes('PowerShell'));
     check('DirectoryAdded is a real documented event', realEvents.includes('DirectoryAdded'));
     check('url and protocols are not tools', !realParsed.includes('url') && !realParsed.includes('protocols'));
@@ -1238,6 +1256,33 @@ export function proveFail(opts = {}) {
     const d = checkDrift(c, mirrorDir);
     return d.ok ? [] : d.errors.map((e) => e.code);
   };
+
+  /**
+   * THE BASELINE MUST BE CLEAN, and this proof shipped without that check.
+   *
+   * Reproduced 2026-08-08 by independent review: set `counts.toolsCurrent` from 43
+   * to 50 in the committed catalog and `--check-integrity` correctly exits 1 with
+   * INTEGRITY_MISMATCH and COUNTS_MISMATCH, while `--prove-fail` still exits 0
+   * printing "all 10 mutants rejected by their named gate". Every mutant is
+   * "rejected" by the pre-existing failure, so the strongest must-fail proof in
+   * this repository reported success at the exact moment the thing it guards was
+   * broken.
+   *
+   * Three other proofs here already carry this guard: extension-scaffold's
+   * injection harness (added after it printed its success banner against a red
+   * gate), coverage-report --prove-can-fail, and artifact-mutation. The commit
+   * that wired this command into CI called it the strongest proof in the repo and
+   * did not back-apply the guard that same commit's new helper implements. Fixed
+   * by refusing rather than reporting: an unprovable run is not a passing one.
+   */
+  const baseline = gate(JSON.parse(JSON.stringify(base)));
+  if (baseline.length) {
+    console.log(`CANNOT PROVE: the committed catalog already fails its own gate (${baseline.join(', ')}).`);
+    console.log('Every mutant below would be "rejected" by that pre-existing failure, which proves nothing.');
+    console.log('Fix the catalog first, then re-run this.');
+    rmSync(tmp, { recursive: true, force: true });
+    return 1;
+  }
 
   const mutants = [
     {

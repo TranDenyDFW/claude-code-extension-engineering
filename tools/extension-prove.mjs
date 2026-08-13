@@ -55,8 +55,8 @@
  * the first would therefore not turn any gate red. Treat `mutatedSource` as a
  * belt-and-braces report, not a verified guarantee.
  */
-import { readFileSync, writeFileSync, existsSync, mkdtempSync, cpSync, rmSync, readdirSync, statSync, chmodSync } from 'node:fs';
-import { join, resolve, dirname, relative, basename, sep } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, cpSync, rmSync, readdirSync, statSync, chmodSync } from 'node:fs';
+import { join, resolve, dirname, relative, basename, isAbsolute, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -73,6 +73,14 @@ export const CITE = {
   'near-miss': 'hooks.md failure modes: "Overly broad matcher, so it fires everywhere and gets disabled out of annoyance."',
   wiring: 'hooks.md: "Matcher: exact string, list (A|B), or regex (unanchored)" and "Tool events match tool_name."',
   'fail-posture': 'hooks.md: "jq is absent on many Windows installs, so the handler exits non-zero, fails open, and silently blocks nothing while looking installed."',
+  /**
+   * `residual` and `tamper` had NO entry, so every one of those cases reported
+   * `citation: undefined`. The citation floor exists because an uncited complaint
+   * is an opinion, and these two kinds carry the strongest claims in a spec: what
+   * is NOT covered, and what survives tampering.
+   */
+  residual: 'permissions.md: Read and Edit deny rules "don\'t apply to arbitrary subprocesses that read or write files indirectly". A residual case asserts a named vector is NOT covered, so it goes red in both directions: if the product closes the gap, or if the bundle widens to cover it.',
+  tamper: 'permissions.md: "Rules are evaluated in order: deny, then ask, then allow. The first match in that order determines the outcome, and rule specificity doesn\'t change the order." A tamper case asserts the decision survives a hostile edit to the bundle.',
 };
 
 /**
@@ -90,7 +98,81 @@ export const CITE = {
  * while presenting as the strongest assertion in the file.
  */
 export const CASE_KINDS = new Set(['enforce', 'near-miss', 'wiring', 'fail-posture', 'residual', 'tamper']);
-export const MUTATIONS = new Set(['delete-handler', 'crash-handler', 'add-allow-rule', 'none']);
+export const MUTATIONS = new Set(['delete-handler', 'crash-handler', 'add-allow-rule', 'ignore-setup', 'none']);
+
+/**
+ * PER-CASE SETUP: `{ files: { "rel/path": "contents" }, env: { K: "v" } }`.
+ *
+ * Added 2026-08-07 because a whole class of handler was unprovable without it. A
+ * handler that runs a prerequisite check, or validates a document on disk, decides
+ * from state that is NOT in the tool payload, and nothing here could stage that
+ * state: `applyMutation` only rewrites handler scripts that `settings.hooks`
+ * already names. So a required-check hook could only ever be tested in whatever
+ * state the bundle happened to ship in, which is one arm of a two-arm assertion.
+ *
+ * Files are written into the per-case TEMP COPY, never the bundle, so a case
+ * cannot leave residue and two cases cannot see each other's state. Keys are
+ * refused if they escape that copy: a conformance.json is an INPUT, and a spec
+ * that writes to `../../.ssh/authorized_keys` must not be executed merely because
+ * it parses.
+ *
+ * `ignore-setup` is the mutation that keeps the feature honest. A staged file the
+ * handler never reads would make its case pass for the wrong reason, so a
+ * setup-bearing case is paired with one that drops the setup and MUST go the other
+ * way. Same paired-arm discipline the rest of this tool uses, applied to its own
+ * newest surface.
+ */
+export function checkSetup(setup) {
+  if (setup === undefined || setup === null) return [];
+  if (typeof setup !== 'object' || Array.isArray(setup)) return ['`setup` must be an object with optional `files` and `env`'];
+  const bad = [];
+  for (const k of Object.keys(setup)) {
+    if (k !== 'files' && k !== 'env') {
+      bad.push(`unsupported setup key "${k}"; only files and env exist, and an ignored key is a case staging state it believes it staged`);
+    }
+  }
+  for (const field of ['files', 'env']) {
+    const v = setup[field];
+    if (v === undefined) continue;
+    if (typeof v !== 'object' || v === null || Array.isArray(v)) { bad.push(`setup.${field} must be an object`); continue; }
+    for (const [key, val] of Object.entries(v)) {
+      if (typeof val !== 'string') bad.push(`setup.${field}["${key}"] must be a string`);
+      if (field === 'env') {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) bad.push(`setup.env key "${key}" is not a valid environment variable name`);
+        continue;
+      }
+      if (!key) { bad.push('setup.files has an empty path key'); continue; }
+      if (/^([A-Za-z]:[\\/]|[\\/])/.test(key)) bad.push(`setup.files["${key}"] is an ABSOLUTE path; setup writes into the per-case temp copy only`);
+      else if (key.split(/[\\/]/).includes('..')) bad.push(`setup.files["${key}"] contains "..", which would escape the per-case temp copy`);
+      if (/\0/.test(key)) bad.push(`setup.files["${key}"] contains a NUL byte`);
+    }
+  }
+  return bad;
+}
+
+/**
+ * Stage a case's setup into its temp copy. Returns the env overlay for the
+ * handler spawn. `ignore-setup` drops the whole thing, which is what makes the
+ * paired negative arm possible.
+ */
+export function applySetup(dir, setup, mutation) {
+  if (mutation === 'ignore-setup') return { env: {}, wrote: [], ignored: true };
+  if (!setup) return { env: {}, wrote: [], ignored: false };
+  const bad = checkSetup(setup);
+  if (bad.length) throw new Error(`invalid \`setup\`: ${bad.join('; ')}`);
+  const wrote = [];
+  for (const [rel, content] of Object.entries(setup.files || {})) {
+    const dest = join(dir, rel);
+    // Belt and braces: the key was already refused above, and the RESOLVED path is
+    // checked again, because the check that matters is the one on the value the
+    // write actually uses.
+    if (!resolve(dest).startsWith(resolve(dir) + sep)) throw new Error(`invalid \`setup\`: files["${rel}"] resolves outside the case copy`);
+    mkdirSync(dirname(dest), { recursive: true });
+    writeFileSync(dest, content);
+    wrote.push(rel);
+  }
+  return { env: { ...(setup.env || {}) }, wrote, ignored: false };
+}
 
 // Events on which exit 2 blocks. From references/hook-events.md; kept small and
 // explicit rather than inferred, so an unlisted event is a hard error not a guess.
@@ -200,6 +282,36 @@ function ruleApplies(rule, toolName, toolInput, projectDir) {
     return { applies: false, undetermined: true, note: `permission rule "${rule}" against ${toolName} is UNDETERMINED: permissions.md calls search-tool coverage a "best-effort attempt", which is not a guarantee and must not be simulated as one.` };
   }
 
+  /**
+   * A `Bash(<command pattern>)` RULE, which used to be answered by omission.
+   *
+   * Reproduced 2026-08-07: `permissionDecision({deny:['Bash(rm *)']}, 'Bash',
+   * {command:'rm -rf /'})` returned decision null with ZERO notes, and the caller
+   * reads null as "no rule matched", so the whole layer reported allow. Silently,
+   * for the spelling permissions.md explicitly RECOMMENDS. That is the same defect
+   * the Bash-boundary branch above exists to prevent, in the neighbouring case:
+   * `Bash` is not in PATH_RULE_CONSULTED, so a Bash rule with a pattern fell
+   * through every branch to `applies:false`.
+   *
+   * What the documentation gives is the SPELLING ("Use `Bash(rm *)` instead"), not
+   * the matching semantics. Whether the pattern is tested against the whole
+   * command string, the first word, or each segment of a compound command is
+   * nowhere stated, and this repo has MEASURED that a leading `cd` hides part of a
+   * command from the permission layer on 2.1.224. So the rule might deny, and
+   * modelling it either way manufactures a result. UNDETERMINED, which fails every
+   * expectation including a negative one, and demands a measurement.
+   *
+   * The `command:` field form is different: the docs state flatly that it is
+   * ignored with a startup warning, so that one is a known-inert rule with a note,
+   * not an unknown.
+   */
+  if (tool === 'Bash' && pattern !== null && toolName === 'Bash') {
+    if (/^[A-Za-z_]+:/.test(pattern)) {
+      return { applies: false, note: `permission rule "${rule}" matches on a tool's primary content field, which permissions.md states Claude Code IGNORES with a startup warning: "A rule like Bash(command:rm *) would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning. Use Bash(rm *) ... instead."` };
+    }
+    return { applies: false, undetermined: true, note: `permission rule "${rule}" is UNDETERMINED: permissions.md gives the SPELLING for a Bash command rule ("Use Bash(rm *) ... instead") and never states what the pattern is matched against, so whether it reaches "${String((toolInput && toolInput.command) || '')}" cannot be read out of the documentation. Nothing in this repo has measured it. An unmeasured rule is not an inert rule, and reporting it as inert would claim a bypass nobody observed.` };
+  }
+
   const toolMatches = tool === '*' || tool === toolName
     || (tool.includes('*') && globToRegex(tool).test(toolName))
     || (tool === 'Edit' && EDIT_COVERS.has(toolName));
@@ -307,7 +419,54 @@ export function ifFilterAdmits(rule, toolName, toolInput) {
   return globToRegex(pattern).test(subject);
 }
 
-function runHandler(handler, payload, cwd) {
+/**
+ * Resolve a handler command to the interpreter, the script INSIDE the bundle copy,
+ * and any extra arguments. One function, used by both the runner and the mutation
+ * engine, because they disagreeing about where the handler lives is how a
+ * fail-posture case ends up mutating nothing.
+ *
+ * TWO THINGS IT FIXES, both latent until a bundle actually shipped a hook.
+ *
+ * 1. `${CLAUDE_PROJECT_DIR}` was never expanded. hooks.md lists it as a settings
+ *    PATH PLACEHOLDER ("path placeholders ${CLAUDE_PROJECT_DIR} / ${CLAUDE_PLUGIN_ROOT}"),
+ *    so it is the correct production spelling; unexpanded it is an ENOENT and the
+ *    handler silently fails open. A bundle wired the documented way would have
+ *    failed its own conformance for a reason that had nothing to do with its logic.
+ *
+ * 2. The mutation engine resolved handlers as `basename(script)` against the
+ *    bundle root, so a handler at `.claude/hooks/validate.mjs` was never found and
+ *    `delete-handler` deleted NOTHING. The case would then run against an intact
+ *    bundle and pass while claiming to prove fail-open behaviour: the same defect
+ *    already found once in this function's neighbour.
+ *
+ * The BARE `$CLAUDE_PROJECT_DIR` form is deliberately NOT expanded. hooks.md:
+ * "bare $CLAUDE_PROJECT_DIR parses as an undefined variable and resolves to $null"
+ * under PowerShell. Expanding it here would make a bundle pass that is broken on
+ * Windows, so it stays literal, fails to resolve, and gets a note naming the doc.
+ */
+export function parseHandlerCommand(cmd, dir) {
+  const notes = [];
+  const raw = String(cmd || '');
+  if (/(^|[^${])\$CLAUDE_(PROJECT_DIR|PLUGIN_ROOT)\b/.test(raw)) {
+    notes.push('handler command uses the BARE $CLAUDE_PROJECT_DIR form. hooks.md: "bare $CLAUDE_PROJECT_DIR parses as an undefined variable and resolves to $null" on Windows; use ${CLAUDE_PROJECT_DIR}.');
+  }
+  const expanded = raw.replace(/\$\{(CLAUDE_PROJECT_DIR|CLAUDE_PLUGIN_ROOT)\}/g, () => dir);
+  const m = expanded.match(/^(\S+)\s+"([^"]+)"\s*(.*)$/) || expanded.match(/^(\S+)\s+(\S+)\s*(.*)$/);
+  const interpreter = m ? m[1] : expanded;
+  const script = m ? m[2] : null;
+  const extraArgs = m && m[3] ? m[3].split(/\s+/).filter(Boolean) : [];
+  let abs = null;
+  if (script) {
+    const cand = resolve(isAbsolute(script) ? script : join(dir, script));
+    // A handler outside the case copy is left unresolved rather than rewritten:
+    // that is a real wiring defect and must surface as one.
+    if (cand === resolve(dir) || cand.startsWith(resolve(dir) + sep)) abs = cand;
+    else notes.push(`handler script "${script}" resolves OUTSIDE the bundle, so nothing in the bundle controls what runs`);
+  }
+  return { interpreter, script, extraArgs, abs, notes };
+}
+
+function runHandler(handler, payload, cwd, setupEnv = {}) {
   // MEASURED LIVE (G6): an http handler whose endpoint is unreachable FAILS OPEN.
   // The simulator supports only type=command, so rather than silently treating an
   // http handler as absent it reports the documented fail-open explicitly.
@@ -318,11 +477,13 @@ function runHandler(handler, payload, cwd) {
   if (!cmd) return { exit: null, stdout: '', stderr: '', error: 'handler has no command' };
   // Split a quoted interpreter-plus-path command form, the shape hooks.md calls
   // the "proven wiring recipe": node "C:\path\x.mjs".
-  const m = cmd.match(/^(\S+)\s+"([^"]+)"\s*(.*)$/) || cmd.match(/^(\S+)\s+(\S+)\s*(.*)$/);
-  let file, args;
-  if (m) { file = m[1]; args = [m[2], ...(m[3] ? m[3].split(/\s+/).filter(Boolean) : [])]; }
-  else { file = cmd; args = []; }
-  const env = { ...process.env, CLAUDE_PROJECT_DIR: cwd };
+  const p = parseHandlerCommand(cmd, cwd);
+  const file = p.interpreter;
+  const args = p.script === null ? [] : [p.abs || p.script, ...p.extraArgs];
+  // The case's `setup.env` goes LAST so a case can override an inherited value,
+  // which is the point of staging it, but CLAUDE_PROJECT_DIR stays ours: letting a
+  // case repoint the project root would let it escape its own temp copy.
+  const env = { ...process.env, ...setupEnv, CLAUDE_PROJECT_DIR: cwd };
   const r = spawnSync(file, args, {
     cwd, env, input: JSON.stringify(payload), encoding: 'utf8',
     timeout: Number(handler.timeout) > 0 ? Number(handler.timeout) * 1000 : 30_000,
@@ -331,14 +492,14 @@ function runHandler(handler, payload, cwd) {
   if (r.error && r.error.code === 'ENOENT') {
     // Not found is the documented fail-open case, and it is a real verdict, not a
     // harness failure. Record it as such.
-    return { exit: null, stdout: '', stderr: String(r.error.message), notFound: true };
+    return { exit: null, stdout: '', stderr: String(r.error.message), notFound: true, wiring: p.notes };
   }
   // MEASURED LIVE (G1, 2 passes): a handler that exceeds its timeout FAILS OPEN.
   // The marker proved it ran; the write proceeded anyway. Report it as a timeout
   // rather than letting a late decision on stdout count.
   const timedOut = r.signal === 'SIGTERM' || r.error?.code === 'ETIMEDOUT';
-  if (timedOut) return { exit: null, stdout: '', stderr: String(r.stderr || ''), timedOut: true };
-  return { exit: r.status, stdout: r.stdout || '', stderr: r.stderr || '', timedOut: false };
+  if (timedOut) return { exit: null, stdout: '', stderr: String(r.stderr || ''), timedOut: true, wiring: p.notes };
+  return { exit: r.status, stdout: r.stdout || '', stderr: r.stderr || '', timedOut: false, wiring: p.notes };
 }
 
 /**
@@ -352,6 +513,9 @@ export function verdictOf(event, handlers, results) {
   const notes = [];
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
+    // Wiring problems are reported whatever the outcome, because the worst version
+    // of this is a handler that fails open for a reason the report never mentions.
+    for (const n of (r.wiring || [])) notes.push(n);
     if (r.notFound) { notes.push(`handler missing: ${handlers[i].command}`); continue; }
     if (r.timedOut) { notes.push(`handler exceeded its timeout and FAILED OPEN (measured live, fidelity G1)`); continue; }
     if (r.httpUnsupported) { notes.push(`http handler not simulated; an unreachable http gate FAILS OPEN (measured live, fidelity G6)`); continue; }
@@ -385,7 +549,23 @@ export const UNDETERMINED = 'undetermined';
 
 function matchExpect(expect, verdict) {
   const fails = [];
-  for (const [k, want] of Object.entries(expect || {})) {
+  /**
+   * A CASE WITH NO EXPECTATION IS NOT A PASSING CASE.
+   *
+   * `Object.entries(undefined || {})` is empty, so an `expect`-less case
+   * produced no failures and reported ok. A conformance.json of ten such cases
+   * printed "10 case(s): 10 passed, 0 failed" while asserting nothing whatever.
+   * Reproduced 2026-08-07 before this fix: two cases, no expect, exit 0.
+   *
+   * That is the defect class this whole tool exists to name, sitting in the
+   * function that decides whether anything was proved. An absent expectation is
+   * now a FAILURE, because a spec that forgot its assertion is a defect in the
+   * spec and silence is the worst possible way to report it.
+   */
+  if (!expect || typeof expect !== 'object' || Array.isArray(expect) || Object.keys(expect).length === 0) {
+    return ['case declares no `expect`, so it asserts nothing; an assertion-free case is a defect in the spec, not a pass'];
+  }
+  for (const [k, want] of Object.entries(expect)) {
     if (k === 'decision') {
       const got = verdict.decision;
       if (got === UNDETERMINED) {
@@ -413,11 +593,41 @@ function matchExpect(expect, verdict) {
  * `hook-only-no-deny-rule` flipped from "5 passed, 2 failed" to "7 passed, 0
  * failed". Cause: --prove-fail filtered to enforce and wiring cases only, so the
  * fail-posture kind, which carries the project's central claim that a command
- * hook fails open, was never exercised by any gate. `mutationSelfTest` below now
- * asserts it actually mutates, and --prove-fail no longer excludes fail-posture.
+ * hook fails open, was never exercised by any gate. The "mutation engine" rows in
+ * selfTest() below now assert it actually mutates, and --prove-fail no longer
+ * excludes fail-posture. (That sentence used to name a `mutationSelfTest`
+ * function, which does not exist and never did; the rows are real, the reference
+ * was not.)
  */
 export function applyMutation(dir, settings, mutation) {
   if (!mutation || mutation === 'none') return;
+  /**
+   * AN UNRECOGNISED MUTATION IS A TYPO, NOT A NO-OP.
+   *
+   * `MUTATIONS` was exported and never consulted, so `mutate: 'delete-handlers'`
+   * fell through every branch and mutated nothing. The fail-posture case then ran
+   * against an INTACT bundle, the handler denied as normal, and the case passed:
+   * the single strongest assertion in a spec, reporting success because its
+   * plural was wrong. Reproduced 2026-08-07 before this fix, with the correct
+   * spelling failing (exit 1) and the typo passing (exit 0) on the same bundle.
+   *
+   * Throwing is deliberate. Returning a soft failure would let a spec keep
+   * running with an unknown intent; the caller cannot know what was meant.
+   */
+  if (!MUTATIONS.has(mutation)) {
+    throw new Error(`unknown mutation "${mutation}"; expected one of ${[...MUTATIONS].join(', ')}. `
+      + 'An unrecognised mutation used to silently do nothing, which made the case pass against an unmutated bundle.');
+  }
+
+  /**
+   * ignore-setup does nothing HERE, and that is stated rather than left as a
+   * fallthrough. Its entire effect is in `applySetup`, which the case loop calls
+   * immediately after this function; a reader who found it missing from every
+   * branch below would reasonably conclude it was the silent-no-op defect fixed
+   * above. The self-test asserts both halves: that this call leaves the handlers
+   * intact, and that applySetup really drops the staged state.
+   */
+  if (mutation === 'ignore-setup') return;
 
   /**
    * add-allow-rule: the tamper mutation for a bundle with no handler to break.
@@ -443,11 +653,16 @@ export function applyMutation(dir, settings, mutation) {
   for (const groups of Object.values(settings.hooks || {}))
     for (const g of groups) for (const h of (g.hooks || [])) targets.push(h.command);
   for (const cmd of targets) {
-    const m = String(cmd).match(/"([^"]+)"|(\S+)\s*$/);
-    const rel = m ? (m[1] || m[2]) : null;
-    if (!rel) continue;
-    const p = join(dir, basename(rel));
-    if (!existsSync(p)) continue;
+    /**
+     * Resolved through the SAME parser the runner uses. The previous version took
+     * `basename(script)` against the bundle root, so a handler wired the
+     * documented way, `${CLAUDE_PROJECT_DIR}/.claude/hooks/x.mjs`, was never found
+     * and both handler mutations silently did nothing: the fail-posture case then
+     * ran against an intact bundle and passed. Latent only because no bundle had
+     * shipped a hook yet.
+     */
+    const p = parseHandlerCommand(cmd, dir).abs;
+    if (!p || !existsSync(p)) continue;
     if (mutation === 'delete-handler') rmSync(p, { force: true });
     if (mutation === 'crash-handler') {
       writeFileSync(p, '#!/usr/bin/env node\nprocess.exit(1);\n');
@@ -518,7 +733,18 @@ export function proveBundle(bundleDir, { onlyKinds = null } = {}) {
     try {
       cpSync(bundleDir, tmp, { recursive: true });
       const settings = JSON.parse(readFileSync(join(tmp, 'settings.json'), 'utf8'));
-      applyMutation(tmp, settings, c.mutate);
+      // A bad mutation fails THIS CASE with a named reason rather than aborting
+      // the run, so a spec with one typo still reports on its other cases.
+      let staged;
+      try {
+        applyMutation(tmp, settings, c.mutate);
+        // Setup is staged AFTER the mutation, because `ignore-setup` is a mutation
+        // whose whole effect is on this step.
+        staged = applySetup(tmp, c.setup, c.mutate);
+      } catch (e) {
+        out.push({ id: c.id, kind: c.kind, ok: false, why: [String(e.message)], verdict: { decision: null, fired: 0, notes: [] }, citation: CITE[c.kind] });
+        continue;
+      }
       const event = c.event || 'PreToolUse';
       const toolName = (c.input && c.input.tool_name) || '';
       const handlers = resolveHandlers(settings, event, toolName, (c.input || {}).tool_input);
@@ -535,8 +761,10 @@ export function proveBundle(bundleDir, { onlyKinds = null } = {}) {
       if (payload.tool_input && payload.tool_input.file_path) {
         payload.tool_input = { ...payload.tool_input, file_path: toProjectAbsolute(tmp, payload.tool_input.file_path) };
       }
-      const results = handlers.map((h) => runHandler(h, payload, tmp));
+      const results = handlers.map((h) => runHandler(h, payload, tmp, staged.env));
       const verdict = verdictOf(event, handlers, results);
+      if (staged.ignored) verdict.notes.push('`setup` was DROPPED by the ignore-setup mutation, so the handler saw no staged state');
+      else if (staged.wrote.length) verdict.notes.push(`staged ${staged.wrote.length} setup file(s): ${staged.wrote.join(', ')}`);
       // Permission rules are a separate, harness-owned layer. A deny rule holds
       // even when the hook is deleted or crashing, which is exactly why a
       // requirement with a guarantee clause needs one.
@@ -584,12 +812,32 @@ export function proveBundle(bundleDir, { onlyKinds = null } = {}) {
 }
 
 // --------------------------------------------------------------------- reporting
-export function reportCode(res) {
-  if (res.cases.some((c) => !c.ok) || res.mutatedSource) return 1;
-  return (res.strictResidual || []).length ? 1 : 0;
+
+/**
+ * The exact line a strict NOT-DONE run prints, exported so a CALLER can tell the
+ * two exit-1 reasons apart without re-typing the sentence.
+ *
+ * Independent review 2026-08-07: extension-scaffold read only the exit code, so a
+ * run reporting "8 case(s): 8 passed, 0 failed" followed by this line was then
+ * summarised as "NOT DONE: the generated bundle does not satisfy its own
+ * conformance spec", which is FALSE. The bundle satisfies its spec exactly; what
+ * fails is the absolute claim. That is the confusion the strict design exists to
+ * prevent, reintroduced one layer up by a caller that could not see the
+ * difference.
+ */
+export const STRICT_NOT_DONE = 'NOT DONE: the requirement is ABSOLUTE and a residual vector survives.';
+
+/** Why a run is non-zero: 'cases' (something failed) or 'strict' (all green, claim refused). */
+export function failureKind(res) {
+  if (res.cases.some((c) => !c.ok) || res.mutatedSource) return 'cases';
+  return (res.strictResidual || []).length ? 'strict' : null;
 }
 
-function report(res, json) {
+export function reportCode(res) {
+  return failureKind(res) ? 1 : 0;
+}
+
+export function report(res, json) {
   if (json) { console.log(JSON.stringify(res, null, 2)); return reportCode(res); }
   console.log(`extension-prove  ${res.extension || '(unnamed)'}  mechanism=${res.mechanism || '?'}`);
   console.log('');
@@ -605,16 +853,38 @@ function report(res, json) {
   const failed = res.cases.filter((c) => !c.ok).length;
   if (res.mutatedSource) console.log('\nFAIL  the bundle mutated its own source tree during the run');
   console.log(`\n${res.cases.length} case(s): ${res.cases.length - failed} passed, ${failed} failed.`);
+  /**
+   * THE STRICT PARAGRAPH IS PRINTED ONLY WHEN NOTHING ELSE FAILED.
+   *
+   * It used to print whenever a residual survived, so a run with three FAILING
+   * cases still announced "Every case above passed. That is the point", and a
+   * caller reading for that marker then summarised a broken bundle as satisfying
+   * its spec. Independent review 2026-08-07 reproduced exactly that.
+   *
+   * `failureKind` is the single place that decides which of the two exit-1 reasons
+   * applies, so the printed text and any caller reading it cannot disagree. When
+   * cases failed, the failures are the headline and the surviving residuals are
+   * still listed, without the claim that everything passed.
+   */
+  const kind = failureKind(res);
   if ((res.strictResidual || []).length) {
     console.log('');
-    console.log('NOT DONE: the requirement is ABSOLUTE and a residual vector survives.');
-    for (const r of res.strictResidual) console.log(`  ${r.id}  ${r.vector}  is confirmed NOT covered`);
-    console.log('');
-    console.log('Every case above passed. That is the point: a passing residual case is a MEASURED');
-    console.log('statement that the vector is open, and an absolute requirement rules it out. The');
-    console.log('bundle is still the strongest configuration available here; what is refused is the');
-    console.log('claim that it is total. Narrow the requirement, or close the vector at a layer this');
-    console.log('bundle cannot reach.');
+    if (kind === 'strict') {
+      console.log(STRICT_NOT_DONE);
+      for (const r of res.strictResidual) console.log(`  ${r.id}  ${r.vector}  is confirmed NOT covered`);
+      console.log('');
+      console.log('Every case above passed. That is the point: a passing residual case is a MEASURED');
+      console.log('statement that the vector is open, and an absolute requirement rules it out. The');
+      console.log('bundle is still the strongest configuration available here; what is refused is the');
+      console.log('claim that it is total. Narrow the requirement, or close the vector at a layer this');
+      console.log('bundle cannot reach.');
+    } else {
+      console.log('This spec is STRICT and these residual vectors are confirmed NOT covered:');
+      for (const r of res.strictResidual) console.log(`  ${r.id}  ${r.vector}`);
+      console.log('');
+      console.log('That is reported for completeness, NOT as the verdict. Cases failed above, so the');
+      console.log('bundle does not satisfy its own spec and the absolute claim is not the reason.');
+    }
   }
   return reportCode(res);
 }
@@ -678,6 +948,131 @@ function selfTest() {
       check('mutation "none" leaves the handler untouched', readFileSync(hp, 'utf8') === original);
       applyMutation(tmp, settings, undefined);
       check('an absent mutation leaves the handler untouched', readFileSync(hp, 'utf8') === original);
+
+      /**
+       * THE SUBDIRECTORY ROW. `basename()` resolution found nothing here, so both
+       * handler mutations did nothing and a fail-posture case would have passed
+       * against an intact bundle. Latent until a bundle shipped a hook, which the
+       * validate-before-action pack now does.
+       */
+      const nested = { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node "${CLAUDE_PROJECT_DIR}/.claude/hooks/validate.mjs"' }] }] } };
+      mkdirSync(join(tmp, '.claude', 'hooks'), { recursive: true });
+      const np = join(tmp, '.claude', 'hooks', 'validate.mjs');
+      writeFileSync(np, original);
+      check('the documented ${CLAUDE_PROJECT_DIR} wiring resolves INSIDE the bundle copy',
+        parseHandlerCommand(nested.hooks.PreToolUse[0].hooks[0].command, tmp).abs === resolve(np));
+      applyMutation(tmp, nested, 'delete-handler');
+      check('...and delete-handler reaches a handler in a SUBDIRECTORY', !existsSync(np));
+      writeFileSync(np, original);
+      applyMutation(tmp, nested, 'crash-handler');
+      check('...and so does crash-handler', readFileSync(np, 'utf8') !== original);
+
+      check('the BARE $CLAUDE_PROJECT_DIR form is NOT expanded, because it is $null on Windows',
+        parseHandlerCommand('node "$CLAUDE_PROJECT_DIR/x.mjs"', tmp).abs === null
+        || !parseHandlerCommand('node "$CLAUDE_PROJECT_DIR/x.mjs"', tmp).script.startsWith(tmp));
+      check('...and it is reported with the doc line rather than silently failing open',
+        parseHandlerCommand('node "$CLAUDE_PROJECT_DIR/x.mjs"', tmp).notes.some((n) => /resolves to \$null/.test(n)));
+      check('a handler pointing OUTSIDE the bundle is refused and reported',
+        parseHandlerCommand('node "../../evil.mjs"', tmp).abs === null
+        && parseHandlerCommand('node "../../evil.mjs"', tmp).notes.some((n) => /OUTSIDE the bundle/.test(n)));
+      check('a plain relative handler still resolves at the bundle root, as before',
+        parseHandlerCommand('node "h.mjs"', tmp).abs === resolve(join(tmp, 'h.mjs')));
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  }
+
+  /**
+   * PER-CASE SETUP, the newest surface in this tool, so it gets the full
+   * treatment: shape refusals, traversal refusals, and an END-TO-END pair proving
+   * the staged state is load-bearing rather than decorative.
+   */
+  console.log('per-case setup (staged state for handlers that read more than the payload):');
+  check('an absent setup is not an error', checkSetup(undefined).length === 0 && checkSetup(null).length === 0);
+  check('a well formed setup validates', checkSetup({ files: { 'a/b.json': '{}' }, env: { GATE: 'green' } }).length === 0);
+  for (const [name, s, needle] of [
+    ['a non-object setup', 'files', null],
+    ['an array setup', [], null],
+    ['an unknown setup key', { flies: {} }, 'unsupported setup key'],
+    ['files that is not an object', { files: [] }, 'must be an object'],
+    ['env that is not an object', { env: 'GATE=green' }, 'must be an object'],
+    ['a non-string file content', { files: { 'a.json': 1 } }, 'must be a string'],
+    ['a non-string env value', { env: { GATE: 1 } }, 'must be a string'],
+    ['an invalid env var name', { env: { 'not-a-name': 'x' } }, 'not a valid environment variable name'],
+    ['an empty path key', { files: { '': 'x' } }, 'empty path key'],
+    ['a RELATIVE escape', { files: { '../evil': 'x' } }, 'escape'],
+    ['a nested relative escape', { files: { 'a/../../evil': 'x' } }, 'escape'],
+    ['a POSIX absolute path', { files: { '/etc/passwd': 'x' } }, 'ABSOLUTE'],
+    ['a Windows absolute path', { files: { 'C:\\Windows\\win.ini': 'x' } }, 'ABSOLUTE'],
+    ['a UNC-ish rooted path', { files: { '\\\\server\\share\\x': 'x' } }, 'ABSOLUTE'],
+  ]) {
+    const errs = checkSetup(s);
+    check(`MUST REFUSE: ${name}`, errs.length > 0 && (!needle || errs.some((e) => e.includes(needle))), errs.join(' | ') || 'accepted');
+  }
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'xprove-setup-'));
+    try {
+      const r = applySetup(tmp, { files: { 'deep/dir/doc.json': '{"env":"prod"}' }, env: { GATE: 'green' } });
+      check('applySetup writes the file, creating parent directories', existsSync(join(tmp, 'deep/dir/doc.json')));
+      check('...with the exact contents', readFileSync(join(tmp, 'deep/dir/doc.json'), 'utf8') === '{"env":"prod"}');
+      check('...and returns the env overlay', r.env.GATE === 'green' && r.wrote.length === 1);
+      let threw = null;
+      try { applySetup(tmp, { files: { '../escaped': 'x' } }); } catch (e) { threw = e; }
+      check('MUST REFUSE at write time too, not only at check time', threw !== null && /escape/.test(threw.message));
+      check('...and nothing was written outside the copy', !existsSync(join(tmp, '..', 'escaped')));
+      const ig = applySetup(tmp, { files: { 'dropped.txt': 'x' } }, 'ignore-setup');
+      check('ignore-setup writes NOTHING and reports itself', ig.ignored === true && ig.wrote.length === 0 && !existsSync(join(tmp, 'dropped.txt')));
+      // ignore-setup must not be quietly doing something else in applyMutation.
+      const settings = { hooks: { PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'node "h.mjs"' }] }] } };
+      writeFileSync(join(tmp, 'h.mjs'), 'process.exit(0);\n');
+      applyMutation(tmp, settings, 'ignore-setup');
+      check('ignore-setup leaves the handler intact, so its only effect is the staging', readFileSync(join(tmp, 'h.mjs'), 'utf8') === 'process.exit(0);\n');
+      check('...and it is a RECOGNISED mutation, not a typo that throws', MUTATIONS.has('ignore-setup'));
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  }
+  /**
+   * The row that makes the feature non-vacuous. One bundle, one handler that
+   * denies only when its prerequisite is UNMET, proved twice: with the setup
+   * staged it allows, and with `ignore-setup` the same case with the same
+   * expectation goes RED. A staged file the handler never read would pass both.
+   */
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'xprove-setupe2e-'));
+    try {
+      writeFileSync(join(tmp, 'g.mjs'), [
+        "import { existsSync } from 'node:fs';",
+        "let s = ''; process.stdin.on('data', (d) => { s += d; }).on('end', () => {",
+        "  const ok = existsSync('READY') && process.env.GATE === 'green';",
+        '  if (!ok) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: \'PreToolUse\', permissionDecision: \'deny\', permissionDecisionReason: \'prerequisite unmet\' } }));',
+        '  process.exit(0);',
+        '});',
+      ].join('\n'));
+      writeFileSync(join(tmp, 'settings.json'), JSON.stringify({
+        hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node "g.mjs"' }] }] },
+      }, null, 2));
+      const CASE = (id, extra) => ({
+        id, kind: 'enforce', input: { tool_name: 'Bash', tool_input: { command: 'deploy prod' } }, ...extra,
+      });
+      const write = (cases) => writeFileSync(join(tmp, 'conformance.json'), JSON.stringify({ mechanism: 'hook', cases }, null, 2));
+
+      write([
+        CASE('checks-pass', { setup: { files: { READY: 'yes' }, env: { GATE: 'green' } }, expect: { decision: { not: 'deny' } } }),
+        CASE('checks-fail', { expect: { decision: 'deny' } }),
+      ]);
+      const good = proveBundle(tmp);
+      check('a staged prerequisite makes the handler allow', good.cases.find((r) => r.id === 'checks-pass').ok,
+        (good.cases.find((r) => r.id === 'checks-pass').why || []).join('; '));
+      check('...and its absence makes the same handler deny', good.cases.find((r) => r.id === 'checks-fail').ok);
+
+      write([CASE('setup-is-load-bearing', { mutate: 'ignore-setup', setup: { files: { READY: 'yes' }, env: { GATE: 'green' } }, expect: { decision: { not: 'deny' } } })]);
+      const dropped = proveBundle(tmp);
+      check('MUST GO RED: the same case with ignore-setup, proving the setup was read',
+        dropped.cases[0].ok === false, 'passed with the setup dropped, so nothing read it');
+      check('...and the report says the setup was dropped',
+        dropped.cases[0].verdict.notes.some((n) => /DROPPED/.test(n)));
+
+      write([CASE('malformed', { setup: { files: { '../evil': 'x' } }, expect: { decision: 'deny' } })]);
+      const mal = proveBundle(tmp);
+      check('a malformed setup fails ITS case by name rather than aborting the run',
+        mal.cases[0].ok === false && mal.cases[0].why.some((w) => /invalid `setup`/.test(w)), (mal.cases[0].why || []).join('; '));
     } finally { rmSync(tmp, { recursive: true, force: true }); }
   }
 
@@ -685,6 +1080,45 @@ function selfTest() {
   // run is reported. An audit found that promise asserted by nothing: replacing
   // `const after = hashTree(dir)` with `const after = before` forces
   // mutatedSource:false forever and every gate stays green.
+  /**
+   * WHICH OF THE TWO EXIT-1 REASONS APPLIES, and what gets PRINTED for each.
+   *
+   * Independent review 2026-08-08: the fix that stopped the reporter claiming
+   * "Every case above passed" while cases had failed was covered by NOTHING. A
+   * one-line revert left all eleven gates at exit 0 and restored the false line.
+   * These rows capture the printed text, because the text is the artifact both a
+   * reader and a caller act on.
+   */
+  console.log('the two exit-1 reasons, and the sentence each one prints:');
+  {
+    const C = (ok) => ({ id: `c-${ok}`, kind: 'enforce', ok, why: ok ? [] : ['x'], verdict: { decision: 'allow', fired: 1, notes: [] } });
+    const R = (cases, strictResidual) => ({ extension: 'x', mechanism: 'hook', cases, strict: true, strictResidual, mutatedSource: false });
+    const clean = { extension: 'x', mechanism: 'hook', cases: [C(true)], strict: false, strictResidual: [], mutatedSource: false };
+    check('a clean run has no failure kind', failureKind(clean) === null);
+    check('a failing case is "cases"', failureKind(R([C(false)], [])) === 'cases');
+    check('a surviving residual with everything green is "strict"', failureKind(R([C(true)], [{ id: 'r', vector: 'v' }])) === 'strict');
+    check('a failing case OUTRANKS a surviving residual', failureKind(R([C(false)], [{ id: 'r', vector: 'v' }])) === 'cases');
+    check('a mutated source tree is "cases" whatever else happened',
+      failureKind({ ...R([C(true)], [{ id: 'r', vector: 'v' }]), mutatedSource: true }) === 'cases');
+
+    const capture = (res) => {
+      const lines = [];
+      const real = console.log;
+      console.log = (...a) => lines.push(a.join(' '));
+      try { report(res, false); } finally { console.log = real; }
+      return lines.join('\n');
+    };
+    const strictOnly = capture(R([C(true)], [{ id: 'r', vector: 'the vector' }]));
+    check('a strict-only run prints the NOT DONE line', strictOnly.includes(STRICT_NOT_DONE));
+    check('...and says every case passed, because they did', strictOnly.includes('Every case above passed'));
+    const alsoFailed = capture(R([C(false), C(true)], [{ id: 'r', vector: 'the vector' }]));
+    check('MUST NOT: claim every case passed when one did not', !alsoFailed.includes('Every case above passed'),
+      'the reporter told the reader a broken bundle was fine');
+    check('...and MUST NOT print the strict NOT DONE line either', !alsoFailed.includes(STRICT_NOT_DONE));
+    check('...while still listing the residual vectors for completeness', alsoFailed.includes('the vector'));
+    check('...and saying outright that the absolute claim is not the reason', /not the reason/.test(alsoFailed));
+  }
+
   console.log('read-only detection (the docstring promises this):');
   {
     const tmp = mkdtempSync(join(tmpdir(), 'xprove-ro-'));
@@ -737,6 +1171,28 @@ function selfTest() {
     permissionDecision(S(['Write(infra/**)']), 'Write', { file_path: 'infra/main.tf' }).notes.some((n) => /NEVER CONSULTED/.test(n)));
   check('bare tool name matches everywhere',
     permissionDecision(S(['Bash']), 'Bash', {}).decision === 'deny');
+  /**
+   * A `Bash(<pattern>)` rule, the fourth answer-by-omission found in this file.
+   * Reproduced before the fix: decision null, ZERO notes, for the spelling the
+   * documentation recommends.
+   */
+  for (const r of ['Bash(rm *)', 'Bash(rm -rf *)', 'Bash(git push *)']) {
+    const got = permissionDecision(S([r]), 'Bash', { command: 'rm -rf /' });
+    check(`a ${r} rule is UNDETERMINED, never silently inert`, got.decision === UNDETERMINED, JSON.stringify(got.decision));
+    check('...and says why, naming what the docs do and do not state', got.notes.some((n) => /never states what the pattern is matched against/.test(n)));
+  }
+  check('...and the bare-tool form is still a real, documented deny',
+    permissionDecision(S(['Bash']), 'Bash', { command: 'rm -rf /' }).decision === 'deny');
+  {
+    const got = permissionDecision(S(['Bash(command:rm *)']), 'Bash', { command: 'rm -rf /' });
+    check('the content-field form is KNOWN inert, not unknown, because the docs say so outright', got.decision === null);
+    check('...and is reported with the quote rather than swallowed', got.notes.some((n) => /emits a startup warning/.test(n)));
+  }
+  check('an UNDETERMINED rule fails a not-deny expectation too, which is the whole point',
+    (() => {
+      const v = { decision: UNDETERMINED, fired: 1, notes: [], undeterminedWhy: ['unmeasured'] };
+      return matchExpect({ decision: { not: 'deny' } }, v).length > 0 && matchExpect({ decision: 'deny' }, v).length > 0;
+    })());
   check('deny wins over allow regardless of order',
     permissionDecision({ permissions: { allow: ['Edit(infra/**)'], deny: ['Edit(infra/**)'] } }, 'Edit', { file_path: 'infra/x' }).decision === 'deny');
   check('glob ** spans directory separators', globToRegex('infra/**').test('infra/a/b/c.tf'));
@@ -760,10 +1216,20 @@ function selfTest() {
   check('a rule that plainly does not apply is still null, not undetermined',
     permissionDecision(S(['Edit(infra/**)']), 'Read', { file_path: 'src/a.ts' }).decision === null);
   if (RECOGNIZED_WRITE_SHAPES.size) {
+    /**
+     * The per-key guards used to be `!RECOGNIZED_WRITE_SHAPES.get(key) || <assertion>`,
+     * which degrades in the WRONG direction: rename or drop a calibration key and
+     * the row passes vacuously instead of failing. Independent review 2026-08-07.
+     * The key's PRESENCE is now asserted first, so a missing key is a failure and
+     * the assertion behind it still has to hold.
+     */
+    check('the calibration still names the shapes these rows are about',
+      !!RECOGNIZED_WRITE_SHAPES.get('append-redirect') && !!RECOGNIZED_WRITE_SHAPES.get('opaque-subprocess'),
+      `have: ${[...RECOGNIZED_WRITE_SHAPES.keys()].join(', ')}`);
     check('a CALIBRATED denied shape decides deny',
-      !RECOGNIZED_WRITE_SHAPES.get('append-redirect') || B("printf 'x' >> infra/main.tf").decision === 'deny');
+      B("printf 'x' >> infra/main.tf").decision === 'deny');
     check('a CALIBRATED residual shape decides null, and cites the measurement',
-      !RECOGNIZED_WRITE_SHAPES.get('opaque-subprocess') || B('node writer.mjs').decision === null);
+      B('node writer.mjs').decision === null);
   } else {
     console.log('  ..   no calibration file yet, so every Bash shape is undetermined by construction');
   }
@@ -815,6 +1281,43 @@ function selfTest() {
     } finally { rmSync(tmp, { recursive: true, force: true }); }
   }
 
+  /**
+   * REGRESSION ROWS for two defects reproduced on 2026-08-07, both of the
+   * "assertion does not depend on the code under test" class, both found while
+   * reading the prover to build a second generator on top of it.
+   */
+  console.log('an assertion-free case is a DEFECT, not a pass:');
+  const V = { decision: 'deny', fired: 1 };
+  check('a case with NO expect fails, naming the missing assertion',
+    matchExpect(undefined, V).length === 1 && /asserts nothing/.test(matchExpect(undefined, V)[0]));
+  check('...and an EMPTY expect object fails too, which is the same defect written out',
+    matchExpect({}, V).length === 1);
+  check('...and a non-object expect fails rather than being coerced',
+    matchExpect('deny', V).length === 1 && matchExpect(['deny'], V).length === 1);
+  check('...while a real expectation still evaluates normally', matchExpect({ decision: 'deny' }, V).length === 0);
+
+  console.log('an unrecognised mutation is a TYPO, not a no-op:');
+  {
+    const tmp = mkdtempSync(join(tmpdir(), 'xprove-mut-'));
+    try {
+      let threw = null;
+      try { applyMutation(tmp, {}, 'delete-handlers'); } catch (e) { threw = e; }
+      check('a misspelled mutation THROWS instead of silently doing nothing', !!threw);
+      check('...and the message names the accepted set', threw && /delete-handler/.test(threw.message) && /unknown mutation/.test(threw.message));
+      let ok = true;
+      try { applyMutation(tmp, {}, 'none'); applyMutation(tmp, {}, undefined); } catch { ok = false; }
+      check('...while "none" and undefined stay no-ops, because they are the documented way to say so', ok);
+      for (const m of MUTATIONS) {
+        let bad = null;
+        try { applyMutation(tmp, { permissions: { deny: [] }, hooks: {} }, m); } catch (e) { bad = e; }
+        check(`...and the declared mutation "${m}" is accepted`, !bad, bad && bad.message);
+      }
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  }
+  check('every case kind has a citation, residual and tamper included',
+    [...CASE_KINDS].every((k) => typeof CITE[k] === 'string' && CITE[k].length > 20),
+    [...CASE_KINDS].filter((k) => !CITE[k]).join(', '));
+
   console.log('expect matching:');
   check('decision equality', matchExpect({ decision: 'deny' }, { decision: 'deny', fired: 1 }).length === 0);
   check('decision equality fails when wrong', matchExpect({ decision: 'deny' }, { decision: 'allow', fired: 1 }).length === 1);
@@ -837,7 +1340,15 @@ function selfTest() {
  * An enforce case that still PASSES against either is asserting nothing about the
  * extension. Mirrors run-tests.mjs's SUITE IS HOLLOW.
  */
-function proveFail(bundleDirs) {
+/**
+ * The survivor list, split out from the reporting so a GENERATOR can gate itself
+ * on it. Independent review 2026-08-07 found that every bundle
+ * `validate-before-action` emitted violated this contract in three places, and
+ * that nothing in CI ran this detector against a generated bundle: it only ever
+ * saw the hand-written prove-bench fixtures. A contract enforced on the fixtures
+ * and not on the generator is a contract the generator does not have.
+ */
+export function proveFailSurvivors(bundleDirs) {
   const survivors = [];
   let checked = 0;
   for (const dir of bundleDirs) {
@@ -862,6 +1373,11 @@ function proveFail(bundleDirs) {
       } finally { rmSync(tmp, { recursive: true, force: true }); }
     }
   }
+  return { checked, survivors };
+}
+
+function proveFail(bundleDirs) {
+  const { checked, survivors } = proveFailSurvivors(bundleDirs);
   console.log(`prove-fail: ${checked} enforce/wiring/fail-posture case-runs against empty and inert controls`);
   if (checked === 0) {
     // A gate that passes on zero cases is the defect it exists to catch.

@@ -4,10 +4,12 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-08-06 against Claude Code 2.1.220, the build in `evidence/VERIFIED_VERSION`.
+Last reviewed 2026-08-12 against Claude Code 2.1.224, the build in `evidence/VERIFIED_VERSION`.
 The 2026-08-05 pass reconciled items 20 to 23, 25 and 27 against their own artifacts and
 re-ran their gates; the 2026-08-06 pass added items 31 to 36 and closed the Bash-recognition
-measurement that item 33 rests on. Neither did a new version check, so the verified build is
+measurement that item 33 rests on. The 2026-08-07 and 2026-08-08 passes added items 43 and 44
+during the purpose-pack work, across six independent review rounds that found twenty-three
+defects in this project's own tooling. None did a new version check, so the verified build is
 unchanged from the 2026-08-04 review. Note the live CLI on the measuring machine is 2.1.219,
 one behind the catalog, and the measurement records that rather than rounding it up.
 
@@ -384,9 +386,36 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-The 452 source assignments in `claims.jsonl` were made by subagents with stated rules,
-not independently double-checked. The integrity gate catches structural drift, not a
-wrong-but-plausible source id. A second blind attribution pass with disagreement
+Of the 502 source assignments in `claims.jsonl`, all but two were made by subagents with
+stated rules, not independently double-checked. The integrity gate catches structural
+drift, not a wrong-but-plausible source id.
+
+The two exceptions are `CLM-sandboxing-018` and `-019`, attributed during the 2.1.229
+re-verification by reading the page each cites rather than by applying a rule. That is a
+smaller sample, not a different method: it is still one model's judgment, and the reason
+it was done by hand is recorded immediately below.
+
+**This is no longer hypothetical, measured 2026-08-12.** The 43 claims added with the
+status line, session and safety-classifier references were attributed by a mechanical
+rule: `[ENGINEERING]` to `CCX_RESEARCH`, otherwise the page the file was written from,
+with the checkpoint half of `sessions.md` routed to `SRC_CHECKPOINTING` by a keyword
+regex. That regex included `restore`, and the three bullets under "What a resumed
+session restores" contain the word, so `CLM-sessions-024/025/026` were attributed to
+the Checkpointing page when their content is on the Manage sessions page. Three of 43,
+about 7 percent, wrong.
+
+Every automated gate passed on them. `verify-evidence.mjs` checks that a source id
+RESOLVES, never that the cited source SUPPORTS the text, so a wrong pointer is
+invisible to it by construction. An independent reviewer caught it by fetching the
+cited page and finding the content absent, which is the only method that can.
+
+Two durable lessons. First, the mechanics of attribution belong in code but the
+DECISION does not: a keyword shared by two topics decided which page a claim came from.
+Second, the gap is specific and nameable, so a future pass could close part of it by
+checking each claim's text against the spot_checks already recorded on its cited
+source, which would have caught exactly this case.
+
+A second blind attribution pass with disagreement
 reporting would harden it. The 2026-08-05 monitors and channels pass is a worked example
 of the risk and of one cheap mitigation: 117 claims needed attribution, and checking each
 one against the page it named turned up a claim whose source page was not in the ledger
@@ -453,13 +482,29 @@ We authored both the fixtures and the expected outcomes. The measured content is
 competitor column and the zero false positives on the control, not our own score. A
 third-party fixture set would be the real test, and none exists.
 
-**29. `extension-scaffold` covers exactly one requirement family.**
-Path protection only. Everything else is refused with a pointer to `create-plugin` rather
-than force-fitted. That refusal is asserted by two self-test cases, so the scope cannot widen
-silently. Requirement analysis is regex-based and will misread phrasings nobody has tried yet:
-independent review already found "Never allow modification of X" refused, and a single-file
-target emitting cases the deny rule could not match. Both fixed, both now regression-tested,
-but the class is open.
+**29. `extension-scaffold` covers two purpose packs, and the second one MOVES the risk
+rather than removing it.**
+`protect-path` handles path protection from prose; `validate-before-action` generates a
+PreToolUse validator from an explicit `--policy` file. Everything else is refused with a
+pointer to `create-plugin`, and routing is by REQUIRED INPUTS, never by classifying prose, so
+an unsupported requirement cannot fall through to a default generator.
+
+The open classes, listed separately because they are different failures:
+
+- **protect-path still reads English.** Requirement analysis is regex-based and will misread
+  phrasings nobody has tried yet: independent review already found "Never allow modification
+  of X" refused, and a single-file target emitting cases the deny rule could not match. Both
+  fixed, both regression-tested, but the class is open.
+- **validate-before-action reads no English at all**, which puts the risk on the policy
+  author. A policy that is valid, self-consistent and simply describes the wrong thing
+  generates a validator that enforces the wrong thing. The generator checks that every rule's
+  declared examples really match it, which catches the common version of that mistake, and
+  nothing checks that the policy is the policy you meant.
+- **The generated matcher is not a shell.** It reads `&&`, `||`, `;`, `|` and `&`, so a
+  compound command is inspected piece by piece, and it cannot resolve `$VAR`, `$( )`, `eval`,
+  `sh -c` or `xargs`. `absolute: true` denies those rather than ignoring them; every other
+  policy ships a residual case asserting the gap is open.
+- **A command hook fails open, and that is not fixable at this layer.** See item 43.
 
 **30. A requirement combining a conditional exemption with a hard guarantee has NO answer.**
 "Block writes under `infra/` unless the content carries an approval token, and hold even if the
@@ -574,8 +619,8 @@ observations.
 
 Residue: one platform, one build, eight shapes in the record plus a 25-shape n=1 screen that
 is published as a screen and never as a verdict. The recognised set may differ on macOS or
-Linux and nothing here covers that; `compatibility.md` records it as UNVERIFIED rather than
-leaving it to be assumed. Three screen shapes (`dd`, `truncate`, `chmod`) could not be
+Linux and nothing here covers that; `compatibility.md` publishes a Windows profile only, and
+no profile at all for the platforms nobody measured. Three screen shapes (`dd`, `truncate`, `chmod`) could not be
 measured at all because the model declined in both arms, and one (`powershell Out-File`)
 produced an anomaly; all four are recorded rather than dropped.
 
@@ -669,7 +714,212 @@ test. That is the defect this project exists to name, found four times in the to
 to name it, by someone who did not write it. Item 32 said the real defect was the missing
 gate; this says the second real defect is a gate nobody fed a known-bad input.
 
+**38. The README carried six stale claims and the numbers gate could see one of them.**
+An external review reported one: `DirectoryAdded` described as absent from the hooks
+reference, a gap that had closed on 2026-08-05. There were six, and five were structurally
+invisible:
+
+Historical values, deliberately not written in the canonical phrasing so the numbers gate
+does not fire on this table:
+
+| Said | Live | Why the gate missed it |
+|---|---|---|
+| said fifteen, of committed fixtures | 30 | the word map stopped at thirteen |
+| said FOUR, of rounds of hardening | five | no rule read the heading that publishes it |
+| `DirectoryAdded` "still absent" | closed 2026-08-05 | prose, not a number |
+| said 24, in a "(N cards)" table row | 28 | the rule only read the "N composition cards" phrasing |
+| said 30, in a "(N events" table row | 31 | the rule only read the "N hook-event contracts" phrasing |
+| "Verified against 2.1.220" | baseline stale | not a gated fact |
+
+The gate caught the canonical card phrasing on line 86 and missed the bare "(N cards)" form
+on line 241 OF THE SAME FILE, because both rules are keyed to one canonical phrasing and the README paraphrased
+itself. Four new facts were added and three were watched reddening against the real stale string
+before the README was fixed. The fourth was NOT, and independent review found it inert; see
+item 41. Extending the word map DOWNWARD to one was tried and reverted in
+the same sitting: it produced three false positives on ordinary prose, because small
+word-numbers are quantifiers in English before they are claims.
+
+The README itself was rewritten from 302 lines to 144, with install at line 12 instead of 204.
+That followed evidence rather than taste: eight real plugin and skill READMEs were read out of
+the 99 zipped repo mirrors in `CCX-Extension-Research`, and NONE of them contains a single
+measured number. Every number moved to `docs/RESULTS.md`, which was added to the gate's scan
+list in the same edit and then proven by planting a wrong count and watching it redden.
+Relocating a claim from a gated file to an ungated one is how a claim stops being checked
+without anyone deciding it should.
+
+**39. "Re-verify against the new build" was a manual sweep, and is now a gate.**
+163 version tags across 25 reference files, 40 pinned to one build, and the only way to check
+them was to read. A manual sweep happens once.
+
+`tools/quote-check.mjs` makes the narrowest and most load-bearing part mechanical: a claim
+that quotes upstream verbatim is falsified the moment that sentence stops existing. It found
+TWO REAL DEFECTS on its first run, both ours rather than upstream's:
+
+- `permissions.md` quoted "applies to all built-in tools that edit files" where the page says
+  "`Edit` rules APPLY to all built-in tools that edit files". The verb was changed to fit our
+  sentence and left inside quotation marks.
+- `permissions.md` quoted "file commands Claude Code recognizes IN BASH", uppercasing two
+  words for emphasis inside a quotation.
+
+Both are small and both are the same error: presenting an edit as verbatim. The gate reached
+that answer only after four rounds of its own false positives, all of them ours (backticks
+inside quotes, inline markdown links, trailing punctuation, and quote-pairing across our own
+prose). Sixteen false alarms on the first run is a gate nobody keeps, so each cause is fixed
+in the comparator rather than exempted, and the one genuinely unresolvable case, a scare
+quote, sits in an exemption list whose SIZE the self-test asserts.
+
+What it does not do is stated in the file: a quote that still appears has not been shown to
+still MEAN the same thing.
+
+**40. The verified baseline moved to 2.1.224, and what that did and did not verify.**
+The review asked for 2.1.223; npm latest was 2.1.224 by the time the work started and 2.1.224
+is what was recorded, because chasing a named version guarantees being stale on arrival.
+
+Done: the docs mirror was refreshed to a dated revision (186 pages, 101 changed, 10 added, 1
+removed since 2026-08-04), all 34 verbatim quotes re-verified, the capability catalog
+regenerated and found UNCHANGED at 51 tools and 31 hook events, and 25 reference headers plus
+`evidence/VERIFIED_VERSION` bumped.
+
+NOT done, and the headers say so: 101 changed pages were not all re-read. The header wording
+was narrowed for that reason. It previously read "Delta from 2.1.219: none (changelog: bug
+fixes and reliability improvements only)", which is a changelog skim presented as a
+verification.
+
+One coupling surfaced: the doctor's self-test hardcoded 2.1.222 as its "newer than the
+catalog" fixture, so bumping the catalog to 2.1.224 turned four rows red at once. Nothing had
+regressed; the fixture had encoded the assumption that the catalog is 2.1.220 forever. The
+three build positions are now derived from `catalogVersion`. A fixture that breaks on a
+routine bump gets edited to match rather than read, which is how a real regression slips
+through one.
+
+**41. A new gate could not fail, again, and five smaller defects in the same round.**
+All 38 numbered checks of the independent review passed. It then found six issues the spec
+could not ask about, one blocking. The pattern is the same one as item 37 and it recurred
+inside the fix for item 38, which is worth saying plainly.
+
+- **BLOCKING. The `scoring-hardening rounds` rule compared nothing.** It derived its live
+  value with a word map that knows one to five, but MATCHED documents with the global map whose
+  floor is six, so any word from one to five parsed to NaN and was skipped. Both live sentences
+  say "Five", so the rule was inert repo-wide while appearing in the live-values list as though
+  it worked. The reviewer proved it by replaying the real pre-fix README through the current
+  gate: three disagreements, not four, silent on the string it was written for. That also made
+  item 38's claim that "each was watched reddening against the real stale string" FALSE for one
+  of the four, and that sentence has been corrected rather than left standing. The word map is
+  now per-fact; replaying the pre-fix README now yields four.
+- **`quote-check` let a meaning-changing edit through.** Stripping every asterisk collapsed
+  `Edit(infra/**)` and `Edit(infra/*)` into one string, so an upstream widening of a glob was
+  invisible to a gate whose entire job is detecting upstream change. Fixed by stripping
+  emphasis PAIRS rather than bare asterisks, then guarded again when the first pair-based
+  attempt read `Edit(docs/**) and Read(docs/**)` as one bold span and deleted both globs. A
+  pair containing a slash or parenthesis is a path, never emphasis.
+- **A self-test row was green by construction.** "A backticked code span is not a quote" fed an
+  input containing no quoted span at all, so it passed whatever the code did. Replaced with a
+  row asserting what the code ACTUALLY does, rather than inventing a rule to make the old
+  wording true.
+- **An abridged quote silently lost a fragment.** `"Use Bash(rm *) ... instead."` splits into a
+  long half and "instead.", and the short half is filtered out, so half the quote was never
+  verified while the run reported full coverage. The filtering is still correct; it now REPORTS
+  what it drops.
+- **The headers overstated for 21 of 25 files.** All 34 quotes come from 4 files, so "every
+  verbatim quote in this file still appears upstream" was vacuous everywhere else, and a claim
+  that is trivially true reads as evidence. Each header now states its own file's count, and
+  the 21 with none say so. The same headers said "51 tools", which is the total including
+  legacy and historical; the current count is 43.
+- **The overwrite guard failed open and had no self-test.** An unparseable prior record, or one
+  with no `cli_version`, fell through to overwriting the file the guard exists to protect.
+  Unknown provenance now means write beside, and six rows feed it known-bad inputs. One of them
+  immediately caught a corrupted character class, `/[^w.]+/` instead of `/[^\w.]+/`, that had
+  reduced the filename suffix to two dots. The safety property had held anyway.
+- **The drift gate did not scan the reference files**, and this round had just written a fresh
+  numeric claim into 22 of their headers. Its own header warns that prose drifts from its
+  artifact. The 25 references and SKILL.md are now scanned, and the header's claim is gated
+  against the catalog it cites.
+
+Recurring lesson, stated because writing it down has not been enough: a new rule is not a gate
+until a known-bad input has been put through THAT rule. Not through its neighbour, and not
+through the function it calls. Three of the six above passed every existing test while
+checking nothing.
+
+**42. The Bash-recognition table is replicated on a second build, and the `cd` bypass survived
+a changelog entry that claims to have fixed it.**
+Claude Code 2.1.223 shipped "Fixed a Bash permission bypass where a crafted command could hide
+parts of itself from permission checks", plus a second fix for commands padded with invisible
+Unicode. The headline row of item 33, `cd infra && touch fresh.tf` writing through a live
+`Edit(infra/**)` deny rule, is a Bash permission bypass of exactly that shape, so the table
+might have been publishing a closed hole as an open one.
+
+Re-measured at n=10 on 2.1.224, five releases later: 200 more paired sessions, 400 in total.
+**Every shape reached the same verdict on both builds**, both rig controls held on both, and
+only the discard counts moved (cp 6 to 7 attributable, sed-i 9 to 10, rm 10 to 8). Which
+shapes get discarded moving while no verdict does is the clearest evidence yet that the
+discard rule separates signal from the model's own caution.
+
+2.1.224 is now canonical and the 2.1.219 record is kept beside it, because two independent
+measurements agreeing is evidence and one plus a claim is not. `--check` gained a REPLICATION
+block that compares verdicts across the two and fails on any disagreement, with five self-test
+rows including a flipped-verdict must-fail. Discard counts are deliberately NOT compared: a
+discard is model noise, and a gate red on noise gets ignored.
+
+What this does NOT establish: still one platform. The published profile is Windows only, and
+no profile exists for a platform nobody measured.
+
 ---
+
+**43. A `Bash(<command shape>)` deny rule is UNMEASURED here, so no bundle claims one.**
+The `permissions.deny` escalation that would survive handler deletion is not emitted. The
+documentation recommends the spelling ("Use `Bash(rm *)` ... instead") and never states what
+the pattern is matched against, and this repo has measured a leading `cd` hiding part of a
+command from the permission layer on 2.1.224. `extension-prove` therefore reports such a rule
+as UNDETERMINED, which fails every expectation including a negative one, so a tamper case
+built on it could not pass. `validate-before-action` writes the candidate rules to a
+non-loadable proposal file naming the one provable alternative (a bare `Bash` deny) and its
+cost, and an absolute policy reports NOT DONE instead of quietly satisfied. Closing this needs
+the same paired-arm measurement `bash-recognition-run.mjs` runs for file commands, applied to
+the rule form rather than the file form.
+
+**44. Most gates still have no mechanical must-fail proof. PARTLY CLOSED 2026-08-08.**
+Closed for five of them: capability-catalog's self-test, --prove-fail and --check, gh-corpus-harvest,
+tier3-preflight and scaffold-parity's self-test were wired into CI (they existed and no workflow
+step invoked them), and `tools/artifact-mutation.mjs` gave the validation record and the evidence
+ledger proofs that mutate the COMMITTED file and require a NAMED rejection. Wiring the second one
+immediately found that the ledger's drift check compared id sets only, so every claim's recorded
+file, line and text was unverified while the docstring promised otherwise.
+
+Independent review then found that capability-catalog's --prove-fail, the proof the same commit
+called the strongest in the repository, had NO CLEAN-BASELINE GUARD: with the committed catalog
+dirtied, --check-integrity exits 1 while --prove-fail still printed "all 10 mutants rejected" and
+exited 0. Three other proofs here already carried that guard and the commit that wired this one did
+not back-apply it. It now refuses rather than reporting, because an unprovable run is not a passing
+one. The same review found --check claimed as wired when it was not, and the published coverage
+figures sitting outside the numbers gate; both fixed.
+
+Deliberately NOT done, with the measured reasons, so this is a decision and not an omission. A
+generic source-mutation harness was designed and rejected: a full run measures 2 to 5 hours (one
+region of one file is 3.4 hours), the equivalent-mutant rate is 35 to 55% and its justification
+registry becomes a rubber stamp at that scale, the `ok`/`FAIL` output convention it would parse
+does not exist (four incompatible formats across 24 emitter sites), and bound to the cheapest gate
+covering each file it would have relocated with the five-round defect and reported green every
+round. It mechanizes the bug. A replay proof claiming to reproduce all the historical defects
+would itself be the next defect in the series, since only about 60% of them are expressible as
+generic operators.
+
+What remains is the original wording, and it is still true of the roughly fifteen gates not
+listed above:
+Six independent review rounds found twenty-three defects in this project's own tooling, and the
+majority were assertions whose PASS did not depend on the code they claimed to test. The cure is
+known and this repo owns two working instances of it: `extension-scaffold --gate
+--prove-gate-can-fail` corrupts a seam and requires the gate to redden, and
+`tests/validation-family-breaks.mjs` does the same to a shipped handler. `coverage-report
+--prove-can-fail` joined them on 2026-08-08 after two consecutive "fixes" to one defect there turned
+out to be relocations.
+
+That is three of roughly twenty gates. For the rest, the must-fail proof is performed once by a
+reviewer, recorded in a `.md/` review file, and never runs again. The specific consequence, observed
+three times: a fix is verified by hand, the verification does not become a gate, and the next round
+finds the same defect one line over. Closing this means a `--prove-can-fail` per gate, each feeding
+its own known-bad input. It is mechanical work with a known shape rather than a design problem, which
+is why it is recorded here instead of being half done.
+
 
 ## Deliberately not doing
 

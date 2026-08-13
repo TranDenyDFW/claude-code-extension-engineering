@@ -1,0 +1,9 @@
+{
+  "name": "first-segment-only",
+  "control": false,
+  "defect": "the handler inspects only the command up to the first shell operator, so `cd /tmp && rm -rf cache` walks straight through",
+  "citation": "This is the exact bypass this repository MEASURED against the product on 2.1.224: `cd infra && touch fresh.tf` wrote the file ten times out of ten while the same write without the cd was denied.",
+  "expectedFailures": [
+    "no-rm-rf-blocks-2"
+  ]
+}

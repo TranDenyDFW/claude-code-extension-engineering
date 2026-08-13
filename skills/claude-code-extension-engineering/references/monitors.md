@@ -1,6 +1,6 @@
 # Monitors
 
-> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
 
 
 A shell command Claude Code starts automatically and runs for the LIFETIME of the session, delivering every stdout line to Claude as a notification. Like LSP it has no standalone authoring path: monitors are declared in a plugin and nowhere else, so shipping a monitor means shipping a plugin. It is the only automation mechanism that is pure INPUT. It adds context to a session and can never withhold, delay or refuse anything, because no block or deny contract exists for it anywhere.
@@ -136,16 +136,18 @@ Read this before promising anyone a monitor.
 
 ## What the documentation does not say
 
-Each item below is a gap in the DOCUMENTATION, never a claim about the behavior. Verify against your
-own build before depending on an answer either way.
+Each item below is a gap in ANTHROPIC'S DOCUMENTATION, found by reading two pages against each
+other, and none is a claim about the behaviour. Every one names what the docs DO specify first, so
+the gap is legible as a comparison rather than as an assertion. Verify against your own build
+before depending on an answer either way.
 
-- Whether a CRASHED monitor is restarted. No `restartOnCrash` or `maxRestarts` analogue is documented for monitors, unlike LSP servers, which document both  [UNVERIFIED]
-- Whether a monitor entry missing a required field (`name`, `command`, `description`) is a hard error or is silently skipped  [UNVERIFIED]
-- Whether a failed or rejected monitor appears in the `/plugin` Errors tab. That surface is documented for language servers and for dependency skips, not for monitors  [UNVERIFIED]
-- Whether Bash allow/deny permission rules gate PLUGIN-declared monitor commands. The rule is documented for the Monitor TOOL; the plugin component documents only that it runs unsandboxed at hook trust level  [UNVERIFIED]
-- Whether any cap exists on monitor notification volume  [UNVERIFIED]
-- Whether `claude plugin validate` reads `monitors/monitors.json` at all. Its documented coverage is `plugin.json`, skill/agent/command frontmatter and `hooks/hooks.json`, which is the same blind spot `.lsp.json` has in [lsp.md](lsp.md)  [UNVERIFIED]
-- How `when: "always"` starting a monitor "on plugin reload" interacts with monitors requiring a session restart after a plugin UPDATE. Both statements are official; the combination is not spelled out  [UNVERIFIED]
+- LSP servers document both `restartOnCrash` and `maxRestarts`. Monitors document neither, and no analogue appears anywhere in their schema, so whether a crashed monitor is restarted is not answered either way  [ENGINEERING]
+- The monitor schema documents `name`, `command` and `description` as required. What happens when one is absent, a hard error or a silent skip, is not stated, and the two failure modes are very different to debug  [ENGINEERING]
+- The `/plugin` Errors tab is documented as the surface for language-server failures and for dependency skips. Monitors are absent from that list, so whether a failed monitor is visible there at all is unstated  [ENGINEERING]
+- Bash allow and deny rules are documented as applying to the Monitor TOOL. The plugin COMPONENT documents only that it runs unsandboxed at hook trust level, and says nothing about permission rules, so the two halves of the same runtime are documented differently on the one axis that decides whether a monitor can be gated  [ENGINEERING]
+- No cap on monitor notification volume appears anywhere in the monitor documentation, unlike hook output, which documents an over-cap file-and-preview behaviour. A chatty monitor spends the main context and nothing documented stops it  [ENGINEERING]
+- `claude plugin validate` documents its coverage as `plugin.json`, skill, agent and command frontmatter, and `hooks/hooks.json`. `monitors/monitors.json` is not on that list, which is the same documented blind spot `.lsp.json` has in [lsp.md](lsp.md), so a malformed monitor manifest may pass validation  [ENGINEERING]
+- Two official statements sit next to each other without being reconciled: `when: "always"` starts a monitor on plugin reload, and a monitor requires a full session restart after a plugin UPDATE. What a reload after an update actually does is the intersection of the two, and it is not spelled out  [ENGINEERING]
 
 ## Common failure modes / anti-patterns
 
@@ -178,5 +180,5 @@ own build before depending on an answer either way.
 
 - A shell command Claude Code starts automatically when a plugin is active, running for the lifetime of the session and delivering every stdout line to Claude as a notification.
 - Declared in `monitors/monitors.json` at the plugin root, inline as `experimental.monitors` in `plugin.json`, or as a relative path string that REPLACES the default folder.
-- Same runtime as the Monitor tool, so it inherits that tool's availability constraints, but not its `timeout_ms` and not its `TaskStop` cancellation. Whether the tool's Bash allow/deny rules also gate a PLUGIN-declared monitor is UNVERIFIED, as the table above records: the docs state that rule for the Monitor tool only and say nothing either way about the component. Do not read this line as a denial.
+- Same runtime as the Monitor tool, so it inherits that tool's availability constraints, but not its `timeout_ms` and not its `TaskStop` cancellation. The docs state the Bash allow and deny rule for the Monitor TOOL only, and say nothing either way about the plugin COMPONENT, so whether those rules gate a plugin-declared monitor is not answered upstream. Do not read this line as a denial.
 - Pure input. It can add context and can never withhold any. The only documented stop is session end.

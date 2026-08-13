@@ -25,6 +25,17 @@ import { join, dirname, resolve, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 import { homedir, tmpdir } from 'os';
+/**
+ * The build the PowerShell result was measured on, IMPORTED rather than typed.
+ *
+ * Both strings below said 2.1.220 and independent review caught it: the docs were
+ * fetched against 2.1.220 while the CLI on the measuring machine was one release
+ * behind, and the measurement artifact records the CLI. A wrong version in a
+ * user-facing diagnostic is a factual defect even when the recommendation is
+ * right, and typing it a third time is exactly how it would come back.
+ */
+import { FROZEN_PROVENANCE } from './bash-recognition.mjs';
+const MEASURED_ON = FROZEN_PROVENANCE.cli.replace(/\s*\(Claude Code\)\s*$/, '');
 import {
   loadCatalog, currentNames, knownNames, statusOf, entryOf, citation as catalogCitation,
   cmpVersion, verifyCatalogIntegrity, CATALOG_PATH,
@@ -131,7 +142,7 @@ const CITE = {
   sandboxAbsentPlatform: 'sandboxing.md It does not run on Windows [OFFICIAL] [v2.1.220]: "The sandbox is built into Claude Code and runs on macOS, Linux, and WSL2. Native Windows is not supported." By default an unavailable sandbox warns and runs commands UNSANDBOXED',
   sandboxFailIfUnavailable: 'sandboxing.md failIfUnavailable [OFFICIAL] [v2.1.220]: making an unavailable sandbox a hard failure "is intended for managed deployments that require sandboxing as a security gate", and the documented delivery scope for the enforce keys is managed settings. Whether project scope is honoured is documented NEITHER WAY, and both answers are bad in a checked-in file: honoured means every developer on an unsupported platform cannot start Claude Code, not honoured means the key is theatre',
   sandboxProjectInert: 'sandboxing.md Scope restrictions [OFFICIAL] [v2.1.220]: this key is documented as unavailable from a repository settings file, so it is present, valid, and inert',
-  denyRulePowerShellGap: 'permissions.md PowerShell [OFFICIAL] plus [LOCAL_ENV, measured 2026-08-05]: the recognised-file-command sentence says "in Bash" and never mentions PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was observed on 2.1.220, paired against a control. PowerShell RULE parity is about rule SYNTAX and does not imply file-command recognition',
+  denyRulePowerShellGap: `permissions.md PowerShell [OFFICIAL] plus [LOCAL_ENV, measured 2026-08-05]: the recognised-file-command sentence says "in Bash" and never mentions PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was observed on CLI ${MEASURED_ON}, paired against a control. PowerShell RULE parity is about rule SYNTAX and does not imply file-command recognition`,
   nestedShadowing: 'settings precedence [OFFICIAL]: managed > CLI > local > project > user. Scalar keys SHADOW and array keys MERGE, so a nested scalar such as sandbox.enabled set at two scopes has exactly one winner while permissions.deny at two scopes has both. Skipping every object value, which this checker used to do, hid the shadowing case entirely',
 };
 
@@ -233,7 +244,7 @@ export function enforcementFindings(parsedSettings, platform) {
     const psReachable = ['allow', 'ask'].some(l => (perms[l] || []).some(r => /^PowerShell\b/.test(String(r))));
     if (fileDenies.length && psReachable) {
       out.push(F('SILENT', 'deny-rule-powershell-gap', `${s.scope}:${s.file}`,
-        `${fileDenies.length} file deny rule(s) coexist with a PowerShell allow; the deny rule's documented file-command recognition covers Bash and says nothing about PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was measured on 2.1.220`,
+        `${fileDenies.length} file deny rule(s) coexist with a PowerShell allow; the deny rule's documented file-command recognition covers Bash and says nothing about PowerShell, and a PowerShell Add-Content write through a live Edit(...) deny rule was measured on CLI ${MEASURED_ON}`,
         'Treat the PowerShell path as uncovered, or deny the writing cmdlets explicitly, for example PowerShell(Add-Content *), PowerShell(Set-Content *) and PowerShell(Out-File *).',
         CITE.denyRulePowerShellGap));
     }
@@ -1617,7 +1628,24 @@ function selfTest() {
   // can then read backwards to a cause.
 
   const CAT = CATALOG;
-  const BUILDS = ['2.1.208', '2.1.220', '2.1.222', null];
+  /**
+   * The three build positions this section needs, DERIVED from the catalog
+   * rather than typed.
+   *
+   * They were hardcoded as '2.1.208', '2.1.220', '2.1.222', which encoded the
+   * assumption that the catalog is 2.1.220 forever. Bumping the catalog to
+   * 2.1.224 turned four rows red at once, not because anything regressed but
+   * because '2.1.222' stopped being NEWER than the catalog and the
+   * version-asymmetry fixtures were asserting the opposite. A fixture that
+   * breaks on a routine version bump gets edited to match rather than read, and
+   * that is how a real regression would slip through it.
+   */
+  const CAT_V = (CAT && CAT.catalogVersion) || '2.1.220';
+  const bumpPatch = (v, by) => v.replace(/(\d+)$/, (m) => String(Number(m) + by));
+  const OLDER = bumpPatch(CAT_V, -12);   // comfortably behind the catalog
+  const COVERED_V = CAT_V;               // exactly the catalog build
+  const NEWER = bumpPatch(CAT_V, 2);     // ahead of it, so absence proves nothing
+  const BUILDS = [OLDER, COVERED_V, NEWER, null];
   check('the capability catalog loads', !!CAT, CATALOG_ERROR || '');
 
   // THE REGRESSION. PowerShell shipped in 2.1.84 and the hand-typed Set never
@@ -1651,12 +1679,12 @@ function selfTest() {
     return c.class === 'invalid' && c.severity === 'BROKEN';
   })());
   check('NEGATIVE CONTROL: FrobnicateTool on a NEWER build is unknown and SILENT', (() => {
-    const c = classifyTool('FrobnicateTool', CAT, '2.1.222');
+    const c = classifyTool('FrobnicateTool', CAT, NEWER);
     return c.class === 'unknown' && c.severity === 'SILENT';
   })());
   check('NEGATIVE CONTROL: an UNKNOWN name is still REPORTED, not swallowed', (() => {
-    const c = classifyTool('FrobnicateTool', CAT, '2.1.222');
-    const f = nameFinding('tools', 'FrobnicateTool', c, 'x/agents/a.md', { catalog: CAT, signal: '2.1.222' });
+    const c = classifyTool('FrobnicateTool', CAT, NEWER);
+    const f = nameFinding('tools', 'FrobnicateTool', c, 'x/agents/a.md', { catalog: CAT, signal: NEWER });
     return !!f && f.check === 'agent-unverified-tool' && f.severity === 'SILENT' && f.citation.length > 10;
   })());
   check('a valid name produces NO finding', nameFinding('tools', 'Read', classifyTool('Read', CAT, '2.1.220'), 'x', { catalog: CAT }) === null);
@@ -1748,16 +1776,16 @@ function selfTest() {
   })());
 
   check('--strict-unknown promotes unknown to BROKEN', (() => {
-    const c = classifyTool('FrobnicateTool', CAT, '2.1.222', { strictUnknown: true });
+    const c = classifyTool('FrobnicateTool', CAT, NEWER, { strictUnknown: true });
     return c.class === 'unknown' && c.severity === 'BROKEN';
   })());
-  check('--strict-unknown does NOT promote unsupported', classifyTool('MultiEdit', CAT, '2.1.222', { strictUnknown: true }).severity === 'SILENT');
+  check('--strict-unknown does NOT promote unsupported', classifyTool('MultiEdit', CAT, NEWER, { strictUnknown: true }).severity === 'SILENT');
 
   check("cmpVersion('2.1.9','2.1.220') < 0", cmpVersion('2.1.9', '2.1.220') < 0, String(cmpVersion('2.1.9', '2.1.220')));
   check('cmpVersion is symmetric and reflexive', cmpVersion('2.1.220', '2.1.9') > 0 && cmpVersion('2.1.220', '2.1.220') === 0);
   check('absenceIsProof runs the right way round', (() => {
     const a = absenceIsProof({ catalogVersion: '2.1.220' }, '2.1.220');
-    const b = absenceIsProof({ catalogVersion: '2.1.220' }, '2.1.222');
+    const b = absenceIsProof({ catalogVersion: '2.1.220' }, NEWER);
     const c = absenceIsProof({ catalogVersion: '2.1.220' }, null);
     const d = absenceIsProof(null, '2.1.208');
     return a === true && b === false && c === false && d === false;
@@ -1779,7 +1807,7 @@ function selfTest() {
       for (const v of ['2.1.9', '2.1.100']) {
         mkdirSync(join(seeded, '.local', 'share', 'claude', 'versions', v), { recursive: true });
       }
-      writeFileSync(join(seeded, '.local', 'share', 'claude', 'versions', '2.1.222'), 'binary stand in');
+      writeFileSync(join(seeded, '.local', 'share', 'claude', 'versions', NEWER), 'binary stand in');
       mkdirSync(join(fileOnly, '.local', 'share', 'claude', 'versions'), { recursive: true });
       writeFileSync(join(fileOnly, '.local', 'share', 'claude', 'versions', '2.1.219'), 'binary stand in');
       mkdirSync(join(dirOnly, '.local', 'share', 'claude', 'versions', '2.1.219'), { recursive: true });
@@ -1793,9 +1821,9 @@ function selfTest() {
       // trees against the wrong build, and the asymmetry would point the wrong
       // way without ever saying so.
       check('detector reads from the home ARGUMENT, not os.homedir()',
-        got.version === '2.1.222' && String(got.source).startsWith(seeded),
+        got.version === NEWER && String(got.source).startsWith(seeded),
         `${got.version} from ${got.source}`);
-      check('detector picks the HIGHEST of several stored versions (numeric, not lexical)', got.version === '2.1.222', got.version);
+      check('detector picks the HIGHEST of several stored versions (numeric, not lexical)', got.version === NEWER, got.version);
       check('detector marks the versions store strong', got.confidence === 'strong' && got.rung === 'versions-store');
       // The layout defect this caught for real: the installer wrote a FILE, the
       // directories-only draft went blind, and detection fell to the weak rung
@@ -1836,7 +1864,7 @@ function selfTest() {
           check('npm global WINDOWS layout (prefix/node_modules, no lib) is detected strong',
             b.version === '2.1.231' && b.confidence === 'strong' && b.rung === 'npm-global', JSON.stringify(b));
           const c = detectInstalledVersion({ home: seeded });
-          check('the versions store outranks the npm rung', c.rung === 'versions-store' && c.version === '2.1.222', JSON.stringify(c));
+          check('the versions store outranks the npm rung', c.rung === 'versions-store' && c.version === NEWER, JSON.stringify(c));
         } finally {
           if (savedPrefix === undefined) delete process.env.npm_config_prefix;
           else process.env.npm_config_prefix = savedPrefix;
@@ -1925,8 +1953,8 @@ function selfTest() {
     /is covered by the catalog: an absent name is reported BROKEN\.$/.test(versionHeader(CAT, '2.1.220')),
     versionHeader(CAT, '2.1.220'));
   check('the header states the newer asymmetry when the build is ahead',
-    /installed build 2\.1\.222 .*is NEWER than the catalog: names absent from the catalog are reported UNVERIFIED, not BROKEN\.$/.test(versionHeader(CAT, '2.1.222')),
-    versionHeader(CAT, '2.1.222'));
+    new RegExp(`installed build ${NEWER.replace(/\./g, '\.')} .*is NEWER than the catalog: names absent from the catalog are reported UNVERIFIED, not BROKEN\.$`).test(versionHeader(CAT, NEWER)),
+    versionHeader(CAT, NEWER));
   check('the header says so when the build is undetectable',
     /could not be detected: names absent from the catalog are reported UNVERIFIED, not BROKEN\.$/.test(versionHeader(CAT, null)),
     versionHeader(CAT, null));

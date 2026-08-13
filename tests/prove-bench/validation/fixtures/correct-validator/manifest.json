@@ -1,0 +1,7 @@
+{
+  "name": "correct-validator",
+  "control": true,
+  "defect": "none: the bundle extension-scaffold generates from the shared policy, unmodified",
+  "citation": "CONTROL. Both tools must report it clean. Without a control the bench is a check that cannot fail.",
+  "expectedFailures": []
+}

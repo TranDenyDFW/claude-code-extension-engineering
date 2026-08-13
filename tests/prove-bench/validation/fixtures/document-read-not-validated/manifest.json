@@ -1,0 +1,11 @@
+{
+  "name": "document-read-not-validated",
+  "control": false,
+  "defect": "the schema rule reads the document and returns no problems whatever it contains, including when the file is absent",
+  "citation": "Same class as ignores-check-exit-code, one evaluator over. The read succeeds, so strace, logs and a code review all show a validator doing work.",
+  "expectedFailures": [
+    "manifest-valid-blocks-invalid-document",
+    "manifest-valid-blocks-missing-document",
+    "manifest-valid-document-is-load-bearing"
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "policySchema": 1,
+  "id": "deploy-manifest",
+  "tool": "Bash",
+  "matcher": "Bash",
+  "precedence": "first-match-wins-in-declared-order",
+  "defaultDecision": "allow",
+  "rules": [
+    {
+      "id": "manifest-must-be-valid",
+      "family": "schema-validation",
+      "decision": "deny",
+      "reason": "the deployment manifest is invalid",
+      "when": {
+        "commandMatches": {
+          "exec": "deploy",
+          "argsPattern": "^apply .*$"
+        },
+        "documentAt": "deploy/manifest.json",
+        "narrowSchema": {
+          "narrowSchema": 1,
+          "required": [
+            "env",
+            "replicas"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "env": {
+              "type": "string",
+              "enum": [
+                "staging",
+                "prod"
+              ]
+            },
+            "replicas": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "examples": {
+        "match": [
+          "deploy apply prod"
+        ],
+        "miss": [
+          "deploy status",
+          "kubectl apply -f x"
+        ]
+      }
+    }
+  ]
+}

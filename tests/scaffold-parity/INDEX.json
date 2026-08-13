@@ -1,0 +1,75 @@
+{
+  "_what": "Byte goldens for the protect-path bundles, captured BEFORE the purpose-pack refactor.",
+  "_how": "node tools/scaffold-parity.mjs --check regenerates and compares. Hashes are over LF-normalised bytes.",
+  "capturedFrom": "tools/extension-scaffold.mjs GATE_PROBES, pre-refactor",
+  "probes": {
+    "P1": {
+      "mechanism": "permission-deny",
+      "cases": 7,
+      "strict": true,
+      "files": {
+        "settings.json": "70a07c9f8cbcad2b8aa64bb296dd3e8b110eb6f3c9fad23bd01fbc8d17e21d52",
+        "conformance.json": "388104c894cbc6cff1ce08a77f53d4f44e4b817485dc31a8d4d5efe0702143f4",
+        "README.md": "7ce1ccc2c04b25a2aa4522d91c91c81261dad91886b552041210fa26164d7acb",
+        "sandbox-managed-settings.json.proposal": "86657f4ebd086e465ef87263adc23b76b391542e649f88b9fc13ebc9f00a3829"
+      }
+    },
+    "P2": {
+      "mechanism": "permission-deny",
+      "cases": 6,
+      "strict": true,
+      "files": {
+        "settings.json": "70a07c9f8cbcad2b8aa64bb296dd3e8b110eb6f3c9fad23bd01fbc8d17e21d52",
+        "conformance.json": "bede6c7ab0fb2dfa1b56d52841b92127ebcd90f6802f5df6c6aad5ed0a74d71e",
+        "README.md": "da60f707906b76451edafebb7155f49749c551ab8faa7e5e20e0b6ce527a0fe5",
+        "sandbox-managed-settings.json.proposal": "86657f4ebd086e465ef87263adc23b76b391542e649f88b9fc13ebc9f00a3829"
+      }
+    },
+    "P3": {
+      "mechanism": "permission-deny",
+      "cases": 6,
+      "strict": true,
+      "files": {
+        "settings.json": "70a07c9f8cbcad2b8aa64bb296dd3e8b110eb6f3c9fad23bd01fbc8d17e21d52",
+        "conformance.json": "df7ea014b7cb9201773803604b9a8223ef601c75e92a22381d71dee06b0790c6",
+        "README.md": "7226d8954e2fa7828c099385f05ec7a73a822a5768a477be785a456af623903f",
+        "sandbox-managed-settings.json.proposal": "86657f4ebd086e465ef87263adc23b76b391542e649f88b9fc13ebc9f00a3829"
+      }
+    },
+    "P4": {
+      "mechanism": "permission-deny",
+      "cases": 6,
+      "strict": false,
+      "files": {
+        "settings.json": "70a07c9f8cbcad2b8aa64bb296dd3e8b110eb6f3c9fad23bd01fbc8d17e21d52",
+        "conformance.json": "59f82671050fe1f7793839f0265fddabfd8195a4774cac3fb139c21aebf6e021",
+        "README.md": "c13ce574bdbeea6c62221c62ff0e707e49edcf479137fbacb848625fed21305e"
+      }
+    },
+    "P5": {
+      "mechanism": "advisory",
+      "cases": 2,
+      "strict": false,
+      "files": {
+        "settings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "conformance.json": "37b52290422a0e2db5b6f8b51795edb2ad5364993756fbb900de4f0ffeb53b1d",
+        "README.md": "3982ad643cf409aa1690b2a207b02cc0c7b571b8b1eb7540e79558a209a4fb16"
+      }
+    },
+    "P6": {
+      "mechanism": "permission-deny",
+      "cases": 6,
+      "strict": true,
+      "files": {
+        "settings.json": "b332657c952ef6338a9deae4fd218eaf111f1b95c1d701f4a2b9c57d524e7968",
+        "conformance.json": "fa644559c5181b6e39f338d4ec089dfa640f31aab0c54950042a7074c3fd60d7",
+        "README.md": "947df795fd43ad1a8ed98da147ff20208ff6919c3b78f9cea8424efb67f721dc",
+        "sandbox-managed-settings.json.proposal": "03a0180e2ea3b7a676f33586b8f6e2bd8be961fdf5300cee347e4774479824ba"
+      }
+    },
+    "P7": {
+      "unsupported": true,
+      "reason": "the requirement does not describe protecting a path, which is the only family this tool handles"
+    }
+  }
+}

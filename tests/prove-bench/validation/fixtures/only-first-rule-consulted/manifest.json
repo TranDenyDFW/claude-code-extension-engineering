@@ -1,0 +1,13 @@
+{
+  "name": "only-first-rule-consulted",
+  "control": false,
+  "defect": "the rule loop returns after the first rule regardless of whether it matched, so rules 2 and 3 are dead configuration",
+  "citation": "permissions.md: \"Rules are evaluated in order ... The first match in that order determines the outcome.\" First-match is not first-rule, and the difference is silent.",
+  "expectedFailures": [
+    "tests-before-push-blocks-when-unmet",
+    "tests-before-push-setup-is-load-bearing",
+    "manifest-valid-blocks-invalid-document",
+    "manifest-valid-blocks-missing-document",
+    "manifest-valid-document-is-load-bearing"
+  ]
+}

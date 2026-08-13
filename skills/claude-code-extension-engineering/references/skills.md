@@ -1,6 +1,6 @@
 # Skills
 
-> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: all 1 verbatim quote in this file re-checked against a refreshed docs mirror and still present (tools/quote-check.mjs); the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
 
 
 A SKILL.md file holding reusable instructions the model reads when it decides the skill is relevant, or when you invoke it by name. One primitive with several invocation modes: model-invoked, user-invoked with /name, and plugin-shipped. Custom commands were merged into skills, so a .claude/commands/x.md and a .claude/skills/x/SKILL.md both produce /x and behave the same way.

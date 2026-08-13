@@ -1,0 +1,15 @@
+{
+  "name": "no-op-validator",
+  "control": false,
+  "defect": "the handler parses the payload and always exits 0 without deciding: installed, inert, and invisible in any log",
+  "citation": "hooks.md: exit 0 with no hookSpecificOutput is an ALLOW. The most common shape of a guard that looks installed and blocks nothing.",
+  "expectedFailures": [
+    "no-rm-rf-blocks-1",
+    "no-rm-rf-blocks-2",
+    "tests-before-push-blocks-when-unmet",
+    "tests-before-push-setup-is-load-bearing",
+    "manifest-valid-blocks-invalid-document",
+    "manifest-valid-blocks-missing-document",
+    "manifest-valid-document-is-load-bearing"
+  ]
+}

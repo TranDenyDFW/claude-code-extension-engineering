@@ -1,6 +1,6 @@
 # Dynamic Workflows
 
-> Claude Code 2.1.220, verified 2026-07-29. Delta from 2.1.219: none (changelog: bug fixes and reliability improvements only).
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
 
 
 An orchestration script saved to .claude/workflows/ and invoked as /<name>. A background runtime executes it to fan out subagents at scale, so the plan, the loop and the intermediate results stay in script variables and only the final answer returns to the caller's context. Write one when the CONTROL FLOW itself must be deterministic.

@@ -215,8 +215,12 @@ function selfTest() {
     }
   }
 
-  console.log(`\n${fail === 0 ? 'SELF-TEST PASS' : 'SELF-TEST FAIL'} ${pass} passed, ${fail} failed`);
-  return fail === 0 ? 0 : 1;
+  // ONE expression decides both the printed verdict and the exit code. See the
+  // identical note in tools/gh-corpus-harvest.mjs: they were two expressions, and
+  // a divergence would print one verdict while returning the other.
+  const ok = fail === 0;
+  console.log(`\n${ok ? 'SELF-TEST PASS' : 'SELF-TEST FAIL'} ${pass} passed, ${fail} failed`);
+  return ok ? 0 : 1;
 }
 
 if (IS_MAIN) process.exit(process.argv.includes('--self-test') ? selfTest() : run());
