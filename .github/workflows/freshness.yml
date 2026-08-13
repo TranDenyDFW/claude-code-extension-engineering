@@ -33,9 +33,27 @@ env:
 
 jobs:
   # ---------------------------------------------------------------- suite ----
+  # Cross-platform, because Windows behaviour is a first-class claim in this reference
+  # (native Windows has no OS sandbox, WSL2 cannot launch Windows binaries from a
+  # sandboxed command without the optional seccomp filter, and the deny-rule recognition
+  # measurement is Windows-specific) while every job here ran only on Ubuntu. A reference
+  # that documents platform differences and tests one platform is asserting something it
+  # does not check.
+  #
+  # Only the DETERMINISTIC jobs are matrixed. The tier3, manifest and freshness jobs stay
+  # single-runner: they install the CLI, query npm or write to the repo, and running three
+  # copies of those would triple the network work and, for freshness, race three bots onto
+  # one branch.
+  #
+  # fail-fast is off so a Windows-only failure does not hide a macOS-only one, which is
+  # the whole reason for adding two platforms rather than one.
   suite:
     name: deterministic suite and evidence ledger
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -351,7 +369,29 @@ jobs:
 
       - name: Validate plugin manifest
         run: |
-          npm install -g @anthropic-ai/claude-code
+          # PINNED to evidence/VERIFIED_VERSION, not `latest`.
+          #
+          # This is a REQUIRED gate, and a required gate that installs whatever npm
+          # serves under `latest` is not reproducible: the same commit can pass today
+          # and fail tomorrow with nothing in the repo having changed, and the cause is
+          # invisible in the diff. It also means every build implicitly trusts an
+          # upstream publish at the moment it happens.
+          #
+          # Detecting a newer release is a real need, and it already has a home: the
+          # freshness job below queries `latest` on a schedule and opens an issue. That
+          # is the canary. This path is the deterministic one, and the two are separate
+          # on purpose. When a new version is reviewed and accepted, VERIFIED_VERSION is
+          # bumped and this pin moves with it, in one commit, reviewably.
+          PINNED="$(cat evidence/VERIFIED_VERSION | tr -d '[:space:]')"
+          echo "pinning @anthropic-ai/claude-code@${PINNED} (from evidence/VERIFIED_VERSION)"
+          npm install -g "@anthropic-ai/claude-code@${PINNED}"
+          # Fail loudly if npm gave us something else, rather than validating the
+          # manifest against a build nobody declared.
+          GOT="$(claude --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+          if [ "$GOT" != "$PINNED" ]; then
+            echo "REFUSING: pinned ${PINNED} but the installed CLI reports ${GOT}"
+            exit 1
+          fi
           # Commit-SHA versioning is deliberate, so --strict would fail on the
           # "No version specified" advisory. The checker enforces, by set
           # subtraction, that the advisory is the ONLY warning; its ability to
@@ -409,17 +449,44 @@ jobs:
           echo "state=$STATE" >> "$GITHUB_OUTPUT"
           echo "latest=$L" >> "$GITHUB_OUTPUT"
 
-      - name: Commit status.json when changed
+      - name: Open or update a PR with the status change
         # Only on main. On a feature branch this would push a bot commit into
         # someone's open work, which is a surprise nobody asked for.
+        #
+        # A PR, NOT A DIRECT PUSH. Two reasons, and the first is mechanical: once main
+        # requires status checks, a direct push from this job is rejected and the badge
+        # silently stops updating. Fixing that after the fact means debugging a bot
+        # whose failure mode is "nothing happened". The second is that this is the only
+        # job in the workflow holding `contents: write`, so it is the one place where a
+        # compromised token could rewrite the default branch. A PR leaves the mutation
+        # reviewable and leaves a record when nobody reviews it.
+        #
+        # The branch is FIXED rather than dated, so repeated runs update one PR instead
+        # of opening a new one per release. force-with-lease, not force: if someone has
+        # pushed to the bot's branch, that is a surprise worth failing on.
         if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if ! git diff --quiet evidence/status.json; then
-            git config user.name "freshness-bot"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add evidence/status.json
-            git commit -m "chore: freshness status ${{ steps.status.outputs.state }} (latest ${{ steps.status.outputs.latest }})"
-            git push
+          if git diff --quiet evidence/status.json; then
+            echo "status.json unchanged; nothing to open"
+            exit 0
+          fi
+          BRANCH=bot/freshness-status
+          TITLE="chore: freshness status ${{ steps.status.outputs.state }} (latest ${{ steps.status.outputs.latest }})"
+          git config user.name "freshness-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add evidence/status.json
+          git commit -m "$TITLE"
+          git push --force-with-lease origin "$BRANCH"
+          if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$BRANCH" --title "$TITLE"
+            echo "updated existing PR on $BRANCH"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$TITLE" \
+              --body 'Automated freshness status update from `.github/workflows/freshness.yml`. Only `evidence/status.json` changes. Opened as a PR rather than pushed directly so the one job holding `contents: write` cannot rewrite the default branch, and so this keeps working once `main` requires status checks.'
+            echo "opened PR on $BRANCH"
           fi
 
       - name: Open verification issue when stale

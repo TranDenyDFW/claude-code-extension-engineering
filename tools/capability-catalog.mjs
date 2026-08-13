@@ -1153,9 +1153,27 @@ export function selfTest() {
     const realNaive = naiveToolScan(toolsMd);
     const realParsed = parseToolsTable(toolsMd).map((r) => r.name);
     const realEvents = parseHookEvents(hooksMd).map((e) => e.name);
-    check(`MUST FAIL: the naive scan over the real page returns ${realNaive.length}, not 43`, realNaive.length === 46, `got ${realNaive.length}`);
-    check('the real tools table has 43 rows', realParsed.length === 43, `got ${realParsed.length}`);
-    check('the real hook-events section has 31 headings', realEvents.length === 31, `got ${realEvents.length}`);
+    /* DERIVED, not typed. These three were hardcoded at 46 / 43 / 31 and went red the
+       moment the docs mirror was refreshed for 2.1.229, where the tools table grew by one
+       row. A count typed into a test is the same defect this repo's doc-numbers gate
+       exists to catch, one level down: it makes an ordinary upstream change look like a
+       parser regression, and the cheap way out is to edit the number until it is green
+       again, which is how a real regression eventually gets waved through.
+
+       The invariants that actually matter and do not move with the docs:
+         - the naive scan OVER-counts, by exactly the non-tool rows it cannot exclude
+         - the real parse agrees with the committed catalogue's current-tool set
+         - the hook-events parse agrees with the committed catalogue */
+    const committed = JSON.parse(readFileSync(CATALOG_PATH, 'utf8'));
+    const catalogTools = Object.entries(committed.tools || {}).filter(([, v]) => v.status === 'current').map(([k]) => k);
+    const catalogEvents = Object.keys(committed.hookEvents || {});
+    const NAIVE_OVERCOUNT = 3;
+    check(`MUST FAIL: the naive scan over-counts the real page by ${NAIVE_OVERCOUNT} (naive ${realNaive.length}, parsed ${realParsed.length})`,
+      realNaive.length - realParsed.length === NAIVE_OVERCOUNT, `over-count was ${realNaive.length - realParsed.length}`);
+    check('the real tools table matches the committed catalogue\'s current tools',
+      realParsed.length === catalogTools.length, `page ${realParsed.length}, catalogue ${catalogTools.length}`);
+    check('the real hook-events section matches the committed catalogue',
+      realEvents.length === catalogEvents.length, `page ${realEvents.length}, catalogue ${catalogEvents.length}`);
     check('PowerShell is a real documented tool', realParsed.includes('PowerShell'));
     check('DirectoryAdded is a real documented event', realEvents.includes('DirectoryAdded'));
     check('url and protocols are not tools', !realParsed.includes('url') && !realParsed.includes('protocols'));
