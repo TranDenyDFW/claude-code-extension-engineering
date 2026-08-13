@@ -249,6 +249,13 @@ jobs:
           node tools/gh-corpus-harvest.mjs --self-test
           node tools/tier3-preflight.mjs --self-test
           node tools/scaffold-parity.mjs --self-test
+          # The comment-corpus pair. gh-comments-coverage carries the anti-truncation
+          # guard: the repo-wide comments endpoint caps at page 300, so a naive harvest
+          # returns HTTP 200 for every request and produces a clean-looking file holding
+          # about a tenth of the 293,226 comments that exist. Ungated, the one check that
+          # can tell those apart could regress unnoticed.
+          node tools/gh-comments-harvest.mjs --self-test
+          node tools/gh-comments-coverage.mjs --self-test
 
   # ---------------------------------------------------------------- tier3 ----
   tier3:

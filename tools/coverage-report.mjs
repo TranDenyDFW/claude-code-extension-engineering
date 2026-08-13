@@ -349,13 +349,6 @@ if (DOC_NUMBERS) {
   for (const f of FACTS) console.log(`  ${f.label.padEnd(32)}${f.live}`);
   console.log('\nDocumentation statements that disagree:');
   /**
-   * `hits` is incremented beside every complaint, which independent review
-   * 2026-08-08 showed is a shape that silently breaks: deleting ONE increment left
-   * the gate printing "guarded by NOTHING" and exiting 0 in the same output. The
-   * counter cannot be removed from the branch below without the message going with
-   * it, because they are now one call.
-   */
-  /**
    * PROBLEMS ARE AN ARRAY AND THE EXIT CODE IS ITS LENGTH.
    *
    * Two previous attempts at this were relocations, not fixes. `hits++` beside each
@@ -366,7 +359,13 @@ if (DOC_NUMBERS) {
    *
    * Every complaint now goes through `complain`, which pushes before it prints, and
    * the exit code reads the array. There is no counter to remove, and removing the
-   * push breaks all five sites at once, which `--self-test` observes.
+   * push breaks all five sites at once, which `--prove-can-fail` observes.
+   *
+   * The superseded `hits++` design was described in a comment that sat directly above
+   * this one until 2026-08-12, asserting as a property the very thing round 6 proved
+   * false: "the counter cannot be removed from the branch below without the message
+   * going with it". It could. A stale comment claiming a guarantee, parked above the
+   * code that replaced it, is the same defect this gate exists to catch, one level up.
    */
   const problems = [];
   const complain = (...lines) => { problems.push(lines[0]); for (const l of lines) console.log(l); };

@@ -105,8 +105,12 @@ export function bumpSecond(iso) {
   return new Date(Date.parse(iso) + 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
-/* ---------------- selftest ---------------- */
-if (argv.includes('--selftest')) {
+/* ---------------- selftest ----------------
+ * Both spellings, because the other 19 tools in this repo use `--self-test` and these
+ * two shipped with `--selftest`. An unknown flag exits 2 here rather than 0, so the
+ * mismatch fails loudly, but anyone wiring these into CI by copying the neighbouring
+ * `gh-corpus-harvest.mjs --self-test` line would get a red build for the wrong reason. */
+if (argv.includes('--selftest') || argv.includes('--self-test')) {
   let fail = 0; const ok = (n, c) => { if (!c) fail++; console.log(`  ${c ? 'PASS' : 'FAIL'}  ${n}`); };
 
   ok('parses an issue number from issue_url',

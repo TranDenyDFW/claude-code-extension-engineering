@@ -71,7 +71,10 @@ export function truncationSuspected(actualTotal, expectedTotal) {
   return actualTotal < expectedTotal * 0.5;
 }
 
-if (argv.includes('--selftest')) {
+/* Both spellings: the other 19 tools in this repo use `--self-test`, these two shipped
+ * with `--selftest`, and a CI line copied from a neighbouring tool would otherwise go red
+ * for the wrong reason. */
+if (argv.includes('--selftest') || argv.includes('--self-test')) {
   let fail = 0; const ok = (n, c) => { if (!c) fail++; console.log(`  ${c ? 'PASS' : 'FAIL'}  ${n}`); };
   const exp = new Map([[1, 2], [2, 0], [3, 5]]);
 
