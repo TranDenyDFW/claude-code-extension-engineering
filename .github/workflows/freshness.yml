@@ -258,7 +258,28 @@ jobs:
         # Measured cost of this whole step: about 1.5 seconds.
         run: |
           node tools/capability-catalog.mjs --self-test
-          node tools/capability-catalog.mjs --prove-fail
+          # --prove-fail ALSO needs the docs mirror: two of its ten mutants cannot be
+          # built without it, so on a runner it reports "PARTIAL PROOF: 8 mutants
+          # rejected, 2 skipped for want of the docs mirror" and exits 2. The --check
+          # line below has carried that allowance for a while and this one never did,
+          # which is why this job failed on every push since 2026-08-08 and nobody
+          # noticed: the branch had no PR, so nothing surfaced the red.
+          #
+          # NOT a bare `|| [ $? -eq 2 ]`. Exit 2 also means "CANNOT PROVE: no catalog
+          # at ...", and swallowing that would hide a missing artifact behind a rule
+          # written for a missing mirror. The output has to SAY it was the mirror.
+          set +e
+          out="$(node tools/capability-catalog.mjs --prove-fail 2>&1)"; rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ]; then
+            if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'PARTIAL PROOF: .* skipped for want of the docs mirror'; then
+              echo "accepted: the docs mirror is not present on a runner, and the tool said so rather than claiming a full proof"
+            else
+              echo "REFUSING to accept exit $rc from --prove-fail; this is not the mirror case"
+              exit "$rc"
+            fi
+          fi
           # --check needs the docs mirror and exits 2 (cannot check) without one,
           # which is the safe state. Same allowance as the bash-recognition drift
           # gate above. The commit that wired the others claimed this one too and
