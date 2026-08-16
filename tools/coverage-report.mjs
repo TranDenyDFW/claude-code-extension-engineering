@@ -24,11 +24,20 @@
  * Ignore-list: claim classes never meant for one-question-per-line coverage.
  */
 import { readFileSync, readdirSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve, sep, basename } from 'path';
 import { fileURLToPath } from 'url';
+import { referenceDirs, skillDirs, stripSkillPrefix } from './skill-roots.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
+/**
+ * Where the PROSE is read from. Overridable for one reason only: proving the doc checks can
+ * fail. A checker that can only ever be pointed at documents already known to be correct is
+ * a checker nobody has watched reject anything, and this gate reported "none" over four real
+ * disagreements because its patterns matched only the phrasings its author happened to write.
+ * Independent review 4, 2026-08-13. The committed run always uses ROOT.
+ */
+const DOC_ROOT = process.env.COVERAGE_DOC_ROOT ? resolve(process.env.COVERAGE_DOC_ROOT) : ROOT;
 const SUMMARY_ONLY = process.argv.includes('--summary');
 const DOC_NUMBERS = process.argv.includes('--doc-numbers');
 
@@ -83,6 +92,97 @@ if (process.argv.includes('--prove-can-fail')) {
     check('MUST FAIL: a record whose caught value is not a number', r3.status !== 0, 'exit ' + r3.status);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 
+  /**
+   * THE COMPETITOR COLUMN, in results and in prose.
+   *
+   * Independent review 4 found four published sentences stating the competitor's old score
+   * while this gate printed "none", and review 5 got eighteen more wordings past the fix.
+   * The prose parser that chased them is GONE; what remains is a ban on the retired VALUE.
+   * So the mutants below reintroduce the VALUE in the wordings that beat the parser, not the
+   * claims the parser used to read. TWO CLASSES IT ONCE CAUGHT ARE NO LONGER COVERED: a
+   * sentence naming a fixture with no number in it, and a "single catch is X" claim carrying
+   * no digit. That is a coverage regression, recorded here rather than described as a
+   * simplification, because a header that advertises checks the mutants do not contain is
+   * the same defect this file exists to catch.
+   */
+  const { cpSync, readFileSync: rf, writeFileSync: wf } = await import('node:fs');
+  const dir2 = mkdtempSync(join(tmpdir(), 'covdocs-'));
+  try {
+    const inflate = (src, dst) => {
+      const r = JSON.parse(rf(src, 'utf8'));
+      const rows = Array.isArray(r) ? r : (r.rows || Object.values(r).filter((x) => x && x.fixture));
+      const victim = rows.find((x) => !x.control && (x.testHookSh || {}).score !== 'CATCH');
+      if (!victim) throw new Error(src + ': no non-CATCH row to inflate, the mutant would be a no-op');
+      victim.testHookSh = { ...victim.testHookSh, score: 'CATCH' };
+      wf(dst, JSON.stringify(r, null, 2));
+    };
+    inflate(join(ROOT, 'tests/prove-bench/results.json'), join(dir2, 'main.json'));
+    inflate(join(ROOT, 'tests/prove-bench/validation/results.json'), join(dir2, 'val.json'));
+    const m1 = run({ COVERAGE_PROVE_RESULTS: join(dir2, 'main.json') });
+    check('MUST FAIL: the published competitor total no longer matches its record',
+      m1.status !== 0 && /prove-bench competitor caught/.test(String(m1.stdout)), 'exit ' + m1.status);
+    const m2 = run({ COVERAGE_VALIDATION_RESULTS: join(dir2, 'val.json') });
+    check('MUST FAIL: the validation competitor total no longer matches its record',
+      m2.status !== 0 && /validation competitor caught/.test(String(m2.stdout)), 'exit ' + m2.status);
+
+    const DOCS = join(dir2, 'docroot');
+    for (const d of ['docs', 'tests', 'skills', '.claude-plugin']) cpSync(join(ROOT, d), join(DOCS, d), { recursive: true });
+    for (const f of ['IMPROVEMENTS.md', 'README.md']) cpSync(join(ROOT, f), join(DOCS, f));
+    const ctl = run({ COVERAGE_DOC_ROOT: DOCS });
+    check('the copied docs are GREEN, so a doc mutant below means something', ctl.status === 0, 'exit ' + ctl.status);
+
+    /* Mutants aimed at the RULE. Review 6 got 18 of 25 of its own wordings past the first
+       version, so these are the wordings IT used, not ones chosen by the author: the value
+       split across a hard wrap (the worst, because this repo hard-wraps), the word form,
+       "out of" and the hyphenated form. NOT covered by a mutant, and named here rather than
+       implied: no mutant exercises a file type, an extension in the scope list, or an
+       individual spelling, so deleting `yml` or `json` from the scope, or dropping four of
+       the eight spellings, leaves every gate green. Review 7 proved that by gutting each in
+       turn. Those are unwatched parts of this rule. */
+    const docMutants = [
+      { n: 'MUST FAIL: the retired total split across a hard wrap', f: 'docs/RESULTS.md',
+        from: '**10 of 10 defects caught versus 2 of 10**',
+        to: '**10 of 10 defects caught versus 3\nof 10**',
+        want: /retired value "3 of 10" is still published/ },
+      { n: 'MUST FAIL: the retired total written in words', f: 'docs/RESULTS.md',
+        from: '**10 of 10 defects caught versus 2 of 10**',
+        to: '**ten of ten defects caught versus three of ten**',
+        want: /retired value "three of ten" is still published/ },
+      { n: 'MUST FAIL: the retired total as "out of"', f: 'IMPROVEMENTS.md',
+        from: '(10 of 10 versus 2 of 10,', to: '(10 of 10 versus 3 out of 10,',
+        want: /retired value "3 out of 10" is still published/ },
+      { n: 'MUST FAIL: the retired total hyphenated, the form found in two .mjs headers',
+        f: 'tests/prove-bench/validation/run-bench.mjs',
+        from: ' * so the published first-cohort experiment is untouched.',
+        to: ' * so the published 10-of-10-versus-3-of-10 experiment is untouched.',
+        want: /retired value "3-of-10" is still published/ },
+      { n: 'MUST FAIL: the retired validation total in the runner output form',
+        f: 'tests/results-prove-bench-validation.md',
+        from: 'test-hook.sh    :  0 of 11 caught', to: 'test-hook.sh    :  1 of 11 caught',
+        want: /retired value "1 of 11" is still published/ },
+      { n: 'MUST FAIL: a table cell giving the competitor a CATCH the record does not have',
+        f: 'tests/results-prove-bench-validation.md',
+        from: 'so the handler never runs | CATCH | n/a |',
+        to: 'so the handler never runs | CATCH | CATCH |',
+        want: /competitor row for `handler-path-bare-variable`/ },
+      { n: 'MUST FAIL: an allowlist entry that no longer matches any line',
+        f: 'docs/RESULTS.md',
+        from: '**This number was 3 of 10 until 2026-08-13, and the correction is against our own interest to',
+        to: '**This number changed on 2026-08-13, and the correction is against our own interest to',
+        want: /allowlist entry matches nothing/ },
+    ];
+    for (const m of docMutants) {
+      const fp = join(DOCS, m.f);
+      const orig = rf(fp, 'utf8');
+      if (!orig.includes(m.from)) { check(m.n, false, 'anchor not found, the mutant would be a no-op'); continue; }
+      wf(fp, orig.replace(m.from, m.to));
+      const r = run({ COVERAGE_DOC_ROOT: DOCS });
+      check(m.n, r.status !== 0 && m.want.test(String(r.stdout)), 'exit ' + r.status);
+      wf(fp, orig);
+      check('...and the docs return to GREEN once it is undone', run({ COVERAGE_DOC_ROOT: DOCS }).status === 0);
+    }
+  } finally { rmSync(dir2, { recursive: true, force: true }); }
+
   const after = run({});
   check('the gate returns to GREEN once the override is gone', after.status === 0, 'exit ' + after.status);
   console.log(bad ? '\nGATE CANNOT FAIL: ' + bad + ' problem(s).' : '\nGATE CAN FAIL: every known-bad source was rejected.');
@@ -110,7 +210,10 @@ if (DOC_NUMBERS) {
   const qRows = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
     .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
 
-  const SK = join(ROOT, 'skills', 'claude-code-extension-engineering', 'references');
+  /* Every skill's references, not one skill's. Counting card and event rows from a quarter of
+     the tree and calling it the manifest is the same shape as a coverage number that only ever
+     looked at part of its population. */
+  const SKS = referenceDirs(ROOT);
   // Count the numbered card rows and the event rows from the reference files
   // themselves, so the manifest is checked against content rather than against
   // another sentence that could be equally stale.
@@ -143,9 +246,16 @@ if (DOC_NUMBERS) {
     twenty: 20, thirty: 30, forty: 40, fifty: 50,
   };
 
+  /* Resolve a reference file across EVERY skill's references. After the split a named file lives
+     in exactly one of four directories, so looking in one of them finds it a quarter of the time
+     and returns 0 for the rest. A manifest count that silently shrinks still looks like a
+     measurement, which is the failure mode this whole file exists to prevent. */
+  const findRef = (file) => SKS.map((d) => join(d, file)).find((x) => existsSync(x)) || null;
+
   const tableRows = (file, header) => {
-    if (!existsSync(join(SK, file))) return 0;
-    const lines = readFileSync(join(SK, file), 'utf8').split(/\r?\n/);
+    const abs = findRef(file);
+    if (!abs) return 0;
+    const lines = readFileSync(abs, 'utf8').split(/\r?\n/);
     const start = lines.findIndex((l) => l.startsWith(`| ${header} `) || l.startsWith(`| ${header}|`));
     if (start < 0) return 0;
     const seen = new Set();
@@ -208,6 +318,61 @@ if (DOC_NUMBERS) {
     validationCaught = (r.prove || {}).caught;
     if (typeof validationCaught !== 'number') { validationReadError = 'results.json has no prove.caught number'; validationCaught = null; }
   } catch (e) { validationReadError = e.message; validationCaught = null; }
+
+  /**
+   * The COMPETITOR column of both cohorts, which is the measured half.
+   *
+   * The fact above guards OUR score and nothing guarded theirs. So when a scoring fix
+   * moved the competitor from 3 to 2 in the first cohort and 1 to 0 in the second,
+   * four published sentences kept the old numbers and every gate stayed green.
+   * Independent review 3, 2026-08-13. Our own score is authored here against fixtures
+   * authored here; theirs is the number a reader is actually asked to believe, so
+   * leaving it unguarded had the coverage exactly backwards.
+   */
+  let mainCompetitor = null, validationCompetitor = null, competitorReadError = null;
+  const competitorCatches = (p, what) => {
+    const r = JSON.parse(readFileSync(p, 'utf8'));
+    const rows = Array.isArray(r) ? r : (r.rows || Object.values(r).filter((x) => x && x.fixture));
+    if (!rows.length) throw new Error(`${what} results.json holds no fixture rows`);
+    return rows.filter((x) => !x.control && (x.testHookSh || {}).score === 'CATCH').length;
+  };
+  try {
+    mainCompetitor = competitorCatches(process.env.COVERAGE_PROVE_RESULTS
+      || join(ROOT, 'tests', 'prove-bench', 'results.json'), 'prove-bench');
+  } catch (e) { competitorReadError = `prove-bench: ${e.message}`; }
+  try {
+    validationCompetitor = competitorCatches(process.env.COVERAGE_VALIDATION_RESULTS
+      || join(ROOT, 'tests', 'prove-bench', 'validation', 'results.json'), 'validation');
+  } catch (e) { competitorReadError = `${competitorReadError ? `${competitorReadError}; ` : ''}validation: ${e.message}`; }
+
+  /**
+   * PER-FIXTURE competitor claims, which is what the count facts above cannot cover.
+   *
+   * Those facts match canonical phrasings, so they stayed green over four sentences that
+   * said the same wrong thing in other words: a fixture listed among the competitor's
+   * catches, a table cell reading CATCH where the record says n/a, "the competitor's single
+   * catch is X", and a headline in a form the regex did not anticipate. Independent review
+   * 4, 2026-08-13. A pattern that only recognises the phrasing its author used measures the
+   * author's memory, not the artifact, so this binds a NAMED FIXTURE to its RECORDED score
+   * and does not care how the sentence is written.
+   */
+  const fixtureScores = new Map();
+  const loadFixtureScores = (p, cohort) => {
+    const r = JSON.parse(readFileSync(p, 'utf8'));
+    const rows = Array.isArray(r) ? r : (r.rows || Object.values(r).filter((x) => x && x.fixture));
+    for (const row of rows) {
+      const s = (row.testHookSh || {}).score;
+      if (!s) continue;
+      const seen = fixtureScores.get(row.fixture);
+      if (seen && seen.score !== s) throw new Error(`fixture ${row.fixture} appears in ${seen.cohort} and ${cohort} with different competitor scores`);
+      fixtureScores.set(row.fixture, { score: s, cohort });
+    }
+  };
+  try {
+    loadFixtureScores(process.env.COVERAGE_PROVE_RESULTS || join(ROOT, 'tests', 'prove-bench', 'results.json'), 'prove-bench');
+    loadFixtureScores(process.env.COVERAGE_VALIDATION_RESULTS || join(ROOT, 'tests', 'prove-bench', 'validation', 'results.json'), 'validation');
+  } catch (e) { competitorReadError = `${competitorReadError ? `${competitorReadError}; ` : ''}fixture scores: ${e.message}`; }
+
   /**
    * AN UNREADABLE SOURCE IS A GATE FAILURE, NOT A DROPPED FACT.
    *
@@ -317,6 +482,19 @@ if (DOC_NUMBERS) {
     ...(validationCaught === null ? [] : [
       { label: 'validation cohort caught', live: validationCaught, re: /(\d+) of \d+ caught with the correct diagnosis/gi },
     ]),
+    ...(mainCompetitor === null ? [] : [
+      /* Anchored to the competitor's own line. Unanchored, `caught (\d+)/10 defects` also
+         matched our own `extension-prove : caught 10/10 defects` and reported the gate's
+         first run as a disagreement at 10 versus 2. */
+      { label: 'prove-bench competitor caught', live: mainCompetitor, re: /test-hook\.sh\s*:\s*caught\s+(\d+)\/10 defects/gi },
+      /* Both headline forms. The narrow one matched only `10 of 10 defects caught versus
+         N of 10` and sailed past `10 of 10 versus 3 of 10` in IMPROVEMENTS.md, which is the
+         line an independent review had already named. */
+      { label: 'prove-bench competitor, headline', live: mainCompetitor, re: /10 of 10(?: defects caught)? versus (\d+) of 10/gi },
+    ]),
+    ...(validationCompetitor === null ? [] : [
+      { label: 'validation competitor caught', live: validationCompetitor, re: /test-hook\.sh\s+:\s+(\d+) of 11 caught/gi },
+    ]),
   ];
 
   // docs/SUBMISSION.md and .claude-plugin/plugin.json are the two MARKETPLACE-FACING
@@ -326,17 +504,20 @@ if (DOC_NUMBERS) {
   // number out of the README and into it. Relocating a claim from a gated file to an
   // ungated one silently stops it being checked, which is the same defect class as the
   // paraphrase misses above, so the list grows with the move rather than after it.
-  const SKILL_ROOT = join('skills', 'claude-code-extension-engineering');
+  const SKILL_ROOTS = skillDirs(ROOT).map((d) => join('skills', basename(d)));
   // The reference files and SKILL.md, added 2026-08-06. They were never scanned,
   // and this round wrote a numeric claim into 22 of them, so the omission stopped
   // being theoretical. Every FACT regex here is canonical-phrase based, which is
   // what makes scanning 26 more files affordable without crying wolf.
   const refFiles = (() => {
     try {
-      return readdirSync(join(ROOT, SKILL_ROOT, 'references'))
-        .filter((f) => f.endsWith('.md'))
-        .map((f) => join(SKILL_ROOT, 'references', f))
-        .concat([join(SKILL_ROOT, 'SKILL.md')]);
+      return SKILL_ROOTS.flatMap((SKILL_ROOT) => {
+        const dir = join(ROOT, SKILL_ROOT, 'references');
+        const refs = existsSync(dir)
+          ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort().map((f) => join(SKILL_ROOT, 'references', f))
+          : [];
+        return refs.concat([join(SKILL_ROOT, 'SKILL.md')]);
+      });
     } catch { return []; }
   })();
   const docs = ['README.md', 'IMPROVEMENTS.md', 'docs/SUBMISSION.md', 'docs/RESULTS.md', '.claude-plugin/plugin.json',
@@ -376,8 +557,173 @@ if (DOC_NUMBERS) {
       '  `node tests/prove-bench/validation/run-bench.mjs --record` rather than letting this',
       '  gate go quiet: a fact that disappears with its source reads as coverage it does not have.');
   }
+  if (competitorReadError) {
+    complain(
+      `  a prove-bench results file is unreadable (${competitorReadError}), so the published`,
+      '  COMPETITOR numbers are guarded by NOTHING. That is the half of the comparison a reader',
+      '  is actually asked to believe, and it went stale in four places once already while every',
+      '  gate stayed green. Regenerate with `--record` rather than letting this gate go quiet.');
+  }
+  if (fixtureScores.size) {
+    const CATCH_WORD = /\bcatch(es|ing)?\b|\bcaught\b/i;
+    for (const rel of docs) {
+      const text = readFileSync(join(DOC_ROOT, rel), 'utf8');
+      const lines = text.split(/\r?\n/);
+
+      /* A markdown row naming a fixture publishes that fixture's scores in its cells, so
+         the competitor's cell is compared directly. This is the one that caught a table
+         reading CATCH eighteen lines below a correct summary of the same run. */
+      lines.forEach((line, i) => {
+        if (!line.trim().startsWith('|')) return;
+        const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
+        const nameCell = (cells[0] || '').match(/`([^`]+)`/);
+        if (!nameCell || !fixtureScores.has(nameCell[1])) return;
+        const rec = fixtureScores.get(nameCell[1]).score;
+        const last = (cells[cells.length - 1] || '').replace(/\*/g, '');
+        const claimed = (last.match(/\b(CATCH|MISS|clean|FALSE-POS|n\/a)\b/i) || [])[1];
+        if (!claimed) return;
+        if (claimed.toLowerCase() !== rec.toLowerCase()) {
+          complain(`  ${rel}:${i + 1}  competitor row for \`${nameCell[1]}\`: doc says ${claimed}, record says ${rec}`,
+            `      ${line.trim().slice(0, 110)}`);
+        }
+      });
+
+      /* THE PROSE HEURISTIC IS GONE, DELIBERATELY.
+         It tried to decide whether an English sentence ASSERTS a catch: catch word before
+         the fixture name, negation words vetoing, past tense treated as superseded. An
+         independent reviewer broke it four ways in one sitting (an unbackticked fixture
+         name, the name before the catch word, an extra trailing table column, and a
+         present-tense falsehood containing the word "was" anywhere in the span, since the
+         veto was word presence and not tense). Every fix would have been another phrasing.
+         A checker that catches some wordings and not others reads as coverage it does not
+         have, which is worse than no checker, so the claim-parsing is replaced below by a
+         rule that needs no parsing: the SUPERSEDED VALUE itself may not appear. */
+    }
+  }
+
+  /**
+   * RETIRED NUMBERS MAY NOT APPEAR ON THE PUBLICATION SURFACE.
+   *
+   * WHAT THIS COVERS, AND WHAT IT DOES NOT. It finds a retired VALUE in sixteen exact,
+   * CASE-SENSITIVE literal spellings, in files with one of seven extensions, outside four
+   * excluded directories. That is the whole of it, and it is not "any wording": review 7
+   * walked 19 of 31 attacks straight through, including "Three of ten" capitalised at the
+   * start of a sentence, the mixed forms `3 of ten` and `three of 10`, `3 out of ten`, a
+   * non-breaking space, and `3 *of* 10` with markdown emphasis inside the number. Files
+   * ending `.jsonl`, `.proposal`, `.sh` and `LICENSE` are never opened at all.
+   *
+   * It also does NOT understand claims: a stale sentence that names a fixture and states no
+   * number is invisible to it. That is a real gap, not a simplification.
+   *
+   * THIS APPROACH HAS NOT CONVERGED. Seven review rounds have each broken it with a wording
+   * its author did not imagine, and widening it an eighth time is the same move that failed
+   * the previous seven. The replacement is single-sourcing: generate the numbers into marked
+   * spans from the records so no prose states one independently, which turns "is a published
+   * number stale" into a byte comparison that no wording can evade. That work is NOT done.
+   *
+   * WHITESPACE IS NORMALISED BEFORE MATCHING because this repository hard-wraps its prose,
+   * so a value split across a line break was invisible, and its own correction sentences
+   * were one reflow away from going silent. Review 6 called that the worst of the holes and
+   * it was right.
+   *
+   * SCOPE is files matching seven extensions, outside `data/` (harvested GitHub comments
+   * full of unrelated strings like "attempt 1/10"), `.md/` (dated plan artifacts that quote
+   * superseded numbers ON PURPOSE), `node_modules`, `.git`, `tmp` and `coverage`. It is NOT
+   * "every tracked text file": the extension list is the real gate, and files outside it are
+   * invisible whether or not they are tracked.
+   *
+   * The allowlist entries are SUBSTRINGS of the whitespace-flattened file, not whole lines,
+   * which makes them wider than their name suggests. Each must still match somewhere or the
+   * gate fails, so a stale entry is caught. An ADDED entry is NOT reported: review 7 silenced
+   * a real stale headline with one entry and nothing printed the word allowlist, so adding
+   * one is currently a quiet way to publish a retired number. That is an open hole.
+   */
+  const RETIRED = [
+    { value: '3 of 10', now: '2 of 10', why: 'prove-bench competitor, retired 2026-08-13 when a verdictless run stopped counting as a catch' },
+    { value: '1 of 11', now: '0 of 11', why: 'validation-cohort competitor, retired 2026-08-13 for the same reason' },
+  ];
+  /* Every way the same value gets written. Digits, slash form, spaced slash, hyphenated,
+     and the word form, because review 6 published "three of ten" and "3 out of 10" and both
+     were silent. The list is closed and small on purpose: a value has few spellings, unlike
+     a claim, which has unlimited ones. */
+  const spellings = (n, d) => {
+    const W = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven'];
+    return [`${n} of ${d}`, `${n} out of ${d}`, `${n} of the ${d}`, `${n}/${d}`, `${n} / ${d}`,
+      `${n}-of-${d}`, `${W[n]} of ${W[d]}`, `${W[n]} out of ${W[d]}`];
+  };
+  const RETIRED_OK = new Map([
+    ['**This number was 3 of 10 until 2026-08-13, and the correction is against our own interest to state, so it is stated first.** The competitor\'s third catch was `handler-path-missing`, whose', 'docs/RESULTS.md: the sentence that RECORDS the correction'],
+    ['**This block said 1 of 11 until 2026-08-13, and it is the same error as the one above, not a second kind.** The single catch was `handler-path-bare-variable`, recorded with the detail', 'docs/RESULTS.md: the same, for the validation cohort'],
+    ['**The competitor line said 1 of 11 until 2026-08-13, and the single catch was `handler-path-bare-variable`, whose recorded detail read `no verdict line`.** It exited non-zero', 'results-prove-bench-validation.md: the same correction in the cohort write-up'],
+  ]);
+
+  const TEXT = /\.(md|mjs|js|json|yml|yaml|txt)$/;
+  const SKIP = new Set(['node_modules', '.git', 'data', '.md', 'tmp', 'coverage']);
+  const walkText = (dir, base, out = []) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (SKIP.has(e.name)) continue;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) walkText(full, base, out);
+      else if (TEXT.test(e.name)) out.push(full.slice(base.length + 1).split(sep).join('/'));
+    }
+    return out;
+  };
+
+  /* This file is excluded from its own ban, and the exclusion is a real boundary rather
+     than a convenience: a checker has to be able to NAME the values it forbids, and its
+     mutant table must contain them verbatim to prove the ban can fail. The cost is that a
+     stale bench claim written into this file would not be caught here, which is why the
+     bench numbers are published in the results docs and not in the tool. */
+  const SELF = 'tools/coverage-report.mjs';
+  const seenAllow = new Set();
+  for (const rel of walkText(DOC_ROOT, DOC_ROOT)) {
+    if (rel === SELF) continue;
+    const raw = readFileSync(join(DOC_ROOT, rel), 'utf8');
+    /* Match against the whole file with whitespace flattened, so a hard wrap cannot hide a
+       value, then report the line the match starts on. */
+    const flat = raw.replace(/\s+/g, ' ');
+    /* Allowlisted SPANS, computed as offsets. The first version excused any match within
+       200 characters of an allowlisted sentence, which meant a genuinely stale value sitting
+       near a correction paragraph was silently forgiven: two of this tool's own mutants
+       survived on exactly that. A match is now excused only if it falls INSIDE an allowlisted
+       line, which is the thing the allowlist actually names. */
+    const spans = [];
+    for (const entry of RETIRED_OK.keys()) {
+      const flatEntry = entry.replace(/\s+/g, ' ');
+      const at = flat.indexOf(flatEntry);
+      if (at < 0) continue;
+      seenAllow.add(entry);
+      spans.push([at, at + flatEntry.length]);
+    }
+    for (const r of RETIRED) {
+      const [n, d] = r.value.split(' of ').map(Number);
+      for (const sp of spellings(n, d)) {
+        let at = flat.indexOf(sp);
+        while (at >= 0) {
+          const inside = spans.some(([lo, hi]) => at >= lo && at + sp.length <= hi);
+          if (!inside) {
+            const before = flat.slice(0, at);
+            const line = raw.split(/\r?\n/).findIndex((_, i, arr) => arr.slice(0, i + 1).join(' ').replace(/\s+/g, ' ').length > before.length) + 1;
+            complain(`  ${rel}:${line || '?'}  retired value "${sp}" is still published; it is now ${r.now}`,
+              `      ${r.why}`);
+          }
+          at = flat.indexOf(sp, at + 1);
+        }
+      }
+    }
+  }
+
+  for (const [entry, why] of RETIRED_OK) {
+    if (!seenAllow.has(entry)) {
+      complain(`  allowlist entry matches nothing: ${entry.slice(0, 70)}...`,
+        `      ${why}`,
+        '      An entry that excuses no line is either a silenced claim that moved or a rule',
+        '      nobody enforces. Delete it or fix the text it was written for.');
+    }
+  }
+
   for (const rel of docs) {
-    const lines = readFileSync(join(ROOT, rel), 'utf8').split(/\r?\n/);
+    const lines = readFileSync(join(DOC_ROOT, rel), 'utf8').split(/\r?\n/);
     lines.forEach((line, i) => {
       for (const f of FACTS) {
         f.re.lastIndex = 0;
@@ -464,7 +810,7 @@ const uncoveredList = [];
 for (const c of claims) {
   if (IGNORE.some(re => re.test(c.text))) { ignored++; continue; }
   const hit = keys.some(re => re.test(c.text));
-  const f = c.file.replace(/^skills\/claude-code-extension-engineering\//, '');
+  const f = stripSkillPrefix(c.file);
   if (!byFile.has(f)) byFile.set(f, { covered: 0, uncovered: 0 });
   if (hit) { covered++; byFile.get(f).covered++; }
   else { uncovered++; byFile.get(f).uncovered++; uncoveredList.push(c); }

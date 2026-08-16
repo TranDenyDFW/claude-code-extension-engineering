@@ -14,22 +14,28 @@
  * evidence/claims.jsonl, so a moved or edited claim line is a detected drift,
  * not a silent one.
  */
-import { readFileSync, readdirSync, writeFileSync } from 'fs';
+import { readFileSync, readdirSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
+import { skillDirs } from './skill-roots.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
-const REF_DIR = join(ROOT, 'skills', 'claude-code-extension-engineering', 'references');
-const SKILL_DIR = join(ROOT, 'skills', 'claude-code-extension-engineering');
+/* Every skill, discovered by content. Hardcoding one directory means that after the split this
+   would extract a quarter of the claims and report the count with total confidence. While the tree
+   holds one skill the result is identical, which is what makes this change safe to land first. */
 
 const TAG_RE = /\[(OFFICIAL|ENGINEERING|COMMUNITY|ANTHROPIC|EXPERIMENTAL|LEGACY|DEPRECATED|ENGINEERING BEST PRACTICE|ANTHROPIC RECOMMENDATION|COMMUNITY PRACTICE)\]|\[v(\d+\.\d+\.\d+)\]/g;
 
 export function extract() {
-  const files = readdirSync(REF_DIR)
-    .filter(f => f.endsWith('.md'))
-    .map(f => join(REF_DIR, f));
-  files.push(join(SKILL_DIR, 'SKILL.md'));
+  const files = [];
+  for (const skillDir of skillDirs(ROOT)) {
+    const refDir = join(skillDir, 'references');
+    if (existsSync(refDir)) {
+      for (const f of readdirSync(refDir).filter((x) => x.endsWith('.md')).sort()) files.push(join(refDir, f));
+    }
+    files.push(join(skillDir, 'SKILL.md'));
+  }
 
   const claims = [];
   for (const abs of files) {
