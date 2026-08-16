@@ -36,6 +36,12 @@ mechanism does live there.
 - WebSocket for persistent bidirectional push; lacks the HTTP CLI/OAuth path [OFFICIAL]
 - SSE is deprecated; prefer HTTP where available [OFFICIAL] [DEPRECATED]
 
+## Which DIRECTION is being asked about, because "claude code mcp server" names both
+
+- Almost every question means Claude Code as the CLIENT, connecting out to a server you configure. The inverse also exists: `claude mcp serve` runs CLAUDE CODE ITSELF as a stdio MCP server that another application connects to, wired into a client with `"command": "claude", "args": ["mcp", "serve"]`. If `claude` is not on PATH the `command` field needs the full executable path [OFFICIAL]
+- **It prints nothing on start, and that is success.** A stdio server talks over stdin and stdout, so a silent terminal that appears to hang is the server running and waiting for a client. Anyone who kills it expecting a banner has killed a working server, and this is the one fact about `mcp serve` worth carrying [OFFICIAL]
+- A bare "how do I use the Claude Code MCP server" is genuinely ambiguous between the two directions. Name both in one line and answer the client direction, which is what is nearly always meant, rather than picking one silently  [ENGINEERING]
+
 ## Protocol primitives
 
 - Tools expose model-invoked actions with schemas [OFFICIAL]

@@ -132,7 +132,7 @@ before it is a syntax question.
 | A plugin loads but one component type is missing | [plugins.md](plugins.md) |
 | Something works by hand but not from a real session | [hooks.md](hooks.md), [hook-events.md](hook-events.md), [testing.md](testing.md) |
 | I edited a config mid-session and nothing changed | [sessions.md](sessions.md) FIRST for the general rule, THEN [output-styles.md](output-styles.md), [testing.md](testing.md). Most keys hot-reload and the restart-only keys are the enumerated exception, so do NOT generalise from the output-styles page to settings as a whole |
-| A settings key is ignored, or settings.json appears to do nothing | [sessions.md](sessions.md), [permissions.md](permissions.md). Establish WHICH FILE the key belongs in before checking scope, syntax or precedence: some keys live in `~/.claude.json` and are silently ignored when placed in `settings.json` |
+| A settings key is ignored, or settings.json appears to do nothing | [sessions.md](sessions.md), [permissions.md](permissions.md). Establish WHICH FILE the key belongs in before checking scope, syntax or precedence: some keys live in `~/.claude.json` and are silently ignored when placed in `settings.json`. Answer the documented contract; do NOT audit this workspace's settings files |
 | A plugin is installed but nothing happens at all | [plugins.md](plugins.md), [mcp.md](mcp.md) |
 | The `#` shortcut for adding to memory does nothing | [auto-memory.md](auto-memory.md) |
 | I want to be notified when Claude finishes or needs me | [hooks.md](hooks.md), [hook-events.md](hook-events.md). Notification and Stop are different events and only one of them can block |
