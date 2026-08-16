@@ -21,7 +21,7 @@ meets this fact in a footnote has already written a plan around a layer they do 
 ## Read this first: this is one sandbox option, not the comparison
 
 - This file is the built-in OS-level sandbox around the Bash tool. "Sandbox" also names a wider choice: the official `sandbox-environments` page compares the sandboxed Bash tool, the sandbox runtime, dev containers, Docker and VMs, and asks which isolation your threat model needs. This file is one column of that table [OFFICIAL]
-- If the question is "how do I run Claude Code inside a container or a VM", nothing below answers it, and the settings below will not produce that isolation no matter how they are set. Name the comparison page and stop [ENGINEERING]
+- If the question is "how do I run Claude Code inside a container or a VM", nothing below answers it, and the settings below will not produce that isolation no matter how they are set. Answer it from general knowledge, say so, and name the comparison page as the authority. Do NOT answer it from the settings below: they look like isolation and are a different mechanism [ENGINEERING]
 
 ## It covers Bash and its children, and NOTHING else
 

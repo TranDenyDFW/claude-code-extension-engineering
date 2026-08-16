@@ -27,7 +27,11 @@ hit, and the old guard could never fire, because it was conditioned on nothing m
 So run the collision table immediately below BEFORE the shape tables. Then:
 
 - collision table silent, a shape row matches, open it.
-- collision table names the question, name the official page and stop. That is complete.
+- collision table names the question, ANSWER it from what you know, say the answer is not sourced
+  from this library, and name the official page. Naming the page INSTEAD of answering is not a
+  complete answer: measured, that behaviour lost blind pairwise comparisons to an arm carrying no
+  relevant library at all. What is forbidden is sourcing the answer from a file HERE that merely
+  shares a word with the topic.
 - nothing matches anywhere, say what you could not confirm, and name the nearest official
   PAGE rather than the nearest filename here.
 

@@ -1,6 +1,6 @@
 ---
 name: claude-code-extension-engineering
-description: "Building, debugging, or reasoning about the limits of a Claude Code extension: CLAUDE.md, rules, skills, hooks and hook events incl. Stop and Notification, subagents, dynamic workflows, agent teams, MCP servers, output styles, themes, status lines, monitors, channels, plugins, the Agent SDK, permission rules, the OS sandbox, settings files and environment variables, auto memory, and what survives a session ending (transcripts, resume, /rewind). Use when choosing between these mechanisms, writing one, or diagnosing one that will not load, fire, or behave. ALSO capability and scope: whether an event can block or refuse, whether a key is honored at project scope or only user/managed/CLI scope, which tools a path rule is consulted for, what a subagent receives, whether it exists on an older build. ALSO for IMPERATIVE build requests, not only questions: \"wire up a hook that...\", \"make it stop when X\", \"put our sandbox config in settings.json\". They presuppose it can, and often it cannot. ALSO for a BARE SYMPTOM or lookup with no artifact attached: \"stop hook notification\", \"stop hook not working\", \"settings.json ignored\", \"where is settings.json\", \"how do I delete sessions\", \"# memory not working\", \"MCP server not showing up\". A bare noun phrase is a QUESTION, not system output to acknowledge. NOT for operating Claude Code rather than extending it: telemetry, permission MODES, containers and VMs, the token budget, the agents dashboard, usage and billing, IDE integrations, install and login. Name the page and stop."
+description: "Building, debugging, or reasoning about the limits of a Claude Code extension: CLAUDE.md, rules, skills, hooks and hook events incl. Stop and Notification, subagents, dynamic workflows, agent teams, MCP servers, output styles, themes, status lines, monitors, channels, plugins, the Agent SDK, permission rules, the OS sandbox, settings files and environment variables, auto memory, and what survives a session ending (transcripts, resume, /rewind). Use when choosing between these mechanisms, writing one, or diagnosing one that will not load, fire, or behave. ALSO capability and scope: whether an event can block or refuse, whether a key is honored at project scope or only user/managed/CLI scope, which tools a path rule is consulted for, what a subagent receives, whether it exists on an older build. ALSO for IMPERATIVE build requests, not only questions: \"wire up a hook that...\", \"make it stop when X\", \"put our sandbox config in settings.json\". They presuppose it can, and often it cannot. ALSO for a BARE SYMPTOM or lookup with no artifact attached: \"stop hook notification\", \"stop hook not working\", \"settings.json ignored\", \"where is settings.json\", \"how do I delete sessions\", \"# memory not working\", \"MCP server not showing up\". A bare noun phrase is a QUESTION, not system output to acknowledge. NOT for operating Claude Code rather than extending it: telemetry, permission MODES, containers and VMs, the token budget, the agents dashboard, usage and billing, IDE integrations, install and login. Answer; name the page."
 ---
 
 # Claude Code extension engineering
@@ -56,9 +56,23 @@ for something else, and answering from the filename is worse than not answering:
 wrong-topic answer sourced from a real reference reads as authoritative and displaces the
 correct one, where a gap would have left the correct one reachable.
 
-Check this list before opening any reference. If the question is on it, name the topic the
-asker means, name the official page, and stop. Do not route into the mechanism that shares
-the word.
+Check this list before opening any reference. If the question is on it: **answer it**, name the
+topic the asker means, and name the official page as the authority. Do not route into the
+mechanism that shares the word, and do not source the answer from a reference here.
+
+**The boundary is about WHERE AN ANSWER COMES FROM, not about whether to give one.** Refusing on
+scope makes this library worse than no library at all, because the model already knew the answer
+and this file talked it out of saying so. Measured, on two questions about
+`CLAUDE_CODE_MAX_OUTPUT_TOKENS`: the arm carrying this library named the variable correctly, then
+wrote "isn't part of this skill's scope" and "outside what this extension-engineering skill
+covers" and stopped. The arm carrying no relevant library at all answered with the `env` block to
+put in `settings.json`, and blind graders preferred it, twice. A user who asks a question and gets
+a pointer to a page has been handed a worse outcome than if this skill had never loaded.
+
+So: give the best answer you have, say plainly that it is not sourced from this library, and name
+the page that is authoritative. The thing being prevented is a confident answer reconstructed from
+the wrong reference. A correct answer from general knowledge, labelled as such, was never the
+problem.
 
 | If the question is about | It is | Official page |
 |---|---|---|
@@ -74,11 +88,20 @@ the word.
 | Gateways, Bedrock/Vertex/Foundry setup, SSO, seats and billing | deployment and administration | `llm-gateway`, `admin-setup`, `costs` |
 | Installation, login, "it will not start", a verbatim error string | troubleshooting | `troubleshoot-install`, `errors` |
 
-Pages live at `https://code.claude.com/docs/en/<page>`. **Naming the page and stopping is a
-COMPLETE answer to anything on this list.** Fetch it if you can, and say you have not read it
-if you cannot. Do not reconstruct its content from a reference here that shares a word with
-it. This list is enumerated on purpose and is not a licence to defer generally: a question
-that is not on it, and that a reference does cover, gets answered from the reference.
+Pages live at `https://code.claude.com/docs/en/<page>`. **Naming the page is REQUIRED. Naming it
+INSTEAD of answering is not an answer.** Give the concrete thing the asker needs: the variable, the
+flag, the file it goes in, the command to run. Then name the page as the authority, and say if you
+have not read it. Fetch it if you can.
+
+What stays forbidden is reconstructing the answer from a reference HERE that merely shares a word
+with the topic, because a wrong-topic answer sourced from a real reference reads as authoritative
+and displaces the correct one. That is a rule about provenance. It was written as "naming the page
+and stopping is a COMPLETE answer", which is a rule about silence, and the two are not the same:
+the silence reading lost two blind pairwise comparisons to an arm carrying no relevant library at
+all, on questions the model could answer perfectly well.
+
+This list is enumerated on purpose and is not a licence to defer generally: a question that is not
+on it, and that a reference does cover, gets answered from the reference.
 
 ## The layers
 
