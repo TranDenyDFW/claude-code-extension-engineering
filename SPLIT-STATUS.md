@@ -1,8 +1,7 @@
 # Skill split: where it stands
 
-Steps 0 through 8 of a nine-step migration are done. **Step 9, the cutover, has not run.** Both
-trees are on disk on purpose: the single `claude-code-extension-engineering` skill still exists and
-still works, and four `cc-ext-*` skills exist beside it.
+All nine steps of the migration are done. The single `claude-code-extension-engineering` skill has
+been deleted and four `cc-ext-*` skills replace it. It is recoverable from git at `9daee68`.
 
 ## Cutover complete: every gate green
 
@@ -72,10 +71,14 @@ have no invocation history at all.
 
 ## What is left
 
-- **Step 9, cutover**: swap the ledgers in, delete the old tree, update README / RESULTS /
-  SUBMISSION / plugin.json, one commit. Not started, and it is the point of no return.
-- **Part D**: re-run the 36-question benchmark against the split and compare with the 26 of 36 the
-  single skill scored on 2026-08-15. Revert step 9 if the listing overflows and descriptions are
-  dropped, or if arm A invocation falls below that baseline.
-- `cc-ext-packaging-and-integration` still has **no routing fixture**, so it would ship with an
-  unproven routing surface. That was risk 4 in the plan and it is still open.
+- **Part D, the measurement that justifies all of this.** Re-run the 36-question benchmark against
+  the split and compare with the **26 of 36** the single skill scored on 2026-08-15. The
+  pre-committed revert condition stands: revert this cutover if the listing overflows and
+  descriptions are dropped, or if arm A invocation falls below that baseline. Four brand-new skills
+  have no invocation history, and the listing budget drops descriptions starting with the least
+  invoked, so the plausible failure is four name-only skills, strictly worse than one.
+- **Nothing here has been independently reviewed.** Every claim above is the author's own, and this
+  session's base rate for that is poor.
+- Risk 2 from the plan is now live and unmitigated: a question spanning two skills is answered by
+  naming both, and 11 questions in the corpus target exactly that shape. `R-sdk-hooks` is the only
+  fixture that asserts a cross-skill route.
