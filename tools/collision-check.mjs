@@ -283,7 +283,11 @@ export function checkOffline(ledgerPath = LEDGER, refDir = REF_DIR) {
     if (seen.has(k)) problems.push({ code: 'LEDGER_DUPLICATE_PAIR', detail: k });
     seen.add(k);
     if (!VERDICTS.includes(p.verdict)) problems.push({ code: 'COLLISION_UNKNOWN_VERDICT', detail: `${k} -> ${p.verdict}` });
-    const f = join(refDir, p.extension);
+    /* Search EVERY skill's references. p.extension names a file, and after the split that file
+       lives in exactly one of four directories: joining it to one of them resolves a quarter of
+       the time and reports nothing for the rest, which reads exactly like "no collision". */
+    const f = [refDir, ...REF_DIRS].map((d) => join(d, p.extension)).find((x) => existsSync(x))
+      || join(refDir, p.extension);
     if (!existsSync(f)) { problems.push({ code: 'LEDGER_EXT_FILE_MISSING', detail: p.extension }); continue; }
     if (p.verdict === 'different-subject' && !pointsAt(readFileSync(f, 'utf8'), p.official)) {
       problems.push({ code: 'COLLISION_NO_DISAMBIGUATION', key: k, detail: `${p.extension} has no "Read this first" section naming ${String(p.official).replace(/\.md$/, '')}` });

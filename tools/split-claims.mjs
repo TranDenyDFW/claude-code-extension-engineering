@@ -62,6 +62,16 @@ export function repath(rows, map) {
   return { out, problems, idsChanged };
 }
 
+/* Build the split ledger from what the EXTRACTOR actually finds in the new tree, then carry each
+ * claim's attribution across from the old ledger by (filename, text).
+ *
+ * The first version re-pathed the old ledger and re-lined it. That produced the right records and
+ * the wrong ids, because a claim id is derived from file stem and line, and the tool that derives
+ * them is the one verify-evidence re-runs. Any ledger built by a second implementation of that rule
+ * is a second place for it to drift, which is the failure this repo keeps finding in other shapes.
+ * So: the extractor decides ids and lines, and this only supplies source, status and note, which
+ * are the fields a human wrote and a script may not invent.
+ */
 const rows = readFileSync(SRC, 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
 const { out, problems, idsChanged } = repath(rows, MAP);
 
@@ -98,6 +108,63 @@ if (out.length !== rows.length || fieldDrift) {
 }
 const ids = new Set(out.map((r) => r.id));
 if (ids.size !== out.length) { console.error('\nFAIL: duplicate claim ids after re-stemming'); process.exit(1); }
+
+/* --reline: after step 7 writes the four SKILL.md files, the six claims that came from the single
+   SKILL.md sit at DIFFERENT line numbers, because each new file is shorter. Their text is
+   unchanged, so this is the "moved" case rekey-claims exists for: same file, same text, new line.
+   Done here rather than by rekey because rekey rewrites evidence/claims.jsonl and the split ledger
+   is a separate artifact until cutover. The text must match EXACTLY or the claim is left alone and
+   reported, because a script may not decide that two similar sentences are the same claim. */
+if (process.argv.includes('--reline')) {
+  let relined = 0;
+  const unfound = [];
+  for (const r of out) {
+    if (!r.file.endsWith('SKILL.md')) continue;
+    const abs = join(ROOT, r.file);
+    const lines = readFileSync(abs, 'utf8').split(/\r?\n/);
+    const idx = lines.findIndex((l) => l.includes(r.text));
+    if (idx < 0) { unfound.push(r.id); continue; }
+    const line = String(idx + 1);
+    if (line !== String(r.line)) { r.line = line; r.id = r.id.replace(/-[0-9]+$/, '-' + line); relined++; }
+  }
+  console.log('\nrelined ' + relined + ' SKILL.md claim(s) against the files on disk');
+  if (unfound.length) { console.error('FAIL: text not found for ' + unfound.join(', ')); process.exit(1); }
+}
+
+/* --from-extraction: the authoritative build. */
+if (process.argv.includes('--from-extraction')) {
+  const { extract } = await import('./extract-claims.mjs');
+  const mine = extract().filter((c) => c.file.startsWith('skills/cc-ext-'));
+  const attrib = new Map();
+  for (const c of rows) attrib.set(`${basename(String(c.file))}\u0000${c.text}`, c);
+
+  const built = [];
+  const missing = [];
+  for (const c of mine) {
+    const src = attrib.get(`${basename(c.file)}\u0000${c.text}`);
+    if (!src) { missing.push(`${c.id} ${c.file}:${c.line}`); continue; }
+    built.push({ ...c, source: src.source, status: src.status, note: src.note });
+  }
+
+  console.log(`\nfrom extraction: ${mine.length} claims in the new tree, ${built.length} matched to an attribution`);
+  if (missing.length) {
+    console.error(`FAIL: ${missing.length} extracted claim(s) have no attribution in the old ledger`);
+    for (const m of missing.slice(0, 8)) console.error('  ' + m);
+    process.exit(1);
+  }
+  if (built.length !== rows.length) {
+    console.error(`FAIL: built ${built.length} claims from a ledger of ${rows.length}; the split must neither add nor drop`);
+    process.exit(1);
+  }
+  const bIds = new Set(built.map((r) => r.id));
+  if (bIds.size !== built.length) { console.error('FAIL: duplicate ids in the built ledger'); process.exit(1); }
+  if (WRITE) {
+    writeFileSync(DST, built.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    console.log(`wrote ${DST} from the extraction`);
+  }
+  console.log('\nPASS: the split ledger is the extractor\'s own output plus the original attributions.');
+  process.exit(0);
+}
 
 if (WRITE) {
   writeFileSync(DST, out.map((r) => JSON.stringify(r)).join('\n') + '\n');

@@ -40,7 +40,25 @@ export function extract() {
   const claims = [];
   for (const abs of files) {
     const rel = abs.substring(ROOT.length + 1).replace(/\\/g, '/');
-    const stem = basename(abs, '.md');
+    /* SKILL.md is the one basename that is not unique after the split: four skills, four files,
+       one stem, so `CLM-SKILL-121` would name a claim in any of them and two could collide
+       outright. Qualify it with the skill directory. Reference filenames stay unqualified because
+       the split map already guarantees each lives in exactly one skill, so their ids are stable
+       across the move and 557 of 563 never change. */
+    const raw = basename(abs, '.md');
+    /* SKILL.md is the one basename that stops being unique after the split: four skills, four
+       files, one stem, so `CLM-SKILL-121` would name a claim in any of them and two could collide
+       outright. Qualify it with the skill's short name.
+       The legacy single skill keeps the bare `SKILL` stem so the 6 ids already in
+       evidence/claims.jsonl stay valid while both trees coexist. That special case disappears with
+       the directory at cutover, and it is narrow on purpose: making ids depend on how many skills
+       happen to exist would make them unstable, and an id that moves is worse than a long one.
+       Reference filenames stay unqualified because the split map guarantees each lives in exactly
+       one skill, which is why 557 of 563 ids never change. */
+    const dir = basename(dirname(abs));
+    const stem = raw !== 'SKILL' || dir === 'claude-code-extension-engineering'
+      ? raw
+      : `${dir.replace(/^cc-ext-/, '').split('-')[0].toUpperCase()}-SKILL`;
     const lines = readFileSync(abs, 'utf8').split(/\r?\n/);
     lines.forEach((line, i) => {
       const tags = [];
