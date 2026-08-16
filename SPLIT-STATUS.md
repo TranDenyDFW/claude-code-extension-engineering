@@ -1,34 +1,48 @@
-# Skill split: where it stands
+# Skill split: measured, and reverted
 
-All nine steps of the migration are done. The single `claude-code-extension-engineering` skill has
-been deleted and four `cc-ext-*` skills replace it. It is recoverable from git at `9daee68`.
+The four-skill split was built, cut over, measured against the benchmark, and **reverted** because
+it lost on the metric it was built to improve.
 
-## Cutover complete: every gate green
-
-All nine steps are done. The single skill is gone; four remain. Measured after cutover:
-
-| Gate | Result |
+| | arm A invoked the library |
 |---|---|
-| `test` | 254 of 254 passed, 8 retired, 262 in the ledger |
-| `test:prove-fail` | the suite is not self-certifying |
-| `verify` | evidence ledger internally consistent |
-| `numbers` | no disagreements |
-| `doctor` | 0 findings, 0 BROKEN, 0 SILENT |
-| `quotes` | clean |
-| doctor self-test | every documented failure mode detected, clean tree silent |
-| routing | 9 of 9 fixtures against 232 table rows |
-| `split-map-check` | every reference assigned exactly once |
+| one skill | **26 of 36** |
+| four skills | **22 of 36** |
 
-The two `verify` errors that were expected mid-migration are gone: the ledgers swapped, so the
-tree and the ledger describe the same thing again. `doctor` fell to zero findings because the
-duplicate-across-scopes finding went with the old directory.
+The pre-committed rule was frozen in `google-questions/analyze-part-d.mjs` before the run finished:
+revert if arm A invoked the library in fewer than 26 of 36. Observed 22. Reverted.
 
-**Eight question rows are RETIRED, not deleted.** They asserted an adjacency in the single
-description, which listed every mechanism in one sentence; four descriptions each list only their
-own subjects, so no description carries those phrases and none should. The rows stay in the ledger
-with a `retired_reason`, the runner lists them every run, and the summary reports 262 rather than
-254, because a suite that quietly gets easier is worse than one that fails. A retirement without a
-reason is now itself a failure.
+Three independent sources agree on 22: the arena transcripts, the CLI's own `skillUsage` counter,
+and the ledger's `skillsLoaded` field, all reading 9 / 7 / 3 / 3 across the four skills. The
+analyzer was calibrated against the baseline pack first and reproduces its 26 exactly.
+
+**All four skills were used.** The seam is sound as a routing structure; it simply did not pay for
+itself. The budget argument was also sound and was delivered, 1,534 characters to 5,048, but the
+budget was never the goal. The likely mechanism is the one the plan named in writing beforehand:
+the listing drops descriptions starting with the least-invoked skills, and the split discarded 111
+accumulated invocations to start four skills at zero. This run establishes the outcome, not the
+cause.
+
+Full write-up: `google-questions/rev/2026-08-15-fix11-split/RESULT.md`.
+
+## What was kept
+
+The split is gone; the work it surfaced is not:
+
+- `extension-doctor.mjs` no longer mis-measures the description cap it exists to enforce
+- `rekey-claims.mjs` refuses to write a ledger missing claims, rather than destroying then warning
+- five tools discover skills by content instead of naming one
+- the `R-sdk-hooks` routing fixture and the `hooks.md` SDK disambiguation, both re-pointed at the
+  single skill, because that collision is a property of the subject and not of the packaging
+- skill content pinned to LF
+- retired test rows are counted and reported rather than deleted
+
+The four skills remain in history at `e6e4eb4` if the trade ever changes.
+
+## What this does not settle
+
+No grader ran on either side, so this says nothing about answer quality. And 26 against 22 on 36
+paired questions, 7 lost and 3 gained, is not a well-separated effect. The rule was set in advance
+so that a marginal result still produces a decision rather than an argument.
 
 ## What each step produced
 

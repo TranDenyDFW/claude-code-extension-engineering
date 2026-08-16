@@ -11,7 +11,7 @@ Code the HARNESS runs on a lifecycle event, independent of the model's judgment.
 
 - If the question is about hooks in the **Agent SDK**, this is the wrong file. The SDK's hooks are
   programmatic: callbacks registered in code against an SDK session, not JSON handlers discovered
-  from `.claude/`. They are covered in `agent-sdk.md`, in the packaging-and-integration skill.
+  from `.claude/`. They are covered in `agent-sdk.md`.
 - The word is the entire overlap. Answering an SDK question out of this file produces settings-file
   syntax for a surface that never reads settings files, which is the failure this library exists to
   prevent: accurate, sourced, and about a mechanism the asker is not using.

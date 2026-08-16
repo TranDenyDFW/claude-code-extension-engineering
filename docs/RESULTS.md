@@ -148,7 +148,7 @@ rather than assumed is that the recognised command set has no documented contrac
 there is nothing to generalise from. Another platform needs its own run.
 
 Detail, the 25-shape n=1 screen, and the shapes that could not be measured at all:
-[permissions.md](../skills/cc-ext-enforcement-and-scope/references/permissions.md).
+[permissions.md](../skills/claude-code-extension-engineering/references/permissions.md).
 
 ## Lint bench: the doctor against four ecosystem linters
 

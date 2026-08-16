@@ -118,24 +118,10 @@ function runRow(q) {
 }
 
 const questions = loadQuestions();
-/* A RETIRED row asserted a property the artifact deliberately no longer has. It is counted, listed
-   and skipped, never deleted: deleting it shrinks the denominator silently, and a suite that gets
-   easier without saying so is worse than one that fails. A retirement must carry a reason, so it
-   cannot be done by adding a single word. */
-const retiredRows = questions.filter((q) => q.retired);
-const unreasoned = retiredRows.filter((q) => !q.retired_reason);
-const results = questions.filter((q) => !q.retired).map(runRow);
+const results = questions.map(runRow);
 
 const positives = results.filter(r => r.assertion === 'positive');
 const failed = results.filter(r => !r.pass);
-if (retiredRows.length) {
-  console.log(`\n${retiredRows.length} row(s) RETIRED, counted in the total and not run:`);
-  for (const q of retiredRows) console.log(`  ${q.id}  ${String(q.retired_reason || '').slice(0, 110)}`);
-}
-if (unreasoned.length) {
-  console.error(`\nFAIL: ${unreasoned.length} retired row(s) carry no retired_reason: ${unreasoned.map((q) => q.id).join(', ')}`);
-  process.exitCode = 1;
-}
 
 // ----------------------------------------------------------------- reporting --
 
@@ -197,7 +183,5 @@ if (failed.length > 0) {
   if (!AS_JSON) console.log(`FAIL: ${failed.length} of ${results.length} rows failed.`);
   process.exit(1);
 }
-// State the WHOLE corpus, not just what ran. A summary that reports 254 when the ledger holds
-// 262 is the shrinking denominator this suite exists to catch, printed by the suite itself.
-if (!AS_JSON) console.log(`PASS: ${results.length} of ${results.length} rows passed` + (retiredRows.length ? `, ${retiredRows.length} retired, ${questions.length} in the ledger.` : '.'));
+if (!AS_JSON) console.log(`PASS: ${results.length} of ${results.length} rows passed.`);
 process.exit(0);

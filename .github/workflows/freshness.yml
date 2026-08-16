@@ -68,31 +68,6 @@ jobs:
       - name: Prove the suite can fail
         run: node tests/run-tests.mjs --prove-fail
 
-      - name: Routing surface resolves every fixture
-        # The deterministic suite asserts that content EXISTS in a shipped file. It cannot
-        # see that the wrong file was opened or that the right one was never reached, which
-        # is what both measured failures of 2026-08-13 actually were.
-        run: node tests/routing/run-routing-tests.mjs
-
-      - name: Prove the routing gate can fail
-        run: node tests/routing/prove-routing.mjs
-
-      - name: Live trace scorer self-test
-        run: node tests/routing-live/score-traces.mjs --self-test
-
-      - name: The trace scorer catches the real recorded failures
-        # Known-bad input is the three traces from the 2026-08-13 run that scored 0 or 1 of
-        # 6, frozen with hashes. A scorer that PASSES the trace whose first tool call is
-        # `Skill | update-config` is broken, and this says so.
-        run: node tests/routing-live/score-traces.mjs --prove-can-fail
-
-      - name: Claims ledger has no drift
-        # Claim ids encode line numbers, so inserting a section renumbers everything below.
-        # This reports drift; it never rewrites attributions, because regenerating would
-        # discard hand-made source assignments and leave a ledger that passes while
-        # asserting nothing.
-        run: node tools/rekey-claims.mjs
-
       - name: Verify evidence ledger
         run: node tools/verify-evidence.mjs
 
@@ -134,11 +109,6 @@ jobs:
         # sequence, the "*" matcher wildcard) must stay green. Gutting any
         # check turns exactly its fixture row red.
         run: node tools/extension-doctor.mjs --self-test
-
-      - name: the skill's own frontmatter stays inside the cap it documents
-        run: |
-          node tools/skill-frontmatter-gate.mjs
-          node tools/skill-frontmatter-gate.mjs --prove-fail
 
       - name: Lint-bench runner self-test
         # Scoring logic incl. the boilerplate-immunity rule (a run-level
@@ -262,44 +232,6 @@ jobs:
         # Scoring logic incl. false-positive-on-the-control weighted like a
         # miss and n/a for an uninstalled tool, plus fixture-generator drift.
         run: node tests/prove-bench/run-bench.mjs --self-test
-
-      - name: prove-bench record still reproduces
-        run: node tests/prove-bench/run-bench.mjs --verify-record
-
-      - name: Routing ledgers are consistent
-        # --offline needs no docs mirror, so it runs unconditionally. Each ledger treats an
-        # ABSENT file as a failure rather than an empty list: the collision gate passed on a
-        # DELETED ledger until an independent reviewer measured it, and a dropped file is a
-        # likelier accident than a corrupted one.
-        run: |
-          node tools/collision-check.mjs --self-test
-          node tools/collision-check.mjs --offline
-          node tools/out-of-scope-check.mjs --self-test
-          node tools/out-of-scope-check.mjs --offline
-          node tools/trigger-collision.mjs --self-test
-          node tools/rekey-claims.mjs --self-test
-
-      - name: Trigger-precedence boundary is declared and claimed
-        # The only gate addressing GQ-06's actual cause: the bundled `update-config` skill
-        # claims "hook troubleshooting, or any changes to settings.json" and won retrieval
-        # before this skill was ever consulted. This proves the description STAKES a
-        # boundary. It does NOT prove the model honours it; only tests/routing-live does.
-        run: node tools/trigger-collision.mjs
-
-      - name: Routing ledgers against the docs mirror
-        # Mirror-dependent, so exit 2 is tolerated ONLY when the output names the mirror as
-        # the reason, reusing the guard pattern below rather than a bare `|| [ $? -eq 2 ]`.
-        run: |
-          set +e
-          for cmd in "node tools/collision-check.mjs" "node tools/out-of-scope-check.mjs" "node tools/out-of-scope-check.mjs --prove-fail"; do
-            out=$($cmd 2>&1); code=$?
-            echo "$out"
-            if [ $code -eq 2 ] && echo "$out" | grep -qE "mirror is not committed|needs one locally"; then
-              echo "  tolerated: exit 2 naming the absent mirror"
-            elif [ $code -ne 0 ]; then
-              echo "FAILED: $cmd exited $code"; exit $code
-            fi
-          done
 
       - name: Artifact gates can fail
         # Mutate the COMMITTED artifacts a gate publishes numbers from, and

@@ -71,7 +71,7 @@ remains a legal status in the ledger for honest future gaps; it is simply empty 
 Resolved 2026-07-29 (both manifests shipped, installable via `/plugin marketplace add`),
 then deliberately reverted 2026-07-30: `marketplace.json` was removed while the community
 submission is in review, so this entry's resolved state no longer describes the repo. The
-skill still lives under `skills/cc-ext-*/` for component
+skill still lives under `skills/claude-code-extension-engineering/` for component
 auto-discovery; current install paths are in item 9 and the README.
 
 **6. ~~Pinned 1.0.0 version blocking updates.~~ RESOLVED 2026-07-29.**

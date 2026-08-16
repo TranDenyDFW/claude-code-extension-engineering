@@ -32,15 +32,13 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { referenceDirs, skillDirs } from '../../tools/skill-roots.mjs';
+import { referenceDirs } from '../../tools/skill-roots.mjs';
 import { disambiguationSection } from '../../tools/collision-check.mjs';
 
 const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..');
-/* No skill is THE skill any more. Default to the first one on disk; every fixture that cares
-   names its own skill and is checked against that surface. */
-const DEFAULT_SKILL_DIR = skillDirs(ROOT)[0];
+const DEFAULT_SKILL_DIR = join(ROOT, 'skills', 'claude-code-extension-engineering');
 const MAP = join(HERE, 'routing-map.jsonl');
 
 /** Parse every markdown table row into { cell, files[] } across the routing surface. */

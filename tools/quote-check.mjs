@@ -37,13 +37,11 @@
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { skillDirs, referenceDirs } from './skill-roots.mjs';
 
 const IS_MAIN = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
-const REF_DIRS = referenceDirs(ROOT);
-const REF_DIR = REF_DIRS[0];
+const REF_DIR = join(ROOT, 'skills', 'claude-code-extension-engineering', 'references');
 export const DEFAULT_MIRROR = 'P:/ClaudeExt/CCX-Extension-Research/sources/docs/md';
 
 /**
@@ -195,14 +193,10 @@ export const NOT_A_CITATION = new Map([
 
 const TAGGED = /\[(OFFICIAL|ANTHROPIC|COMMUNITY|EXPERIMENTAL|LEGACY|DEPRECATED)\]|\[v\d+\.\d+\.\d+\]/;
 
-/* EVERY skill's references. A quote gate that scans a quarter of the corpus and reports every
-   quote verified is the same shape as a coverage number that never looked at its population. */
-export function collectQuotes(refDir = null) {
-  const dirs = refDir ? [refDir] : REF_DIRS;
+export function collectQuotes(refDir = REF_DIR) {
   const out = [];
-  const entries = dirs.flatMap((d) => readdirSync(d).filter((x) => x.endsWith('.md')).map((f) => ({ f, d })));
-  for (const { f, d } of entries) {
-    const lines = readFileSync(join(d, f), 'utf8').split(/\r?\n/);
+  for (const f of readdirSync(refDir).filter((x) => x.endsWith('.md'))) {
+    const lines = readFileSync(join(refDir, f), 'utf8').split(/\r?\n/);
     lines.forEach((line, i) => {
       if (!TAGGED.test(line)) return;
       for (const q of quotesIn(line)) {
