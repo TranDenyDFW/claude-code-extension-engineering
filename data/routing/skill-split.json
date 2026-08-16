@@ -1,0 +1,38 @@
+{
+  "$schema-note": "Which of the four skills each reference file belongs to. Written BEFORE anything moves, so the assignment is reviewable on its own and the migration that follows is mechanical.",
+  "why": "description plus when_to_use share one ~1536 char cap per skill (skills.md:327-328), and 27 reference subjects competed for one description. Description space buys invocation, and invocation is the largest measured effect in the benchmark: 26 of 36 questions opened the library in the 2026-08-15 run, and cells that opened it scored 5.59 of 6 against 4.23 for cells that did not. Four skills means four budgets.",
+  "seam": "Partition the COLLISION WORDS, the nouns a question can name that appear in more than one subject. Scored against the repo's own routing table by reusing parseRoutingRows: the trigger-noun seam lands a row's destinations inside exactly one skill for 98% of rows, against 95% for the layer/taxonomy seam the SKILL.md body proposes. The layer seam leaks because it classifies artifacts; a question names a noun.",
+  "risk": "The listing budget drops descriptions starting with the LEAST invoked skills (skills.md:1047). Four new skills have zero invocation history, so they are the most droppable entries the moment they ship. Intended outcome: more usable description budget. Plausible failure: four name-only skills, strictly worse than one. Part D of the plan re-runs the benchmark against a pre-committed revert condition rather than assuming.",
+
+  "skills": {
+    "cc-ext-enforcement-and-scope": {
+      "ownsCollisionWords": ["permission", "sandbox", "session", "classifier"],
+      "files": ["permissions.md", "sandboxing.md", "safety-classifier.md", "compatibility.md", "sessions.md"]
+    },
+    "cc-ext-hooks-and-live-events": {
+      "ownsCollisionWords": ["monitor"],
+      "files": ["hooks.md", "hook-events.md", "monitors.md", "channels.md", "statusline.md", "testing.md"]
+    },
+    "cc-ext-delegation-and-instructions": {
+      "ownsCollisionWords": ["agent", "workflow", "context"],
+      "files": ["subagents.md", "agent-teams.md", "workflows.md", "context-modes.md", "skills.md", "claude-md-family.md", "auto-memory.md"]
+    },
+    "cc-ext-packaging-and-integration": {
+      "ownsCollisionWords": [],
+      "files": ["plugins.md", "mcp.md", "lsp.md", "agent-sdk.md", "github-action.md", "output-styles.md", "themes.md"]
+    }
+  },
+
+  "duplicatedIntoEverySkill": {
+    "files": ["INDEX.md", "selection.md", "composition-cards.md", "sources.md"],
+    "why": "These four are navigation and provenance, not subject matter, and a reader who lands in one skill needs them there. Duplication is cheap here because all four carry ZERO claims, so no CLM-* id collides across copies.",
+    "cost": "It contradicts this repo's own stated principle that a duplicated list is a second place for the truth to rot. Mitigated by a byte-identity gate against the canonical copy rather than by hoping."
+  },
+
+  "invariants": [
+    "Every file in references/ appears exactly once across skills.files, or in duplicatedIntoEverySkill.",
+    "No file appears in both places.",
+    "No two skills share a collision word.",
+    "Every listed file exists on disk."
+  ]
+}
