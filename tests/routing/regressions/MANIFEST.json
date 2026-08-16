@@ -1,0 +1,25 @@
+{
+  "note": "The two measured routing failures, copied verbatim from google-questions/rev/2026-08-13-LT/traces-lt.json. These are the known-bad input for score-traces.mjs --prove-can-fail: a scorer that returns PASS on any of them is broken and says so. Never regenerate these from a live run; they are a record of what the defect looked like.",
+  "source": "P:/ClaudeExt/Claude-Prompt-Tests/Claude-Extension-Engineering/google-questions/rev/2026-08-13-LT/traces-lt.json",
+  "capturedOn": "2026-08-13",
+  "traces": [
+    {
+      "file": "GQ-55-denied.trace.json",
+      "traceKey": "denied|GQ-55|A",
+      "steps": 4,
+      "sha256": "39a87977967d45a7b607c0c3318ff53fb64d31d1de70b53c9636c68f776ba18d"
+    },
+    {
+      "file": "GQ-06-open.trace.json",
+      "traceKey": "open|GQ-06|A",
+      "steps": 6,
+      "sha256": "ac09c2baf6e8ead2ff2de893b2ff576ef9334dfe7737b25e68a6f533208b4b15"
+    },
+    {
+      "file": "GQ-06-denied.trace.json",
+      "traceKey": "denied|GQ-06|A",
+      "steps": 13,
+      "sha256": "782352e3f74db805c49c98640e24ebcb436508266294cb1f2ae9cffe866dd623"
+    }
+  ]
+}

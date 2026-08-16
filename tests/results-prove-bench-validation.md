@@ -3,7 +3,7 @@
 A second cohort, measured 2026-08-07 on Windows, Claude Code 2.1.224, Node 24.
 
 It is a **separate experiment** in its own directory with its own results file. The published
-10-of-10-versus-3-of-10 result in [results-prove-bench.md](results-prove-bench.md) and its
+10-of-10-versus-2-of-10 result in [results-prove-bench.md](results-prove-bench.md) and its
 `tests/prove-bench/results.json` are not read or written by anything here. A measurement that
 moves when you add work beside it is not a measurement.
 
@@ -43,9 +43,17 @@ be, by construction, what was expected.
 
 ```
 extension-prove : 10 of 10 caught with the correct diagnosis, 0 false positives on the control
-test-hook.sh    :  1 of 11 caught,                            0 false positives on the control
+test-hook.sh    :  0 of 11 caught, 1 not measured,            0 false positives on the control
 known blind spot: 1 fixture, excluded from the denominator and named below
 ```
+
+**The competitor line said 1 of 11 until 2026-08-13, and the single catch was
+`handler-path-bare-variable`, whose recorded detail read `no verdict line`.** It exited non-zero
+without printing either of its own verdict strings, so it had not run: the same launch failure
+that inflated the first cohort, scored the same way, because any non-zero exit on a defective
+fixture counted as a catch. Scoring a verdictless run `n/a` drops this cohort's competitor
+column to zero. Our own score is unaffected, since it requires the reported failure set to match
+the fixture's declared defect.
 
 **Read that 10 as 9 pre-registered plus 1 fitted.** Nine fixtures' expected failure sets were
 declared before the bench ran and matched on the first run. One, `handler-path-bare-variable`, was
@@ -61,7 +69,7 @@ number to quote if you want the strict one.
 | `stdout-theatre` | prints a BLOCKED banner as text, exits 0 | CATCH | MISS |
 | `blocks-everything` | denies every Bash command | CATCH | MISS |
 | `matcher-wrong-tool` | matcher names `Write`, policy is about Bash | CATCH | MISS |
-| `handler-path-bare-variable` | bare `$CLAUDE_PROJECT_DIR`, so the handler never runs | CATCH | CATCH |
+| `handler-path-bare-variable` | bare `$CLAUDE_PROJECT_DIR`, so the handler never runs | CATCH | n/a |
 | `substring-match` | `command.includes('rm -rf')` instead of parsing | CATCH | MISS |
 | `first-segment-only` | stops at the first shell operator | CATCH | MISS |
 | `ignores-check-exit-code` | runs the required check, discards its status | CATCH | MISS |
@@ -69,10 +77,12 @@ number to quote if you want the strict one.
 | `only-first-rule-consulted` | rules 2 and 3 are dead configuration | CATCH | MISS |
 | `explicit-allow-decision` | emits `permissionDecision: "allow"` | **MISS (declared)** | MISS |
 
-The competitor's single catch is `handler-path-bare-variable`, where bash could not find the
-script at all. It caught a missing file, not a validation defect. On every fixture where the
-handler exists and runs, it printed "Test completed successfully", including the one that denies
-every command in the session and the one that blocks nothing at all.
+The competitor catches nothing here. `handler-path-bare-variable` was published as its single
+catch until 2026-08-13, on the strength of a non-zero exit; the run printed neither of the
+tool's own verdict strings, so it had exited before reaching its logic and the row is now
+scored `n/a` rather than counted. On every fixture where the handler exists and runs, it
+printed "Test completed successfully", including the one that denies every command in the
+session and the one that blocks nothing at all.
 
 ## The declared blind spot, which is ours
 

@@ -18,6 +18,11 @@ meets this fact in a footnote has already written a plan around a layer they do 
 - On WSL2 the Windows-interop path is CONDITIONAL, not blocked: "WSL hands a launch of a Windows binary such as `cmd.exe`, `powershell.exe`, or anything under `/mnt/c/` to the Windows host over a Unix socket", so whether a sandboxed command can launch one follows the sandbox's Unix-socket settings, and "the optional seccomp filter has to be installed to block the socket in the first place". "To allow these launches, set `allowAllUnixSockets`"; to keep them out of the sandbox entirely, list the command in `excludedCommands`, which runs it OUTSIDE the sandbox [OFFICIAL]  [v2.1.229]
 - This reverses what this file said through v2.1.224, which was that the sandbox "blocks" that path outright. It does not, by itself. The component that blocks it is OPTIONAL and has to be installed, so a reader who configured a Windows-interop containment on the strength of the old wording has a guarantee that may never have been in force. Treat WSL2 interop as reachable unless you have verified the seccomp filter is present  [ENGINEERING]  [v2.1.229]
 
+## Read this first: this is one sandbox option, not the comparison
+
+- This file is the built-in OS-level sandbox around the Bash tool. "Sandbox" also names a wider choice: the official `sandbox-environments` page compares the sandboxed Bash tool, the sandbox runtime, dev containers, Docker and VMs, and asks which isolation your threat model needs. This file is one column of that table [OFFICIAL]
+- If the question is "how do I run Claude Code inside a container or a VM", nothing below answers it, and the settings below will not produce that isolation no matter how they are set. Name the comparison page and stop [ENGINEERING]
+
 ## It covers Bash and its children, and NOTHING else
 
 The second fact people get wrong, and the reason this is a complement to the permission layer
@@ -40,6 +45,16 @@ rather than a replacement for it.
 - The retry is not an unchecked bypass: in default mode it prompts, and in auto mode "the classifier evaluates the underlying command instead of prompting you". To be prompted every time even in auto mode, "add an ask rule for `Bash(dangerouslyDisableSandbox:true)`" [OFFICIAL]  [v2.1.220]
 - Setting `"allowUnsandboxedCommands": false` disables the hatch entirely, shown in the `/sandbox` panel as Strict sandbox mode: "the `dangerouslyDisableSandbox` parameter is completely ignored and all commands must run sandboxed or be explicitly listed in `excludedCommands`" [OFFICIAL]  [v2.1.220]
 - If your requirement contains "cannot be bypassed", the default configuration does not satisfy it and `allowUnsandboxedCommands: false` is not optional  [ENGINEERING]
+
+## There IS a whole-feature off switch, and it is off by default
+
+A graded answer told a user there is no single key that turns sandboxing off. There is, and
+the harder half of the answer is that it is already the default, so "how do I disable the
+sandbox" usually means something else switched it on.
+
+- `sandbox.enabled` turns bash sandboxing on or off on macOS, Linux and WSL2, and its default is `false`. Setting it to `true` in user settings at `~/.claude/settings.json` is what enables the sandbox across all your projects [OFFICIAL]
+- So a session that is sandboxed when you did not ask for it was switched on somewhere, and WHERE decides whether you can switch it back. Selecting a mode in the `/sandbox` panel saves to that project's `.claude/settings.local.json`; an organisation enforcing it delivers the `sandbox` keys through managed settings [OFFICIAL]
+- Check in that order before editing anything: project local settings, then user settings, then managed. Setting `enabled` to false in a file that loses to managed settings looks like a fix and changes nothing, which is the same silently-inert failure the precedence rule describes everywhere else  [ENGINEERING]
 
 ## failIfUnavailable turns an unsupported platform into a startup failure
 

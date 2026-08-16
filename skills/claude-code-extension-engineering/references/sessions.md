@@ -12,11 +12,38 @@ the form "I had that, where did it go", which no other reference in this library
 
 **Layer:** Runtime state | **Classification:** builtin | **Status:** stable
 
+## Read this first: what survives a session, not how sessions talk
+
+- This file is about durability: what a resumed session carries back, what `/rewind` can and cannot undo, and what is gone for good. If the question is about listing or messaging your OTHER live sessions, on this machine or another, that is `cross-session-messaging`, which this library does not restate [OFFICIAL]
+- The distinction is time. This file is about a session that ENDED; that page is about sessions running CONCURRENTLY [ENGINEERING]
+
 ## Where the record lives
 
 - Transcripts are stored as JSONL at `~/.claude/projects/<project>/<session-id>.jsonl`, where the project segment is the working directory path with non-alphanumeric characters replaced by hyphens. [OFFICIAL]
 - The per-line entry format is INTERNAL and changes between versions, so a script parsing those files directly can break on any release; read session data through `/export`, the `-p --output-format json` result, or the `transcript_path` that hooks and status line commands receive. [OFFICIAL]
 - Storage location, retention and whether transcripts are written at all are configurable: `CLAUDE_CONFIG_DIR` moves storage off `~/.claude`, `cleanupPeriodDays` changes the 30-day retention, `CLAUDE_CODE_SKIP_PROMPT_HISTORY` suppresses writes in all modes, and `--no-session-persistence` suppresses them for one non-interactive run. [OFFICIAL]
+
+## `~/.claude.json` is a DIFFERENT file from `~/.claude/settings.json`
+
+Two files one character apart hold different things, and putting a key in the wrong one fails
+silently. This is the first thing to check when a settings key "does nothing".
+
+- `~/.claude.json` holds the OAuth session, user- and local-scope MCP server configuration, per-project state such as allowed tools and trust settings, and assorted caches. Project-scoped MCP servers live separately in `.mcp.json` [OFFICIAL]
+- A set of keys belongs to `~/.claude.json` rather than `settings.json`, and putting them in `settings.json` is not an error you will see: Claude Code silently ignores them at startup [OFFICIAL]
+- The documented set is `autoConnectIde`, `autoInstallIdeExtension`, `diffTool`, `externalEditorContext`, `permissionExplainerEnabled` and `teammateDefaultModel`, listed on the settings page under global config settings, which is the table to check when a key does nothing [OFFICIAL]
+- The diagnostic order that follows: confirm the key belongs in the file you edited BEFORE checking scope, syntax or precedence. A key in the wrong file and a key at an inert scope look identical from the outside, and only one of them is fixed by moving it between user and project settings [ENGINEERING]
+
+## Most settings hot-reload; a few do not
+
+- Claude Code watches the settings files and reloads them on change, so edits to most keys apply to the RUNNING session with no restart. That covers `permissions`, `hooks` and credential helpers such as `apiKeyHelper`, across user, project, local and managed settings, and the `ConfigChange` hook fires for each detected change [OFFICIAL]
+- A few keys are read once at session start and take effect only on the next run. `outputStyle` is one, because it forms part of the system prompt, which is rebuilt on `/clear` or restart [OFFICIAL]
+- Do not assert the general case backwards. Telling someone that settings are read at startup and so a restart is required is wrong for most keys and wastes their time; the true statement is that reloading is the default and the exceptions are enumerated [ENGINEERING]
+
+## Deleting the record, which is a command rather than a file hunt
+
+- `claude project purge [path]` deletes the state Claude Code holds for ONE project: transcripts and auto memory under `projects/`, the per-session `tasks/`, `debug/` and `file-history/` entries, the matching prompt lines in `history.jsonl`, and that project's entry in `~/.claude.json`. It prints the full deletion plan and asks for confirmation before removing anything [OFFICIAL]
+- It takes `--dry-run` to preview the plan, `-y`/`--yes` to skip confirmation, `-i`/`--interactive`, and `--all`. A path matching no state prints an error and exits 1, rather than reporting a successful deletion of nothing [OFFICIAL]
+- Prefer it to deleting the JSONL files by hand. The state is spread across five locations and a manual sweep reliably leaves the `~/.claude.json` entry and the `history.jsonl` prompt lines behind, so the transcripts are gone while the prompts that produced them are not  [ENGINEERING]
 
 ## What a resumed session restores
 

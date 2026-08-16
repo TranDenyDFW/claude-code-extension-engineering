@@ -7,10 +7,18 @@ A shell command Claude Code starts automatically and runs for the LIFETIME of th
 
 **Layer:** Automation | **Classification:** subtype | **Status:** experimental | **Since:** v2.1.105
 
-## Two different things are called Monitor
+## Read this first: this file is not about monitoring Claude Code
+
+- If the question is about watching CLAUDE CODE ITSELF, its usage, cost, token consumption, latency or error rate, across sessions or across a team, this is the wrong file and this library has no right one. That is OpenTelemetry: `CLAUDE_CODE_ENABLE_TELEMETRY=1` plus `OTEL_METRICS_EXPORTER` / `OTEL_LOGS_EXPORTER` and `OTEL_EXPORTER_OTLP_ENDPOINT`, on the `monitoring-usage` page, with team dashboards on `analytics`. Neither page is restated here, and naming them is the complete answer [OFFICIAL]
+- A monitor in this file runs the OPPOSITE direction. It is a shell command YOU declare in a plugin, whose stdout is delivered INTO the model as notifications. It observes your systems on the model's behalf. It does not observe Claude Code, exposes nothing an operator can query, and emits no metrics [OFFICIAL]
+- The overlap is one English word. Answering an observability question out of this file is the predictable error a keyword search invites, and it is worse than saying nothing: the answer is accurate, cites documentation, and is about a subject the asker never raised, so no part of it looks wrong. MEASURED on the 2026-08-13 benchmark, question GQ-55: 0 of 6 on every rubric dimension WITH THE WEB DENIED, against 5 of 6 with the web allowed. The gap is invisible whenever the model can search, which is exactly why it must be closed here rather than left to search [ENGINEERING]
+- One real interaction, running the other way: `DISABLE_TELEMETRY` or `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` makes the Monitor tool unavailable, and plugin monitors are skipped with it. That is the whole connection between the two topics. See the availability table below [OFFICIAL]
+
+## Two things INSIDE this library are also called Monitor
 
 Settle this before reading anything else, because almost every wrong statement about monitors is a
-property of one column asserted about the other.
+property of one column asserted about the other. Note the heading: both columns below are the
+plugin-and-tool mechanism. Neither is observability, which the section above sends elsewhere.
 
 | | Monitor TOOL | plugin MONITOR component |
 |---|---|---|

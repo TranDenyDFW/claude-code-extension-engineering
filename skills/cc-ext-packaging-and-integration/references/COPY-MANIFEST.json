@@ -13,7 +13,7 @@
       "file": "agent-sdk.md",
       "src": "skills/claude-code-extension-engineering/references/agent-sdk.md",
       "dst": "skills/cc-ext-packaging-and-integration/references/agent-sdk.md",
-      "sha256": "005146a479981e8475603678c5c3ed404eafb56230b4ff21ee2d4738054a40e1"
+      "sha256": "40f787029f3b8c24d53f0b5ca57cab66c3efa64223acb500470aae9b9e84d07b"
     },
     {
       "file": "composition-cards.md",
@@ -25,31 +25,31 @@
       "file": "github-action.md",
       "src": "skills/claude-code-extension-engineering/references/github-action.md",
       "dst": "skills/cc-ext-packaging-and-integration/references/github-action.md",
-      "sha256": "d727ac875c237e78840bfd761c28e9619784ab6e0456985b3564314303543a9b"
+      "sha256": "edab5df34d3a03bfce1b002bd90d88e95f7321daf2e8d54124a9fd5bec7f4851"
     },
     {
       "file": "lsp.md",
       "src": "skills/claude-code-extension-engineering/references/lsp.md",
       "dst": "skills/cc-ext-packaging-and-integration/references/lsp.md",
-      "sha256": "3630ae3b06b3414b4e6da28b35ec8ec8e4a8258d41031227ba81fb1948f89fbe"
+      "sha256": "d6000e93af999633d462f8b3e4afddac0c3deb7b3464de8670cee99ca6bfb976"
     },
     {
       "file": "mcp.md",
       "src": "skills/claude-code-extension-engineering/references/mcp.md",
       "dst": "skills/cc-ext-packaging-and-integration/references/mcp.md",
-      "sha256": "8fb4111f9502d7558bea9e47389754d2146cd9fe0f8a81d6e5210d6d9fbbac0d"
+      "sha256": "c14948d5d7157166c228c019195e0e438d9505ef4cd445c4500717acf82b80bc"
     },
     {
       "file": "output-styles.md",
       "src": "skills/claude-code-extension-engineering/references/output-styles.md",
       "dst": "skills/cc-ext-packaging-and-integration/references/output-styles.md",
-      "sha256": "c290c37a0ff2c5fbdb3dca918d66acdc88819c1c48aae05b653ce93fbd305c04"
+      "sha256": "0b567846ef5f3608d1a7cdc80dbc73a5a710ba1aa71db474e0c9a8c45cfe19bc"
     },
     {
       "file": "plugins.md",
       "src": "skills/claude-code-extension-engineering/references/plugins.md",
       "dst": "skills/cc-ext-packaging-and-integration/references/plugins.md",
-      "sha256": "2912d33ea44b4e9841f19a3c85f1241a22a6d8aa799af7d8118589708761b706"
+      "sha256": "d5bcf5dbca826479fb00674fa487762e4039cb4822e39cb87799676e9ed97af1"
     },
     {
       "file": "selection.md",
@@ -67,7 +67,7 @@
       "file": "themes.md",
       "src": "skills/claude-code-extension-engineering/references/themes.md",
       "dst": "skills/cc-ext-packaging-and-integration/references/themes.md",
-      "sha256": "8aa6de206068234905bc16a02ef9e56b2751e30b10bc84426e2574ed88820b5c"
+      "sha256": "cabf909183da5815852a17ad708dbc742011c4a5264cf68bec63c0cd64cd3a5a"
     }
   ]
 }

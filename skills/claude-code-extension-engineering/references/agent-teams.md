@@ -7,6 +7,11 @@ Independent Claude Code sessions that talk to each other as peers rather than re
 
 **Layer:** Orchestration | **Classification:** primitive | **Status:** experimental | **Since:** v2.1.178
 
+## Read this first: one of four parallelism shapes, and the fourth is not here
+
+- The official `agents` page compares four ways to run work at once: subagents, agent teams, dynamic workflows, and AGENT VIEW. This library has a file for the first three. It has none for the fourth, the `claude agents` dashboard for dispatching and watching background sessions, documented on `agent-view` [OFFICIAL]
+- So a question about watching or managing running agents rather than DECLARING one is not answered anywhere here, and naming that page is the complete answer. Saying "agent teams" because the question said "agents" is the predictable error [ENGINEERING]
+
 ## Current lifecycle (v2.1.178+)
 
 1. Enable CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS. It is off by default.

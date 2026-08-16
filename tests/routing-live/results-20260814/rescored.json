@@ -1,0 +1,743 @@
+{
+  "total": 72,
+  "strictPass": 50,
+  "topicPass": 63,
+  "byGroup": {
+    "weak": {
+      "pass": 22,
+      "n": 27
+    },
+    "decline": {
+      "pass": 8,
+      "n": 9
+    },
+    "out-of-scope": {
+      "pass": 18,
+      "n": 21
+    },
+    "regression-guard": {
+      "pass": 15,
+      "n": 15
+    }
+  },
+  "rows": [
+    {
+      "id": "L-weak-GQ-12",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-12",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-12",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-22",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-22",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-22",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-25",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-25",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-25",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-48",
+      "group": "decline",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-48",
+      "group": "decline",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-48",
+      "group": "decline",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-49",
+      "group": "decline",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-49",
+      "group": "decline",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-49",
+      "group": "decline",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-55",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "CLAUDE_CODE_ENABLE_TELEMETRY",
+        "OTEL_",
+        "OpenTelemetry"
+      ],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-55",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "CLAUDE_CODE_ENABLE_TELEMETRY",
+        "OTEL_",
+        "OpenTelemetry"
+      ],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-55",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [
+        "CLAUDE_CODE_ENABLE_TELEMETRY",
+        "OTEL_",
+        "OpenTelemetry"
+      ],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-03",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-03",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-03",
+      "group": "weak",
+      "pass": false,
+      "strict": false,
+      "reasons": [
+        "a different skill won retrieval: update-config",
+        "none of hooks.md, hook-events.md was opened"
+      ],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-06",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-06",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-06",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-09",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-09",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-09",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-21",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-21",
+      "group": "weak",
+      "pass": false,
+      "strict": false,
+      "reasons": [
+        "the skill was never invoked"
+      ],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-21",
+      "group": "weak",
+      "pass": false,
+      "strict": false,
+      "reasons": [
+        "the skill was never invoked"
+      ],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-37",
+      "group": "weak",
+      "pass": false,
+      "strict": false,
+      "reasons": [
+        "the skill was never invoked"
+      ],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-weak-GQ-37",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-37",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-42",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-42",
+      "group": "weak",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-weak-GQ-42",
+      "group": "weak",
+      "pass": false,
+      "strict": false,
+      "reasons": [
+        "none of permissions.md, claude-md-family.md was opened"
+      ],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-07",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-07",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-07",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-08",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-08",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-08",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-11",
+      "group": "decline",
+      "pass": false,
+      "strict": false,
+      "reasons": [
+        "the skill was invoked on a question it should decline, which is the over-trigger regression"
+      ],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-11",
+      "group": "decline",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-strong-GQ-11",
+      "group": "decline",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-strong-GQ-14",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-14",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-14",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-17",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-17",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-17",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-19",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-19",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-strong-GQ-19",
+      "group": "regression-guard",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": true
+    },
+    {
+      "id": "L-oos-monitoring-usage",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "CLAUDE_CODE_ENABLE_TELEMETRY",
+        "OTEL_",
+        "OpenTelemetry"
+      ],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-monitoring-usage",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "CLAUDE_CODE_ENABLE_TELEMETRY",
+        "OTEL_",
+        "OpenTelemetry"
+      ],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-monitoring-usage",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "CLAUDE_CODE_ENABLE_TELEMETRY",
+        "OTEL_",
+        "OpenTelemetry"
+      ],
+      "skillWon": true
+    },
+    {
+      "id": "L-oos-permission-modes",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [
+        "acceptEdits",
+        "bypassPermissions",
+        "permission mode"
+      ],
+      "skillWon": true
+    },
+    {
+      "id": "L-oos-permission-modes",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "acceptEdits"
+      ],
+      "skillWon": true
+    },
+    {
+      "id": "L-oos-permission-modes",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "acceptEdits",
+        "bypassPermissions"
+      ],
+      "skillWon": true
+    },
+    {
+      "id": "L-oos-sandbox-environments",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "devcontainer"
+      ],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-sandbox-environments",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "devcontainer"
+      ],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-sandbox-environments",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "devcontainer"
+      ],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-common-workflows",
+      "group": "out-of-scope",
+      "pass": false,
+      "strict": false,
+      "reasons": [
+        "did not address common-workflows: named neither the page nor any of its topic markers"
+      ],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-common-workflows",
+      "group": "out-of-scope",
+      "pass": false,
+      "strict": false,
+      "reasons": [
+        "did not address common-workflows: named neither the page nor any of its topic markers"
+      ],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-common-workflows",
+      "group": "out-of-scope",
+      "pass": false,
+      "strict": false,
+      "reasons": [
+        "did not address common-workflows: named neither the page nor any of its topic markers"
+      ],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-context-window",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "compact"
+      ],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-context-window",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "compact"
+      ],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-context-window",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": false,
+      "reasons": [],
+      "markerHit": [
+        "compact"
+      ],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-agents",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [],
+      "skillWon": false
+    },
+    {
+      "id": "L-oos-agents",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [
+        "agent view",
+        "claude agents"
+      ],
+      "skillWon": true
+    },
+    {
+      "id": "L-oos-agents",
+      "group": "out-of-scope",
+      "pass": true,
+      "strict": true,
+      "reasons": [],
+      "markerHit": [
+        "agent view",
+        "claude agents"
+      ],
+      "skillWon": true
+    }
+  ]
+}

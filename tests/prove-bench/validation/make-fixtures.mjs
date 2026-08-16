@@ -3,7 +3,7 @@
  * prove-bench, VALIDATION-FAILURE-MODE cohort.
  *
  * A SECOND cohort, in its own directory, writing its own results file. The
- * published 10-of-10-versus-3-of-10 experiment in ../results.json is not touched
+ * published first-cohort experiment in ../results.json is not touched
  * by anything here, because a measurement that moves when you add work beside it
  * is not a measurement.
  *

@@ -1,0 +1,8 @@
+
+# Skill content ships to other people's machines and is compared byte for byte by the split
+# migration gate, so its line endings must not depend on which platform last checked it out.
+# Without this the copy step reported 16 of 41 destinations "not byte-identical" when the only
+# difference was CRLF, twice, in opposite directions: once after a git stash round-trip rewrote the
+# source tree, once after a commit rewrote the copies.
+skills/**/*.md    text eol=lf
+skills/**/*.json  text eol=lf

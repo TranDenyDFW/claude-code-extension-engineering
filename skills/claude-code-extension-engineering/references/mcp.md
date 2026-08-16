@@ -7,6 +7,16 @@ A governed connection to an external system: tools, resources and prompts served
 
 **Layer:** Tools | **Classification:** primitive | **Status:** stable
 
+## WHERE the config lives, because `settings.json` is not one of the places
+
+A graded answer told a user to put `mcpServers` in `settings.json`. That file is never an MCP
+config location, and the mistake is easy to make because nearly every other extension
+mechanism does live there.
+
+- Project scope is `.mcp.json` at the project root, and it is the one meant for version control. Local and user scope both live in `~/.claude.json`, the file one character away from `~/.claude/settings.json` and a different file entirely [OFFICIAL]
+- Local scope is the DEFAULT. A server added with no scope flag is stored in `~/.claude.json` under that project's path, so it loads in that project only and does not appear in your others, which is the usual reason a server seems to vanish after switching directories [OFFICIAL]
+- Check the file before checking the command line. A `mcpServers` block sitting in `settings.json` is not an error anyone will show you, it is simply never read, and the symptom is identical to a server whose command is wrong  [ENGINEERING]
+
 ## Selection and ownership
 
 - Use MCP for external data or actions; use a Skill for reusable knowledge and workflow [OFFICIAL]
@@ -46,6 +56,9 @@ A governed connection to an external system: tools, resources and prompts served
 - Never embed secrets in map examples, committed config, prompts, or tool output [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - Constrain redirect URIs, token audience, scopes, storage, rotation, and revocation [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - .mcp.json expands ${VAR} and ${VAR:-default} in command, args, env, url, and headers; an unset variable with no default does not fail the load, it passes the literal through with only a warning in claude mcp list [OFFICIAL]
+- A configured server whose tools never appear is often UNAUTHENTICATED rather than misconfigured. `/mcp` runs the OAuth sign-in for remote servers that require it, and from v2.1.195 a refresh rejected by the server produces an immediate notice pointing at `/mcp`, whose connected-server menu offers Re-authenticate [OFFICIAL]  [v2.1.195]
+- A `401` on a server you already signed in to is retried once after a token refresh and is only flagged in `/mcp` if that retry also fails. Before v2.1.206 a transient failure such as a network error flagged the server as needing authentication for the REST OF THE SESSION even though its refresh token was still valid, so on older builds the flag is not proof of an expired credential [OFFICIAL]  [v2.1.206]
+- Non-interactive runs have no `/mcp` panel and cannot complete an OAuth flow. From v2.1.196 a `claude -p` or Agent SDK run with tool search enabled, the default, is told the server's tools are unavailable pending authorisation, so Claude can NAME the server needing sign-in rather than answering as though it were never configured. Sign in from an interactive session with `/mcp` or `claude mcp login <name>` [OFFICIAL]  [v2.1.196]
 
 ## Permissions and destructive actions
 

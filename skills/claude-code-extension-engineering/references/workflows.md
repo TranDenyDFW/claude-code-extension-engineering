@@ -7,6 +7,11 @@ An orchestration script saved to .claude/workflows/ and invoked as /<name>. A ba
 
 **Layer:** Orchestration | **Classification:** primitive | **Status:** stable | **Since:** v2.1.154
 
+## Read this first: a workflow you AUTHOR, not a workflow you FOLLOW
+
+- This file is a Dynamic Workflow: a JavaScript orchestration script you write into `.claude/workflows/` and invoke as a slash command. If the question is how to use Claude Code to explore a codebase, fix a bug, refactor or run tests, that is a task recipe and it lives on the `common-workflows` page, which this library does not restate [OFFICIAL]
+- The word is the only overlap. Someone asking how to work through a refactor does not want a fan-out script, and handing them one answers a question they did not ask [ENGINEERING]
+
 ## Where it lives and how it ships
 
 - Saving the script to .claude/workflows/ is what turns it into a reusable /<name> command. A workflow that is only authored in-session is not distributable and disappears with the session; the on-disk copy is the artifact.  [v2.1.154]

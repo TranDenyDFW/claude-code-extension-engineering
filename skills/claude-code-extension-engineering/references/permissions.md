@@ -7,6 +7,11 @@ Harness-owned allow, ask and deny rules over tool calls. This is the layer that 
 
 **Layer:** Enforcement | **Classification:** configuration | **Status:** stable | **Since:** the consulted-rule asymmetry below requires v2.1.210
 
+## Read this first: rules and modes are different questions
+
+- This file is about RULES: the allow, ask and deny strings you write into a settings file, which tool calls each is consulted for, and where enforcement leaks. It is NOT about MODES: `default`, `acceptEdits`, `plan`, `auto`, `dontAsk` and `bypassPermissions`, cycled with Shift+Tab, which decide whether Claude pauses at all. Modes live on the `permission-modes` page. This library carries exactly one slice of them, which modes a resumed session restores and which it never does, in [sessions.md](sessions.md) [OFFICIAL]
+- Split by symptom. "Why did it not ask me" is almost always the MODE. "Why did my rule not stop it" is almost always this file. Answering a mode question with rule syntax produces a settings block that is valid, inert for the asker's purpose, and indistinguishable from a fix [ENGINEERING]
+
 ## Evaluation order, and the one thing it does not depend on
 
 - "Rules are evaluated in order: deny, then ask, then allow. The first match in that order determines the outcome, and rule specificity doesn't change the order." [OFFICIAL]  [v2.1.220]

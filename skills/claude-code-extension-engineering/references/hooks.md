@@ -1,11 +1,21 @@
 # Hooks
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries TWO verbatim quotes, both in the Stop section, and `tools/quote-check.mjs` confirms both still appear upstream; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading. The header said NO quotes until 2026-08-13, which was true when written and stopped being true the moment the Stop section was added without anyone rereading the header.
 
 
 Code the HARNESS runs on a lifecycle event, independent of the model's judgment. This is the only mechanism whose FIRING the harness owns: the model cannot talk its way out of a hook running. Firing is not outcome, though. What happens after depends on the handler's failure policy (an HTTP handler fails OPEN on connection failure) and on the tamper boundary (disableAllHooks switches every hook off; only managed policy survives that), both covered below. Five handler types (command, http, mcp_tool, prompt, agent), and the last two carry judgment, so hooks are no longer purely mechanical.
 
 **Layer:** Automation | **Classification:** primitive | **Status:** stable
+
+## Read this first: SDK hooks are a different mechanism
+
+- If the question is about hooks in the **Agent SDK**, this is the wrong file. The SDK's hooks are
+  programmatic: callbacks registered in code against an SDK session, not JSON handlers discovered
+  from `.claude/`. They are covered in `agent-sdk.md`, in the packaging-and-integration skill.
+- The word is the entire overlap. Answering an SDK question out of this file produces settings-file
+  syntax for a surface that never reads settings files, which is the failure this library exists to
+  prevent: accurate, sourced, and about a mechanism the asker is not using.
+- Everything below is the harness-run, event-driven mechanism configured under `.claude/`.
 
 ## Decide a Hook is correct
 
@@ -167,6 +177,32 @@ Do not pipe stdin through `jq`. It is absent on many Windows installs, so the ha
 non-zero, fails open, and blocks nothing while looking installed. Parse in your interpreter.
 
 - A guard that inspects what it is guarding reads tool_input (for example tool_input.command on Bash); a reaction to a result reads tool_response. tool_name, tool_input and tool_use_id are EVENT-SPECIFIC, so confirm them for the event you are wiring instead of assuming one shape.  [v2.1.219]
+
+## Stop: the loop protections, which are the whole contract
+
+A Stop hook that blocks is asking the turn to continue, so it can ask forever. Two mechanisms
+stop that, and a hook written without knowing about either is the single most common way a
+Stop hook "does not work": it fires correctly, blocks correctly, and then either wedges or is
+overridden, and neither looks like a hook problem from the outside.
+
+- Stop hooks receive `stop_hook_active` alongside `last_assistant_message`, `background_tasks` and `session_crons`. It is `true` when Claude Code is ALREADY continuing because of a stop hook. Check it, or process the transcript, "to avoid blocking on a condition that will never resolve" [OFFICIAL]  [v2.1.229]
+- There is a cap underneath: "Claude Code overrides the hook and ends the turn after 8 consecutive blocks." So a hook that never inspects `stop_hook_active` does not hang the session, it stops being enforced on the ninth attempt [OFFICIAL]  [v2.1.229]
+- The cap is CONFIGURABLE, not fixed, and the override is announced: the turn ends with a warning after 8 consecutive blocks, and `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` changes the limit [OFFICIAL]  [v2.1.143]
+- That variable takes the maximum number of consecutive blocks before Claude Code ends the turn anyway, defaults to 8, and accepts `0` to disable the cap entirely [OFFICIAL]
+- Setting `decision` to `block` with a `reason` is the enforcing form. `additionalContext` inside `hookSpecificOutput` is the non-error form, for a hook that is working as designed and giving Claude guidance. It passes through the SAME two loop protections, `stop_hook_active` and the 8-continuation cap, but the transcript labels it `Stop hook feedback` and no hook error notification is shown [OFFICIAL]  [v2.1.229]
+- Before diagnosing a Stop hook as broken, establish which of these applies. "It ran a few times then stopped mattering" is the block cap, not a wiring fault: re-registering the hook does nothing, and the fix is either to stop blocking on a condition that never resolves or to raise `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` if the hook legitimately needs the iterations [ENGINEERING]
+- In SUBAGENT frontmatter a declared Stop hook is converted to SubagentStop, which carries a different exit-2 contract. See the frontmatter-hooks entry under Detail below rather than assuming the Stop contract transfers [OFFICIAL]
+
+## Wanting a NOTIFICATION is a different event from Stop
+
+"Notify me when Claude finishes" reaches for Stop by name and usually wants Notification.
+They fire at different moments and only one of them can block.
+
+- Notification runs when Claude Code SENDS a notification and matches on notification type; omitting the matcher runs the hook for every type. Documented matchers include `permission_prompt` (Claude needs approval and you have not typed for about 6 seconds), `idle_prompt` (Claude finished responding about 60 seconds ago), `auth_success`, and the `elicitation_*` family for MCP forms. Two further matchers cover background sessions and carry their own precondition, which the official page states [OFFICIAL]  [v2.1.229]
+- The hook fires even with desktop notifications turned off. `preferredNotifChannel`, including `notifications_disabled`, changes only HOW you are alerted, not WHETHER your hook runs. So "I disabled notifications" is not an explanation for a Notification hook that did not fire [OFFICIAL]  [v2.1.229]
+- Stop fires when the turn ENDS and can block to continue it. Notification fires when Claude wants the user's attention and has no block contract. Wiring a desktop alert to Stop gets one at end-of-turn only, and never for a permission prompt the user is not watching, which is the case that actually needed it [ENGINEERING]
+- `terminalSequence` is the field for emitting a terminal notification, and it survives where other output does not: on `StopFailure` the output and exit code are ignored EXCEPT `terminalSequence`. The field itself requires Claude Code v2.1.141 or later [OFFICIAL]  [v2.1.141]
+- Check that floor before debugging anything else. On a pre-2.1.141 build the field is not misconfigured, it is absent, and the hook returns a shape the CLI does not read while looking correct in every other respect  [ENGINEERING]  [v2.1.141]
 
 ## Common failure modes / anti-patterns
 

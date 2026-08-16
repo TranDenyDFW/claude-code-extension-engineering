@@ -7,6 +7,11 @@ The programmatic authoring tier. Cross-referenced beside the interactive surface
 
 **Layer:** Programmatic tier | **Classification:** sdk | **Status:** stable
 
+## Read this first: building an agent, not running several at once
+
+- This file is the SDK: library APIs you import to build your own agent. If the question is how to take on several tasks at once inside Claude Code, that is the `agents` page, which compares subagents, agent view, agent teams and dynamic workflows. This library covers three of those four and has NO file on the fourth: the `claude agents` dashboard, documented on `agent-view`, appears in no reference here [OFFICIAL]
+- Naming the missing one is the honest answer. Reaching for the SDK to solve an interactive-CLI problem is the error this file warns against elsewhere, and a parallelism question is exactly that shape [ENGINEERING]
+
 ## What it is
 
 - The Agent SDK is a separate programmatic surface with its own custom tools, programmatic hooks, canUseTool callback, session handling and structured output options. It is not discovered from .claude/ like the interactive mechanisms.  [v2.1.219]

@@ -7,6 +7,11 @@ A delegated worker with its own context window and its own tool set. Use it to k
 
 **Layer:** Delegation | **Classification:** primitive | **Status:** stable
 
+## Read this first: declaring a worker, not watching one
+
+- This file is about DECLARING a delegated worker and what it inherits. If the question is about watching, listing or steering agents that are already running, that is the `claude agents` dashboard on `agent-view`, which this library does not cover in any file. The official `agents` page compares all four parallelism shapes [OFFICIAL]
+- The word "agent" carries both meanings, and only one of them lives here [ENGINEERING]
+
 ## Decide a Subagent is correct
 
 - A bounded, repeated task whose search/logs would flood the main chat?

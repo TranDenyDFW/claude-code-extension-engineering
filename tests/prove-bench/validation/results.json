@@ -155,8 +155,9 @@
       },
       "testHookSh": {
         "exit": 1,
-        "detail": "no verdict line",
-        "score": "CATCH"
+        "detail": "NO VERDICT, nothing to score (exit 1)",
+        "scorable": false,
+        "score": "n/a"
       }
     },
     {
@@ -361,11 +362,11 @@
     "na": 0
   },
   "testHookSh": {
-    "caught": 1,
+    "caught": 0,
     "of": 11,
     "wrongDiagnosis": 0,
     "falsePos": 0,
     "knownMiss": 1,
-    "na": 0
+    "na": 1
   }
 }
