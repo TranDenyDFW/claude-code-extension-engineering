@@ -4,14 +4,16 @@ Open items, ranked by whether they block use, block discovery, or are cosmetic. 
 names a file and line where it applies so it can be checked rather than taken on trust.
 Resolved items keep their entry, struck through, so the history stays auditable.
 
-Last reviewed 2026-08-12 against Claude Code 2.1.224, the build in `evidence/VERIFIED_VERSION`.
+Last reviewed 2026-08-13 against Claude Code 2.1.229, the build in `evidence/VERIFIED_VERSION`.
 The 2026-08-05 pass reconciled items 20 to 23, 25 and 27 against their own artifacts and
 re-ran their gates; the 2026-08-06 pass added items 31 to 36 and closed the Bash-recognition
 measurement that item 33 rests on. The 2026-08-07 and 2026-08-08 passes added items 43 and 44
 during the purpose-pack work, across six independent review rounds that found twenty-three
-defects in this project's own tooling. None did a new version check, so the verified build is
-unchanged from the 2026-08-04 review. Note the live CLI on the measuring machine is 2.1.219,
-one behind the catalog, and the measurement records that rather than rounding it up.
+defects in this project's own tooling. None of those passes did a new version check; the
+verified build moved to 2.1.229 with the re-verification of 2026-08-13, and the two content
+passes of that date are recorded in items 18 and below. Note the live CLI on the measuring
+machine is 2.1.219, behind the catalog, and the measurement records that rather than rounding
+it up.
 
 ---
 
@@ -69,7 +71,7 @@ remains a legal status in the ledger for honest future gaps; it is simply empty 
 Resolved 2026-07-29 (both manifests shipped, installable via `/plugin marketplace add`),
 then deliberately reverted 2026-07-30: `marketplace.json` was removed while the community
 submission is in review, so this entry's resolved state no longer describes the repo. The
-skill still lives under `skills/claude-code-extension-engineering/` for component
+skill still lives under `skills/cc-ext-*/` for component
 auto-discovery; current install paths are in item 9 and the README.
 
 **6. ~~Pinned 1.0.0 version blocking updates.~~ RESOLVED 2026-07-29.**
@@ -386,14 +388,26 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-Of the 502 source assignments in `claims.jsonl`, all but two were made by subagents with
+Of the 563 source assignments in `claims.jsonl`, all but 25 were made by subagents with
 stated rules, not independently double-checked. The integrity gate catches structural
 drift, not a wrong-but-plausible source id.
 
-The two exceptions are `CLM-sandboxing-018` and `-019`, attributed during the 2.1.229
-re-verification by reading the page each cites rather than by applying a rule. That is a
-smaller sample, not a different method: it is still one model's judgment, and the reason
-it was done by hand is recorded immediately below.
+The 25 exceptions are the records whose `note` says so, so the count is recoverable from the
+ledger rather than taken on trust: `CLM-sandboxing-018` and `-019` from the 2.1.229
+re-verification, `CLM-agent-teams-012`, the three `sessions.md` records whose source a
+reviewer corrected after a keyword rule matched the word "restore", and the ten added on
+2026-08-13 answering two independent reviews of the content-gap pass. Each was attributed by
+reading the page it cites rather than by applying a rule. That is a smaller sample, not a
+different method: it is still one model's judgment, and the reason it was done by hand is
+recorded immediately below.
+
+The second of those reviews is the one worth reading. It found an `[OFFICIAL]` bullet calling
+the Stop block cap hard when `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` changes it and `0` disables it,
+and found the paired `[ENGINEERING]` bullet asserting the override goes unannounced when the
+changelog says the turn ends with a warning. Both were produced by FIXING the first review,
+which had asked only that judgement be moved out of an `[OFFICIAL]` tag. Re-tagging a claim
+relabels it; it does not check whether it is true, and here it laundered a false statement
+into a tag that made it look like a considered engineering call.
 
 **This is no longer hypothetical, measured 2026-08-12.** The 43 claims added with the
 status line, session and safety-classifier references were attributed by a mechanical
@@ -440,7 +454,7 @@ None asked whether it BEHAVES as specified. Anthropic's own
 expected outcome; it also never reads `hooks.json`, so the matcher is never evaluated.
 **Fixed 2026-08-04** by `tools/extension-prove.mjs` (four case kinds, structural scoring,
 `--prove-fail` against empty and inert controls) and `tests/prove-bench/`
-(10 of 10 versus 3 of 10, zero false positives on a correct control; see
+(10 of 10 versus 2 of 10, zero false positives on a correct control; see
 `tests/results-prove-bench.md`). Five upstream defects filed as
 anthropics/claude-code #83800 to #83804.
 

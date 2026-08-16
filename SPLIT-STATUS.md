@@ -4,27 +4,32 @@ Steps 0 through 8 of a nine-step migration are done. **Step 9, the cutover, has 
 trees are on disk on purpose: the single `claude-code-extension-engineering` skill still exists and
 still works, and four `cc-ext-*` skills exist beside it.
 
-## One gate is RED, by design, and only one
+## Cutover complete: every gate green
 
-`npm run verify` reports **6 errors**, all of the same shape:
+All nine steps are done. The single skill is gone; four remain. Measured after cutover:
 
-```
-DRIFT: tagged line CLM-DELEGATION-SKILL-053 (skills/cc-ext-delegation-and-instructions/SKILL.md:53)
-       has no ledger record
-```
+| Gate | Result |
+|---|---|
+| `test` | 254 of 254 passed, 8 retired, 262 in the ledger |
+| `test:prove-fail` | the suite is not self-certifying |
+| `verify` | evidence ledger internally consistent |
+| `numbers` | no disagreements |
+| `doctor` | 0 findings, 0 BROKEN, 0 SILENT |
+| `quotes` | clean |
+| doctor self-test | every documented failure mode detected, clean tree silent |
+| routing | 9 of 9 fixtures against 232 table rows |
+| `split-map-check` | every reference assigned exactly once |
 
-Six tagged lines in the four new `SKILL.md` files have no record in `evidence/claims.jsonl`, which
-is correct: that ledger describes the OLD tree. The new tree's ledger is
-`evidence/claims.split.jsonl`, and the two swap at cutover. `verify` re-runs the extraction and
-diffs by record, so while five skills exist and one ledger covers four of them, six drifts is the
-honest answer.
+The two `verify` errors that were expected mid-migration are gone: the ledgers swapped, so the
+tree and the ledger describe the same thing again. `doctor` fell to zero findings because the
+duplicate-across-scopes finding went with the old directory.
 
-The count is pinned here on purpose. **Six is expected. Seven is a bug.** If this number moves
-before cutover, something changed that was not supposed to.
-
-Every other gate is green: `test` 262 of 262, `numbers`, `doctor` (1 SILENT, the expected
-duplicate-across-scopes while both trees exist), `quotes`, the doctor self-test, routing 8 of 8
-against 141 rows, and `split-map-check`.
+**Eight question rows are RETIRED, not deleted.** They asserted an adjacency in the single
+description, which listed every mechanism in one sentence; four descriptions each list only their
+own subjects, so no description carries those phrases and none should. The rows stay in the ledger
+with a `retired_reason`, the runner lists them every run, and the summary reports 262 rather than
+254, because a suite that quietly gets easier is worse than one that fails. A retirement without a
+reason is now itself a failure.
 
 ## What each step produced
 

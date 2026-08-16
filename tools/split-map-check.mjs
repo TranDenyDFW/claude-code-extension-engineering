@@ -14,11 +14,13 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { skillDirs, referenceDirs } from './skill-roots.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const MAP = join(ROOT, 'data', 'routing', 'skill-split.json');
-const REFS = join(ROOT, 'skills', 'claude-code-extension-engineering', 'references');
+/* After cutover the old tree is gone and the union of the four new trees IS the population. */
+const LEGACY = join(ROOT, 'skills', 'claude-code-extension-engineering', 'references');
 
 export function checkSplitMap(map, onDisk) {
   const problems = [];
@@ -53,7 +55,12 @@ export function checkSplitMap(map, onDisk) {
 }
 
 const map = JSON.parse(readFileSync(MAP, 'utf8'));
-const onDisk = existsSync(REFS) ? readdirSync(REFS).filter((f) => f.endsWith('.md')) : [];
+/* Before cutover the population is the single source tree. After it, the union of the four new
+   trees IS the population. Asking about a directory that no longer exists reported all 29 files
+   "assigned but not on disk": the tool measuring a population that has ceased to exist. */
+const onDisk = existsSync(LEGACY)
+  ? readdirSync(LEGACY).filter((f) => f.endsWith('.md'))
+  : [...new Set(referenceDirs(ROOT).flatMap((d) => readdirSync(d)).filter((f) => f.endsWith('.md')))];
 
 if (process.argv.includes('--prove-fail')) {
   /* Each invariant gets a map that violates exactly it. A gate nobody has watched fail is a gate

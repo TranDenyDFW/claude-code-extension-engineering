@@ -17,7 +17,8 @@ import { run } from './run-routing-tests.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..');
-const SKILL = join(ROOT, 'skills', 'claude-code-extension-engineering');
+/* Any skill: the routing surface is per skill and there are four of them now. */
+const SKILL = join(ROOT, 'skills', readdirSync(join(ROOT, 'skills')).filter((d) => existsSync(join(ROOT, 'skills', d, 'SKILL.md'))).sort()[0]);
 const MAP = join(HERE, 'routing-map.jsonl');
 
 const SURFACE_MUTANTS = [

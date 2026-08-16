@@ -39,7 +39,7 @@ before assuming a change is covered.
 ## Claims and evidence
 
 Reference prose is not free text. Every load-bearing claim in
-`skills/claude-code-extension-engineering/references/` is tied to a source in
+`skills/cc-ext-*/references/` is tied to a source in
 `evidence/sources.json` through `evidence/claims.jsonl`, and `npm run verify` checks that
 the links resolve.
 

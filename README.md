@@ -23,7 +23,7 @@ Use `.claude/skills/` to scope it to one project; the directory name must stay
 `claude-code-extension-engineering`. Marketplace listing is pending review; once approved,
 `/plugin install claude-code-extension-engineering@claude-community`. Cowork and cloud
 sessions do not read `~/.claude/skills`, see
-[compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md).
+[compatibility.md](skills/cc-ext-enforcement-and-scope/references/compatibility.md).
 
 ## What you get
 
@@ -113,26 +113,26 @@ Exit 0 all cases passed, 1 a case failed, 3 the mechanism is not one this tool c
 
 ## Where to look
 
-Everything under `skills/claude-code-extension-engineering/`. Start at
-[SKILL.md](skills/claude-code-extension-engineering/SKILL.md), or go straight to
-[selection.md](skills/claude-code-extension-engineering/references/selection.md) if you are
+Everything under `skills/cc-ext-*/`. Start at
+[SKILL.md](skills/cc-ext-*/SKILL.md), or go straight to
+[selection.md](skills/cc-ext-delegation-and-instructions/references/selection.md) if you are
 choosing between mechanisms.
 
 | Need | Open |
 |---|---|
-| Choosing between mechanisms | [selection.md](skills/claude-code-extension-engineering/references/selection.md) |
-| Combining mechanisms | [composition-cards.md](skills/claude-code-extension-engineering/references/composition-cards.md) |
-| Hooks | [hooks.md](skills/claude-code-extension-engineering/references/hooks.md) |
-| Hook event contracts | [hook-events.md](skills/claude-code-extension-engineering/references/hook-events.md) |
-| Permission rules: allow, ask, deny | [permissions.md](skills/claude-code-extension-engineering/references/permissions.md) |
-| OS sandboxing (absent on native Windows) | [sandboxing.md](skills/claude-code-extension-engineering/references/sandboxing.md) |
-| Skills | [skills.md](skills/claude-code-extension-engineering/references/skills.md) |
-| Subagents | [subagents.md](skills/claude-code-extension-engineering/references/subagents.md) |
-| Dynamic Workflows | [workflows.md](skills/claude-code-extension-engineering/references/workflows.md) |
-| MCP servers | [mcp.md](skills/claude-code-extension-engineering/references/mcp.md) |
-| Plugins | [plugins.md](skills/claude-code-extension-engineering/references/plugins.md) |
-| Compatibility and version gates | [compatibility.md](skills/claude-code-extension-engineering/references/compatibility.md) |
-| Everything else | [SKILL.md](skills/claude-code-extension-engineering/SKILL.md) router table |
+| Choosing between mechanisms | [selection.md](skills/cc-ext-delegation-and-instructions/references/selection.md) |
+| Combining mechanisms | [composition-cards.md](skills/cc-ext-delegation-and-instructions/references/composition-cards.md) |
+| Hooks | [hooks.md](skills/cc-ext-hooks-and-live-events/references/hooks.md) |
+| Hook event contracts | [hook-events.md](skills/cc-ext-hooks-and-live-events/references/hook-events.md) |
+| Permission rules: allow, ask, deny | [permissions.md](skills/cc-ext-enforcement-and-scope/references/permissions.md) |
+| OS sandboxing (absent on native Windows) | [sandboxing.md](skills/cc-ext-enforcement-and-scope/references/sandboxing.md) |
+| Skills | [skills.md](skills/cc-ext-delegation-and-instructions/references/skills.md) |
+| Subagents | [subagents.md](skills/cc-ext-delegation-and-instructions/references/subagents.md) |
+| Dynamic Workflows | [workflows.md](skills/cc-ext-delegation-and-instructions/references/workflows.md) |
+| MCP servers | [mcp.md](skills/cc-ext-packaging-and-integration/references/mcp.md) |
+| Plugins | [plugins.md](skills/cc-ext-packaging-and-integration/references/plugins.md) |
+| Compatibility and version gates | [compatibility.md](skills/cc-ext-enforcement-and-scope/references/compatibility.md) |
+| Everything else | [SKILL.md](skills/cc-ext-*/SKILL.md) router table |
 
 ## Digging deeper
 
@@ -156,4 +156,4 @@ MIT. See [LICENSE](LICENSE). Third-party licences worth naming: Superpowers writ
 (MIT, Jesse Vincent) and the Anthropic Skill Creator (Apache-2.0). The prose here is original
 work derived from public documentation and direct observation; no upstream proprietary text is
 redistributed verbatim in bulk. Source ledger:
-[sources.md](skills/claude-code-extension-engineering/references/sources.md).
+[sources.md](skills/cc-ext-delegation-and-instructions/references/sources.md).

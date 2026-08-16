@@ -49,7 +49,7 @@ no mounted home, no cloud credentials and no tokens.
 
 ## Supported versions
 
-Guidance in `skills/claude-code-extension-engineering/references/` is dated and pinned to a
+Guidance in `skills/cc-ext-*/references/` is dated and pinned to a
 Claude Code build recorded in `evidence/VERIFIED_VERSION`. Only the current default branch is
 supported. If `evidence/status.json` reports `stale`, the reference material has not been
 re-verified against the latest release, and version-sensitive advice in it may be wrong.
