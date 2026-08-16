@@ -25,7 +25,7 @@
  */
 import { existsSync, createReadStream, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import { createInterface } from 'node:readline';
+
 import { fileURLToPath } from 'node:url';
 
 const argv = process.argv.slice(2);
@@ -116,16 +116,29 @@ for (const [label, p] of [['comments', COMMENTS], ['issues', ISSUES]]) {
 console.log(`comments : ${COMMENTS}`);
 console.log(`issues   : ${ISSUES}${ISSUES.includes('rev') ? '' : '   <- the OLD issue list; counts predate the comment harvest'}`);
 
-const readCounts = (path, keyFn, valFn) => new Promise((res) => {
-  const m = new Map(); let bad = 0;
-  const rl = createInterface({ input: createReadStream(path) });
-  rl.on('line', (l) => {
+const readCounts = (path, keyFn, valFn) => new Promise((res, rej) => {
+  const m = new Map(); let bad = 0; let buf = '';
+  const take = (l) => {
     if (!l.trim()) return;
     let o; try { o = JSON.parse(l); } catch { bad++; return; }
     const k = keyFn(o); if (k === null || k === undefined) { bad++; return; }
     m.set(k, (m.get(k) || 0) + valFn(o));
+  };
+  /* Split on \n ONLY, never with readline.
+     `JSON.stringify` does NOT escape U+2028 and U+2029: they are legal raw inside a JSON
+     string. Node's readline treats both as LINE TERMINATORS. This corpus contains 8 raw
+     U+2028 and 1 U+2029 inside comment bodies, so readline sliced 9 records into fragments
+     and this function reported "15 malformed lines" and a total 6 short. The file was
+     perfect the whole time; the reader was wrong, and the failure pointed at the data.
+     A plain indexOf('\n') scan reads all 299,587 records with zero errors. */
+  const s = createReadStream(path, { encoding: 'utf8' });
+  s.on('data', (chunk) => {
+    buf += chunk;
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) { take(buf.slice(0, i)); buf = buf.slice(i + 1); }
   });
-  rl.on('close', () => res({ m, bad }));
+  s.on('end', () => { if (buf.length) take(buf); res({ m, bad }); });
+  s.on('error', rej);
 });
 
 const { m: expected, bad: badIssues } = await readCounts(ISSUES, (o) => o.number, (o) => (typeof o.comments === 'number' ? o.comments : 0));

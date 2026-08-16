@@ -1,0 +1,368 @@
+{
+  "note": "The 24 live-routing questions. Composition fixed before the run: 12 weak (ARM A scored <=3 of 6 in at least one condition), 6 regression guards (>=5 of 6), 6 out-of-scope shapes. Selection is deterministic from the sealed 2026-08-13 scores; ties break by cellId.",
+  "builtOn": "2026-08-13",
+  "passesPerQuestion": 3,
+  "ROUTING_ACCURACY_FLOOR": 0.8,
+  "REGRESSION_ROWS_ALLOW_DECOY_ONLY": 0,
+  "FROZEN_ROWS_REQUIRE_UNANIMOUS": [
+    "GQ-55",
+    "GQ-06"
+  ],
+  "INVOCATION_FLOOR_GROUP": "regression-guard",
+  "rows": [
+    {
+      "id": "L-weak-GQ-12",
+      "cellId": "GQ-12",
+      "question": "how to use claude code skill creator",
+      "group": "weak",
+      "priorScore": 0,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": [],
+        "bare_symptom": false
+      }
+    },
+    {
+      "id": "L-weak-GQ-22",
+      "cellId": "GQ-22",
+      "question": "how to add figma mcp to claude code cli",
+      "group": "weak",
+      "priorScore": 0,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": [],
+        "bare_symptom": false
+      }
+    },
+    {
+      "id": "L-weak-GQ-25",
+      "cellId": "GQ-25",
+      "question": "how to use figma mcp server with claude code",
+      "group": "weak",
+      "priorScore": 0,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": [],
+        "bare_symptom": false
+      }
+    },
+    {
+      "id": "L-weak-GQ-48",
+      "cellId": "GQ-48",
+      "question": "how claude code is better than cursor",
+      "group": "decline",
+      "priorScore": 0,
+      "expect": {
+        "kind": "decline"
+      },
+      "why": "stratum D, not-documented: a product comparison, not extension engineering"
+    },
+    {
+      "id": "L-weak-GQ-49",
+      "cellId": "GQ-49",
+      "question": "claude code leaked source github rust",
+      "group": "decline",
+      "priorScore": 0,
+      "expect": {
+        "kind": "decline"
+      },
+      "why": "stratum D, not-documented: a rumour query with no documented answer"
+    },
+    {
+      "id": "L-weak-GQ-55",
+      "cellId": "GQ-55",
+      "question": "how to monitor claude code",
+      "group": "out-of-scope",
+      "priorScore": 0,
+      "expect": {
+        "kind": "out-of-scope",
+        "official": "monitoring-usage",
+        "decoys": [
+          "monitors.md"
+        ],
+        "topic_markers": [
+          "CLAUDE_CODE_ENABLE_TELEMETRY",
+          "OTEL_",
+          "OpenTelemetry"
+        ]
+      },
+      "why": "The authentic Google query for the measured GQ-55 failure. Correct behaviour is to name the observability page, not to answer from the monitor mechanism."
+    },
+    {
+      "id": "L-weak-GQ-03",
+      "cellId": "GQ-03",
+      "question": "claude code stop hook notification",
+      "group": "weak",
+      "priorScore": 1,
+      "expect": {
+        "kind": "reference",
+        "files": [
+          "hooks.md",
+          "hook-events.md"
+        ],
+        "decoys": [
+          "monitors.md"
+        ],
+        "bare_symptom": false
+      }
+    },
+    {
+      "id": "L-weak-GQ-06",
+      "cellId": "GQ-06",
+      "question": "claude code stop hook not working",
+      "group": "weak",
+      "priorScore": 1,
+      "expect": {
+        "kind": "reference",
+        "files": [
+          "hooks.md",
+          "hook-events.md"
+        ],
+        "decoys": [
+          "monitors.md"
+        ],
+        "bare_symptom": true
+      }
+    },
+    {
+      "id": "L-weak-GQ-09",
+      "cellId": "GQ-09",
+      "question": "claude code # memory not working",
+      "group": "weak",
+      "priorScore": 1,
+      "expect": {
+        "kind": "reference",
+        "files": [
+          "claude-md-family.md",
+          "auto-memory.md"
+        ],
+        "decoys": [
+          "monitors.md"
+        ],
+        "bare_symptom": true
+      }
+    },
+    {
+      "id": "L-weak-GQ-21",
+      "cellId": "GQ-21",
+      "question": "how to install claude code agent",
+      "group": "weak",
+      "priorScore": 1,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": [],
+        "bare_symptom": false
+      }
+    },
+    {
+      "id": "L-weak-GQ-37",
+      "cellId": "GQ-37",
+      "question": "claude code github actions mcp",
+      "group": "weak",
+      "priorScore": 1,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": [],
+        "bare_symptom": false
+      }
+    },
+    {
+      "id": "L-weak-GQ-42",
+      "cellId": "GQ-42",
+      "question": "claude code settings json ignored",
+      "group": "weak",
+      "priorScore": 1,
+      "expect": {
+        "kind": "reference",
+        "files": [
+          "permissions.md",
+          "claude-md-family.md"
+        ],
+        "decoys": [
+          "monitors.md"
+        ],
+        "bare_symptom": true
+      }
+    },
+    {
+      "id": "L-strong-GQ-07",
+      "cellId": "GQ-07",
+      "question": "claude code ignores agents md",
+      "group": "regression-guard",
+      "priorScore": 6,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": []
+      }
+    },
+    {
+      "id": "L-strong-GQ-08",
+      "cellId": "GQ-08",
+      "question": "claude code claude md best practices",
+      "group": "regression-guard",
+      "priorScore": 6,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": []
+      }
+    },
+    {
+      "id": "L-strong-GQ-11",
+      "cellId": "GQ-11",
+      "question": "pluginmanagement vs plugins",
+      "group": "decline",
+      "priorScore": 6,
+      "expect": {
+        "kind": "decline"
+      },
+      "why": "not-about-claude-code: pluginManagement is a Maven and Gradle build concept"
+    },
+    {
+      "id": "L-strong-GQ-14",
+      "cellId": "GQ-14",
+      "question": "how to install claude code marketplace",
+      "group": "regression-guard",
+      "priorScore": 6,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": []
+      }
+    },
+    {
+      "id": "L-strong-GQ-17",
+      "cellId": "GQ-17",
+      "question": "how to create a claude code agent",
+      "group": "regression-guard",
+      "priorScore": 6,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": []
+      }
+    },
+    {
+      "id": "L-strong-GQ-19",
+      "cellId": "GQ-19",
+      "question": "how to make subagents in claude code",
+      "group": "regression-guard",
+      "priorScore": 6,
+      "expect": {
+        "kind": "reference",
+        "files": [],
+        "decoys": []
+      }
+    },
+    {
+      "id": "L-oos-monitoring-usage",
+      "question": "How do I track Claude Code token usage and cost across my whole team?",
+      "group": "out-of-scope",
+      "expect": {
+        "kind": "out-of-scope",
+        "official": "monitoring-usage",
+        "decoys": [
+          "monitors.md"
+        ],
+        "topic_markers": [
+          "CLAUDE_CODE_ENABLE_TELEMETRY",
+          "OTEL_",
+          "OpenTelemetry"
+        ]
+      }
+    },
+    {
+      "id": "L-oos-permission-modes",
+      "question": "How do I stop Claude Code asking me before every edit?",
+      "group": "out-of-scope",
+      "expect": {
+        "kind": "out-of-scope",
+        "official": "permission-modes",
+        "decoys": [
+          "permissions.md"
+        ],
+        "topic_markers": [
+          "acceptEdits",
+          "bypassPermissions",
+          "permission mode"
+        ]
+      }
+    },
+    {
+      "id": "L-oos-sandbox-environments",
+      "question": "How do I run Claude Code inside a Docker container?",
+      "group": "out-of-scope",
+      "expect": {
+        "kind": "out-of-scope",
+        "official": "sandbox-environments",
+        "decoys": [
+          "sandboxing.md"
+        ],
+        "topic_markers": [
+          "devcontainer",
+          "dev container",
+          "sandbox runtime"
+        ]
+      }
+    },
+    {
+      "id": "L-oos-common-workflows",
+      "question": "What is a good step-by-step way to refactor a module with Claude Code?",
+      "group": "out-of-scope",
+      "expect": {
+        "kind": "out-of-scope",
+        "official": "common-workflows",
+        "decoys": [
+          "workflows.md"
+        ],
+        "topic_markers": [
+          "step-by-step",
+          "common workflows"
+        ]
+      }
+    },
+    {
+      "id": "L-oos-context-window",
+      "question": "My session keeps running out of context and compacting. What can I do?",
+      "group": "out-of-scope",
+      "expect": {
+        "kind": "out-of-scope",
+        "official": "context-window",
+        "decoys": [
+          "context-modes.md"
+        ],
+        "topic_markers": [
+          "compact",
+          "context window"
+        ]
+      }
+    },
+    {
+      "id": "L-oos-agents",
+      "question": "How do I see and manage the agents I have running in the background?",
+      "group": "out-of-scope",
+      "expect": {
+        "kind": "out-of-scope",
+        "official": "agents",
+        "decoys": [
+          "agent-teams.md",
+          "subagents.md",
+          "agent-sdk.md"
+        ],
+        "topic_markers": [
+          "agent view",
+          "claude agents"
+        ]
+      }
+    }
+  ],
+  "destinationNote": "expect.files is populated ONLY where references/INDEX.md names the destination unambiguously (GQ-06, GQ-03, GQ-09, GQ-42). Everywhere else the reference rows assert that the skill won retrieval and, for a bare symptom, that this session was not audited. Asserting a destination we cannot justify would be a fixture that measures nothing.",
+  "declineNote": "Rows expecting kind=decline are questions where NOT invoking the skill is correct. They were selected as low-scoring, but they scored low because they are off-topic or undocumented, not because routing failed. Requiring the skill to win on them would reward over-triggering, which is the primary risk of this change, so they now assert the opposite and measure that risk directly.",
+  "topicMarkerNote": "topic_markers are answer-side evidence that the right SUBJECT was addressed, each verified present on the official page it stands for. They are deliberately distinct from out-of-scope.json subject_terms, which were chosen to be ABSENT from the library for the fabricated-coverage check and are therefore unusable here. The strict slug predicate POINTER_EMITTED is still computed and reported alongside."
+}

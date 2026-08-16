@@ -43,6 +43,25 @@ function loadQuestions() {
       process.exit(2);
     }
   });
+  /**
+   * IDS MUST BE UNIQUE, and nothing checked that until 2026-08-13.
+   *
+   * Thirteen rows were appended reusing ids that already existed. The suite passed at the
+   * new row count, so the collision was invisible. A later script that rescoped two answer
+   * keys then matched the FIRST row carrying each id and silently overwrote two
+   * PRE-EXISTING rows, replacing what they asserted while the totals still read green.
+   *
+   * That is the shape this whole suite exists to prevent: a change that looks like it added
+   * coverage while actually removing some. Duplicate ids are now a hard refusal, because a
+   * count of rows is not a count of distinct assertions.
+   */
+  const ids = rows.map((r) => r.id);
+  const dupes = [...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))];
+  if (dupes.length) {
+    console.error(`questions.jsonl: DUPLICATE ids: ${dupes.join(', ')}`);
+    console.error('An id addressed by two rows means an edit to one silently rewrites the other.');
+    process.exit(2);
+  }
   return rows;
 }
 

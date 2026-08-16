@@ -1,0 +1,56 @@
+{
+  "note": "Bundled Claude Code skills this skill competes with for retrieval. Proves the description STAKES a boundary where an overlap exists; it does NOT prove the model honours it, which only tests/routing-live measures.",
+  "cliVersion": "2.1.229",
+  "extractedFrom": "the installed claude.exe, strings scan",
+  "extractedOn": "2026-08-13",
+  "coverageNote": "5 of 12 bundled skills recovered. The rest sit in minified variable assignments with their descriptions decoupled, or extracted a value that could not be verified. Listed rather than hidden.",
+  "bundled": {
+    "schedule": "Create and manage scheduled remote Claude Code agents",
+    "security-review": "Complete a security review of the pending changes on the current branch",
+    "update-config": "Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\"from now on when X\", \"each time X\", \"whenever X\", \"before/after X\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\"allow X\", \"add permission\", \"move permission to\"), env vars (\"set X=Y\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \"allow npm commands\", \"add bq permission to global settings\", \"move permission to user settings\", \"set DEBUG=true\", \"when claude stops show X\". For simple settings like theme/model, suggest the /config command.",
+    "keybindings-help": "Use when the user wants to customize keyboard shortcuts, rebind keys, add chord bindings, or modify ~/.claude/keybindings.json. Examples: \"rebind ctrl+s\", \"add a chord shortcut\", \"change the submit key\", \"customize keybindings\".",
+    "fewer-permission-prompts": "Scan your transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts."
+  },
+  "missing": [
+    "claude-api",
+    "code-review",
+    "dataviz",
+    "init",
+    "loop",
+    "run",
+    "simplify"
+  ],
+  "overlaps": [
+    {
+      "bundled": "schedule",
+      "shared": [
+        "agent"
+      ],
+      "verdict": "we-defer",
+      "why": "Scheduled remote agents are an operating surface. This library covers declaring workers, not scheduling them."
+    },
+    {
+      "bundled": "update-config",
+      "shared": [
+        "settings.json",
+        "hook",
+        "hooks",
+        "permission",
+        "skill"
+      ],
+      "verdict": "we-own",
+      "claimed_by": "BARE SYMPTOM",
+      "why": "Its description claims \"hook troubleshooting, or any changes to settings.json/settings.local.json files\", and it won retrieval on benchmark question GQ-06 (\"claude code stop hook not working\"), which then scored 1 of 6 because the workspace was audited instead of the mechanism contract being answered. The split we claim: EDITING configuration is update-config; explaining why a documented mechanism does not fire, with no artifact attached, is this skill."
+    },
+    {
+      "bundled": "fewer-permission-prompts",
+      "shared": [
+        "settings.json",
+        "permission",
+        "mcp"
+      ],
+      "verdict": "we-defer",
+      "why": "It generates an allowlist from observed transcripts, which is a data-driven settings edit. This library explains what a permission rule is consulted for and where enforcement leaks. A user asking to reduce prompting wants the former."
+    }
+  ]
+}

@@ -4,7 +4,7 @@
  *
  * Runs extension-prove and the shipped tester over the twelve fixtures in
  * ./fixtures and writes ./results.json. It does NOT read or write ../results.json,
- * so the published 10-of-10-versus-3-of-10 experiment is untouched.
+ * so the published first-cohort experiment is untouched.
  *
  * WHAT IS BORROWED AND WHAT IS NOT
  * --------------------------------
@@ -35,7 +35,7 @@ import { join, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
-import { score, scoreDiagnosis, wouldDropRecordedTools, TOOL_KEYS } from '../run-bench.mjs';
+import { score, scoreDiagnosis, wouldDropRecordedTools, TOOL_KEYS, resolveBash, unknownFlags } from '../run-bench.mjs';
 import { proveArtifactGate } from '../../../tools/artifact-mutation.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -125,13 +125,23 @@ function runTestHookSh(dir, shimDir) {
     const existing = env.PATH || env.Path || '';
     delete env.Path;
     env.PATH = `${shimDir}${sep}${existing}`;
-    const r = spawnSync('bash', [toPosixPath(TEST_HOOK_SH), toPosixPath(handler), toPosixPath(inputPath)],
+    const r = spawnSync(resolveBash(), [toPosixPath(TEST_HOOK_SH), toPosixPath(handler), toPosixPath(inputPath)],
       { encoding: 'utf8', windowsHide: true, timeout: 120_000, env });
     const out = `${r.stdout || ''}${r.stderr || ''}`;
     const said = /Test completed successfully/.test(out) ? 'reported success'
       : /Test failed/.test(out) ? 'reported failure'
         : /not valid JSON/.test(out) ? 'claimed the input was invalid JSON'
           : 'no verdict line';
+    /* Same rule as the published runner: a non-zero exit with none of the tool's own
+       verdict lines means it never reached its own logic, so it is n/a rather than a
+       CATCH. Both cohorts must apply this identically or they stop being comparable. */
+    if (said === 'no verdict line') {
+      /* Keep the REAL exit code. Returning null here also silenced the per-fixture
+         competitor comparison in recordDiff, which skips a row whose exit is null, so a
+         score change on this fixture became invisible. Unscorability is carried by an
+         explicit flag instead, and the measured exit stays measured. */
+      return { exit: r.status, detail: `NO VERDICT, nothing to score (exit ${r.status})`, scorable: false };
+    }
     return { exit: r.status, detail: said };
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
@@ -151,7 +161,7 @@ export function bench() {
         expectedFailures: man.expectedFailures || [],
         ...(man.knownMiss ? { knownMiss: man.knownMiss } : {}),
         prove: { ...prove, score: scoreDiagnosis(man.control, prove, man.expectedFailures || []) },
-        testHookSh: { ...thsh, score: score(man.control, thsh.exit) },
+        testHookSh: { ...thsh, score: thsh.scorable === false ? 'n/a' : score(man.control, thsh.exit) },
       });
     }
   } finally { rmSync(shimDir, { recursive: true, force: true }); }
@@ -289,39 +299,70 @@ function selfTest() {
      * and not-measured gets a note, because the case it used to skip in silence is
      * precisely the one where the comparison changes meaning.
      */
-    const noCompetitor = JSON.parse(JSON.stringify(prior.rows)).map((r) => ({ ...r, testHookSh: { ...r.testHookSh, exit: null, score: 'n/a' } }));
+    /* `n/a` now carries TWO meanings, so these fixtures must say WHICH they mean. They
+       previously set the score alone and bumped a summary counter, which no longer selects
+       a branch: the code reads each row's detail, because counting n/a without reading its
+       reason is what produced a note claiming the tool was not installed about a tool that
+       was installed and had just run. Independent review 3, 2026-08-13. */
+    const absent = (rows) => JSON.parse(JSON.stringify(rows))
+      .map((r) => ({ ...r, testHookSh: { exit: null, detail: 'not installed', score: 'n/a' } }));
     ok('MUST NOTE: this machine cannot re-verify a competitor column the record has',
-      recordDiff(prior, noCompetitor).some((d) => /NOT re-verified/.test(d)));
+      recordDiff(prior, absent(prior.rows)).some((d) => /NOT re-verified/.test(d)));
     ok('MUST NOTE: a record made without the competitor while this machine has it',
-      recordDiff({ ...prior, testHookSh: { ...(prior.testHookSh || {}), na: 3 } }, prior.rows).some((d) => /nothing to compare against/.test(d)));
+      recordDiff({ ...prior, rows: absent(prior.rows) }, prior.rows).some((d) => /nothing to compare against/.test(d)));
     {
       // The both-unmeasured branch was added by a fix and asserted by nothing:
       // deleting its note left the self-test green. Independent review 2026-08-08.
-      const noneEither = prior.rows.map((r) => ({ ...r, testHookSh: { ...r.testHookSh, exit: null, score: 'n/a' } }));
       ok('MUST NOTE: neither side measured the competitor',
-        recordDiff({ ...prior, testHookSh: { ...(prior.testHookSh || {}), na: 12 } }, noneEither).some((d) => /unverified on both sides/.test(d)));
+        recordDiff({ ...prior, rows: absent(prior.rows) }, absent(prior.rows)).some((d) => /unverified on both sides/.test(d)));
+    }
+    {
+      /* The distinction the whole change exists for: a competitor that RAN and produced no
+         verdict is not an absent competitor. It must be named, and the tallies must still
+         be compared rather than skipped. */
+      const noVerdict = JSON.parse(JSON.stringify(prior.rows));
+      const v = noVerdict.find((r) => !r.control);
+      v.testHookSh = { exit: 1, detail: 'NO VERDICT, nothing to score (exit 1)', score: 'n/a' };
+      const seen = recordDiff(prior, noVerdict);
+      ok('MUST NOTE: a competitor that ran but gave no verdict is NOT reported as uninstalled',
+        seen.some((d) => /IS installed and DID run/.test(d)) && !seen.some((d) => /is not installed here/.test(d)),
+        seen.join(' | ') || 'reported nothing');
+      ok('...and the tally comparison still runs rather than being skipped',
+        recordDiff({ ...prior, testHookSh: { ...(prior.testHookSh || {}), caught: 99 } }, noVerdict)
+          .some((d) => /testHookSh\.caught: record says 99/.test(d)));
     }
     {
       // Moving the competitor's single catch between fixtures leaves every tally
       // identical, which is why the per-fixture comparison exists.
-      const moved = JSON.parse(JSON.stringify(prior.rows));
+      /* The record legitimately has NO competitor catch since the verdictless row stopped
+         counting as one, so the pair is CONSTRUCTED rather than found. Depending on the
+         live record to contain a CATCH made this check silently skip the moment the record
+         changed, which is the failure mode it was written to prevent one level down. */
+      const base = JSON.parse(JSON.stringify(prior.rows));
+      const defective = base.filter((r) => !r.control);
+      if (defective.length >= 2) {
+        defective[0].testHookSh = { exit: 1, detail: 'reported failure', score: 'CATCH' };
+        defective[1].testHookSh = { exit: 0, detail: 'reported success', score: 'MISS' };
+      }
+      const seededPrior = { ...prior, rows: base };
+      const moved = JSON.parse(JSON.stringify(base));
       const winner = moved.find((r) => r.testHookSh.score === 'CATCH');
       const loser = moved.find((r) => !r.control && r.testHookSh.score === 'MISS');
       if (winner && loser) {
         const w = winner.testHookSh;
         winner.testHookSh = { ...loser.testHookSh };
         loser.testHookSh = { ...w };
-        const seen = recordDiff(prior, moved);
+        const seen = recordDiff(seededPrior, moved);
         ok('MUST SEE: the competitor catch moving to a different fixture, with tallies unchanged',
           seen.some((d) => /test-hook.sh score was/.test(d)), seen.join(' | ') || 'reported nothing');
         // The exit code is compared on its own line and had no row of its own, so
         // deleting that line kept the self-test green. Independent review 2026-08-08.
-        const exitOnly = JSON.parse(JSON.stringify(prior.rows));
+        const exitOnly = JSON.parse(JSON.stringify(base));
         exitOnly.find((r) => r.fixture === winner.fixture).testHookSh.exit = 77;
         ok('MUST SEE: a competitor exit code moving behind an unchanged score',
-          recordDiff(prior, exitOnly).some((d) => /test-hook.sh exit was/.test(d)),
-          recordDiff(prior, exitOnly).join(' | ') || 'reported nothing');
-      } else ok('MUST SEE: the competitor catch moving to a different fixture', false, 'no CATCH/MISS pair in the record to swap');
+          recordDiff(seededPrior, exitOnly).some((d) => /test-hook.sh exit was/.test(d)),
+          recordDiff(seededPrior, exitOnly).join(' | ') || 'reported nothing');
+      } else ok('MUST SEE: the competitor catch moving to a different fixture', false, 'fewer than two defective rows, so no pair could be constructed');
     }
     ok('...and the caught tally dropping with it', seen.some((d) => /^prove\.caught:/.test(d)));
     const missing = degraded.filter((r) => r.fixture !== victim.fixture);
@@ -363,14 +404,39 @@ export function recordDiff(prior, fresh) {
   const tt = tally(fresh, 'testHookSh');
   const trec = prior.testHookSh || {};
   const recNa = trec.na || 0;
-  if (tt.na === 0 && recNa === 0) {
+  /* `n/a` used to mean one thing, "the tool is not installed". It now means two, because a
+     run that launches the tool and gets no verdict out of it is also unscorable. Reporting
+     the second as "not installed" is a false statement about a tool that is installed and
+     did run, and skipping the whole comparison on it hides a real difference. So the two
+     are counted apart, the comparison still runs on the rows that WERE scored, and the
+     unscorable rows are named rather than summarised. Independent review 3, 2026-08-13. */
+  const naRows = fresh.filter((r) => (r.testHookSh || {}).score === 'n/a');
+  const naAbsent = naRows.filter((r) => /not installed/i.test((r.testHookSh || {}).detail || ''));
+  const naNoVerdict = naRows.filter((r) => /NO VERDICT/i.test((r.testHookSh || {}).detail || ''));
+  const naOther = naRows.filter((r) => !naAbsent.includes(r) && !naNoVerdict.includes(r));
+
+  if (naNoVerdict.length) {
+    out.push(`NOTE test-hook.sh IS installed and DID run, but produced no verdict on ${naNoVerdict.length} row(s), scored n/a rather than counted as a catch: ${naNoVerdict.map((r) => r.fixture).join(', ')}`);
+  }
+  if (naOther.length) {
+    out.push(`NOTE ${naOther.length} row(s) scored n/a for an unrecognised reason, which the record cannot be compared against: ${naOther.map((r) => `${r.fixture} [${(r.testHookSh || {}).detail}]`).join(', ')}`);
+  }
+
+  /* The record's own n/a rows are classified the same way, from their stored details, so
+     "the record was made without test-hook.sh" is never printed about a record that was made
+     WITH it and merely got no verdict out of it. Counting n/a without reading its reason is
+     what produced the false message on both sides. */
+  const recNaRows = (prior.rows || []).filter((r) => (r.testHookSh || {}).score === 'n/a');
+  const recNaAbsent = recNaRows.filter((r) => /not installed/i.test((r.testHookSh || {}).detail || '')).length;
+
+  if (naAbsent.length === 0 && recNaAbsent === 0) {
     for (const k of ['caught', 'of', 'falsePos']) {
       if (trec[k] !== undefined && trec[k] !== tt[k]) out.push(`testHookSh.${k}: record says ${trec[k]}, this run measured ${tt[k]}`);
     }
-  } else if (tt.na > 0 && recNa === 0) {
-    out.push(`NOTE test-hook.sh is not installed here (${tt.na} row(s) n/a) but the record measured it, so its column was NOT re-verified`);
-  } else if (tt.na === 0 && recNa > 0) {
-    out.push(`NOTE the record was made without test-hook.sh (${recNa} row(s) n/a) and this machine has it, so there is nothing to compare against; re-record to capture the competitor column`);
+  } else if (naAbsent.length > 0 && recNaAbsent === 0) {
+    out.push(`NOTE test-hook.sh is not installed here (${naAbsent.length} row(s) n/a) but the record measured it, so its column was NOT re-verified`);
+  } else if (naAbsent.length === 0 && recNaAbsent > 0) {
+    out.push(`NOTE the record was made without test-hook.sh (${recNaAbsent} row(s) n/a) and this machine has it, so there is nothing to compare against; re-record to capture the competitor column`);
   } else {
     out.push('NOTE neither the record nor this run measured test-hook.sh, so that column is unverified on both sides');
   }
@@ -483,12 +549,21 @@ function proveCanFail() {
        * found this one by hand.
        */
       { label: "the competitor's catch moved to another fixture, tallies unchanged", expect: 'COMPETITOR_SCORE_MOVED',
+        /* Swap TWO DEFECTIVE ROWS WHOSE COMPETITOR SCORES DIFFER, whatever those scores
+           are. The original hunted for a CATCH/MISS pair by name and threw the moment the
+           record stopped containing a CATCH, which happened as soon as a verdictless run
+           stopped counting as one. A mutant that depends on the artifact holding a
+           particular value is a mutant that disappears when the artifact changes, and it
+           takes the gate's proof with it. MISS and n/a both contribute zero to the caught
+           tally, so the swap still moves per-fixture scores with the tallies unchanged. */
         mutate: (v) => {
-          const w = v.rows.find((r) => r.testHookSh.score === 'CATCH');
-          const l = v.rows.find((r) => !r.control && r.testHookSh.score === 'MISS');
-          const keep = { ...w.testHookSh };
-          w.testHookSh = { ...l.testHookSh };
-          l.testHookSh = keep;
+          const d = v.rows.filter((r) => !r.control);
+          const a = d[0];
+          const b = d.find((r) => r.testHookSh.score !== a.testHookSh.score);
+          if (!b) throw new Error('every defective row carries the same competitor score, so no swap can move one');
+          const keep = { ...a.testHookSh };
+          a.testHookSh = { ...b.testHookSh };
+          b.testHookSh = keep;
           return v;
         } },
     ],
@@ -497,6 +572,17 @@ function proveCanFail() {
 
 if (IS_MAIN) {
   const a = process.argv.slice(2);
+  /* Same refusal as the published runner, and for the same reason: this one takes
+     `--record`, so an unrecognised flag falling through would rewrite a committed
+     measurement. The check is shared rather than reimplemented so the two cannot drift. */
+  const bad = unknownFlags(a, ['--self-test', '--prove-can-fail', '--verify-record', '--record', '--json', '--out']);
+  if (bad.length) {
+    console.error(`unrecognised flag(s): ${bad.join(', ')}`);
+    console.error('known flags: --self-test, --prove-can-fail, --verify-record, --record, --json, --out');
+    console.error('Refusing to run rather than guessing: a mistyped flag once fell through to a');
+    console.error('bench run that overwrote the committed record.');
+    process.exit(2);
+  }
   if (a.includes('--self-test')) process.exit(selfTest());
   if (a.includes('--prove-can-fail')) process.exit(proveCanFail());
   const rows = bench();

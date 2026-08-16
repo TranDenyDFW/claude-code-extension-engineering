@@ -7,6 +7,11 @@ How a piece of work gets its context: the main thread, a forked context, or a fu
 
 **Layer:** Delegation | **Classification:** supporting | **Status:** stable
 
+## Read this first: what a worker STARTS with, not what it RUNS OUT OF
+
+- This file is about inheritance: which context a fork, a subagent or a teammate begins with, and what each cannot see. If the question is about running out of room, compaction, `/compact`, or what each file read costs against the token budget, that is the context WINDOW and it lives on the `context-window` page, which this library does not restate [OFFICIAL]
+- Both are "context questions" and they have opposite shapes. Inheritance is about what crosses a boundary at the start; the window is about what survives pressure at the end. Answering one with the other produces advice that is true and inapplicable [ENGINEERING]
+
 ## Context comparison
 
 - The term fork is overloaded. Skill isolation and conversation forks have different inputs.

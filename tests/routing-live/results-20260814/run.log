@@ -1,0 +1,95 @@
+23:45:17  START host=LT claude=2.1.229 (Claude Code)
+23:45:39    FAIL L-weak-GQ-12 p1 (22s) :: no transcript recovered
+23:45:56    FAIL L-weak-GQ-22 p1 (17s) :: no transcript recovered
+23:45:56  DONE ran=2 failed=2 total-on-disk=2/2
+23:47:30  START host=LT claude=2.1.229 (Claude Code)
+23:47:30  seeded the arena credential from home
+23:58:28  START host=LT claude=2.1.229 (Claude Code)
+23:58:28  seeded the arena credential from home
+23:58:45  preflight: the arena config authenticates
+00:00:24    FAIL L-weak-GQ-12 p1 (99s) :: none of  was opened
+00:01:36    FAIL L-weak-GQ-22 p1 (72s) :: none of  was opened
+00:03:20  START host=LT claude=2.1.229 (Claude Code)
+00:03:38  preflight: the arena config authenticates
+00:05:27    PASS L-weak-GQ-12 p1 (109s)
+00:06:27    PASS L-weak-GQ-22 p1 (60s)
+00:07:32    PASS L-weak-GQ-25 p1 (65s)
+00:08:01    FAIL L-weak-GQ-48 p1 (30s) :: the skill was never invoked
+00:08:55    FAIL L-weak-GQ-49 p1 (54s) :: the skill was never invoked
+00:10:00    PASS L-weak-GQ-55 p1 (65s)
+00:10:59  START host=LT claude=2.1.229 (Claude Code)
+00:11:16  preflight: the arena config authenticates
+00:12:51    PASS L-weak-GQ-12 p1 (95s)
+00:13:55    PASS L-weak-GQ-22 p1 (64s)
+00:14:56    PASS L-weak-GQ-25 p1 (60s)
+00:15:26    PASS L-weak-GQ-48 p1 (30s)
+00:16:21    PASS L-weak-GQ-49 p1 (55s)
+00:17:31    FAIL L-weak-GQ-55 p1 (70s) :: read a decoy (monitors.md) and no expected file
+00:20:14    FAIL L-weak-GQ-03 p1 (163s) :: a different skill won retrieval: update-config; none of hooks.md, hook-events.md was opened
+00:21:20    PASS L-weak-GQ-06 p1 (66s)
+00:22:15    PASS L-weak-GQ-09 p1 (55s)
+00:22:58    PASS L-weak-GQ-21 p1 (43s)
+00:24:21    PASS L-weak-GQ-37 p1 (83s)
+00:25:59    FAIL L-weak-GQ-42 p1 (99s) :: audited this session's own settings via Skill on a question that attached no artifact
+00:26:41    PASS L-strong-GQ-07 p1 (41s)
+00:27:26    PASS L-strong-GQ-08 p1 (45s)
+00:28:23    PASS L-strong-GQ-11 p1 (57s)
+00:28:54    PASS L-strong-GQ-14 p1 (31s)
+00:29:30    PASS L-strong-GQ-17 p1 (36s)
+00:30:08    PASS L-strong-GQ-19 p1 (38s)
+00:31:15    FAIL L-oos-monitoring-usage p1 (67s) :: did not name monitoring-usage
+00:32:24    FAIL L-oos-permission-modes p1 (69s) :: read a decoy (permissions.md) and no expected file
+00:33:01    FAIL L-oos-sandbox-environments p1 (37s) :: did not name sandbox-environments
+00:33:34    FAIL L-oos-common-workflows p1 (33s) :: did not name common-workflows
+00:34:37    FAIL L-oos-context-window p1 (63s) :: did not name context-window
+00:35:13    PASS L-oos-agents p1 (35s)
+00:36:44    PASS L-weak-GQ-12 p2 (91s)
+00:37:37    PASS L-weak-GQ-22 p2 (54s)
+00:38:43    PASS L-weak-GQ-25 p2 (66s)
+00:39:15    PASS L-weak-GQ-48 p2 (32s)
+00:40:10    PASS L-weak-GQ-49 p2 (55s)
+00:41:08    PASS L-weak-GQ-55 p2 (58s)
+00:42:19    PASS L-weak-GQ-03 p2 (72s)
+00:43:14    PASS L-weak-GQ-06 p2 (54s)
+00:44:10    PASS L-weak-GQ-09 p2 (57s)
+00:44:41    FAIL L-weak-GQ-21 p2 (31s) :: the skill was never invoked
+00:45:04    FAIL L-weak-GQ-37 p2 (22s) :: the skill was never invoked
+00:46:25    FAIL L-weak-GQ-42 p2 (82s) :: audited this session's own settings via Skill on a question that attached no artifact
+00:46:57    PASS L-strong-GQ-07 p2 (32s)
+00:47:34    PASS L-strong-GQ-08 p2 (37s)
+00:49:10    FAIL L-strong-GQ-11 p2 (96s) :: the skill was invoked on a question it should decline, which is the over-trigger regression
+00:49:41    PASS L-strong-GQ-14 p2 (31s)
+00:50:17    PASS L-strong-GQ-17 p2 (36s)
+00:50:56    PASS L-strong-GQ-19 p2 (39s)
+00:52:57    FAIL L-oos-monitoring-usage p2 (121s) :: did not name monitoring-usage
+00:53:44    PASS L-oos-permission-modes p2 (47s)
+00:54:24    FAIL L-oos-sandbox-environments p2 (40s) :: did not name sandbox-environments
+00:54:59    FAIL L-oos-common-workflows p2 (35s) :: did not name common-workflows
+00:56:00    FAIL L-oos-context-window p2 (61s) :: did not name context-window
+00:57:13    PASS L-oos-agents p2 (73s)
+00:59:19    PASS L-weak-GQ-12 p3 (126s)
+01:00:14    PASS L-weak-GQ-22 p3 (54s)
+01:01:23    PASS L-weak-GQ-25 p3 (70s)
+01:01:57    PASS L-weak-GQ-48 p3 (34s)
+01:02:51    PASS L-weak-GQ-49 p3 (54s)
+01:03:58    FAIL L-weak-GQ-55 p3 (67s) :: read a decoy (monitors.md) and no expected file
+01:05:36    PASS L-weak-GQ-03 p3 (98s)
+01:06:23    PASS L-weak-GQ-06 p3 (47s)
+01:07:38    PASS L-weak-GQ-09 p3 (75s)
+01:08:15    FAIL L-weak-GQ-21 p3 (37s) :: the skill was never invoked
+01:10:00    PASS L-weak-GQ-37 p3 (105s)
+01:11:29    FAIL L-weak-GQ-42 p3 (89s) :: none of permissions.md, claude-md-family.md was opened; audited this session's own settings via Skill on a question that attached no artifact
+01:12:10    PASS L-strong-GQ-07 p3 (41s)
+01:12:47    PASS L-strong-GQ-08 p3 (37s)
+01:13:27    PASS L-strong-GQ-11 p3 (40s)
+01:13:59    PASS L-strong-GQ-14 p3 (32s)
+01:14:36    PASS L-strong-GQ-17 p3 (37s)
+01:15:15    PASS L-strong-GQ-19 p3 (39s)
+01:16:59    FAIL L-oos-monitoring-usage p3 (104s) :: did not name monitoring-usage
+01:17:56    FAIL L-oos-permission-modes p3 (57s) :: did not name permission-modes; read a decoy (permissions.md) and no expected file
+01:18:34    FAIL L-oos-sandbox-environments p3 (38s) :: did not name sandbox-environments
+01:19:08    FAIL L-oos-common-workflows p3 (34s) :: did not name common-workflows
+01:19:53    FAIL L-oos-context-window p3 (45s) :: did not name context-window
+01:20:55    PASS L-oos-agents p3 (62s)
+01:20:55  returned the rotated credential to home
+01:20:55  DONE ran=72 failed=24 total-on-disk=72/72

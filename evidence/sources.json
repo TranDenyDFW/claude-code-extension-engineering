@@ -1,117 +1,5 @@
 [
   {
-    "id": "SRC_STATUSLINE",
-    "title": "Customize your status line",
-    "url": "https://code.claude.com/docs/en/statusline",
-    "type": "external",
-    "retrieved": "2026-08-12",
-    "build": "2.1.224",
-    "status": "verified",
-    "notes": "Fetched live 2026-08-12 from the .md endpoint, full page rendered. Added for references/statusline.md, which is the first reference file to cite this page: the library previously carried only two incidental mentions of the status line, in plugins.md and subagents.md.",
-    "spot_checks": [
-      {
-        "claim": "The statusLine settings object takes type, command, and the optional padding, refreshInterval and hideVimModeIndicator fields; refreshInterval has a minimum of 1 second",
-        "supported": true
-      },
-      {
-        "claim": "The script runs once at session start including on resume, and Claude Code debounces updates at 300ms so rapid changes batch into a single run",
-        "supported": true
-      },
-      {
-        "claim": "On Windows the command runs through Git Bash when installed and PowerShell when it is absent, and Git Bash treats unquoted backslashes in a Windows-style path as escape characters",
-        "supported": true
-      },
-      {
-        "claim": "subagentStatusLine is a separate setting that renders a row body per subagent and is gated by the same trust and disableAllHooks controls as statusLine",
-        "supported": true
-      }
-    ]
-  },
-  {
-    "id": "SRC_SESSIONS",
-    "title": "Manage sessions",
-    "url": "https://code.claude.com/docs/en/sessions",
-    "type": "external",
-    "retrieved": "2026-08-12",
-    "build": "2.1.224",
-    "status": "verified",
-    "notes": "Fetched live 2026-08-12 from the .md endpoint, full page rendered including the 'Where transcripts are stored' section. Added for references/sessions.md.",
-    "spot_checks": [
-      {
-        "claim": "Transcripts are stored as JSONL at ~/.claude/projects/<project>/<session-id>.jsonl and the entry format is internal and changes between versions, so scripts parsing them directly can break on any release",
-        "supported": true
-      },
-      {
-        "claim": "A resumed session never restores plan or bypassPermissions mode, and auto is restored only when the account still meets the auto mode requirements",
-        "supported": true
-      },
-      {
-        "claim": "Configuration passed as --mcp-config, --settings, --plugin-dir, --fallback-model or --add-dir is not restored on resume and must be passed again, while settings.json and settings.local.json are re-read at launch",
-        "supported": true
-      },
-      {
-        "claim": "Retention defaults to 30 days and is changed with cleanupPeriodDays",
-        "supported": true
-      }
-    ]
-  },
-  {
-    "id": "SRC_CHECKPOINTING",
-    "title": "Checkpointing",
-    "url": "https://code.claude.com/docs/en/checkpointing",
-    "type": "external",
-    "retrieved": "2026-08-12",
-    "build": "2.1.224",
-    "status": "verified",
-    "notes": "Fetched live 2026-08-12 from the .md endpoint, full page rendered. Added for the /rewind half of references/sessions.md.",
-    "spot_checks": [
-      {
-        "claim": "Claude Code keeps file snapshots for the 100 most recent checkpoints in a session and deletes checkpoints along with sessions after 30 days, changeable with cleanupPeriodDays",
-        "supported": true
-      },
-      {
-        "claim": "Checkpointing does not track files modified by bash commands, and those modifications cannot be undone through rewind",
-        "supported": true
-      },
-      {
-        "claim": "Rewind does not restore edits made by a background subagent; a foreground forked skill is the documented exception because it edits during the user's own turn",
-        "supported": true
-      },
-      {
-        "claim": "Restore skips symlinked and hard-linked paths and reports 'Restored the code, but skipped N files'",
-        "supported": true
-      }
-    ]
-  },
-  {
-    "id": "SRC_MODEL_CONFIG",
-    "title": "Model configuration",
-    "url": "https://code.claude.com/docs/en/model-config",
-    "type": "external",
-    "retrieved": "2026-08-12",
-    "build": "2.1.224",
-    "status": "verified",
-    "notes": "Fetched live 2026-08-12 from the .md endpoint, full page rendered including the 'Automatic model fallback' section. Added for references/safety-classifier.md. This page was cited nowhere in the library before now, which is why the safety-classifier topic had no groundable source.",
-    "spot_checks": [
-      {
-        "claim": "Fable 5 and Opus 5 run with safety classifiers for cybersecurity and biology content, and a flagged request re-runs on a fallback model only when the flagged category has one",
-        "supported": true
-      },
-      {
-        "claim": "Opus 5 biology-flagged requests end in a refusal rather than a fallback, because Opus 5 runs its own biology classifiers with no fallback model",
-        "supported": true
-      },
-      {
-        "claim": "Category-based fallback requires v2.1.219 or later; before that every flagged Fable 5 request re-ran on the provider default Opus model and Opus 5 was not a fallback source",
-        "supported": true
-      },
-      {
-        "claim": "switchModelsOnFlag set to false pauses a flagged request instead of switching, and claude --safe-mode isolates whether local customizations are tripping the classifier",
-        "supported": true
-      }
-    ]
-  },
-  {
     "id": "CCX_RESEARCH",
     "title": "CCX architecture research, inventory and findings",
     "url": "internal",
@@ -196,6 +84,22 @@
     ]
   },
   {
+    "id": "SRC_AGENTS",
+    "title": "Claude Code Run agents in parallel",
+    "url": "https://code.claude.com/docs/en/agents",
+    "type": "external",
+    "retrieved": "2026-08-13",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Added for the agent-sdk.md redirect. The parallelism comparison page, which names a surface this library does not cover.",
+    "spot_checks": [
+      {
+        "claim": "the page compares \"subagents, agent view, agent teams, and dynamic workflows\"",
+        "supported": true
+      }
+    ]
+  },
+  {
     "id": "SRC_CHANGELOG",
     "title": "Claude Code changelog",
     "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
@@ -264,6 +168,102 @@
     ]
   },
   {
+    "id": "SRC_CHECKPOINTING",
+    "title": "Checkpointing",
+    "url": "https://code.claude.com/docs/en/checkpointing",
+    "type": "external",
+    "retrieved": "2026-08-12",
+    "build": "2.1.224",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-12 from the .md endpoint, full page rendered. Added for the /rewind half of references/sessions.md.",
+    "spot_checks": [
+      {
+        "claim": "Claude Code keeps file snapshots for the 100 most recent checkpoints in a session and deletes checkpoints along with sessions after 30 days, changeable with cleanupPeriodDays",
+        "supported": true
+      },
+      {
+        "claim": "Checkpointing does not track files modified by bash commands, and those modifications cannot be undone through rewind",
+        "supported": true
+      },
+      {
+        "claim": "Rewind does not restore edits made by a background subagent; a foreground forked skill is the documented exception because it edits during the user's own turn",
+        "supported": true
+      },
+      {
+        "claim": "Restore skips symlinked and hard-linked paths and reports 'Restored the code, but skipped N files'",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_CLAUDE_DIRECTORY",
+    "title": "Claude Code the .claude directory",
+    "url": "https://code.claude.com/docs/en/claude-directory",
+    "type": "external",
+    "retrieved": "2026-08-14",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Read from the docs mirror. Added when blind grading found two answers hand-deleting session files because the library never carried the purge command.",
+    "spot_checks": [
+      {
+        "claim": "sessions.md: claude project purge deletes transcripts and auto memory, per-session tasks, debug and file-history entries, matching history.jsonl prompt lines, and the project entry in ~/.claude.json, printing the plan and confirming first",
+        "supported": true
+      },
+      {
+        "claim": "sessions.md: it accepts --dry-run, -y/--yes, -i/--interactive and --all, and exits 1 when no state matches the path",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_COMMON_WORKFLOWS",
+    "title": "Claude Code Common workflows",
+    "url": "https://code.claude.com/docs/en/common-workflows",
+    "type": "external",
+    "retrieved": "2026-08-13",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Added for the workflows.md redirect. A task-recipe guide, not the orchestration-script mechanism.",
+    "spot_checks": [
+      {
+        "claim": "the page is \"Step-by-step guides for exploring codebases, fixing bugs, refactoring, testing\"",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_CONTEXT_WINDOW",
+    "title": "Claude Code Explore the context window",
+    "url": "https://code.claude.com/docs/en/context-window",
+    "type": "external",
+    "retrieved": "2026-08-13",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Added for the context-modes.md redirect. Token budget and compaction, not delegation inheritance.",
+    "spot_checks": [
+      {
+        "claim": "the page is an interactive simulation of how the context window fills during a session",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_CROSS_SESSION_MESSAGING",
+    "title": "Claude Code Message your other Claude Code sessions",
+    "url": "https://code.claude.com/docs/en/cross-session-messaging",
+    "type": "external",
+    "retrieved": "2026-08-13",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Added for the sessions.md redirect. Concurrent sessions talking to each other, not session durability.",
+    "spot_checks": [
+      {
+        "claim": "the page is about listing and messaging other Claude Code sessions on this and other machines",
+        "supported": true
+      }
+    ]
+  },
+  {
     "id": "SRC_DISCOVER_PLUGINS",
     "title": "Claude Code Discover and install prebuilt plugins",
     "url": "https://code.claude.com/docs/en/discover-plugins",
@@ -279,6 +279,22 @@
       },
       {
         "claim": "monitors.md Context cost: plugins that contribute a theme, output style, monitor, or workflow are never listed as unused, since those deliver value without an invocation to track",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_ENV_VARS",
+    "title": "Claude Code environment variables",
+    "url": "https://code.claude.com/docs/en/env-vars",
+    "type": "external",
+    "retrieved": "2026-08-13",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Read from the docs mirror rather than fetched live. Added when an independent review found the library calling the Stop-hook block cap a hard cap; this page documents the variable that changes it, and no existing source covered the environment-variable reference.",
+    "spot_checks": [
+      {
+        "claim": "hooks.md: CLAUDE_CODE_STOP_HOOK_BLOCK_CAP sets the maximum consecutive Stop or SubagentStop blocks before Claude Code ends the turn anyway, defaults to 8, and accepts 0 to disable the cap",
         "supported": true
       }
     ]
@@ -456,6 +472,58 @@
     ]
   },
   {
+    "id": "SRC_MODEL_CONFIG",
+    "title": "Model configuration",
+    "url": "https://code.claude.com/docs/en/model-config",
+    "type": "external",
+    "retrieved": "2026-08-12",
+    "build": "2.1.224",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-12 from the .md endpoint, full page rendered including the 'Automatic model fallback' section. Added for references/safety-classifier.md. This page was cited nowhere in the library before now, which is why the safety-classifier topic had no groundable source.",
+    "spot_checks": [
+      {
+        "claim": "Fable 5 and Opus 5 run with safety classifiers for cybersecurity and biology content, and a flagged request re-runs on a fallback model only when the flagged category has one",
+        "supported": true
+      },
+      {
+        "claim": "Opus 5 biology-flagged requests end in a refusal rather than a fallback, because Opus 5 runs its own biology classifiers with no fallback model",
+        "supported": true
+      },
+      {
+        "claim": "Category-based fallback requires v2.1.219 or later; before that every flagged Fable 5 request re-ran on the provider default Opus model and Opus 5 was not a fallback source",
+        "supported": true
+      },
+      {
+        "claim": "switchModelsOnFlag set to false pauses a flagged request instead of switching, and claude --safe-mode isolates whether local customizations are tripping the classifier",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_MONITORING_USAGE",
+    "title": "Claude Code Monitoring: OpenTelemetry usage, cost and activity",
+    "url": "https://code.claude.com/docs/en/monitoring-usage",
+    "type": "external",
+    "retrieved": "2026-08-13",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Page title is \"Monitoring\". Confirmed it carries CLAUDE_CODE_ENABLE_TELEMETRY=1, OTEL_METRICS_EXPORTER, OTEL_LOGS_EXPORTER and OTEL_EXPORTER_OTLP_ENDPOINT. Added because monitors.md collides with it by title while covering a different subject, measured as GQ-55 on the 2026-08-13 benchmark.",
+    "spot_checks": [
+      {
+        "claim": "`CLAUDE_CODE_ENABLE_TELEMETRY=1` appears on the page",
+        "supported": true
+      },
+      {
+        "claim": "`OTEL_EXPORTER_OTLP_ENDPOINT` appears on the page",
+        "supported": true
+      },
+      {
+        "claim": "the page is about observability of Claude Code, not about a shell command that feeds the model",
+        "supported": true
+      }
+    ]
+  },
+  {
     "id": "SRC_OUTPUT_STYLES",
     "title": "Claude Code Output styles documentation",
     "url": "https://code.claude.com/docs/en/output-styles",
@@ -471,6 +539,26 @@
       },
       {
         "claim": "plugins.md: with nested .claude/ directories the output style closest to the working directory wins",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_PERMISSION_MODES",
+    "title": "Claude Code Choose a permission mode",
+    "url": "https://code.claude.com/docs/en/permission-modes",
+    "type": "external",
+    "retrieved": "2026-08-13",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Added for the permissions.md redirect. Confirmed all six mode names appear on the page.",
+    "spot_checks": [
+      {
+        "claim": "the six modes named are `default`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions`",
+        "supported": true
+      },
+      {
+        "claim": "the page states modes are cycled with Shift+Tab in the CLI",
         "supported": true
       }
     ]
@@ -548,6 +636,22 @@
     ]
   },
   {
+    "id": "SRC_SANDBOX_ENVIRONMENTS",
+    "title": "Claude Code Choose a sandbox environment",
+    "url": "https://code.claude.com/docs/en/sandbox-environments",
+    "type": "external",
+    "retrieved": "2026-08-13",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Added for the sandboxing.md redirect. The page compares isolation options; the extension file covers only the first of them.",
+    "spot_checks": [
+      {
+        "claim": "the page compares \"the built-in sandboxed Bash tool, sandbox runtime, dev containers, Docker, and VMs\"",
+        "supported": true
+      }
+    ]
+  },
+  {
     "id": "SRC_SANDBOXING",
     "title": "Claude Code Configure the sandboxed Bash tool",
     "url": "https://code.claude.com/docs/en/sandboxing",
@@ -575,6 +679,34 @@
       },
       {
         "claim": "sandboxing.md scope restrictions: sandbox.filesystem cannot be set from project or local settings, and strictAllowlist set in a repository settings file \"has no effect\". No equivalent sentence exists for failIfUnavailable, which is why this project treats its project-scope behaviour as undocumented rather than as restricted.",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_SESSIONS",
+    "title": "Manage sessions",
+    "url": "https://code.claude.com/docs/en/sessions",
+    "type": "external",
+    "retrieved": "2026-08-12",
+    "build": "2.1.224",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-12 from the .md endpoint, full page rendered including the 'Where transcripts are stored' section. Added for references/sessions.md.",
+    "spot_checks": [
+      {
+        "claim": "Transcripts are stored as JSONL at ~/.claude/projects/<project>/<session-id>.jsonl and the entry format is internal and changes between versions, so scripts parsing them directly can break on any release",
+        "supported": true
+      },
+      {
+        "claim": "A resumed session never restores plan or bypassPermissions mode, and auto is restored only when the account still meets the auto mode requirements",
+        "supported": true
+      },
+      {
+        "claim": "Configuration passed as --mcp-config, --settings, --plugin-dir, --fallback-model or --add-dir is not restored on resume and must be passed again, while settings.json and settings.local.json are re-read at launch",
+        "supported": true
+      },
+      {
+        "claim": "Retention defaults to 30 days and is changed with cleanupPeriodDays",
         "supported": true
       }
     ]
@@ -639,6 +771,34 @@
       },
       {
         "claim": "The combined description plus when_to_use text is truncated near 1,536 characters in the skill listing (skills.md frontmatter table and Levers detail)",
+        "supported": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_STATUSLINE",
+    "title": "Customize your status line",
+    "url": "https://code.claude.com/docs/en/statusline",
+    "type": "external",
+    "retrieved": "2026-08-12",
+    "build": "2.1.224",
+    "status": "verified",
+    "notes": "Fetched live 2026-08-12 from the .md endpoint, full page rendered. Added for references/statusline.md, which is the first reference file to cite this page: the library previously carried only two incidental mentions of the status line, in plugins.md and subagents.md.",
+    "spot_checks": [
+      {
+        "claim": "The statusLine settings object takes type, command, and the optional padding, refreshInterval and hideVimModeIndicator fields; refreshInterval has a minimum of 1 second",
+        "supported": true
+      },
+      {
+        "claim": "The script runs once at session start including on resume, and Claude Code debounces updates at 300ms so rapid changes batch into a single run",
+        "supported": true
+      },
+      {
+        "claim": "On Windows the command runs through Git Bash when installed and PowerShell when it is absent, and Git Bash treats unquoted backslashes in a Windows-style path as escape characters",
+        "supported": true
+      },
+      {
+        "claim": "subagentStatusLine is a separate setting that renders a row body per subagent and is gated by the same trust and disableAllHooks controls as statusLine",
         "supported": true
       }
     ]

@@ -165,8 +165,9 @@
     },
     "testHookSh": {
       "exit": 1,
-      "detail": "no verdict line",
-      "score": "CATCH"
+      "detail": "NO VERDICT, nothing to score (exit 1)",
+      "scorable": false,
+      "score": "n/a"
     }
   },
   {

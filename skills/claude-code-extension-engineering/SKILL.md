@@ -1,6 +1,6 @@
 ---
 name: claude-code-extension-engineering
-description: "Building, debugging, or reasoning about the limits of a Claude Code extension: CLAUDE.md, rules, skills, hooks, hook events, subagents, dynamic workflows, agent teams, MCP servers, output styles, themes, monitors, channels, plugins, the Agent SDK, permission rules and the OS sandbox. Use when choosing between these mechanisms, writing one, or diagnosing one that will not load, fire, or behave. ALSO use for capability and scope questions: whether a hook event can block or refuse, whether a permission or sandbox key is honored in project scope or only user/managed/CLI scope, which tools a path rule is consulted for, whether a feature works on a third-party provider or an older build, what context a subagent receives, or whether a requirement is achievable at all. CRITICALLY, use it for IMPERATIVE build requests about these mechanisms too, not only questions: 'wire up a hook that...', 'make it stop/block/refuse when X', 'whenever X happens, do Y', 'put our sandbox or permission config into settings.json', 'add a rule that prevents...'. Those presuppose the mechanism can do the thing, and half the time it cannot: the event reports but cannot block, the key is inert at that scope, the rule is never consulted for that tool. Wiring up something that silently never fires is the failure this exists to prevent."
+description: "Building, debugging, or reasoning about the limits of a Claude Code extension: CLAUDE.md, rules, skills, hooks and hook events incl. Stop and Notification, subagents, dynamic workflows, agent teams, MCP servers, output styles, themes, status lines, monitors, channels, plugins, the Agent SDK, permission rules, the OS sandbox, settings files and environment variables, auto memory, and what survives a session ending (transcripts, resume, /rewind). Use when choosing between these mechanisms, writing one, or diagnosing one that will not load, fire, or behave. ALSO capability and scope: whether an event can block or refuse, whether a key is honored at project scope or only user/managed/CLI scope, which tools a path rule is consulted for, what a subagent receives, whether it exists on an older build. ALSO for IMPERATIVE build requests, not only questions: \"wire up a hook that...\", \"make it stop when X\", \"put our sandbox config in settings.json\". They presuppose it can, and often it cannot. ALSO for a BARE SYMPTOM or lookup with no artifact attached: \"stop hook notification\", \"stop hook not working\", \"settings.json ignored\", \"where is settings.json\", \"how do I delete sessions\", \"# memory not working\", \"MCP server not showing up\". A bare noun phrase is a QUESTION, not system output to acknowledge. NOT for operating Claude Code rather than extending it: telemetry, permission MODES, containers and VMs, the token budget, the agents dashboard, usage and billing, IDE integrations, install and login. Answer; name the page."
 ---
 
 # Claude Code extension engineering
@@ -39,8 +39,69 @@ happens to use, is the failure mode this skill exists to prevent. Several of the
 mechanisms report without being able to refuse, and several keys are inert in the scope
 people naturally put them in. Both are silent.
 
+**Check the word before you check the shape.** If the question's key noun is `monitor`,
+`sandbox`, `permission`, `workflow`, `context`, `agent`, `session` or `classifier`, read the
+boundary table below BEFORE opening INDEX.md. Each of those names a mechanism here and,
+separately, a Claude Code topic that is not here at all. Retrieval succeeds on the wrong one
+and reports nothing, because mechanically nothing went wrong.
+
 If no reference covers it, say what you could not confirm. A confident wrong mechanism
 claim is indistinguishable from a correct one until it ships.
+
+## What this skill does NOT own
+
+This library covers the mechanisms you AUTHOR and the settings that gate them. It does not
+cover operating Claude Code. Several of its filenames are also ordinary words searchers use
+for something else, and answering from the filename is worse than not answering: a
+wrong-topic answer sourced from a real reference reads as authoritative and displaces the
+correct one, where a gap would have left the correct one reachable.
+
+Check this list before opening any reference. If the question is on it: **answer it**, name the
+topic the asker means, and name the official page as the authority. Do not route into the
+mechanism that shares the word, and do not source the answer from a reference here.
+
+**The boundary is about WHERE AN ANSWER COMES FROM, not about whether to give one.** Refusing on
+scope makes this library worse than no library at all, because the model already knew the answer
+and this file talked it out of saying so. Measured, on two questions about
+`CLAUDE_CODE_MAX_OUTPUT_TOKENS`: the arm carrying this library named the variable correctly, then
+wrote "isn't part of this skill's scope" and "outside what this extension-engineering skill
+covers" and stopped. The arm carrying no relevant library at all answered with the `env` block to
+put in `settings.json`, and blind graders preferred it, twice. A user who asks a question and gets
+a pointer to a page has been handed a worse outcome than if this skill had never loaded.
+
+So: give the best answer you have, say plainly that it is not sourced from this library, and name
+the page that is authoritative. The thing being prevented is a confident answer reconstructed from
+the wrong reference. A correct answer from general knowledge, labelled as such, was never the
+problem.
+
+| If the question is about | It is | Official page |
+|---|---|---|
+| Watching usage, cost, tokens, latency or errors across sessions or a team; OpenTelemetry, OTLP, a metrics backend | telemetry, NOT the Monitor mechanism | `monitoring-usage`, `analytics` |
+| Whether Claude asks before acting; plan / acceptEdits / auto / dontAsk / bypassPermissions; Shift+Tab | permission MODES, not permission RULES | `permission-modes` |
+| Dev containers, VMs, the sandbox runtime, running Claude inside a container | environment isolation, not the sandboxed Bash tool | `sandbox-environments` |
+| A recipe for a coding task: "how do I use Claude Code to do X" | usage, not extension engineering | `common-workflows`, `quickstart` |
+| Running out of context, compaction, `/compact`, the token budget | the context WINDOW, not context MODES | `context-window` |
+| The `claude agents` screen, dispatching and watching background sessions | agent view. This library has no file on it | `agent-view`, `agents` |
+| Listing or messaging your other live sessions | cross-session messaging, not session durability | `cross-session-messaging` |
+| Cron, routines, goals, anything that runs with nobody at the terminal | scheduling | `scheduled-tasks`, `routines` |
+| The editor, browser and desktop apps rather than the CLI | integrations | `vs-code`, `jetbrains`, `chrome`, `desktop` |
+| Gateways, Bedrock/Vertex/Foundry setup, SSO, seats and billing | deployment and administration | `llm-gateway`, `admin-setup`, `costs` |
+| Installation, login, "it will not start", a verbatim error string | troubleshooting | `troubleshoot-install`, `errors` |
+
+Pages live at `https://code.claude.com/docs/en/<page>`. **Naming the page is REQUIRED. Naming it
+INSTEAD of answering is not an answer.** Give the concrete thing the asker needs: the variable, the
+flag, the file it goes in, the command to run. Then name the page as the authority, and say if you
+have not read it. Fetch it if you can.
+
+What stays forbidden is reconstructing the answer from a reference HERE that merely shares a word
+with the topic, because a wrong-topic answer sourced from a real reference reads as authoritative
+and displaces the correct one. That is a rule about provenance. It was written as "naming the page
+and stopping is a COMPLETE answer", which is a rule about silence, and the two are not the same:
+the silence reading lost two blind pairwise comparisons to an arm carrying no relevant library at
+all, on questions the model could answer perfectly well.
+
+This list is enumerated on purpose and is not a licence to defer generally: a question that is not
+on it, and that a reference does cover, gets answered from the reference.
 
 ## The layers
 
@@ -92,7 +153,7 @@ Keyed by mechanism. If you do not already know which mechanism owns the answer, 
 | Agent SDK | [agent-sdk.md](references/agent-sdk.md) |
 | Claude Code GitHub Action | [github-action.md](references/github-action.md) |
 | Status line: showing state Claude Code already tracks | [statusline.md](references/statusline.md) |
-| Sessions, transcripts, what /rewind can undo | [sessions.md](references/sessions.md) |
+| Sessions, transcripts, what /rewind can undo, which settings file a key belongs in and which keys hot-reload | [sessions.md](references/sessions.md) |
 | Safety refusals and automatic model fallback | [safety-classifier.md](references/safety-classifier.md) |
 | Choosing between them | [selection.md](references/selection.md) |
 | Combining two mechanisms | [composition-cards.md](references/composition-cards.md) |
@@ -100,6 +161,16 @@ Keyed by mechanism. If you do not already know which mechanism owns the answer, 
 | Evidence sources | [sources.md](references/sources.md) |
 
 ## Repairing something that is broken
+
+**This section applies once the broken artifact is in front of you.** A bare symptom with no
+artifact attached, "stop hooks do not work", "why does my skill never auto-invoke", "settings
+json ignored", is a question about the mechanism's documented CONTRACT, not a request to
+audit the workspace this session happens to be running in. Answer from the reference first
+and offer to inspect the user's config second. Opening this session's settings files and
+reporting that nothing is configured there answers a question nobody asked, and it looks like
+diligence. MEASURED: that answer scored 1 of 6 on the 2026-08-13 benchmark, question GQ-06.
+
+When the artifact IS in front of you:
 
 **Reproduce the failure, apply the fix, re-run, and show both outputs.** Not a list of
 steps for someone else to run: the actual before and after.
@@ -122,7 +193,13 @@ untested claim.
 
 Claims are tagged by evidence: untagged is official documentation, `[ANTHROPIC]` is an
 Anthropic recommendation, `[ENGINEERING]` is engineering judgment, `[COMMUNITY]` is
-community practice. A `[vX.Y.Z]` tag is the build a behaviour was verified against;
+community practice. A `[vX.Y.Z]` tag is the build the behaviour BELONGS to: the release it
+was introduced or changed in, or the minimum build it requires. Where the documentation dates
+no version, the tag is the build the claim was verified against instead. The two senses are
+told apart mechanically: every reference file that carries version tags names its
+verified-against build in its own header, so a tag equal to that build carries the
+verified-against sense and any other tag carries the changed-in sense. They are not interchangeable on an old build, which is the
+question this library most often exists to answer.
 `[EXPERIMENTAL]` means NOT STABLE, in either of two senses: off by default until a flag or
 env var turns it on (Agent Teams), or on the moment it is configured but carrying a manifest
 schema, flag syntax or protocol contract documented as liable to change between releases

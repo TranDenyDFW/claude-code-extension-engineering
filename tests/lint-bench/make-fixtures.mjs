@@ -76,6 +76,30 @@ description: "${desc}"
 Use the checked-in scripts. Read references/notes.md for the edge cases.
 `;
 
+/* The description-cap counter fixture. Parsed 1530, raw 1664, against a cap of 1536: a tool that
+   measures the RAW frontmatter text instead of the JSON-parsed value reports this CLEAN tree as
+   over its cap, which is exactly the defect fixed in extension-doctor.mjs.
+
+   It is built HERE rather than hand-written into fixtures/, because hand-written is what it was.
+   The generator never knew about it, the drift gate reported it as an extra file, and the whole
+   self-test went red in CI. A fixture the generator does not own is drift by definition, however
+   deliberate the fixture itself is. */
+const CAP_DESC_RAW = 'Reviewing release notes for the billing service. Quotes the exact wording of '
+  + 'a changelog entry, so the value carries many escaped quote characters. '
+  + 'the \\"exact\\" phrase. '.repeat(67)
+  + 'x'.repeat(42);
+const CAP_COUNTER_SKILL = `---
+name: release-notes
+description: "${CAP_DESC_RAW}"
+---
+
+# release-notes
+
+Fixture for the description cap counter. Parsed length 1530, raw length 1664, cap 1536.
+It exists so that measuring the raw text instead of the parsed value turns the
+"clean tree yields ZERO findings" row red.
+`;
+
 const GOOD_AGENT = `---
 name: log-reader
 description: "Reads build logs and reports the first error line with its file and line number."
@@ -474,6 +498,7 @@ description: "Formats release notes from the merged PR list."
       'home/.claude/settings.json': J(GOOD_SETTINGS),
       'home/.claude/hooks/audit.mjs': AUDIT_HOOK,
       'home/.claude/skills/pr-review/SKILL.md': GOOD_SKILL('pr-review', DESC_1300.slice(0, 400)),
+      'home/.claude/skills/release-notes/SKILL.md': CAP_COUNTER_SKILL,
       'project/.claude/agents/log-reader.md': GOOD_AGENT,
       'project/.mcp.json': J({
         mcpServers: {

@@ -1,0 +1,62 @@
+{
+  "note": "Question shapes this library deliberately does NOT answer, each with the official page that does. Growth is provenance-only: an entry needs a measured benchmark question, a harvested corpus id, or a different-subject row in collisions.json. The count is REPORTED by tools/out-of-scope-check.mjs and is never a pass criterion, because a padded entry fails at least two codes.",
+  "mirrorCapturedAt": "2026-08-13",
+  "entries": [
+    {
+      "shape": "Watching Claude Code itself: usage, cost, tokens, latency or errors, across sessions or a team",
+      "official_page": "monitoring-usage",
+      "src_id": "SRC_MONITORING_USAGE",
+      "subject_terms": ["CLAUDE_CODE_ENABLE_TELEMETRY", "OTEL_METRICS_EXPORTER"],
+      "pointer_location": "references/monitors.md",
+      "provenance": { "kind": "benchmark", "id": "GQ-55", "run": "google-questions/rev/2026-08-13-LT", "note": "Answered from the monitor mechanism instead and scored 0 of 6 on every rubric dimension in the WEB-DENIED condition, against 5 of 6 with the web allowed. The qualifier matters: with search available the library's gap is masked, so the failure only appears when the library is the sole source, which is the condition it is written for. This entry exists because that happened, not because it seemed likely." }
+    },
+    {
+      "shape": "Whether Claude pauses before acting: plan, acceptEdits, auto, dontAsk, bypassPermissions and the mode cycle",
+      "official_page": "permission-modes",
+      "src_id": "SRC_PERMISSION_MODES",
+      "subject_terms": ["mode selector"],
+      "pointer_location": "references/permissions.md",
+      "provenance": { "kind": "benchmark", "id": "GQ-01", "run": "google-questions/rev/2026-08-13-LT", "note": "The reference answer for 'claude code skip permissions' resolves to the modes page, not to rule syntax." }
+    },
+    {
+      "shape": "Running Claude Code inside a container or a VM, and choosing between isolation options",
+      "official_page": "sandbox-environments",
+      "src_id": "SRC_SANDBOX_ENVIRONMENTS",
+      "subject_terms": ["dev container", "sandbox runtime"],
+      "pointer_location": "references/sandboxing.md",
+      "provenance": { "kind": "benchmark", "id": "GQ-02", "run": "google-questions/rev/2026-08-13-LT", "note": "'how to sandbox agents' resolves to the isolation comparison, of which this library covers one column." }
+    },
+    {
+      "shape": "A recipe for a coding task: how to use Claude Code to explore, fix, refactor or test",
+      "official_page": "common-workflows",
+      "src_id": "SRC_COMMON_WORKFLOWS",
+      "subject_terms": ["Step-by-step guides", "everyday tasks"],
+      "pointer_location": "references/workflows.md",
+      "provenance": { "kind": "benchmark", "id": "GQ-20", "run": "google-questions/rev/2026-08-13-LT", "note": "'how do claude code workflows work' is ambiguous between the orchestration mechanism and the task-recipe page." }
+    },
+    {
+      "shape": "Running out of context, compaction, and what each read costs against the token budget",
+      "official_page": "context-window",
+      "src_id": "SRC_CONTEXT_WINDOW",
+      "subject_terms": ["interactive simulation", "auto-compact"],
+      "pointer_location": "references/context-modes.md",
+      "provenance": { "kind": "benchmark", "id": "GQ-56", "run": "google-questions/rev/2026-08-13-LT", "note": "'how to improve claude code workflow' reaches the context-budget material, which this library does not carry." }
+    },
+    {
+      "shape": "Listing or messaging your other live Claude Code sessions",
+      "official_page": "cross-session-messaging",
+      "src_id": "SRC_CROSS_SESSION_MESSAGING",
+      "subject_terms": ["cross-session", "message your other"],
+      "pointer_location": "references/sessions.md",
+      "provenance": { "kind": "collision", "id": "sessions.md<>cross-session-messaging.md", "note": "No benchmark question reached this one. It is here because collisions.json adjudicates the pair different-subject, and every such row implies an out-of-scope shape. Recorded as collision rather than benchmark precisely because inventing a question to justify it is the failure mode this ledger guards against." }
+    },
+    {
+      "shape": "The claude agents dashboard: dispatching and watching background sessions",
+      "official_page": "agents",
+      "src_id": "SRC_AGENTS",
+      "subject_terms": ["agent view", "claude agents"],
+      "pointer_location": "references/agent-sdk.md, references/agent-teams.md, references/subagents.md",
+      "provenance": { "kind": "benchmark", "id": "GQ-18", "run": "google-questions/rev/2026-08-13-LT", "note": "'how to run multiple claude code agents'. Eleven of the 60 benchmark reference answers cite this page; the library has no file for the agent-view surface it compares." }
+    }
+  ]
+}

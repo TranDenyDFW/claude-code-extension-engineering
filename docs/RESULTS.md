@@ -12,12 +12,41 @@ deciding that it should.
 
 ## Tier 1, deterministic regression
 
-**235 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
-file, run by [tests/run-tests.mjs](../tests/run-tests.mjs).
+**262 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
+file, run by [tests/run-tests.mjs](../tests/run-tests.mjs). Sixteen rows were added on
+2026-08-13 alongside the out-of-scope boundary table. Three are negative: naming a topic in
+order to DECLINE it enlarges the trigger surface, and the guard against over-triggering has
+to ship in the same change as the content that creates the risk. Thirteen are positive, added
+after an independent reviewer measured that the new content had NO coverage at all: the
+boundary table, the word-collision table and the Stop contract could each have been deleted
+whole while the suite still reported a full pass.
+
+Six more followed the same day, and both halves of that pattern are worth naming. Four
+(`F230` to `F233`) guard the facts added to close the four measured content gaps. Two
+(`F234`, `F235`) guard facts a second independent reviewer found the library still could not
+deliver: the `terminalSequence` version floor, and the six keys that belong in
+`~/.claude.json`. Each was watched going RED against the passage removed and green again on
+restore, with a green control on the pristine copy first, because that reviewer's own harness
+had crashed mid-run and left a copy dirty, producing a red that meant nothing.
+
+Two more (`N021`, `N022`) came from the live benchmark rather than from a review, and they
+guard a ROUTE rather than a fact. A graded session was asked why a settings key was ignored,
+opened `INDEX.md`, followed the mid-session-config row to `output-styles.md`, generalised that
+page's restart-only behaviour to settings as a whole, and never opened `sessions.md`, where
+the correct general rule had just been added. The fact was present and unreachable, which no
+content row can detect, because the content stays there while the path to it does not.
+
+**On the quote gate's scope, since the count above has no denominator without it.**
+[tools/quote-check.mjs](../tools/quote-check.mjs) inspects double-quoted spans of 25
+characters or more, and ONLY on lines carrying an evidence tag. The same reviewer counted 42
+qualifying spans on untagged lines and read the plausible ones: all are the library's own
+scare quotes, its own phrasing of a wrong conclusion, or measured CLI output, so the scoping
+is correct. It is stated here because "every verbatim quote checked" is true of the tagged
+set and silent about the rest.
 
 Near-tautological on the first run, since the keys derive from the content. It earns its keep
 as a regression gate and through `--prove-fail`, which guts every source file and confirms all
-223 positive assertions go red. A suite that stays green against deleted content proves
+247 positive assertions go red. A suite that stays green against deleted content proves
 nothing; this one cannot.
 
 Set v2 (2026-07-31) added coverage for the marketplace-submission facts, the frontmatter
@@ -142,8 +171,20 @@ catches, plus the limitations: [tests/results-lint-bench.md](../tests/results-li
 
 ## Prove bench
 
-**10 of 10 defects caught versus 3 of 10**, both with zero false positives on a correct
-control. The comparison is against
+**10 of 10 defects caught versus 2 of 10**, both with zero false positives on a correct
+control.
+
+**This number was 3 of 10 until 2026-08-13, and the correction is against our own interest to
+state, so it is stated first.** The competitor's third catch was `handler-path-missing`, whose
+recorded detail read `no verdict line`: it exited non-zero without printing either of its own
+verdict strings, because it had not run. Under a PowerShell PATH, bare `bash` resolved to the
+Microsoft Store WSL alias, which exits 1 with an elevation error, and the scoring function
+reads any non-zero exit on a defective fixture as a catch. So a launch failure of OURS was
+published as a detection by THEM. The runner now probes for a real bash and refuses to score a
+run that produced no verdict, which drops the competitor to 2 and leaves our own score
+unchanged, since our tool is scored on matching the declared defect rather than on exit code.
+
+The comparison is against
 `plugin-dev/skills/hook-development/scripts/test-hook.sh`, which ends with
 `if [ $exit_code -eq 0 ] || [ $exit_code -eq 2 ]` and prints success for both, accepts no
 expected outcome, and never reads `hooks.json`, so the matcher is never evaluated.
@@ -259,16 +300,20 @@ tool, because deriving them would make the score a check that cannot fail.
 
 ```
 extension-prove : 10 of 10 caught with the correct diagnosis, 0 false positives on the control
-test-hook.sh    :  1 of 11 caught,                            0 false positives on the control
+test-hook.sh    :  0 of 11 caught, 1 not measured,            0 false positives on the control
 ```
 
-The competitor's single catch is the fixture where the handler file could not be found at all: it
-caught a missing file, not a validation defect. One fixture is declared a MISS on purpose, because
+**This block said 1 of 11 until 2026-08-13, and it is the same error as the one above, not a
+second kind.** The single catch was `handler-path-bare-variable`, recorded with the detail
+`no verdict line`: it exited non-zero without printing either of its verdict strings, so it had
+not run. Both cohorts credited the competitor for our failure to launch it, and both drop by
+exactly that one fixture once a verdictless run scores `n/a`. One fixture is declared a MISS on
+purpose, because
 `extension-prove` cannot yet distinguish an explicit `permissionDecision: "allow"` from no decision
 at all, and naming that blind spot is better than omitting the fixture. Weakening the prover so no
 handler code runs collapses the score to 4 of 10 with a false positive on the control, which is
-what a control is for. The published 10-of-10-versus-3-of-10 experiment is untouched: separate
-directory, separate results file. Full write-up and limits:
+what a control is for. The published 10-of-10-versus-2-of-10 experiment is untouched by this
+cohort: separate directory, separate results file. Full write-up and limits:
 [results-prove-bench-validation.md](../tests/results-prove-bench-validation.md).
 
 ```bash

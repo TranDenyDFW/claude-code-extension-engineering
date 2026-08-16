@@ -1,0 +1,27 @@
+[
+  {
+    "kind": "tool",
+    "name": "Skill",
+    "input": "claude-code-extension-engineering: User is asking generally \"how to monitor claude code\" - need to explain what mechanisms exist for monitoring Claude Code (the Monitor tool for background processes, OpenTelemetry/loggin",
+    "result": "Launching skill: claude-code-extension-engineering",
+    "refused": false
+  },
+  {
+    "kind": "tool",
+    "name": "Read",
+    "input": "C:\\bench\\Prompts-LT-denied\\arena\\arm-a\\.claude\\skills\\claude-code-extension-engineering\\references\\INDEX.md",
+    "result": "1 # Symptom index: start here when you do not already know the mechanism 2 3 The table in SKILL.md is keyed by **mechanism**, which only helps once you know which 4 mechanism owns the answer. Most real questions do not arrive that way. They arrive as a 5 symptom (\"this hook never fires\"), a capabili",
+    "refused": false
+  },
+  {
+    "kind": "tool",
+    "name": "Read",
+    "input": "C:\\bench\\Prompts-LT-denied\\arena\\arm-a\\.claude\\skills\\claude-code-extension-engineering\\references\\monitors.md",
+    "result": "1 # Monitors 2 3 > Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and w",
+    "refused": false
+  },
+  {
+    "kind": "say",
+    "text": "\"Monitor Claude Code\" could mean a couple of different things — here's the breakdown:\n\n**1. Watch a live process during a session (most likely what you want)**\nClaude has a `Monitor` tool: it starts a shell command that runs for the session and streams every stdout line back as a notification (e.g. `tail -F build.log`, polling a deploy status). It's fire-and-forget input only — it can't block or take action, just report. You can ask me directly, e.g. \"monitor the dev server logs and tell me if it crashes,\" and I'll arm it via that tool. It auto-stops after a timeout (default 5 min) unless you ask for `persistent: true`, and you can cancel it any time.\n\n**2. Auto-start a watcher every session (via a plugin)**\nIf you want something that watches a log/file/service automatically every time you start Claude Code (not just when you ask), that's the plugin `monitors/monitors.json` component — same underlying mechanism, but declared in a plugin instead of requested ad hoc. It's still experimental, pure-input (no blocking), and has some sharp edges (e.g. it dies with the session, doesn't survive `/reload-plugins` after a plugin update, and won't load at all from a project-scope skills plugin).\n\n**3. Observability of Claude Code's own usage** (cost, tokens, tool calls across your team)\nThat's a different thing entirely — OpenTelemetry metrics/logs export, not covered by the mechanisms above. Let me know if that's actually what you're after and I can look into it separately.\n\nWhich of these did you have in mind — watching a specific process/log right now, setting up an always-on plugin watcher, or usage/cost telemetry?"
+  }
+]

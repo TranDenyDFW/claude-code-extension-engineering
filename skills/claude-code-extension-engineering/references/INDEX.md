@@ -13,8 +13,44 @@ Explore and Plan agents skip. The reader cannot route correctly from the mechani
 because routing correctly requires the answer.
 
 **Match the question shape below, open the file named, and read it before answering.**
-If two rows match, open both. If none matches, say what you could not confirm rather than
-reasoning from the mechanism name.
+If two rows match, open both.
+
+There are two ways to be wrong here, and the guard this file carried until 2026-08-13
+covered only one. A MISS is cheap and visible. A FALSE MATCH is neither: the question
+carries a word that is also a filename here, a row matches on that word, the reference
+loads, and every fact in it is true and about something else. MEASURED: "how to monitor
+Claude Code" matched the monitor rows, `monitors.md` was read, and the answer described a
+plugin-declared shell command to somebody asking about OpenTelemetry. Retrieval reported no
+problem because mechanically nothing had gone wrong. A gap would have scored better than the
+hit, and the old guard could never fire, because it was conditioned on nothing matching.
+
+So run the collision table immediately below BEFORE the shape tables. Then:
+
+- collision table silent, a shape row matches, open it.
+- collision table names the question, ANSWER it from what you know, say the answer is not sourced
+  from this library, and name the official page. Naming the page INSTEAD of answering is not a
+  complete answer: measured, that behaviour lost blind pairwise comparisons to an arm carrying no
+  relevant library at all. What is forbidden is sourcing the answer from a file HERE that merely
+  shares a word with the topic.
+- nothing matches anywhere, say what you could not confirm, and name the nearest official
+  PAGE rather than the nearest filename here.
+
+## Before the shape tables: is a WORD doing the routing?
+
+| The word | What this library means | What the asker usually means | Where that lives |
+|---|---|---|---|
+| monitor | a plugin-declared shell command whose stdout reaches the model | observability: usage, cost, tokens, OTel export | `monitoring-usage`, `analytics`. NOT covered here |
+| sandbox | the OS-level sandboxed Bash tool | running Claude inside a container or VM | `sandbox-environments`. NOT covered here |
+| permission | allow / ask / deny rule syntax | how often Claude asks: plan, acceptEdits, auto, bypassPermissions | `permission-modes`. Only the resume slice is here, in [sessions.md](sessions.md) |
+| workflow | an orchestration script in `.claude/workflows/` | how to accomplish a task with Claude Code | `common-workflows`. NOT covered here |
+| context | what a delegated worker starts with | the token budget and compaction | `context-window`. NOT covered here |
+| agent | subagents, teams, the SDK | the `claude agents` dashboard | `agent-view`, `agents`. NOT covered here |
+| session | what survives a session ending, and `/rewind` | messaging your other live sessions | `cross-session-messaging`. NOT covered here |
+| classifier | the content safety classifier | the auto-mode permission classifier | [safety-classifier.md](safety-classifier.md) and [sandboxing.md](sandboxing.md). BOTH here |
+
+The last row is the one that already worked before this table existed, and it worked because
+the disambiguation lives in the destination file, at the top, before anything else. Every
+other row now has the same treatment in its destination; this table is the earlier catch.
 
 ## You were told to BUILD something, not asked a question
 
@@ -89,11 +125,17 @@ before it is a syntax question.
 |---|---|
 | A skill is listed but never auto-invokes | [skills.md](skills.md) |
 | A hook is configured but never runs | [hooks.md](hooks.md), [hook-events.md](hook-events.md) |
+| "&lt;event&gt; hook not working / not firing", with no config shown | [hooks.md](hooks.md), [hook-events.md](hook-events.md). Answer the documented contract; do NOT audit this workspace's settings files |
+| A Stop or SubagentStop hook runs but the turn ends anyway, or the turn will not end | [hooks.md](hooks.md), [hook-events.md](hook-events.md) |
 | A subagent runs but ignores its detailed guidance | [subagents.md](subagents.md) |
 | An MCP server is configured but no tools appear | [mcp.md](mcp.md) |
 | A plugin loads but one component type is missing | [plugins.md](plugins.md) |
 | Something works by hand but not from a real session | [hooks.md](hooks.md), [hook-events.md](hook-events.md), [testing.md](testing.md) |
-| I edited a config mid-session and nothing changed | [output-styles.md](output-styles.md), [testing.md](testing.md) |
+| I edited a config mid-session and nothing changed | [sessions.md](sessions.md) FIRST for the general rule, THEN [output-styles.md](output-styles.md), [testing.md](testing.md). Most keys hot-reload and the restart-only keys are the enumerated exception, so do NOT generalise from the output-styles page to settings as a whole |
+| A settings key is ignored, or settings.json appears to do nothing | [sessions.md](sessions.md), [permissions.md](permissions.md). Establish WHICH FILE the key belongs in before checking scope, syntax or precedence: some keys live in `~/.claude.json` and are silently ignored when placed in `settings.json` |
+| A plugin is installed but nothing happens at all | [plugins.md](plugins.md), [mcp.md](mcp.md) |
+| The `#` shortcut for adding to memory does nothing | [auto-memory.md](auto-memory.md) |
+| I want to be notified when Claude finishes or needs me | [hooks.md](hooks.md), [hook-events.md](hook-events.md). Notification and Stop are different events and only one of them can block |
 | The tone or response format config seems to do nothing, or replaced more than expected | [output-styles.md](output-styles.md) |
 | One integration is skipped at startup while the others load, and validation passes | [lsp.md](lsp.md), [plugins.md](plugins.md) |
 | An agent definition's tools or frontmatter is ignored when it runs as a peer | [agent-teams.md](agent-teams.md), [subagents.md](subagents.md) |

@@ -29,6 +29,17 @@ The packaging and distribution boundary. A plugin bundles any combination of ski
 - claude plugin validate: unrecognized top-level fields are WARNINGS and still load (wrong types still fail) - use --strict in CI or the gate is hollow [OFFICIAL]
 - claude plugin details NAME reports the component inventory and projected token cost, split always-on (paid every session by listing text) vs on-invoke; defaultEnabled: false ships installed-but-disabled (v2.1.154+), and a user's enabledPlugins entry at any scope wins permanently thereafter [OFFICIAL]  [v2.1.154]
 
+## An installed plugin that does nothing: work the branches in order
+
+"Plugin not working" has three separate causes that look identical, and a plugin carrying an
+MCP server has a fourth that is not a plugin problem at all.
+
+- ACTIVATION. Before v2.1.221 a plugin installed from `/plugin` always required `/reload-plugins` before it did anything. From v2.1.221 those plugins activate immediately WHEN SAFE, so the same install behaves differently across that boundary and "it worked on my machine" is often just a version difference [OFFICIAL]  [v2.1.221]
+- STALE CATALOG. Also from v2.1.221, `/plugin install` refreshes a stale marketplace catalog and retries before reporting a plugin not found. On an earlier build a not-found is not proof the plugin is absent; it can be a catalog that was never refreshed [OFFICIAL]  [v2.1.221]
+- DISABLED, not broken. `defaultEnabled: false` ships a plugin installed and inactive, and a user's `enabledPlugins` entry at any scope wins permanently after that. Check this before touching the manifest [OFFICIAL]  [v2.1.154]
+- ITS MCP SERVER NEEDS AUTH, which is a different failure wearing the same symptom. A plugin whose value is an MCP server does nothing useful until that server is authorised, and the fix is `/mcp`, not the plugin machinery. See [mcp.md](mcp.md) for the authentication branch [ENGINEERING]
+- Establish which branch applies before changing anything. Re-installing fixes the catalog case, `/reload-plugins` fixes the activation case, neither touches a disabled plugin, and none of the three touches an unauthenticated MCP server [ENGINEERING]
+
 ## Release flow
 
 Run in order. Each step gates the next.

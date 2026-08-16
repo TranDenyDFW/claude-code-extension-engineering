@@ -1,7 +1,15 @@
 # prove-bench: does a tool notice the extension does not do what it was asked to do?
 
 Run 2026-08-04. Windows 11, Node v24.14.1, Claude Code 2.1.219.
-Reproduce: `node tests/prove-bench/make-fixtures.mjs && node tests/prove-bench/run-bench.mjs`
+Reproduce: `node tests/prove-bench/make-fixtures.mjs --check && node tests/prove-bench/run-bench.mjs`
+
+Both halves write nothing. `--check` asserts the committed fixtures still match the generator;
+WITHOUT it, `make-fixtures.mjs` regenerates all eleven fixture directories, which is why the
+flag is in the line rather than in a note under it. The bench itself reports only, and updating
+`results.json` needs an explicit `--record`. Verify the record reproduces with
+`node tests/prove-bench/run-bench.mjs --verify-record`, which CI also runs. Every one of those
+sentences replaced an instruction that rewrote a tracked artifact as a side effect of following
+the documentation.
 
 ## The question
 
@@ -20,7 +28,7 @@ blocks-the-near-miss        CATCH             MISS  [reported success]
 correct-guard (control)     clean             clean  [reported success]
 deny-rule-never-consulted   CATCH             MISS  [reported success]
 fails-open-on-crash         CATCH             CATCH  [reported failure]
-handler-path-missing        CATCH             CATCH  [no verdict line]
+handler-path-missing        CATCH             n/a  [NO VERDICT, nothing to score (exit 1)]
 hook-only-no-deny-rule      CATCH             MISS  [reported success]
 jq-dependency               CATCH             CATCH  [reported failure]
 matcher-wrong-tool          CATCH             MISS  [reported success]
@@ -29,8 +37,17 @@ stdout-theatre              CATCH             MISS  [reported success]
 
 extension-prove : caught 10/10 defects, 0 false positive(s) on the control
                   (a catch requires the failing case set to MATCH the fixture's declared defect, not merely a non-zero exit)
-test-hook.sh    : caught 3/10 defects, 0 false positive(s) on the control
+test-hook.sh    : caught 2/10 defects, 0 false positive(s) on the control
 ```
+
+**`handler-path-missing` was published as the competitor's third catch until 2026-08-13.** Its
+own detail column said `no verdict line`, meaning it exited non-zero without printing either of
+its verdict strings. It had not run: under a PowerShell PATH bare `bash` resolved to the
+Microsoft Store WSL alias, which exits 1 with an elevation error, and any non-zero exit on a
+defective fixture scored as a catch. The runner now probes for a real bash and scores a
+verdictless run `n/a` instead, the same value it already used for a tool that is not installed.
+Publishing a launch failure of ours as a detection by them is the direction of error a
+comparison against your own tool is least likely to notice, which is why it survived.
 
 **The 10 of 10 is BY CONSTRUCTION and is not the headline.** The fixtures were authored
 here, against the checks this tool performs. The measured content is the competitor column
@@ -38,9 +55,10 @@ and the fact that both tools pass the control.
 
 ## What the split actually shows
 
-`test-hook.sh` catches exactly the three defects that surface as a non-zero exit code
-(`fails-open-on-crash`, `jq-dependency`, `handler-path-missing`). It misses all seven that
-require either an expected outcome or an evaluation of the wiring. That is not a bug in its
+`test-hook.sh` catches exactly the two defects that surface as a non-zero exit code
+(`fails-open-on-crash`, `jq-dependency`). It misses seven that require either an expected
+outcome or an evaluation of the wiring, and `handler-path-missing` is not scored at all
+because the tool exits without reaching its own logic there. That is not a bug in its
 implementation, it is its design: it accepts no expected outcome and never reads `hooks.json`.
 
 The clearest single case is `allows-what-it-blocks`: a handler whose guard never fires, so
@@ -111,8 +129,10 @@ handler, and `--prove-fail` no longer excludes `fail-posture` (66 case-runs beca
 *Proven:* gutting `applyMutation` now exits 1 with three specific failures.
 
 **2. The headline was scored on exit code alone.** Stubbing `runHandler` so that NO extension
-code executed at all left every gate green and reproduced "10 of 10 versus 3 of 10"
-BYTE-IDENTICALLY, because any non-zero exit counted as a catch. Under that stub
+code executed at all left every gate green and reproduced the published headline of the day
+BYTE-IDENTICALLY, because any non-zero exit counted as a catch. That headline has since moved,
+for the same root cause read from the other side: a non-zero exit trusted as evidence that
+something ran. Under that stub
 `blocks-the-near-miss` passed the very case that defines its defect.
 *Fixed:* every fixture now declares the case set its defect predicts, and a CATCH requires the
 observed failing set to MATCH it. Detecting a defect for the wrong reason scores

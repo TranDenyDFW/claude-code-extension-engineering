@@ -80,6 +80,41 @@ function toPosixPath(p) {
   return `/${m[1].toLowerCase()}/${m[2].replace(/\\/g, '/')}`;
 }
 
+/**
+ * Resolve a bash that is actually bash.
+ *
+ * Under a PowerShell PATH, bare `bash` resolves to C:\Users\<u>\AppData\Local\Microsoft\
+ * WindowsApps\bash.exe, the Store WSL alias. It exits 1 with an elevation error without
+ * ever reading the script, and since `score()` reads a non-zero exit on a defective
+ * fixture as CATCH, the competitor scored 10 of 10 while never running. The bench was
+ * green from Git Bash and wrong from PowerShell, which is the worst shape a benchmark
+ * can take: correct on the machine of whoever built it.
+ *
+ * So the candidate is PROBED rather than trusted, and a failure throws rather than
+ * degrading, because a bench that cannot launch its competitor has no result to report.
+ */
+let BASH = null;
+export function resolveBash(candidates = null) {
+  /* The cache is bypassed when candidates are named explicitly. Without that, the
+     self-test's known-bad candidates would return whatever a previous real call had
+     cached, and the two checks that prove this function can REFUSE would silently
+     stop being able to fail. */
+  if (BASH && !candidates) return BASH;
+  const list = candidates || (process.platform === 'win32'
+    ? ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files\\Git\\usr\\bin\\bash.exe', 'bash']
+    : ['bash']);
+  const tried = [];
+  for (const c of list) {
+    /* Never accept the Store alias, whatever it claims: it is a launcher, not a shell. */
+    if (/WindowsApps/i.test(c)) { tried.push(`${c}: Microsoft Store alias, skipped`); continue; }
+    if (c !== 'bash' && !existsSync(c)) { tried.push(`${c}: not present`); continue; }
+    const p = spawnSync(c, ['-c', 'echo BASH_PROBE_OK'], { encoding: 'utf8', windowsHide: true, timeout: 20_000 });
+    if (p.status === 0 && /BASH_PROBE_OK/.test(p.stdout || '')) { if (!candidates) BASH = c; return c; }
+    tried.push(`${c}: exit ${p.status}, ${String(p.stderr || p.error || '').trim().split('\n')[0] || 'no output'}`);
+  }
+  throw new Error(`prove-bench cannot find a working bash, so the competitor cannot be run and nothing may be scored.\n  ${tried.join('\n  ')}`);
+}
+
 function runTestHookSh(dir, shimDir) {
   if (!existsSync(TEST_HOOK_SH)) return { exit: null, detail: 'not installed' };
   const conf = JSON.parse(readFileSync(join(dir, 'conformance.json'), 'utf8'));
@@ -98,13 +133,24 @@ function runTestHookSh(dir, shimDir) {
     const existing = env.PATH || env.Path || '';
     delete env.Path;
     env.PATH = `${shimDir}${sep}${existing}`;
-    const r = spawnSync('bash', [toPosixPath(TEST_HOOK_SH), toPosixPath(handler), toPosixPath(inputPath)],
+    const r = spawnSync(resolveBash(), [toPosixPath(TEST_HOOK_SH), toPosixPath(handler), toPosixPath(inputPath)],
       { encoding: 'utf8', windowsHide: true, timeout: 120_000, env });
     const out = `${r.stdout || ''}${r.stderr || ''}`;
     const said = /Test completed successfully/.test(out) ? 'reported success'
       : /Test failed/.test(out) ? 'reported failure'
       : /not valid JSON/.test(out) ? 'claimed the input was invalid JSON'
       : 'no verdict line';
+    /* A non-zero exit carrying none of the tool's own verdict lines means the tool did
+       not reach its own logic, and scoring that as a CATCH credits the competitor for
+       our launch failing. Downgrade it to the n/a the bench already uses for a tool
+       that is not installed, and say so in the detail column rather than silently. */
+    if (said === 'no verdict line') {
+      /* Keep the REAL exit code. Returning null here also silenced the per-fixture
+         competitor comparison in recordDiff, which skips a row whose exit is null, so a
+         score change on this fixture became invisible. Unscorability is carried by an
+         explicit flag instead, and the measured exit stays measured. */
+      return { exit: r.status, detail: `NO VERDICT, nothing to score (exit ${r.status})`, scorable: false };
+    }
     return { exit: r.status, detail: said };
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
@@ -124,7 +170,7 @@ export function score(isControl, exit) {
  * STRICTER bar than the competitor.
  *
  * An adversarial audit stubbed `runHandler` so that no extension code executed at
- * all, and the published 10 of 10 versus 3 of 10 came out BYTE-IDENTICAL, because
+ * all, and the published headline of the day came out BYTE-IDENTICAL, because
  * exit-code scoring counts any non-zero as a catch, including "everything failed
  * for the wrong reason". Under that stub `blocks-the-near-miss` passed the very
  * case that defines its defect.
@@ -157,7 +203,7 @@ function bench() {
         fixture: man.name, control: !!man.control, defect: man.defect, citation: man.citation,
         expectedFailures: man.expectedFailures || [],
         prove: { ...prove, score: scoreDiagnosis(man.control, prove, man.expectedFailures || []) },
-        testHookSh: { ...thsh, score: score(man.control, thsh.exit) },
+        testHookSh: { ...thsh, score: thsh.scorable === false ? 'n/a' : score(man.control, thsh.exit) },
       });
     }
   } finally { rmSync(shimDir, { recursive: true, force: true }); }
@@ -205,6 +251,25 @@ function selfTest() {
   check('the control with exit 0 is clean', score(true, 0) === 'clean');
   check('FALSE POSITIVE: the control with a non-zero exit is scored, not excused', score(true, 1) === 'FALSE-POS');
   check('an uninstalled tool scores n/a, never a silent CATCH', score(false, null) === 'n/a');
+
+  /* The bash resolver, which exists because bare `bash` under a PowerShell PATH ran the
+     Microsoft Store WSL alias and scored the competitor 10 of 10 without executing it. */
+  check('resolveBash REFUSES the Microsoft Store alias by path',
+    (() => { try { resolveBash(['C:\\Users\\x\\AppData\\Local\\Microsoft\\WindowsApps\\bash.exe']); return false; } catch (e) { return /cannot find a working bash/.test(e.message) && /Store alias/.test(e.message); } })());
+  check('resolveBash THROWS rather than returning a shell it could not probe',
+    (() => { try { resolveBash([join(HERE, 'definitely-not-a-shell.exe')]); return false; } catch (e) { return /nothing may be scored/.test(e.message); } })());
+  /* The typo guard. `--selftest` must be REFUSED, not silently run as a bench. */
+  check('a mistyped --selftest is caught as unknown', unknownFlags(['--selftest']).length === 1);
+  check('the real flags are accepted', unknownFlags(['--self-test', '--json']).length === 0);
+  /* The value must be CONSUMED, so a dash-leading value is not read as a flag. The
+     first version passed a value that could not look like a flag anyway, so deleting the
+     consumption left the check green: it asserted nothing. */
+  check('--out consumes its value rather than reading it as a flag', unknownFlags(['--out', '--tmp-x.json']).length === 0);
+  check('--out=value form is accepted too', unknownFlags(['--out=tmp/x.json']).length === 0);
+  check('MUST FAIL: an invented flag is not waved through', unknownFlags(['--record-everything']).length === 1);
+
+  check('resolveBash accepts a real bash and its probe actually runs',
+    (() => { try { const b = resolveBash(); const p = spawnSync(b, ['-c', 'echo BASH_PROBE_OK'], { encoding: 'utf8' }); return p.status === 0 && /BASH_PROBE_OK/.test(p.stdout); } catch { return false; } })());
 
   // Diagnosis scoring. An audit stubbed runHandler so nothing executed and the
   // old exit-code-only headline came out byte-identical, so a catch now requires
@@ -290,14 +355,96 @@ export function wouldDropRecordedTools(prior, fresh) {
   return [...had].filter((t) => !has.has(t)).sort();
 }
 
+/**
+ * An unrecognised flag is refused rather than ignored.
+ *
+ * `--selftest` is not `--self-test`, and the typo did not fail: it fell through to a real
+ * bench run whose default output path is the COMMITTED record, so a command meant to assert
+ * nothing quietly rewrote a published measurement. The overwrite guard below did not stop it
+ * because it only refuses to DROP a tool's column, and this run measured every tool. The
+ * cheapest place to catch that is here, before anything runs.
+ */
+export const KNOWN_FLAGS = ['--self-test', '--json', '--out', '--record', '--verify-record'];
+export function unknownFlags(argv, known = KNOWN_FLAGS) {
+  const out = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (!a.startsWith('--')) continue;
+    const name = a.includes('=') ? a.slice(0, a.indexOf('=')) : a;
+    if (!known.includes(name)) out.push(a);
+    else if (name === '--out' && !a.includes('=')) i++;
+  }
+  return out;
+}
+
 function main() {
   const argv = process.argv.slice(2);
+  const bad = unknownFlags(argv);
+  if (bad.length) {
+    console.error(`unrecognised flag(s): ${bad.join(', ')}`);
+    console.error(`known flags: ${KNOWN_FLAGS.join(', ')}`);
+    console.error('Refusing to run: an unrecognised flag once fell through to a full bench run');
+    console.error('that overwrote the committed record, so this exits instead of guessing.');
+    process.exit(2);
+  }
   if (argv.includes('--self-test')) process.exit(selfTest());
   if (!existsSync(FIXTURES)) { console.error('no fixtures; run make-fixtures.mjs first'); process.exit(1); }
   const rows = bench();
   const code = report(rows, argv.includes('--json'));
 
+  /* --verify-record: re-run and require the COMMITTED record to reproduce.
+   *
+   * The validation cohort has had this since it was written; this cohort, whose numbers are
+   * the published headline, had nothing re-verifying its record and CI never re-ran it.
+   * Independent review 5 named that and review 6 confirmed it was still true. The record
+   * that carries the headline is the last one that should go unchecked. */
+  if (argv.includes('--verify-record')) {
+    const recPath = join(HERE, 'results.json');
+    if (!existsSync(recPath)) { console.error(`no record at ${recPath}`); process.exit(1); }
+    const prior = JSON.parse(readFileSync(recPath, 'utf8'));
+    const priorRows = Array.isArray(prior) ? prior : (prior.rows || Object.values(prior).filter((x) => x && x.fixture));
+    const byName = new Map(rows.map((r) => [r.fixture, r]));
+    const diffs = [];
+    for (const p of priorRows) {
+      const now = byName.get(p.fixture);
+      if (!now) { diffs.push(`fixture "${p.fixture}" is in the record and absent from this run`); continue; }
+      for (const col of ['prove', 'testHookSh']) {
+        const was = (p[col] || {}), is = (now[col] || {});
+        if (was.score !== is.score) diffs.push(`${p.fixture}: ${col} score was ${was.score}, now ${is.score}`);
+        if (was.exit !== is.exit) diffs.push(`${p.fixture}: ${col} exit was ${was.exit}, now ${is.exit}`);
+      }
+      const a = [...(p.prove?.failedIds || [])].sort().join(','), b = [...(now.prove?.failedIds || [])].sort().join(',');
+      if (a !== b) diffs.push(`${p.fixture}: failing case ids were [${a}], now [${b}]`);
+    }
+    for (const r of rows) if (!priorRows.some((p) => p.fixture === r.fixture)) diffs.push(`fixture "${r.fixture}" is in this run and absent from the record`);
+    if (diffs.length) {
+      console.error('');
+      for (const d of diffs) console.error(`  ${d}`);
+      console.error('');
+      console.error(`RECORD DIVERGED: ${diffs.length} difference(s). Either the tool changed or the`);
+      console.error('published numbers are stale. Re-record deliberately with --record, and update');
+      console.error('tests/results-prove-bench.md in the same commit.');
+      process.exit(1);
+    }
+    console.log('');
+    console.log('PASS the committed record still reproduces, per fixture and per column.');
+    process.exit(0);
+  }
+
   const oi = argv.indexOf('--out');
+  /* A BARE RUN NO LONGER WRITES THE COMMITTED RECORD.
+   *
+   * It used to, and the file's own reproduce line told the reader to run exactly that, so
+   * following the documentation rewrote the published measurement. The sibling validation
+   * runner has always required an explicit `--record` for this; the two now agree.
+   * Independent review 4, 2026-08-13. */
+  if (oi < 0 && !argv.includes('--record')) {
+    console.log('');
+    console.log('Reported only. This run wrote nothing.');
+    console.log('  --record        deliberately update tests/prove-bench/results.json');
+    console.log('  --out <file>    write somewhere else');
+    process.exit(code);
+  }
   const dest = oi >= 0 ? resolve(argv[oi + 1]) : join(HERE, 'results.json');
   if (oi < 0 && existsSync(dest)) {
     let prior = null;

@@ -340,6 +340,15 @@ export function frontmatterProblems(text) {
   if (!m) return [{ kind: 'no-frontmatter', detail: 'no frontmatter block found' }];
   const problems = [];
   const fields = {};
+  /* Which keys arrived as QUOTED scalars, and with which quote character.
+     Stripping the surrounding quotes without undoing the escapes inside left a
+     value whose length was the raw length, not the parsed one. Every \" counted
+     as two characters, so this file reported its own flagship skill at 1554
+     chars against a 1536 cap when the value a parser yields is 1534: a false
+     SILENT finding, on the one check whose whole job is measuring that budget.
+     Found while splitting that skill for description budget, using this tool as
+     the instrument. */
+  const quotedWith = {};
   const lines = m[1].split('\n');
   let inQuote = null;      // quote char while inside a multi-line quoted scalar
   let inBlockScalar = false; // after key: | or key: >
@@ -377,6 +386,7 @@ export function frontmatterProblems(text) {
     if (v === '|' || v === '>' || /^[|>][+-]?$/.test(v)) { inBlockScalar = true; fields[currentKey] = ''; continue; }
     if (v.startsWith('"') || v.startsWith("'")) {
       const q = v[0];
+      quotedWith[currentKey] = q;
       if (v.length > 1 && v.endsWith(q) && !v.endsWith(`\\${q}`)) {
         fields[currentKey] = v.slice(1, -1);
       } else {
@@ -395,6 +405,20 @@ export function frontmatterProblems(text) {
     }
   }
   if (inQuote) problems.push({ kind: 'unclosed-quote', detail: `${currentKey} opens a quote that never closes before the frontmatter ends` });
+  /* Undo the escapes, so a length measured here is the length a loader sees.
+     Double quotes use JSON's escape set, which JSON.parse decodes exactly; if it
+     will not parse, the raw text is kept rather than guessed at, because a
+     wrong-but-shorter value would under-report the budget instead of over. Single
+     quotes in YAML escape only the quote itself, by doubling it. */
+  for (const [k, q] of Object.entries(quotedWith)) {
+    const v = fields[k];
+    if (typeof v !== 'string') continue;
+    if (q === '"') {
+      try { fields[k] = JSON.parse(`"${v.replace(/\n/g, '\\n')}"`); } catch { /* keep raw */ }
+    } else {
+      fields[k] = v.replace(/''/g, "'");
+    }
+  }
   return problems.length ? problems : Object.assign([], { fields });
 }
 export function frontmatterFields(text) {
@@ -1221,10 +1245,19 @@ export function runChecks({ home, project, assumeVersion = null, strictUnknown =
   ].filter(s => existsSync(s.file));
   for (const s of settingsFiles) scopes.push({ scope: s.scope, file: s.file });
 
+  /* A skill directory passed DIRECTLY is checked too, and a bare `skills/` root is walked.
+     This tool scanned only ~/.claude/skills and <project>/.claude/skills, so a repository
+     that develops a skill anywhere else, including this one at `skills/<name>/SKILL.md`,
+     had its skill inspected by NOTHING while the run still printed "All documented
+     silent-failure conditions absent". That sentence over an empty scan is worse than an
+     error. Found 2026-08-14 when the repo's own skill turned out to be 573 chars past the
+     description cap it documents, undetected by its own doctor. */
   const skillRoots = [
     { scope: 'user', dir: join(home, '.claude', 'skills') },
     { scope: 'project', dir: join(project, '.claude', 'skills') },
+    { scope: 'project', dir: join(project, 'skills') },
   ];
+  if (existsSync(join(project, 'SKILL.md'))) skillRoots.push({ scope: 'bundle', dir: dirname(project), only: basename(project) });
   const agentRoots = [
     { scope: 'user', dir: join(home, '.claude', 'agents') },
     { scope: 'project', dir: join(project, '.claude', 'agents') },
@@ -1232,8 +1265,9 @@ export function runChecks({ home, project, assumeVersion = null, strictUnknown =
 
   // ---- skills: frontmatter, caps, name format, cross-scope duplicates ------
   const skillsByName = new Map();
+  let skillsScanned = 0;
   for (const root of skillRoots) {
-    for (const d of listDirs(root.dir)) {
+    for (const d of (root.only ? [root.only] : listDirs(root.dir))) {
       const p = join(root.dir, d, 'SKILL.md');
       const text = readText(p);
       if (text === null) continue;
@@ -1247,6 +1281,7 @@ export function runChecks({ home, project, assumeVersion = null, strictUnknown =
         }
         continue;
       }
+      skillsScanned++;
       const f = frontmatterFields(text) || {};
       const name = f.name || d;
       const combined = (f.description || '').length + (f.when_to_use || '').length;

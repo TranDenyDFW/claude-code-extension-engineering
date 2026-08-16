@@ -14,27 +14,51 @@
  * evidence/claims.jsonl, so a moved or edited claim line is a detected drift,
  * not a silent one.
  */
-import { readFileSync, readdirSync, writeFileSync } from 'fs';
+import { readFileSync, readdirSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
+import { skillDirs } from './skill-roots.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
-const REF_DIR = join(ROOT, 'skills', 'claude-code-extension-engineering', 'references');
-const SKILL_DIR = join(ROOT, 'skills', 'claude-code-extension-engineering');
+/* Every skill, discovered by content. Hardcoding one directory means that after the split this
+   would extract a quarter of the claims and report the count with total confidence. While the tree
+   holds one skill the result is identical, which is what makes this change safe to land first. */
 
 const TAG_RE = /\[(OFFICIAL|ENGINEERING|COMMUNITY|ANTHROPIC|EXPERIMENTAL|LEGACY|DEPRECATED|ENGINEERING BEST PRACTICE|ANTHROPIC RECOMMENDATION|COMMUNITY PRACTICE)\]|\[v(\d+\.\d+\.\d+)\]/g;
 
 export function extract() {
-  const files = readdirSync(REF_DIR)
-    .filter(f => f.endsWith('.md'))
-    .map(f => join(REF_DIR, f));
-  files.push(join(SKILL_DIR, 'SKILL.md'));
+  const files = [];
+  for (const skillDir of skillDirs(ROOT)) {
+    const refDir = join(skillDir, 'references');
+    if (existsSync(refDir)) {
+      for (const f of readdirSync(refDir).filter((x) => x.endsWith('.md')).sort()) files.push(join(refDir, f));
+    }
+    files.push(join(skillDir, 'SKILL.md'));
+  }
 
   const claims = [];
   for (const abs of files) {
     const rel = abs.substring(ROOT.length + 1).replace(/\\/g, '/');
-    const stem = basename(abs, '.md');
+    /* SKILL.md is the one basename that is not unique after the split: four skills, four files,
+       one stem, so `CLM-SKILL-121` would name a claim in any of them and two could collide
+       outright. Qualify it with the skill directory. Reference filenames stay unqualified because
+       the split map already guarantees each lives in exactly one skill, so their ids are stable
+       across the move and 557 of 563 never change. */
+    const raw = basename(abs, '.md');
+    /* SKILL.md is the one basename that stops being unique after the split: four skills, four
+       files, one stem, so `CLM-SKILL-121` would name a claim in any of them and two could collide
+       outright. Qualify it with the skill's short name.
+       The legacy single skill keeps the bare `SKILL` stem so the 6 ids already in
+       evidence/claims.jsonl stay valid while both trees coexist. That special case disappears with
+       the directory at cutover, and it is narrow on purpose: making ids depend on how many skills
+       happen to exist would make them unstable, and an id that moves is worse than a long one.
+       Reference filenames stay unqualified because the split map guarantees each lives in exactly
+       one skill, which is why 557 of 563 ids never change. */
+    const dir = basename(dirname(abs));
+    const stem = raw !== 'SKILL' || dir === 'claude-code-extension-engineering'
+      ? raw
+      : `${dir.replace(/^cc-ext-/, '').split('-')[0].toUpperCase()}-SKILL`;
     const lines = readFileSync(abs, 'utf8').split(/\r?\n/);
     lines.forEach((line, i) => {
       const tags = [];
