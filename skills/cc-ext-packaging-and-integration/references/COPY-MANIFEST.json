@@ -1,0 +1,73 @@
+{
+  "what": "Reference files copied into cc-ext-packaging-and-integration at the split. Source tree still exists; this is a copy, not a move.",
+  "sourceSkill": "claude-code-extension-engineering",
+  "files": 11,
+  "entries": [
+    {
+      "file": "INDEX.md",
+      "src": "skills/claude-code-extension-engineering/references/INDEX.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/INDEX.md",
+      "sha256": "26bcc54a7f13547106cb48c73eed6d269e3c02932d3744d78e62c3811304eb76"
+    },
+    {
+      "file": "agent-sdk.md",
+      "src": "skills/claude-code-extension-engineering/references/agent-sdk.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/agent-sdk.md",
+      "sha256": "005146a479981e8475603678c5c3ed404eafb56230b4ff21ee2d4738054a40e1"
+    },
+    {
+      "file": "composition-cards.md",
+      "src": "skills/claude-code-extension-engineering/references/composition-cards.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/composition-cards.md",
+      "sha256": "6a29bbbafa0e7310371a882ef9118506d53283091005147abf931211b7ed4ebe"
+    },
+    {
+      "file": "github-action.md",
+      "src": "skills/claude-code-extension-engineering/references/github-action.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/github-action.md",
+      "sha256": "d727ac875c237e78840bfd761c28e9619784ab6e0456985b3564314303543a9b"
+    },
+    {
+      "file": "lsp.md",
+      "src": "skills/claude-code-extension-engineering/references/lsp.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/lsp.md",
+      "sha256": "3630ae3b06b3414b4e6da28b35ec8ec8e4a8258d41031227ba81fb1948f89fbe"
+    },
+    {
+      "file": "mcp.md",
+      "src": "skills/claude-code-extension-engineering/references/mcp.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/mcp.md",
+      "sha256": "8fb4111f9502d7558bea9e47389754d2146cd9fe0f8a81d6e5210d6d9fbbac0d"
+    },
+    {
+      "file": "output-styles.md",
+      "src": "skills/claude-code-extension-engineering/references/output-styles.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/output-styles.md",
+      "sha256": "c290c37a0ff2c5fbdb3dca918d66acdc88819c1c48aae05b653ce93fbd305c04"
+    },
+    {
+      "file": "plugins.md",
+      "src": "skills/claude-code-extension-engineering/references/plugins.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/plugins.md",
+      "sha256": "2912d33ea44b4e9841f19a3c85f1241a22a6d8aa799af7d8118589708761b706"
+    },
+    {
+      "file": "selection.md",
+      "src": "skills/claude-code-extension-engineering/references/selection.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/selection.md",
+      "sha256": "77a47faf0210d2f86d89e49ebec5746c6ff65293a59fbc8ff11fbd6e2815e83c"
+    },
+    {
+      "file": "sources.md",
+      "src": "skills/claude-code-extension-engineering/references/sources.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/sources.md",
+      "sha256": "6085fa91207cecc77de871e8147eee887e288f88f327244cf10157bfb46323ef"
+    },
+    {
+      "file": "themes.md",
+      "src": "skills/claude-code-extension-engineering/references/themes.md",
+      "dst": "skills/cc-ext-packaging-and-integration/references/themes.md",
+      "sha256": "8aa6de206068234905bc16a02ef9e56b2751e30b10bc84426e2574ed88820b5c"
+    }
+  ]
+}

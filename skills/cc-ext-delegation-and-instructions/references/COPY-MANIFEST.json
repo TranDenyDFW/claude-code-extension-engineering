@@ -1,0 +1,73 @@
+{
+  "what": "Reference files copied into cc-ext-delegation-and-instructions at the split. Source tree still exists; this is a copy, not a move.",
+  "sourceSkill": "claude-code-extension-engineering",
+  "files": 11,
+  "entries": [
+    {
+      "file": "INDEX.md",
+      "src": "skills/claude-code-extension-engineering/references/INDEX.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/INDEX.md",
+      "sha256": "26bcc54a7f13547106cb48c73eed6d269e3c02932d3744d78e62c3811304eb76"
+    },
+    {
+      "file": "agent-teams.md",
+      "src": "skills/claude-code-extension-engineering/references/agent-teams.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/agent-teams.md",
+      "sha256": "1595d30c37be1d55dcbf81c7c30e021fe92c55f4ee903fbecda1cca5824a1197"
+    },
+    {
+      "file": "auto-memory.md",
+      "src": "skills/claude-code-extension-engineering/references/auto-memory.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/auto-memory.md",
+      "sha256": "45aa9afd162202d2b62f72a041822f34bd97da559e82ef1100797361c62594c0"
+    },
+    {
+      "file": "claude-md-family.md",
+      "src": "skills/claude-code-extension-engineering/references/claude-md-family.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/claude-md-family.md",
+      "sha256": "07965f71f45098fefd7cb07a7ee6a2e471fd1dfcf332663f6fad48f48ca8e33a"
+    },
+    {
+      "file": "composition-cards.md",
+      "src": "skills/claude-code-extension-engineering/references/composition-cards.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/composition-cards.md",
+      "sha256": "6a29bbbafa0e7310371a882ef9118506d53283091005147abf931211b7ed4ebe"
+    },
+    {
+      "file": "context-modes.md",
+      "src": "skills/claude-code-extension-engineering/references/context-modes.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/context-modes.md",
+      "sha256": "6e694eaaa58d0c0ea033f4c2ac9d78c36fe1d39aa44c755badc154eccefb9832"
+    },
+    {
+      "file": "selection.md",
+      "src": "skills/claude-code-extension-engineering/references/selection.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/selection.md",
+      "sha256": "77a47faf0210d2f86d89e49ebec5746c6ff65293a59fbc8ff11fbd6e2815e83c"
+    },
+    {
+      "file": "skills.md",
+      "src": "skills/claude-code-extension-engineering/references/skills.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/skills.md",
+      "sha256": "f9ee85beece36484fc536ecb7d4d539b8a1450e43f29fedf395736dd3a148024"
+    },
+    {
+      "file": "sources.md",
+      "src": "skills/claude-code-extension-engineering/references/sources.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/sources.md",
+      "sha256": "6085fa91207cecc77de871e8147eee887e288f88f327244cf10157bfb46323ef"
+    },
+    {
+      "file": "subagents.md",
+      "src": "skills/claude-code-extension-engineering/references/subagents.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/subagents.md",
+      "sha256": "847877211887721e4a939d62ee7d1a6f966c794b1fefa68aefd86a5a8f565d03"
+    },
+    {
+      "file": "workflows.md",
+      "src": "skills/claude-code-extension-engineering/references/workflows.md",
+      "dst": "skills/cc-ext-delegation-and-instructions/references/workflows.md",
+      "sha256": "bed8a921ab1c7b01a6e8c827262dda08c953c6f8b49b07eb4a28c1415c95861e"
+    }
+  ]
+}
