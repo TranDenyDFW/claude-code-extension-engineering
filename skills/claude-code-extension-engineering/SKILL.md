@@ -170,6 +170,12 @@ and offer to inspect the user's config second. Opening this session's settings f
 reporting that nothing is configured there answers a question nobody asked, and it looks like
 diligence. MEASURED: that answer scored 1 of 6 on the 2026-08-13 benchmark, question GQ-06.
 
+If you do describe this workspace, name the path you read and say it is this session's, which may
+not be the asker's. MEASURED, and the reason this is one sentence rather than a section: two longer
+versions of this rule, placed here, made the model answer "could you clarify" to `settings.json
+ignored` in two runs of three, on a question this library owns. The defect it prevents happens
+about once in thirty answers; the cure was costing far more than that.
+
 When the artifact IS in front of you:
 
 **Reproduce the failure, apply the fix, re-run, and show both outputs.** Not a list of
