@@ -874,5 +874,16 @@
         "supported": true
       }
     ]
+  },
+  {
+    "id": "SRC_AGENT_SDK_FEATURES",
+    "title": "Use Claude Code features in the SDK (settingSources and what loads regardless)",
+    "url": "https://code.claude.com/docs/en/agent-sdk/claude-code-features",
+    "type": "official",
+    "retrieved": "2026-08-16",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Read from the local docs mirror at CCX-Extension-Research/sources/docs/md/agent-sdk__claude-code-features.md on 2026-08-16, not a live fetch.",
+    "spot_checks": []
   }
 ]
