@@ -7,6 +7,13 @@ The programmatic authoring tier. Cross-referenced beside the interactive surface
 
 **Layer:** Programmatic tier | **Classification:** sdk | **Status:** stable
 
+## Getting in, because the rest of this file assumes you already are
+
+- TypeScript is `npm install @anthropic-ai/claude-agent-sdk`, Python is `pip install claude-agent-sdk`. The entry point is `query()`, imported as `import { query } from "@anthropic-ai/claude-agent-sdk"` or `from claude_agent_sdk import query, ClaudeAgentOptions`, and it returns an ASYNC ITERATOR, so the calling shape is `for await (const message of query({...}))` rather than a single awaited result [OFFICIAL]
+- The SDK is a library for Python and TypeScript ONLY. Any other language drives the same agent loop by running the CLI as a subprocess with `-p` and `--output-format json`, which is a different integration with different failure modes, not a thinner binding [OFFICIAL]
+- The npm package BUNDLES a native Claude Code binary as an optional dependency, and the SDK version tracks the bundled build: SDK v0.3.191 carries Claude Code v2.1.191, so a feature needing a given Claude Code version needs the SDK release with the same patch number or later. A package manager configured to skip optional dependencies throws `Native CLI binary for <platform> not found`, and the fix is `pathToClaudeCodeExecutable` pointing at a separately installed `claude` [OFFICIAL]
+- On recent Debian, Ubuntu and Homebrew Python, installing against system Python fails with `error: externally-managed-environment`. Install into a virtual environment [OFFICIAL]
+
 ## Read this first: building an agent, not running several at once
 
 - This file is the SDK: library APIs you import to build your own agent. If the question is how to take on several tasks at once inside Claude Code, that is the `agents` page, which compares subagents, agent view, agent teams and dynamic workflows. This library covers three of those four and has NO file on the fourth: the `claude agents` dashboard, documented on `agent-view`, appears in no reference here [OFFICIAL]

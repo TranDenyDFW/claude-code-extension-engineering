@@ -205,6 +205,21 @@ Pin `ref` (or a `sha`) for reproducible installs; without it teammates track the
 - A marketplace is .claude-plugin/marketplace.json in a git repo. Only `name` and `plugins` are required at the top level, and only `name` and `source` on each entry.  [ANTHROPIC] [v2.1.219]
 - `source` takes a relative path string for a same-repo plugin, or an object: {"source": "local", "path": "./plugin"} or {"source": "git-subdir", "url": ..., "path": ..., "ref": "v1.5.5"}. Pin `ref` or `sha` or teammates track a moving branch.  [ANTHROPIC] [v2.1.219]
 
+## The /plugin command surface, which is the consumer half
+
+Everything above is the authoring side. This is what the person installing your plugin actually types.
+
+- `/plugin` with no argument opens the plugin manager: four tabs, Discover, Installed, Marketplaces and Errors, cycled with Tab and Shift+Tab. It is terminal-CLI only; where it is unavailable the desktop app's plugin browser is the substitute [OFFICIAL]
+- `/plugin marketplace` takes exactly FOUR subcommands, `add`, `list`, `remove` and `update`. There is no `info`, `refresh` or auto-update subcommand: auto-update is reachable only through the Marketplaces tab or an `autoUpdate` key on an `extraKnownMarketplaces` entry. `/plugin market` is accepted shorthand and `rm` abbreviates `remove` [OFFICIAL]
+- `add` takes four source families, and the ref separator differs by family: GitHub `owner/repo` shorthand pinned with `@ref`, a full git or SSH URL pinned with `#ref`, a local directory OR a direct path to a `marketplace.json`, and an https URL to a hosted `marketplace.json`. That last form is second class, because only the JSON is fetched, so entries using relative paths cannot resolve [OFFICIAL]
+- From v2.1.196 a scheme-less host is REJECTED as an invalid `owner/repo` shorthand. On earlier builds it was misread as a GitHub path and failed later at clone time, so the same command fails at a different moment either side of that boundary [OFFICIAL]  [v2.1.196]
+- `remove` with no `--scope` removes the marketplace from its last remaining scope, which UNINSTALLS the plugins that came from it. It is not a tidy-up of the listing [OFFICIAL]
+- Prefer the `claude plugin ...` shell forms for scripting. `/plugin disable`, `/plugin enable` and `/plugin uninstall` open the panel to apply the change and then LEAVE IT OPEN, needing Esc before you can type again; the shell forms do not, and `claude plugin marketplace list --json` is the only documented machine-readable output [OFFICIAL]
+- `claude plugin marketplace add` takes `--scope` of `user`, `project` or `local`, defaulting to `user`, and `--sparse <paths...>` to limit what is fetched [OFFICIAL]
+- The Errors tab is where a failed load actually surfaces, including an LSP server that could not start, for example `Executable not found in $PATH`. A plugin that appears installed and does nothing is diagnosed there rather than by re-running the install [OFFICIAL]
+- The Discover tab shows a Context cost estimate and a Will install breakdown per plugin, but local and custom marketplaces often supply neither, so the cost of a plugin from your own marketplace is the one you cannot see before installing [OFFICIAL]
+- Auto-update defaults split by origin: on for official Anthropic marketplaces, off for everything else. A self-hosted marketplace therefore does not propagate updates until someone opts in [OFFICIAL]
+
 ## Detail
 
 - A distribution/package layer: bundles skills, agents, hooks, MCP + LSP servers, monitors, and settings, versioned and shareable via a marketplace. It is a product lifecycle, not another prompt mechanism.

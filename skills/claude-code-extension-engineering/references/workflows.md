@@ -83,6 +83,9 @@ return results.filter(Boolean)
 
 - Every script starts with `export const meta = {name, description, phases}`. The meta object must be a PURE LITERAL: no variables, function calls, spreads or template interpolation, or the script will not parse.  [ANTHROPIC] [v2.1.219]
 - Scripts are plain JavaScript, NOT TypeScript: type annotations, interfaces and generics fail to parse. Date.now(), Math.random() and argless new Date() all throw, because they would break resume; pass timestamps in through args instead.  [ANTHROPIC] [v2.1.219]
+- Resume is the feature that ban exists to protect, so it is worth knowing it is there. Every invocation returns a `runId`, and passing it back as `resumeFromRunId` re-runs the script with completed `agent()` calls returning cached results instead of re-executing. That is what makes a script safe to edit and re-run rather than restart [OFFICIAL]
+- The guarantee is hedged in the documentation itself and should be quoted that way: completed calls with unchanged inputs USUALLY return cached results, and it is SAME SESSION ONLY. The docs do not define what the cache keys on, so whether changing a label, model or schema alone invalidates a call is not something to assert; treat only an unchanged prompt as reliably cached [OFFICIAL]
+- A `remote_launched` run has no `runId` at all. Its resume handle is the cloud session URL instead, so the resume idiom that works locally does not transfer to a remote workflow [OFFICIAL]
 - Prefer pipeline() to parallel(). pipeline() runs each item through every stage independently with no barrier, so wall-clock equals the slowest single chain. parallel() is a BARRIER that waits for all thunks, and is only correct when a stage genuinely needs cross-item context from all of the previous stage. A thunk that throws resolves to null rather than rejecting, so filter(Boolean) before use.  [ANTHROPIC] [v2.1.219]
 
 ## What a workflow trusts, which is more than it looks

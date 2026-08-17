@@ -88,6 +88,8 @@ run being reachable, which nothing else in this library covers.
 ## Permissions and destructive actions
 
 - Project servers require trust and approval according to scope [OFFICIAL]
+- An MCP tool is named `mcp__<server>__<tool>` everywhere it is referenced, which is the form a permission rule has to match. `mcp__puppeteer` matches any tool from that server and `mcp__puppeteer__*` does the same by glob [OFFICIAL]
+- Allow rules take a glob ONLY after a literal `mcp__<server>__` prefix, and the server segment must be glob-free. An unanchored allow such as `mcp__*` is SKIPPED WITH A WARNING and auto-approves nothing, so a rule written to pre-approve every MCP tool silently approves none of them. Deny and ask have no such restriction and `mcp__*` works there, which is why the same pattern behaves differently depending on which list it sits in [OFFICIAL]
 - Classify tools by read/write/destructive consequence [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - Require explicit confirmation and recoverable design for destructive operations [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - _meta anthropic/requiresUserInteraction: true forces a prompt on every call, overriding acceptEdits, auto, bypassPermissions and allow rules (v2.1.199+); in dontAsk mode the call is denied and under a permission-prompt tool an allow converts to a deny, so a flagged tool cannot run headless [OFFICIAL]  [v2.1.199]
