@@ -21,5 +21,5 @@ Authored CI workflow YAML that runs Claude Code in GitHub Actions, built on the 
 
 ## Configuring the run
 
-- MCP servers reach the Action through the `claude_args` string as the ordinary CLI flag, `claude_args: "--mcp-config /path/to/config.json"`. There is no MCP-specific action input, so a workflow author looks for the wrong thing if they expect one. `claude_args` is also where `--max-turns`, `--model`, `--allowedTools` and `--debug` go [OFFICIAL]
-- The documented input table is explicitly only the most commonly used inputs and points at the action repository for the full list, so absence from the docs page is not proof an input does not exist. Check the action repo before concluding one is unavailable  [ENGINEERING]
+- MCP servers reach the Action through the `claude_args` string as the ordinary CLI flag, `claude_args: "--mcp-config /path/to/config.json"`. `claude_args` is also where `--max-turns`, `--model`, `--allowedTools` and `--debug` go [OFFICIAL]
+- No MCP-specific action input appears in the documented input table, so `claude_args` is the route to reach for. Stop short of concluding none exists: the table is explicitly only the most commonly used inputs and points at the action repository for the full list, which is not mirrored here  [ENGINEERING]
