@@ -388,8 +388,9 @@ duplicate of 19 rather than an upstream bug.
 See `evidence/observations/marketplace-install-skill-invisible-2.1.219.json`.
 
 **18. Evidence attribution is one model's judgment.**
-Of the 571 source assignments in `claims.jsonl`, all but 25 were made by subagents with
-stated rules, not independently double-checked. The integrity gate catches structural
+At the 2026-08-13 audit, of the source assignments then in `claims.jsonl` all but 25 were
+made by subagents with stated rules, not independently double-checked. The ledger has grown
+since; later additions carry their own attribution and the same caveat applies to them. The integrity gate catches structural
 drift, not a wrong-but-plausible source id.
 
 The 25 exceptions are the records whose `note` says so, so the count is recoverable from the
