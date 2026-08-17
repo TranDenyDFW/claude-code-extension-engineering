@@ -42,6 +42,17 @@ mechanism does live there.
 - **It prints nothing on start, and that is success.** A stdio server talks over stdin and stdout, so a silent terminal that appears to hang is the server running and waiting for a client. Anyone who kills it expecting a banner has killed a working server, and this is the one fact about `mcp serve` worth carrying [OFFICIAL]
 - A bare "how do I use the Claude Code MCP server" is genuinely ambiguous between the two directions. Name both in one line and answer the client direction, which is what is nearly always meant, rather than picking one silently  [ENGINEERING]
 
+## What YOUR server exposes, which is the other half of the trust boundary
+
+The section above is about not trusting what a server sends you. This one is about the server you
+run being reachable, which nothing else in this library covers.
+
+- A stdio server speaks the protocol over stdin and stdout, so ANYTHING ELSE written to stdout corrupts the stream. Send logs to stderr or a file. The symptom is not a clean error: the client sees malformed frames from a server that looks like it started fine  [ENGINEERING]
+- A LOCAL HTTP server is reachable by more than the thing you built it for. Bind loopback rather than all interfaces, and validate the Origin header, because a page in the user's browser can issue requests to localhost and your tools then run with the user's credentials. Binding loopback alone does not prevent that; the Origin check is what does  [ENGINEERING]
+- Tool annotations describing a tool as read-only or destructive are HINTS for display and routing, not enforcement. Nothing stops an annotated-read-only tool from writing, so the annotation is documentation and the permission layer is the control  [ENGINEERING]
+- Reject unknown fields rather than ignoring them, so a caller's typo fails loudly instead of silently doing nothing  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Log the raw error and return a generic one. A transcript is written to disk, survives the session, and can be exported or resumed, so internals returned in an error text outlive the moment  [ENGINEERING]
+
 ## Protocol primitives
 
 - Tools expose model-invoked actions with schemas [OFFICIAL]
