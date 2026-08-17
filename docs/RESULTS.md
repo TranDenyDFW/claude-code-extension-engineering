@@ -12,9 +12,11 @@ deciding that it should.
 
 ## Tier 1, deterministic regression
 
-**263 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
+**271 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
 file, run by [tests/run-tests.mjs](../tests/run-tests.mjs). Sixteen rows were added on
-2026-08-13 alongside the out-of-scope boundary table. Three are negative: naming a topic in
+2026-08-13 alongside the out-of-scope boundary table. Eight more were added on 2026-08-17
+covering the `claude mcp add` CLI surface, after per-question grading of a 60-question
+head-to-head found the library documented no `claude mcp add` form at all. Three are negative: naming a topic in
 order to DECLINE it enlarges the trigger surface, and the guard against over-triggering has
 to ship in the same change as the content that creates the risk. Thirteen are positive, added
 after an independent reviewer measured that the new content had NO coverage at all: the
