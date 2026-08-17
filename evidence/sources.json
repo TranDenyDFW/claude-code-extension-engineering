@@ -885,5 +885,16 @@
     "status": "verified",
     "notes": "Read from the local docs mirror at CCX-Extension-Research/sources/docs/md/agent-sdk__claude-code-features.md on 2026-08-16, not a live fetch.",
     "spot_checks": []
+  },
+  {
+    "id": "SRC_EXTINDEX_SURVEY",
+    "title": "ExtIndex corpus survey: 366 tier-1 patterns judged against this library",
+    "url": "internal",
+    "type": "internal",
+    "retrieved": "2026-08-16",
+    "build": "2.1.233",
+    "status": "verified",
+    "notes": "Pinned snapshot patterns-20260816-211003.db, 1365 patterns from 11 source rows collapsing to 6 projects, extraction run 18. 366 tier-1 patterns were read individually and recorded in claim_gap: 204 out_of_scope, 104 gap, 51 covered, 5 wrong_referent, 2 contradicts. Claims attributed here are ENGINEERING judgments written in this library's terms after that survey, NOT quotations of corpus text. Cross-project corroboration in that corpus is 20 of 1365 patterns, so no claim here rests on frequency.",
+    "spot_checks": []
   }
 ]

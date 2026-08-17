@@ -54,6 +54,18 @@ people actually ask:
 - On Windows the command runs through Git Bash when Git Bash is installed and through PowerShell when it is absent, so one configuration runs under two different shells depending on what the machine has. [OFFICIAL]
 - Git Bash treats unquoted backslashes as escape characters, so a Windows-style path reaches the runner with its separators eaten; use forward slashes, or invoke `powershell -NoProfile -File` with a forward-slash path, which behaves the same whichever shell Claude Code routes through. [OFFICIAL]
 
+## It renders on every keystroke, so treat its input as untrusted
+
+Whatever the script prints reaches the terminal, and the script runs constantly. That combination
+turns any file it reads into an input worth checking.
+
+- A script that reads a flag or state file at a predictable path is reading something another process can write. Refuse a symlink, cap the read to a small byte count, filter the characters, and match the value against a closed list before printing it  [ENGINEERING]
+- The characters that matter are ANSI escapes and OSC sequences, which a terminal ACTS on rather than displays. Strip them from anything you did not author, and truncate visibly rather than silently  [ENGINEERING]
+- Keep any hyperlink target allowlist in the renderer, never in the payload being rendered, or the thing you are displaying chooses where the link goes  [ENGINEERING]
+- Do not style a shell command as clickable. A command the user is meant to TYPE, rendered as a link, invites a click on something that was never a URL  [ENGINEERING]
+- Render nothing rather than a placeholder before the first real measurement, so the line never shows a number that was never measured  [ENGINEERING]
+- Suppress errors per metric and supply a default, so one failing segment degrades rather than taking the whole line down  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+
 ## Failure posture
 
 - A status line CANNOT block, refuse, or enforce anything: it is display, and a script that exits non-zero or prints nothing degrades to an empty row rather than stopping the turn, so it must never be reached for as a guard. [ENGINEERING]

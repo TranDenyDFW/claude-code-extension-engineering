@@ -85,6 +85,20 @@ return results.filter(Boolean)
 - Scripts are plain JavaScript, NOT TypeScript: type annotations, interfaces and generics fail to parse. Date.now(), Math.random() and argless new Date() all throw, because they would break resume; pass timestamps in through args instead.  [ANTHROPIC] [v2.1.219]
 - Prefer pipeline() to parallel(). pipeline() runs each item through every stage independently with no barrier, so wall-clock equals the slowest single chain. parallel() is a BARRIER that waits for all thunks, and is only correct when a stage genuinely needs cross-item context from all of the previous stage. A thunk that throws resolves to null rather than rejecting, so filter(Boolean) before use.  [ANTHROPIC] [v2.1.219]
 
+## What a workflow trusts, which is more than it looks
+
+A workflow reads files and tool output and puts them into agent prompts. That makes it a place
+where untrusted text becomes instructions, and nothing in the API stops it.
+
+- Anything the script reads and interpolates into a prompt is untrusted input: file contents, tool output, a previous agent's return value. Fence it and say what it is, rather than concatenating it into an instruction  [ENGINEERING]
+- Treat an injection attempt as a REPORTABLE FINDING rather than something to survive quietly. A run that silently ignored an attempt and a run that never saw one look identical afterwards  [ENGINEERING]
+- The plan and state files a workflow reads are a TRUST BOUNDARY. Whatever can write them steers every later phase, so they belong where the run controls them rather than where the work happens  [ENGINEERING]
+- Validate every phase return before continuing. `agent()` returns `null` on failure or skip and never throws, so an unchecked return propagates a null into the next stage instead of stopping  [ENGINEERING]
+- Validate argument ELEMENT types, not just the container. `args` arrives verbatim, so a stringified list is one string and `.map` throws on it  [ENGINEERING]
+- Put a conditional requirement in the output SCHEMA rather than the prompt, so it is enforced at the tool-call layer and retried, instead of hoped for  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- A retry means a CHANGED approach, not the same call again: feed the error back into the next prompt. Budget exhaustion is terminal rather than a retry condition  [ENGINEERING]
+- Agent-writable scratch belongs outside `.git`, and a base SHA should be recorded BEFORE dispatch rather than computed afterwards, because concurrent agents move HEAD  [ENGINEERING]
+
 ## Known ambiguity
 
 - UNRESOLVED: whether /<name> comes from the filename or from meta.name is not stated in any current source. Keep the filename and meta.name identical so the distinction cannot bite you. With nested .claude/ directories the workflow closest to the working directory wins a collision.  [ENGINEERING] [v2.1.219]

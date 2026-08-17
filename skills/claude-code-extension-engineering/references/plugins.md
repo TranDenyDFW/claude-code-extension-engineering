@@ -211,6 +211,17 @@ Pin `ref` (or a `sha`) for reproducible installs; without it teammates track the
 - Skill passes its tests, Hook passes its tests, Subagent passes its tests → only then bundle. Debugging a broken bundle is far harder than a proven part.  [ENGINEERING]
 - Only plugin.json goes inside .claude-plugin/.
 
+## A plugin is code you are asking someone to trust
+
+Installing a plugin wires its hooks, commands and MCP servers into someone else's session. These
+are the containment properties that make that reviewable.
+
+- Every path a manifest references must resolve INSIDE the plugin root. Reject absolute paths, home-relative paths and parent-relative segments, or a manifest can point the harness at any executable on the machine. `${CLAUDE_PLUGIN_ROOT}` exists to make the containing path explicit; it does not enforce containment by itself  [ENGINEERING]
+- The same containment applies to a hook script path specifically, because a hook runs on an event rather than on a user action, so nothing puts a person in front of it at the moment it fires  [ENGINEERING]
+- Scan shipped content against a secret-prefix blocklist before publishing. A credential committed into a skill body, an example or a manifest travels to everyone who installs it, and deleting it later does not un-publish it  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- Vetting a source ONCE and mirroring it forever is not vetting. Later upstream changes arrive unreviewed under the trust the first review earned, so pin what you vendored and re-check on update rather than on first adoption  [ENGINEERING]
+- Uninstall should restore the prior state rather than merely deleting what it recognises, and that is worth a test. A partial uninstall leaves registrations pointing at scripts that no longer exist, which the harness then runs on every session start  [ENGINEERING]
+
 ## Common failure modes / anti-patterns
 
 - Putting components inside .claude-plugin/ (must be at root)

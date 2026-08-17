@@ -41,6 +41,17 @@ Instruction files loaded into context automatically, every session. CLAUDE.md at
 - @path imports resolve relative to the IMPORTING file, recurse at most four hops, and are skipped inside backticks or code fences; a project import resolving outside the working directory prompts once and a decline disables it permanently [OFFICIAL]
 - Verify with /context and read the Memory files list; browse and edit with /memory; bootstrap with /init [OFFICIAL]
 
+## Instruction surfaces are model-read text, and so is anything they import
+
+CLAUDE.md, `.claude/rules`, a skill body, a subagent prompt and an MCP tool description are all
+text the model reads as guidance. That makes them an injection surface, and the surfaces load
+independently of each other.
+
+- A rule stated in ONE instruction surface is absent from the others, because each is loaded on its own path. Anything you rely on holding everywhere has to be restated everywhere, or scoped to the surface that actually carries it  [ENGINEERING]
+- Invisible and confusable Unicode is a real vector in exactly these files: zero-width characters, bidirectional overrides and homoglyphs render as nothing or as something else while still being read. A file that looks clean in a diff can carry text the model follows  [ENGINEERING]
+- The exposure is highest where the content is not yours: an imported `@path`, a vendored rules file, a skill installed from a marketplace. Review those as code rather than as prose  [ENGINEERING]
+- None of this is enforcement. See Failure posture below for why: a defence written in an instruction surface is a request, and the enforcing equivalents are a hook or a permission rule  [ENGINEERING]
+
 ## Definition of Done
 
 - Scope and owner are explicit
