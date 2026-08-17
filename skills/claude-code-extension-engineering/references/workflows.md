@@ -83,6 +83,10 @@ return results.filter(Boolean)
 
 - Every script starts with `export const meta = {name, description, phases}`. The meta object must be a PURE LITERAL: no variables, function calls, spreads or template interpolation, or the script will not parse.  [ANTHROPIC] [v2.1.219]
 - Scripts are plain JavaScript, NOT TypeScript: type annotations, interfaces and generics fail to parse. Date.now(), Math.random() and argless new Date() all throw, because they would break resume; pass timestamps in through args instead.  [ANTHROPIC] [v2.1.219]
+- Resume is the feature that ban exists to protect, so it is worth knowing it is there. A run returns a `runId`, and passing it back as `resumeFromRunId` re-runs the script with already-completed `agent()` calls returning cached results instead of re-executing [OFFICIAL]
+- What survives is decided by START ORDER, not by which calls changed. An agent still running when you stopped is not saved, and cached results stop at the first agent that did not finish: every agent that STARTED after that one re-runs even if it completed. Stop a four-agent fan-out while the second is in flight and only the first replays from cache [OFFICIAL]
+- That rule is the argument for fanning work across many small agents rather than a few long ones, since a long agent in flight discards everything that started after it. Resume works within the same Claude Code session; exiting Claude Code mid-run means the next session starts the workflow fresh [OFFICIAL]
+- A `remote_launched` run has no `runId` at all, so `runId` is optional rather than guaranteed. Its resume handle is the cloud session URL instead, and the local resume idiom does not transfer [OFFICIAL]
 - Prefer pipeline() to parallel(). pipeline() runs each item through every stage independently with no barrier, so wall-clock equals the slowest single chain. parallel() is a BARRIER that waits for all thunks, and is only correct when a stage genuinely needs cross-item context from all of the previous stage. A thunk that throws resolves to null rather than rejecting, so filter(Boolean) before use.  [ANTHROPIC] [v2.1.219]
 
 ## What a workflow trusts, which is more than it looks
