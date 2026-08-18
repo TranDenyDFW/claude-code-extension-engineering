@@ -12,7 +12,7 @@ deciding that it should.
 
 ## Tier 1, deterministic regression
 
-**285 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
+**288 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
 file, run by [tests/run-tests.mjs](../tests/run-tests.mjs). Sixteen rows were added on
 2026-08-13 alongside the out-of-scope boundary table. Twenty-two more were added on 2026-08-17
 after per-question grading of a 60-question head-to-head: eight for the `claude mcp add` CLI
