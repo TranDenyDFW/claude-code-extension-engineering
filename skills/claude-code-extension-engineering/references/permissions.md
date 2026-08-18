@@ -27,7 +27,7 @@ to be decoration.
 - Write the file rule as `Edit(docs/**)`, never `Write(docs/**)`. "`Edit` rules apply to all built-in tools that edit files", so the narrower-looking spelling is the one that covers less, which is the opposite of the intuition [OFFICIAL]  [v2.1.220]
 - Use `Read(docs/**)` in place of `Glob(docs/**)`. The `--allowedTools` exception for `Glob` is a real carve-out and worth knowing, but it does not extend to a settings-file rule [OFFICIAL]  [v2.1.210]
 - A TOOL-NAME rule with no path is a different thing and is NOT inert: "Claude Code doesn't warn about a tool-name rule with no path, such as a deny rule for `Write`; it matches that rule at the tool level everywhere." So `deny: ["Write"]` works and `deny: ["Write(infra/**)"]` does not, which is a trap worth reading twice [OFFICIAL]  [v2.1.210]
-- You cannot match a tool's primary content field: "A rule like `Bash(command:rm *)` would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning. Use `Bash(rm *)` ... instead." [OFFICIAL]  [v2.1.220]
+- You cannot match a tool's primary content field: "A rule like `Bash(command:rm *)` would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning. Use `Bash(rm *)`, `Read(./path)`, or `WebFetch(domain:host)` instead." [OFFICIAL]  [v2.1.220]
 
 ## Search tools are BEST-EFFORT, which is not a guarantee
 
