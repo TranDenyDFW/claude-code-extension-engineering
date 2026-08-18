@@ -12,9 +12,12 @@ deciding that it should.
 
 ## Tier 1, deterministic regression
 
-**290 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
+**295 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
 file, run by [tests/run-tests.mjs](../tests/run-tests.mjs). Sixteen rows were added on
-2026-08-13 alongside the out-of-scope boundary table. Twenty-two more were added on 2026-08-17
+2026-08-13 alongside the out-of-scope boundary table. Ten more were added on 2026-08-18,
+covering three Stop-hook mechanics measured against a live production hook, two facts a
+refuted probe uncovered on the way past, and five findings confirmed against the
+documentation mirror while resolving flagged claims. Twenty-two were added on 2026-08-17
 after per-question grading of a 60-question head-to-head: eight for the `claude mcp add` CLI
 surface, which the library did not document in any form, and fourteen closing gaps in
 `plugins.md`, `skills.md`, `workflows.md`, `agent-sdk.md`, `github-action.md` and the MCP
