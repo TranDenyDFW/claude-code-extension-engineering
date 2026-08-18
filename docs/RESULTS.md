@@ -12,14 +12,15 @@ deciding that it should.
 
 ## Tier 1, deterministic regression
 
-**306 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
+**314 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
 file, run by [tests/run-tests.mjs](../tests/run-tests.mjs). Sixteen rows were added on
-2026-08-13 alongside the out-of-scope boundary table. Twenty-one more were added on
+2026-08-13 alongside the out-of-scope boundary table. Twenty-nine more were added on
 2026-08-18: three for Stop-hook mechanics measured against a live production hook,
 two for facts a refuted probe uncovered on the way past, five for findings confirmed
 against the documentation mirror while resolving flagged claims, six for the
 return-contract section, the first content adopted from the pattern-corpus audit,
-and five for the hook-events adoptions. Twenty-two were added on 2026-08-17
+five for the hook-events adoptions, and eight for the
+first three Tier 1 files. Twenty-two were added on 2026-08-17
 after per-question grading of a 60-question head-to-head: eight for the `claude mcp add` CLI
 surface, which the library did not document in any form, and fourteen closing gaps in
 `plugins.md`, `skills.md`, `workflows.md`, `agent-sdk.md`, `github-action.md` and the MCP
@@ -55,7 +56,7 @@ set and silent about the rest.
 
 Near-tautological on the first run, since the keys derive from the content. It earns its keep
 as a regression gate and through `--prove-fail`, which guts every source file and confirms all
-291 positive assertions go red. A suite that stays green against deleted content proves
+299 positive assertions go red. A suite that stays green against deleted content proves
 nothing; this one cannot.
 
 Set v2 (2026-07-31) added coverage for the marketplace-submission facts, the frontmatter

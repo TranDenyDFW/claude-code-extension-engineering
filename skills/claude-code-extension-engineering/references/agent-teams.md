@@ -36,6 +36,17 @@ Independent Claude Code sessions that talk to each other as peers rather than re
 - Teammates report blockers and failures explicitly
 - Shutdown and cleanup are part of the workflow
 
+## Getting an honest answer out of several agents
+
+Coordination above is about who owns what. This is about whether the answers can be believed, which is a different problem and the one a team is usually bought for.
+
+- Have each agent form an INDEPENDENT first opinion before any of them sees another's reply, then cross-examine. Cross-examination after independence refines; cross-examination before it anchors, and the anchored version is indistinguishable from agreement afterwards  [ENGINEERING]
+- The mechanical form is broadcast, then aggregate, with no agent seeing another's answer. This library's own blind pairwise grading packs are built that way for the same reason  [ENGINEERING]
+- Treat UNANIMITY as a signal to investigate rather than as a result. Agreement between agents sharing a model and a prompt is cheap, and it is cheapest exactly where they are most alike. For scale: in the pattern corpus this library was audited against, 1,365 patterns drawn from 120 distinct sources, only 1.3 percent appear in three or more sources, so genuine independent convergence is rare and should be surprising when it happens  [ENGINEERING]
+- When two delegates disagree, SURFACE the conflict rather than silently picking a winner. The lead is the component with the least evidence about which one is right, since it did not do either piece of work  [ENGINEERING]
+- Human approval is a BLOCKING PHASE, not a notification the run continues past. This matters here more than elsewhere: the lead already approves teammate plans autonomously with no prompt to the user, so an approval step that does not block is not an approval step  [ENGINEERING]
+- A single checkout is SHARED with any parallel session, so two sessions working in one tree overwrite each other. This is the file-ownership hazard one level up, between whole sessions rather than between teammates, and it is the reason worktree isolation exists  [ENGINEERING]
+
 ## Limitations and failure handling
 
 - Experimental behavior may change between releases [OFFICIAL]
