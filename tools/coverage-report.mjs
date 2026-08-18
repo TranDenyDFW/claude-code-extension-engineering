@@ -147,8 +147,8 @@ if (process.argv.includes('--prove-can-fail')) {
          first mutant here mutates a value ALREADY wrapped in the source; the second introduces a
          wrap around one that is not. A per-line scan catches neither. */
       { n: 'MUST FAIL: a FACTS value that is wrong and already hard-wrapped', f: 'docs/RESULTS.md',
-        from: '280 positive assertions',
-        to: '999 positive assertions',
+        from: 'confirms all\n280 positive assertions',
+        to: 'confirms all\n999 positive assertions',
         want: /positive assertions: doc says 999/ },
       { n: 'MUST FAIL: a FACTS value made wrong AND newly wrapped', f: 'docs/RESULTS.md',
         from: '**295 questions (set v2)',
@@ -187,7 +187,11 @@ if (process.argv.includes('--prove-can-fail')) {
     ];
     for (const m of docMutants) {
       const fp = join(DOCS, m.f);
-      const orig = rf(fp, 'utf8');
+      const origRaw = rf(fp, 'utf8');
+      /* Normalise line endings before anchoring. The docs are CRLF on disk here, so an anchor
+         that spans a hard wrap has to match \r\n, which would then break on any file that is LF.
+         Normalising lets a mutant carry the wrap in its anchor and stay agnostic to the ending. */
+      const orig = origRaw.replace(/\r\n/g, '\n');
       if (!orig.includes(m.from)) { check(m.n, false, 'anchor not found, the mutant would be a no-op'); continue; }
       wf(fp, orig.replace(m.from, m.to));
       const r = run({ COVERAGE_DOC_ROOT: DOCS });
