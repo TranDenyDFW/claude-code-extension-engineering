@@ -53,3 +53,6 @@ underneath you, is otherwise unattributable.
 - A refusal is attributed to a category and a model, not to a settings key
 - `--safe-mode` is used to test the local-context hypothesis before blaming the request
 - Any claim about refusal wording is checked against a live fetch first
+- Gate INVISIBLE UNICODE in model-read text. A skill body, a CLAUDE.md, a subagent prompt and an MCP tool description are all read by the model, so zero-width and bidirectional control characters in any of them are an injection vector that survives human review by construction, since a reviewer cannot see the payload. Nothing in this library currently mentions character-level hygiene  [ENGINEERING]
+- Restate the prompt-injection defence baseline in EVERY instruction surface rather than once. Each surface loads on its own path, so a rule stated only in CLAUDE.md is simply absent from a skill body, a subagent prompt and a rules file. This is the security instance of a hazard this library already records for instruction surfaces generally  [ENGINEERING]
+- Keep a COVERAGE MATRIX of attack vectors against defence layers, so an uncovered cell is visible rather than implicit. The composition cards do exactly this for mechanism pairings and nothing does it for threats, which is why a missing defence currently looks the same as a defence nobody wrote down  [ENGINEERING]

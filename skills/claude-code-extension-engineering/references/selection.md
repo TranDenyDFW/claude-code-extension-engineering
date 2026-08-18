@@ -84,3 +84,4 @@ Answer the axis questions in order, then open the matching mechanism reference. 
   - Use an LSP/code-intelligence plugin.
   - go to: [LSP / code intelligence](lsp.md)
   - Caveat: LSP has no standalone authoring path. It is configured only as a plugin component via .lsp.json or lspServers in plugin.json, so building one means building a plugin.
+- Two outcomes belong in any selection guide and are missing from the one above, and they are the two that save the most work. AUTHOR NOTHING: a guide whose every path terminates in a mechanism will always select one, which is the characteristic failure of a selection guide. USE A BUILT-IN: Explore, Plan, general-purpose, statusline-setup and claude-code-guide ship by default per [subagents.md](subagents.md), so reaching for one costs nothing and authoring a near-duplicate costs a definition to maintain forever  [ENGINEERING]
