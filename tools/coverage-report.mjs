@@ -140,6 +140,20 @@ if (process.argv.includes('--prove-can-fail')) {
        the eight spellings, leaves every gate green. Review 7 proved that by gutting each in
        turn. Those are unwatched parts of this rule. */
     const docMutants = [
+      /* These two guard the PARAGRAPH scan of the FACTS table specifically. The wrapped mutant
+         below exercises the RETIRED-VALUE scanner, which already flattened whitespace, so it left
+         the FACTS scan unprotected: an independent review reverted the paragraph change and found
+         all eleven gates still green, meaning nothing stopped the fix being silently undone. The
+         first mutant here mutates a value ALREADY wrapped in the source; the second introduces a
+         wrap around one that is not. A per-line scan catches neither. */
+      { n: 'MUST FAIL: a FACTS value that is wrong and already hard-wrapped', f: 'docs/RESULTS.md',
+        from: '280 positive assertions',
+        to: '999 positive assertions',
+        want: /positive assertions: doc says 999/ },
+      { n: 'MUST FAIL: a FACTS value made wrong AND newly wrapped', f: 'docs/RESULTS.md',
+        from: '**295 questions (set v2)',
+        to: '**999\nquestions (set v2)',
+        want: /doc says 999/ },
       { n: 'MUST FAIL: the retired total split across a hard wrap', f: 'docs/RESULTS.md',
         from: '**10 of 10 defects caught versus 2 of 10**',
         to: '**10 of 10 defects caught versus 3\nof 10**',
@@ -723,12 +737,45 @@ if (DOC_NUMBERS) {
   }
 
   for (const rel of docs) {
-    const lines = readFileSync(join(DOC_ROOT, rel), 'utf8').split(/\r?\n/);
-    lines.forEach((line, i) => {
+  // Scan PARAGRAPHS, not lines. A per-line scan cannot see a published number whose sentence
+  // hard-wraps before it. A stale 247 sat green against a live 280 for exactly as long as the
+  // wrap sat between the words all and 247. Proven by rejoining the wrap with the VALUE
+  // UNTOUCHED, which made this gate fail, then re-wrapping, which made it pass again. Same
+  // defect class as a ledger pairing on a 400-character prefix: the scan's unit must match
+  // the content's unit, or the gate reports clean while blind.
+  //
+  // Line numbers stay exact. Each paragraph records the offset at which every source line
+  // begins inside it, so a match is attributed to the line it actually starts on.
+  const paragraphsOf = (text) => {
+    const out = [];
+    let buf = null;
+    text.split(/\r?\n/).forEach((raw, i) => {
+      if (raw.trim() === '') { buf = null; return; }
+      if (!buf) { buf = { text: '', starts: [] }; out.push(buf); }
+      buf.starts.push({ at: buf.text.length, line: i });
+      buf.text += (buf.text ? ' ' : '') + raw.trim();
+    });
+    return out;
+  };
+  const lineFor = (para, index) => {
+    let best = para.starts[0];
+    for (const st of para.starts) { if (st.at <= index) best = st; else break; }
+    return best.line;
+  };
+
+    const srcLines = readFileSync(join(DOC_ROOT, rel), 'utf8').split(/\r?\n/);
+    paragraphsOf(srcLines.join('\n')).forEach((para) => {
+      const line = para.text;
       for (const f of FACTS) {
         f.re.lastIndex = 0;
         let m;
         while ((m = f.re.exec(line)) !== null) {
+          // Attribute to the line the VALUE sits on, not where the phrase starts: a reader
+          // chasing a reported number wants the line that contains it, and a wrap can put
+          // those on different lines.  The excerpt comes from the JOINED text around the
+          // match, so it always shows the value being reported.
+          const vAt = m.index + m[0].indexOf(m[1]);
+          const i = lineFor(para, vAt);
           const raw = m[1].replace(/,/g, '').toLowerCase();
           // Per-fact word map, defaulting to the conservative global one. A fact
           // whose phrasing is canonical enough can opt into the small words.
@@ -736,7 +783,7 @@ if (DOC_NUMBERS) {
           const n = W[raw] !== undefined ? W[raw] : Number(raw);
           if (!Number.isFinite(n) || n === f.live) continue;
           complain(`  ${rel}:${i + 1}  ${f.label}: doc says ${m[1]}, live is ${f.live}`,
-            `      ${line.trim().slice(0, 110)}`);
+            `      ${line.slice(Math.max(0, vAt - 45), vAt + 65).trim()}`);
         }
       }
     });

@@ -53,7 +53,7 @@ set and silent about the rest.
 
 Near-tautological on the first run, since the keys derive from the content. It earns its keep
 as a regression gate and through `--prove-fail`, which guts every source file and confirms all
-247 positive assertions go red. A suite that stays green against deleted content proves
+280 positive assertions go red. A suite that stays green against deleted content proves
 nothing; this one cannot.
 
 Set v2 (2026-07-31) added coverage for the marketplace-submission facts, the frontmatter
