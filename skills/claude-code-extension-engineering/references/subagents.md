@@ -52,7 +52,7 @@ A delegated worker with its own context window and its own tool set. Use it to k
 | name* | identity used to route / @-mention |
 | description* | when to delegate (drives routing) |
 | tools | allowlist over a FILTERED inherit, not everything: nine orchestration tools (Agent, AskUserQuestion, EndConversation, EnterPlanMode, ExitPlanMode, ScheduleWakeup, TaskOutput, WaitForMcpServers, Workflow) are removed regardless, and since v2.1.198 the background default reduces the built-in set further. disallowedTools applies FIRST, then tools resolves against what remains |
-| disallowedTools | subtract from inherited tools |
+| disallowedTools | subtract from inherited tools. Applied FIRST, then tools resolves against what remains, and a tool named in BOTH lists is REMOVED rather than rejected as a conflict |
 | model | e.g. sonnet / haiku / inherit |
 | permissionMode | permission behaviour |
 | mcpServers | scoped MCP servers |
