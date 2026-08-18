@@ -7,8 +7,10 @@
 
 - **Plain text:** Exit-0 plain stdout is context for SessionStart/UserPromptSubmit/UserPromptExpansion; otherwise command stdout is normally diagnostic. HTTP 2xx plain text and non-JSON MCP text are handled as documented context.
 - **Async:** command handlers only; async output cannot block or return a decision.
+- **Matcher:** the column below gives each event's matcher field, and `none` means the event has NO matcher support. A `matcher` added to such an event is SILENTLY IGNORED rather than rejected, so a hook that looks scoped is running on every occurrence  [OFFICIAL]
 - **Timeout:** varies, 2 distinct values:
   - Default 10 seconds for display batches; configure a bounded timeout.
+  - Set the timeout PER HANDLER to what that handler actually does, not once per repository. One default is either too short for the handler doing real work or long enough that a hung handler on the prompt path stalls every turn. Observed sizing from practice: an interactive handler at 3 to 5 seconds, a deterministic check at 20, end-of-turn logging at 30, an agentic gate at 120  [ENGINEERING]
   - see the per-handler defaults on the Contract branch; synchronous by default. Bound latency explicitly.
 - **Compatibility:** current documentation. Verify this event and handler type on your installed Claude Code build before relying on it.
 
@@ -70,3 +72,9 @@ SessionStart is not "context only": its hookSpecificOutput accepts five fields, 
 | sessionTitle | Sets the session title, same effect as /rename | Applies on startup, resume, and fork sources; IGNORED on clear and compact |
 | watchPaths | Array of paths to watch, generating FileChanged events for this session | Paths must be ABSOLUTE |
 | reloadSkills | Boolean; re-scans skill and command directories after SessionStart hooks complete | Skills the hook just installed become available in the SAME session, from the first prompt |
+
+## Which SessionStart source to bind, and what resume actually does
+
+- SessionStart hooks DO run again when a session resumes, with `source` reported as `resume`, or as `fork` when `--fork-session` was passed. The documentation presents that as the point: it is how a hook refreshes context that has gone stale. Mid-session events behave differently on resume, and the difference is the trap: for something like PostToolUse or UserPromptSubmit, Claude Code REPLAYS the text the hook produced originally rather than re-running the hook for past turns, so anything time-sensitive it injected, a timestamp or a commit sha, is stale on the replayed copy while looking freshly generated  [OFFICIAL]
+- For CONTEXT INJECTION specifically, the practice found across three independent projects is to bind `startup`, `clear` and `compact` and to EXCLUDE `resume`, because a resumed session already carries the injected bootstrap in its history and injecting it again spends the window twice. Note this CONTENDS with the documented rationale above rather than following it: the docs frame the resume re-run as a chance to refresh, the practice treats it as duplication. Which is right depends on whether your injected text goes stale. Including `compact` is the half that is not optional either way, since compaction is precisely the case where the context was lost and has to be restored  [ENGINEERING]
+- Set `async: false` on a SessionStart handler that injects context. Async output cannot block, so an async handler may not finish before the model takes its first turn, and the bootstrap is simply missing from the answer to the user's first message. There is no error and no warning; the session just behaves as though the hook were not installed  [ENGINEERING]
