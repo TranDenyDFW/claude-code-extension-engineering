@@ -723,12 +723,39 @@ if (DOC_NUMBERS) {
   }
 
   for (const rel of docs) {
-    const lines = readFileSync(join(DOC_ROOT, rel), 'utf8').split(/\r?\n/);
-    lines.forEach((line, i) => {
+  // Scan PARAGRAPHS, not lines. A per-line scan cannot see a published number whose sentence
+  // hard-wraps before it. A stale 247 sat green against a live 280 for exactly as long as the
+  // wrap sat between the words all and 247. Proven by rejoining the wrap with the VALUE
+  // UNTOUCHED, which made this gate fail, then re-wrapping, which made it pass again. Same
+  // defect class as a ledger pairing on a 400-character prefix: the scan's unit must match
+  // the content's unit, or the gate reports clean while blind.
+  //
+  // Line numbers stay exact. Each paragraph records the offset at which every source line
+  // begins inside it, so a match is attributed to the line it actually starts on.
+  const paragraphsOf = (text) => {
+    const out = [];
+    let buf = null;
+    text.split(/\r?\n/).forEach((raw, i) => {
+      if (raw.trim() === '') { buf = null; return; }
+      if (!buf) { buf = { text: '', starts: [] }; out.push(buf); }
+      buf.starts.push({ at: buf.text.length, line: i });
+      buf.text += (buf.text ? ' ' : '') + raw.trim();
+    });
+    return out;
+  };
+  const lineFor = (para, index) => {
+    let best = para.starts[0];
+    for (const st of para.starts) { if (st.at <= index) best = st; else break; }
+    return best.line;
+  };
+
+    paragraphsOf(readFileSync(join(DOC_ROOT, rel), 'utf8')).forEach((para) => {
+      const line = para.text;
       for (const f of FACTS) {
         f.re.lastIndex = 0;
         let m;
         while ((m = f.re.exec(line)) !== null) {
+          const i = lineFor(para, m.index);
           const raw = m[1].replace(/,/g, '').toLowerCase();
           // Per-fact word map, defaulting to the conservative global one. A fact
           // whose phrasing is canonical enough can opt into the small words.
