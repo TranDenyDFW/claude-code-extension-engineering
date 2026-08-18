@@ -29,6 +29,8 @@ to be decoration.
 - A TOOL-NAME rule with no path is a different thing and is NOT inert: "Claude Code doesn't warn about a tool-name rule with no path, such as a deny rule for `Write`; it matches that rule at the tool level everywhere." So `deny: ["Write"]` works and `deny: ["Write(infra/**)"]` does not, which is a trap worth reading twice [OFFICIAL]  [v2.1.210]
 - You cannot match a tool's primary content field: "A rule like `Bash(command:rm *)` would be bypassable by a compound command, so Claude Code ignores it and emits a startup warning. Use `Bash(rm *)`, `Read(./path)`, or `WebFetch(domain:host)` instead." [OFFICIAL]  [v2.1.220]
 
+- A PARAMETER rule compares against the literal input before any normalisation, so `Agent(model:opus)` "matches the alias `opus` but not a full model ID". That makes alias-versus-full-ID a correctness question rather than a style one: a rule written for one form silently fails to match a dispatch that used the other. Each rule names ONE parameter, so gating on model and isolation takes two rules rather than one combined, and `--verbose` shows the exact parameter names and values in each tool call  [OFFICIAL]  [v2.1.220]
+
 ## Search tools are BEST-EFFORT, which is not a guarantee
 
 - "`Edit` rules apply to all built-in tools that edit files. Claude makes a best-effort attempt to apply `Read` rules to all built-in tools that read files like Grep and Glob, to `@file` mentions in your prompts, and to the selection and open-file context that a connected IDE shares with Claude." [OFFICIAL]  [v2.1.220]
