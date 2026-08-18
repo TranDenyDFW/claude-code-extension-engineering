@@ -147,11 +147,11 @@ if (process.argv.includes('--prove-can-fail')) {
          first mutant here mutates a value ALREADY wrapped in the source; the second introduces a
          wrap around one that is not. A per-line scan catches neither. */
       { n: 'MUST FAIL: a FACTS value that is wrong and already hard-wrapped', f: 'docs/RESULTS.md',
-        from: 'confirms all\n280 positive assertions',
+        from: 'confirms all\n286 positive assertions',
         to: 'confirms all\n999 positive assertions',
         want: /positive assertions: doc says 999/ },
       { n: 'MUST FAIL: a FACTS value made wrong AND newly wrapped', f: 'docs/RESULTS.md',
-        from: '**295 questions (set v2)',
+        from: '**301 questions (set v2)',
         to: '**999\nquestions (set v2)',
         want: /doc says 999/ },
       { n: 'MUST FAIL: the retired total split across a hard wrap', f: 'docs/RESULTS.md',
