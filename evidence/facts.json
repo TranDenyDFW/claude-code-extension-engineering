@@ -1,0 +1,30 @@
+[
+  {
+    "id": "transcript-turn-measurement",
+    "note": "Measured 2026-08-17 by streaming every session transcript and applying isRealUserRecord's own three-part predicate (no tool_result block, no isMeta flag, non-empty text). Corrected twice after independent review; both corrections initially left a stale sibling copy, which is why this manifest exists.",
+    "canonical": [
+      "5,902",
+      "160,388",
+      "146,772",
+      "2,932",
+      "10,670",
+      "6.7 percent"
+    ],
+    "superseded": [
+      "5,901",
+      "160,316",
+      "146,703",
+      "13,598",
+      "8.5 percent",
+      "19 user records",
+      "21 tool_result"
+    ],
+    "files": [
+      "skills/claude-code-extension-engineering/references/hooks.md",
+      "tests/questions.jsonl",
+      ".md/20260817-stop-guard_verify.md",
+      "P:/ClaudeExt/QuestionExtension/lib/transcript.mjs",
+      "P:/ClaudeExt/QuestionExtension/.md/ADOPTION-PLAN.md"
+    ]
+  }
+]
