@@ -41,7 +41,9 @@ built-ins are available.
 `agent()` options: `label`, `phase`, `schema`, `model`, `effort`, `agentType`, and
 `isolation: 'worktree'` (expensive; only when agents mutate files in parallel).
 
-Limits: 16 concurrent agents, 1000 per run, 4096 items per `pipeline()` or `parallel()` call.
+Limits: concurrency is `min(16, available CPUs - 2)` rather than a flat 16, so under 18 cores the
+real ceiling is lower and excess calls queue; 1000 agents per run; 4096 items per `pipeline()` or
+`parallel()` call.
 
 `args` is whatever the caller passed in, verbatim. Pass arrays and objects as real JSON values,
 never a JSON-encoded string: `args: ["a.ts", "b.ts"]`, not `args: "[\"a.ts\", ...]"`. A stringified
