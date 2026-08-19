@@ -191,14 +191,32 @@ export const NOT_A_CITATION = new Map([
   ['reload the plugin and try again', 'monitors.md: our phrasing of the WRONG instruction, quoted to name it as wrong. Never an upstream sentence.'],
 ]);
 
-const TAGGED = /\[(OFFICIAL|ANTHROPIC|COMMUNITY|EXPERIMENTAL|LEGACY|DEPRECATED)\]|\[v\d+\.\d+\.\d+\]/;
+/**
+ * Lines whose quotes must resolve against ANTHROPIC'S OWN PAGES. COMMUNITY is deliberately NOT
+ * here. It was, and that was a semantic error waiting to fire: [COMMUNITY] means community
+ * practice, which by definition is not in Anthropic's documentation, so demanding that its quotes
+ * appear in the mirror would fail every honest community citation and pass only the ones that had
+ * drifted into paraphrasing Anthropic. Nothing broke while the set was wrong because no COMMUNITY
+ * line happened to carry a quoted span; the corpus adoption ahead would have supplied plenty.
+ */
+const TAGGED = /\[(OFFICIAL|ANTHROPIC|EXPERIMENTAL|LEGACY|DEPRECATED)\]|\[v\d+\.\d+\.\d+\]/;
 
-export function collectQuotes(refDir = REF_DIR) {
+/**
+ * The other half of that decision. Dropping COMMUNITY from the mirror check must not leave its
+ * quotes unchecked, so a verbatim span on a COMMUNITY-only line is refused outright: this project
+ * holds no mirror of community sources, so such a quote is unverifiable by construction and the
+ * honest move is to paraphrase and attribute rather than present quotation marks nothing can
+ * confirm. A line carrying BOTH tags still resolves against the mirror, because the OFFICIAL half
+ * is a promise about Anthropic's wording.
+ */
+const COMMUNITY_TAGGED = /\[COMMUNITY( PRACTICE)?\]/;
+
+function scanLines(refDir, predicate) {
   const out = [];
   for (const f of readdirSync(refDir).filter((x) => x.endsWith('.md'))) {
     const lines = readFileSync(join(refDir, f), 'utf8').split(/\r?\n/);
     lines.forEach((line, i) => {
-      if (!TAGGED.test(line)) return;
+      if (!predicate(line)) return;
       for (const q of quotesIn(line)) {
         if (NOT_A_CITATION.has(q)) continue;
         out.push({ file: f, line: i + 1, quote: q });
@@ -206,6 +224,28 @@ export function collectQuotes(refDir = REF_DIR) {
     });
   }
   return out;
+}
+
+/**
+ * Which regime a line's quotes fall under. Pure, so the must-fail rows can exercise it without
+ * writing fixture files into the tree during a gate run.
+ *   'mirror'    quotes must appear in Anthropic's pages
+ *   'community' quotes are unverifiable here and are refused
+ *   'none'      untagged prose and [ENGINEERING] judgment; this gate says nothing about them
+ */
+export function classifyLine(line) {
+  if (TAGGED.test(line)) return 'mirror';
+  if (COMMUNITY_TAGGED.test(line)) return 'community';
+  return 'none';
+}
+
+export function collectQuotes(refDir = REF_DIR) {
+  return scanLines(refDir, (line) => classifyLine(line) === 'mirror');
+}
+
+/** Quoted spans on COMMUNITY-only lines: unverifiable by construction, so always a finding. */
+export function collectUnverifiableQuotes(refDir = REF_DIR) {
+  return scanLines(refDir, (line) => classifyLine(line) === 'community');
 }
 
 export function loadMirror(dir) {
@@ -245,6 +285,7 @@ function main(argv) {
   }
   const pages = loadMirror(mirror);
   const quotes = collectQuotes();
+  const unverifiable = collectUnverifiableQuotes();
   const missing = [];
   const byPage = new Map();
   for (const q of quotes) {
@@ -253,19 +294,30 @@ function main(argv) {
     byPage.set(page, (byPage.get(page) || 0) + 1);
   }
   if (argv.includes('--json')) {
-    console.log(JSON.stringify({ mirror, pages: pages.size, quotes: quotes.length, missing }, null, 2));
-    return missing.length ? 1 : 0;
+    console.log(JSON.stringify({ mirror, pages: pages.size, quotes: quotes.length, missing, unverifiable }, null, 2));
+    return missing.length || unverifiable.length ? 1 : 0;
   }
   console.log(`quote-check: ${quotes.length} verbatim quote(s) from ${new Set(quotes.map((q) => q.file)).size} reference file(s)`);
   console.log(`             against ${pages.size} mirrored page(s) at ${mirror}`);
+  console.log(`             plus ${unverifiable.length} quoted span(s) on COMMUNITY-only lines, which must be zero`);
+  let bad = 0;
   if (missing.length) {
     console.log('\nNO LONGER FOUND UPSTREAM:');
     for (const m of missing) console.log(`  ${m.file}:${m.line}\n    "${m.quote.slice(0, 150)}"`);
     console.log(`\nFAIL ${missing.length} quote(s) missing. Each is a claim whose source sentence is gone:`);
     console.log('re-read the page, then either update the quote or record what replaced it.');
-    return 1;
+    bad += missing.length;
   }
-  console.log('\nPASS every verbatim quote still appears upstream.');
+  if (unverifiable.length) {
+    console.log('\nVERBATIM QUOTE ON A COMMUNITY-ONLY LINE:');
+    for (const u of unverifiable) console.log(`  ${u.file}:${u.line}\n    "${u.quote.slice(0, 150)}"`);
+    console.log(`\nFAIL ${unverifiable.length} unverifiable quote(s). This project mirrors Anthropic's pages,`);
+    console.log('not community sources, so nothing here can confirm these words were ever written.');
+    console.log('Paraphrase and attribute instead, or promote the line to OFFICIAL with a real citation.');
+    bad += unverifiable.length;
+  }
+  if (bad) return 1;
+  console.log('\nPASS every verbatim quote still appears upstream, and no COMMUNITY-only line quotes.');
   const partial = quotes.filter((q) => droppedFragments(q.quote).length);
   if (partial.length) {
     console.log(`\nPARTIAL COVERAGE on ${partial.length} abridged quote(s): a fragment shorter than`);
@@ -285,6 +337,22 @@ function selfTest() {
 
   check('a long quote on a tagged line is extracted',
     quotesIn('- "Rules are evaluated in order: deny, then ask, then allow." [OFFICIAL]').length === 1);
+
+  // The COMMUNITY split. Each row asserts the regime, not just that something was extracted.
+  check('an OFFICIAL line resolves against the mirror',
+    classifyLine('- a claim  [OFFICIAL]') === 'mirror', classifyLine('- a claim  [OFFICIAL]'));
+  check('a COMMUNITY line does NOT resolve against the mirror',
+    classifyLine('- a claim  [COMMUNITY]') === 'community', classifyLine('- a claim  [COMMUNITY]'));
+  check('the [COMMUNITY PRACTICE] spelling is caught too, not just [COMMUNITY]',
+    classifyLine('- a claim  [COMMUNITY PRACTICE]') === 'community', classifyLine('- a claim  [COMMUNITY PRACTICE]'));
+  check('a line carrying BOTH tags still resolves against the mirror',
+    classifyLine('- a claim  [OFFICIAL]  [COMMUNITY]') === 'mirror', classifyLine('- a claim  [OFFICIAL]  [COMMUNITY]'));
+  check('an ENGINEERING line is in neither regime, which is why a retag changes coverage',
+    classifyLine('- a claim  [ENGINEERING]') === 'none', classifyLine('- a claim  [ENGINEERING]'));
+  check('a versioned line still resolves against the mirror',
+    classifyLine('- a claim  [v2.1.203]') === 'mirror', classifyLine('- a claim  [v2.1.203]'));
+  check('a quoted span on a COMMUNITY line IS extracted, so the refusal has something to refuse',
+    quotesIn('- the practice is "run the guard before the dispatcher" here  [COMMUNITY]').length === 1);
   check('a SHORT quote is ignored, because short quotes are green by construction',
     quotesIn('- he said "deny" loudly [OFFICIAL]').length === 0);
   /**

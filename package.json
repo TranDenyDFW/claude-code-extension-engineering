@@ -26,7 +26,8 @@
     "drift": "node tools/claim-drift.mjs",
     "drift:prove-fail": "node tools/claim-drift.mjs --self-test",
     "attrib": "node tools/attrib-check.mjs",
-    "attrib:prove-fail": "node tools/attrib-check.mjs --self-test && node tools/attrib-check.mjs --prove-fail"
+    "attrib:prove-fail": "node tools/attrib-check.mjs --self-test && node tools/attrib-check.mjs --prove-fail",
+    "quotes:prove-fail": "node tools/quote-check.mjs --self-test && node tools/quote-prove-fail.mjs"
   },
   "_scriptsAreNotTheCiContract": "CI runs about fifty distinct commands (.github/workflows/freshness.yml). These eight are the ones a contributor needs by hand, and they are deliberately NOT a mirror of the workflow. A duplicated list would be a second place for the truth to rot, which is the exact defect tools/coverage-report.mjs --doc-numbers exists to catch elsewhere in this repo. The workflow is the contract; read it.",
   "_noDependencies": "There are none, and that is a property worth keeping. All 78 .mjs files import node: built-ins and each other. This file exists to declare the Node floor and give `npm test` a meaning, not to add a dependency graph.",
