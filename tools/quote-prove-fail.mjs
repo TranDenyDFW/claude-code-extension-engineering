@@ -269,12 +269,16 @@ function restoredExactly(file, m) {
       row: /fenced block is never joined/,
     },
     {
-      label: 'skipping code blocks in the unchecked-quotation hunt, fenced AND indented',
-      edits: [
-        { from: '      if (isFence(text)) { fenced = !fenced; continue; }', to: '      if (false) { fenced = !fenced; continue; }' },
-        { from: '      if (isIndentedCode(text, false)) continue;', to: '      if (false) continue;' },
-      ],
-      row: /ignores fenced code blocks/,
+      label: 'the code mark, without which both halves read fenced examples',
+      from: "    if (isFence(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l, code: true }); continue; }",
+      to: "    if (isFence(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l }); continue; }",
+      row: /tagged line inside a code block is marked as code/,
+    },
+    {
+      label: 'the marking rule, so every line would count as code',
+      from: '    if (fenced || isIndentedCode(l, cur)) { flush(); out.push({ line: i + 1, text: l, code: true }); continue; }',
+      to: '    if (true) { flush(); out.push({ line: i + 1, text: l, code: true }); continue; }',
+      row: /ordinary line is not marked as code/,
     },
     {
       label: 'the uncapped header window',

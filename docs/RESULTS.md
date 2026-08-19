@@ -52,8 +52,9 @@ characters or more. It COUNTS those on lines carrying an evidence tag, and separ
 every other one: a span on an untagged line that resolves against the mirror is a citation of
 Anthropic's words where nothing checks it, and the gate refuses it. That second half was added
 2026-08-19 after a review found a real instance, and it reads logical lines rather than
-physical ones, because a citation broken by a line wrap was invisible to both halves. Code
-blocks are skipped in all three spellings, since a configuration example is not a citation.
+physical ones, because a citation broken by a line wrap was invisible to both halves, blockquotes
+included. Both halves skip code blocks in all three spellings, since a configuration example is
+not a citation.
 
 Near-tautological on the first run, since the keys derive from the content. It earns its keep
 as a regression gate and through `--prove-fail`, which guts every source file and confirms all

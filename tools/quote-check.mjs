@@ -278,8 +278,11 @@ export function logicalLines(text) {
   const flush = () => { if (cur) out.push(cur); cur = null; };
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    if (isFence(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l }); continue; }
-    if (fenced || isIndentedCode(l, cur)) { flush(); out.push({ line: i + 1, text: l }); continue; }
+    /* Each entry carries whether it is CODE, so both halves of the gate can skip the same set
+       without each keeping its own fence counter. Two counters is how one half skipped code blocks
+       and the other did not, which made a published sentence about the gate's scope false. */
+    if (isFence(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l, code: true }); continue; }
+    if (fenced || isIndentedCode(l, cur)) { flush(); out.push({ line: i + 1, text: l, code: true }); continue; }
     if (!l.trim()) { flush(); continue; }
     /* A BLOCKQUOTE CONTINUES like a paragraph. Flushing on every `>` line hid any citation wrapped
        inside one, and the library's own file headers are blockquotes, so the shape was shipped. A
@@ -298,7 +301,8 @@ export function logicalLines(text) {
 function scanLines(refDir, predicate) {
   const out = [];
   for (const { name: f, path } of scanTargets(refDir)) {
-    for (const { line, text } of logicalLines(readFileSync(path, 'utf8'))) {
+    for (const { line, text, code } of logicalLines(readFileSync(path, 'utf8'))) {
+      if (code) continue;
       if (!predicate(text)) continue;
       for (const q of quotesIn(text)) {
         if (NOT_A_CITATION.has(q)) continue;
@@ -351,12 +355,10 @@ export function collectUncheckedResolvingQuotes(refDir = REF_DIR, pages) {
     /* Logical lines here too, or a citation that escapes the COUNT by wrapping also escapes the
        hunt meant to catch citations the count cannot see. Both fence spellings and indented blocks
        are skipped, since a configuration example is not a citation. */
-    for (const { line, text } of logicalLines(readFileSync(path, 'utf8'))) {
-      /* The SAME rules logicalLines uses, by name. Two copies is how the fence fix reached one
-         caller and not the other. */
-      if (isFence(text)) { fenced = !fenced; continue; }
-      if (fenced) continue;
-      if (isIndentedCode(text, false)) continue;
+    for (const { line, text, code } of logicalLines(readFileSync(path, 'utf8'))) {
+      /* ONE mark, set by the joiner. Two callers keeping their own fence counters is how the fence
+         fix reached one and not the other. */
+      if (code) continue;
       if (classifyLine(text) !== 'none') continue;
       for (const q of quotesIn(text)) {
         if (NOT_A_CITATION.has(q)) continue;
@@ -929,6 +931,13 @@ function selfTest() {
      all fourteen gates green, so the fix that made wrapped citations visible was itself unproven. */
   const WRAP_PARA = 'x\n\nThe docs say "a fabricated sentence that nobody\never wrote anywhere at all" here.';
   const WRAP_QUOTE = 'x\n\n> The docs say "a fabricated sentence that nobody\n> ever wrote anywhere at all" here.';
+  const F3B = String.fromCharCode(96, 96, 96);
+  const FENCED_TAG = [F3B, '- x "a quoted span of at least twenty-five characters" y  [OFFICIAL]', F3B].join(String.fromCharCode(10));
+  check('a tagged line inside a code block is marked as code, so neither half reads it',  // @header-row
+    logicalLines(FENCED_TAG).every((x) => x.code === true),
+    JSON.stringify(logicalLines(FENCED_TAG).map((x) => ({ code: !!x.code, t: x.text.slice(0, 30) }))));
+  check('...and an ordinary line is not marked as code',  // @header-row
+    logicalLines('- an ordinary bullet  [OFFICIAL]').every((x) => !x.code));
   check('a paragraph wrapped across two lines is ONE logical line',  // @header-row
     logicalLines(WRAP_PARA).some((x) => /nobody ever wrote/.test(x.text)),
     JSON.stringify(logicalLines(WRAP_PARA).map((x) => x.text)));
