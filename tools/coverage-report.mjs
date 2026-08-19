@@ -127,7 +127,7 @@ if (process.argv.includes('--prove-can-fail')) {
 
     const DOCS = join(dir2, 'docroot');
     for (const d of ['docs', 'tests', 'skills', '.claude-plugin']) cpSync(join(ROOT, d), join(DOCS, d), { recursive: true });
-    for (const f of ['IMPROVEMENTS.md', 'README.md']) cpSync(join(ROOT, f), join(DOCS, f));
+    for (const f of ['IMPROVEMENTS.md', 'README.md', 'CONTRIBUTING.md']) cpSync(join(ROOT, f), join(DOCS, f));
     const ctl = run({ COVERAGE_DOC_ROOT: DOCS });
     check('the copied docs are GREEN, so a doc mutant below means something', ctl.status === 0, 'exit ' + ctl.status);
 
@@ -147,11 +147,11 @@ if (process.argv.includes('--prove-can-fail')) {
          first mutant here mutates a value ALREADY wrapped in the source; the second introduces a
          wrap around one that is not. A per-line scan catches neither. */
       { n: 'MUST FAIL: a FACTS value that is wrong and already hard-wrapped', f: 'docs/RESULTS.md',
-        from: 'confirms all\n309 positive assertions',
+        from: 'confirms all\n380 positive assertions',
         to: 'confirms all\n999 positive assertions',
         want: /positive assertions: doc says 999/ },
       { n: 'MUST FAIL: a FACTS value made wrong AND newly wrapped', f: 'docs/RESULTS.md',
-        from: '**324 questions (set v2)',
+        from: '**395 questions (set v2)',
         to: '**999\nquestions (set v2)',
         want: /doc says 999/ },
       { n: 'MUST FAIL: the retired total split across a hard wrap', f: 'docs/RESULTS.md',
@@ -226,6 +226,8 @@ if (DOC_NUMBERS) {
   // design, so those patterns produced ten hits and zero real findings. A
   // checker that cries wolf gets ignored, which is worse than no checker.
   const qRows = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
+    .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
+  const ledgerRows = readFileSync(join(ROOT, 'evidence', 'claims.jsonl'), 'utf8')
     .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
 
   /* Every skill's references, not one skill's. Counting card and event rows from a quarter of
@@ -425,6 +427,19 @@ if (DOC_NUMBERS) {
     // and 31, while this gate reported "none disagree". The gate was real; it simply
     // did not scan the manifest, which is the FIRST surface a marketplace reader sees.
     { label: 'composition cards', live: cardCount, re: /(\d+)\s+composition cards/gi },
+    /* Added 2026-08-19 after review found SKILL.md's tag split reading 405 and 31 against a live
+       434 and 25, stale since before this branch and reviewed past four times. A figure a reader
+       can check belongs in this gate, not in a habit. */
+    { label: 'claims carrying the explicit OFFICIAL tag',
+      live: ledgerRows.filter((c) => (c.tags || []).includes('OFFICIAL')).length,
+      re: /(\d+)\s+claims carry the explicit tag/gi },
+    /* Added 2026-08-19: CONTRIBUTING.md advertised "eight scripts" against a live 15, unseen
+       because the file was outside the scan. */
+    { label: 'npm scripts', live: Object.keys(JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).scripts || {}).length,
+      re: /(\d+)\s+scripts for hand use/gi },
+    { label: 'claims relying on the untagged default',
+      live: ledgerRows.filter((c) => !(c.tags || []).length).length,
+      re: /(\d+)\s+rely on the untagged default/gi },
     { label: 'hook-event contracts', live: eventCount, re: /(\d+)\s+hook-event contracts/gi },
     /**
      * Added 2026-08-06. The two rules above are CANONICAL-PHRASE rules, and the
@@ -538,7 +553,10 @@ if (DOC_NUMBERS) {
       });
     } catch { return []; }
   })();
-  const docs = ['README.md', 'IMPROVEMENTS.md', 'docs/SUBMISSION.md', 'docs/RESULTS.md', '.claude-plugin/plugin.json',
+  /* CONTRIBUTING.md joined the scan 2026-08-19: a review found it advertising "eight scripts"
+     against a live 15, and repeating a WSL2 claim the library had corrected in four other places.
+     A figure a reader can check belongs in this scan, wherever it is written. */
+  const docs = ['README.md', 'IMPROVEMENTS.md', 'CONTRIBUTING.md', 'docs/SUBMISSION.md', 'docs/RESULTS.md', '.claude-plugin/plugin.json',
     ...refFiles,
     ...readdirSync(join(ROOT, 'tests'))
       .filter(f => /^results.*\.md$/.test(f)).map(f => join('tests', f))]
@@ -803,7 +821,7 @@ if (DOC_NUMBERS) {
   // an independent review caught this comment justifying both on A015's
   // grounds, which are wrong for A001.
   //
-  // A015 ("are all upstream sources redistributable?"): each of the 13
+  // A015 ("are all upstream sources redistributable?"): each of the 29
   // Proprietary rows in sources.md is a separate falsifier, so the plurality
   // genuinely IS the answer, and the row degrades to red if they all go.
   //

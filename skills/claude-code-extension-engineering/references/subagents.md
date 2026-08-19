@@ -1,6 +1,8 @@
 # Subagents
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries ONE verbatim quote, added 2026-08-18 on the return-contract mechanism bullet, which the quote gate DOES check against the mirror; every other line is unquoted, so the gate is silent about the rest; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
+> Claude Code 2.1.229. What that means here: this file carries ONE verbatim quote and
+> `tools/quote-check.mjs` confirms it still appears upstream. Per-claim provenance lives in
+> `evidence/claims.jsonl`, where the gates read it; nothing else is asserted here.
 
 
 A delegated worker with its own context window and its own tool set. Use it to keep a bounded job out of the main context and to hard-limit what that job can touch. Since v2.1.198 subagents run in the background by default, which changes which tools resolve, so one definition can behave differently foreground and background.
@@ -42,7 +44,7 @@ A delegated worker with its own context window and its own tool set. Use it to k
 - Tool restrictions enforced (no tool-access violations)
 - Returns a useful summary (not too little, not a dump)
 - No duplicated work vs the main agent
-- Runtime limits: 20 concurrent (CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS), 200 per session (CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION, reset by /clear), nesting depth via CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH. The nesting default was measured on 2.1.219 at depth 3: three levels run, and the third level has no Agent tool to spawn a fourth (see Nesting, measured). The subagents reference page still says nesting is off, which does not match the measured build. The Task mode parameter was deprecated at 2.1.212, so a subagent inherits the PARENT permission mode [OFFICIAL]  [v2.1.219]
+- Runtime limits: 20 concurrent (CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS) and nesting depth via CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH, default 3 layers below the main conversation. The per-session cap is GONE: CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION was REMOVED at v2.1.224 and is now a no-op, so the 200-spawn budget this file used to state as live no longer bounds anything, and a runaway delegation loop is limited by depth and concurrency alone. The Task mode parameter was deprecated at 2.1.212, so a subagent inherits the PARENT permission mode [OFFICIAL]  [v2.1.224]
 - A subagent's returned report is untrusted content: v2.1.210+ scans it and marks instruction-shaped text, but the scan never removes anything - tool restriction is the real control [OFFICIAL]  [v2.1.210]
 
 ## The return contract
@@ -110,7 +112,18 @@ The BODY is the system prompt. There is no `prompt` frontmatter field for file-b
 
 ## Nesting, measured
 
-- MEASURED on 2.1.219, ceiling included: three levels of subagents run, and the enforcement is structural. An L1 subagent spawned L2, L2 spawned L3, and L3 reported the Agent tool ABSENT from its tool list, so a depth-4 spawn is not refused at call time, it is impossible to attempt. This matches the changelog's depth-3 default and settles the disagreement: the subagents reference page saying nesting is off does not match this build. The deepest agent that can itself spawn is L2.  [ENGINEERING] [v2.1.219]
+- MEASURED on 2.1.219, ceiling included: three levels of subagents run, and the enforcement is structural. An L1 subagent spawned L2, L2 spawned L3, and L3 reported the Agent tool ABSENT from its tool list, so a depth-4 spawn is not refused at call time, it is impossible to attempt. The deepest agent that can itself spawn is L2.  [ENGINEERING] [v2.1.219]
+- The documentation now AGREES, and it did not when this was measured. The reference page states that a subagent can spawn subagents up to three layers below the main conversation and that at the limit Claude Code WITHHOLDS the `Agent` tool from every subagent except a fork, which is the same structural enforcement the probe observed rather than a coincidentally equal number  [OFFICIAL]  [v2.1.229]
+
+## Measuring a harness limit, because this file publishes one
+
+The ceiling above is a RESULT. Anyone who wants to check it, or measure the next announced limit,
+needs the method, and until now this file gave a number without one.
+
+- A SELF-REPLICATING PROBE measures a nesting limit: write one agent prompt that instructs its worker to spawn another agent with the same prompt and a depth counter incremented by one, dispatch it headlessly, and read the ceiling off what actually ran rather than off what was refused. The design point is that the prompt is its own payload, so one dispatch enumerates every layer  [ENGINEERING]
+- Classify the ceiling by WHAT THE DEEPEST AGENT COULD SEE, not by an error. The probe here settled the question because L3 reported the `Agent` tool absent from its tool list: a structural limit and a refused call look identical in a transcript, and only the tool list separates them  [ENGINEERING]
+- The technique generalises to any announced limit with an observable boundary, and it earns its place precisely when documentation and changelog disagree, which is the condition that produced this measurement. Note how it resolved: the probe was right and the reference page caught up, so a measurement that contradicts the docs is worth recording rather than discarding  [ENGINEERING]
+- Re-check a measured limit against the docs on every verification pass. The nesting entry under Detail below records what it cost this file to skip that. The transferable half is the mechanism: a quote-and-capability check cannot catch a claim that went stale, because the claim's own words never change and its quotes keep resolving. Only re-reading the cited page does  [ENGINEERING]
 
 ## Common failure modes / anti-patterns
 
@@ -138,7 +151,7 @@ The BODY is the system prompt. There is no `prompt` frontmatter field for file-b
 - There is NO prompt frontmatter field for file-based subagents; the Markdown body IS the system prompt. (prompt exists only in the --agents JSON form.) A subagent gets its own prompt plus basic env, NOT the full Claude Code prompt.
 - Plugin subagents IGNORE hooks / mcpServers / permissionMode. Project + user .claude/agents/ definitions override same-named plugin agents.
 - Two different problems, tested separately. DESCRIPTION governs ROUTING (does the right task reach this agent?). SYSTEM PROMPT (the body) governs BEHAVIOUR (does it do the job well once it runs?). A great prompt behind a vague description never runs.
-- The nesting default was the one point where two official sources disagreed; a live measurement settled it at depth 3 on 2.1.219, with the reference page still carrying the stale "off". When documentation cannot settle a question, one measurement on the installed build can.
+- The nesting default was once the point where two official sources disagreed, and a live measurement settled it at depth 3 on 2.1.219 while the reference page still said otherwise. The page has since been corrected to match, so the disagreement is HISTORY rather than a live caveat, and this file went on asserting it in three places after it stopped being true. Both halves are the lesson: when documentation cannot settle a question one measurement on the installed build can, and a measurement recorded as contradicting the docs has to be re-checked against them or it becomes the stale claim itself.
 - Model resolution has four sources in a fixed ORDER: the `CLAUDE_CODE_SUBAGENT_MODEL` environment variable, then the per-invocation model parameter, then the frontmatter, then the main conversation's model. Since v2.1.196 setting that variable to `inherit` is the same as leaving it unset and resolution continues down the chain; in EARLIER versions `inherit` forced the main conversation's model and ignored the other two, so the same configuration means opposite things across that boundary. All three of the first sources are checked against an organisation availableModels allowlist, and a blocked value is SUBSTITUTED rather than refused: a blocked family alias runs on the newest permitted version of that family, and anything else falls back to the inherited model. The substitution IS announced, but only where someone is watching: in interactive sessions Claude Code warns naming both the requested model and the one the subagent actually runs on  [OFFICIAL]  [v2.1.196]
 - The RESULT is charged to the CALLER, which is the fact the whole return contract hangs on. Delegation isolates the work, not the payload: "the verbose output stays in the subagent's context while only the relevant summary returns to your main conversation". So the return is the only part the caller pays for, and a summary that is really a dump costs exactly what delegating was meant to save  [OFFICIAL]  [v2.1.220]
 - Built-in subagents ship by default: Explore and Plan (read-only, Write/Edit denied), general-purpose, statusline-setup, claude-code-guide. A same-named user or project agent overrides the built-in and keeps its own model field; remove via permissions.deny or CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS=1 [OFFICIAL]

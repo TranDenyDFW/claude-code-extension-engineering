@@ -1,6 +1,8 @@
 # Hooks
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries TWO verbatim quotes, both in the Stop section, and `tools/quote-check.mjs` confirms both still appear upstream; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading. The header said NO quotes until 2026-08-13, which was true when written and stopped being true the moment the Stop section was added without anyone rereading the header.
+> Claude Code 2.1.229. What that means here: this file carries SIX verbatim quotes and
+> `tools/quote-check.mjs` confirms they still appear upstream. Per-claim provenance lives in
+> `evidence/claims.jsonl`, where the gates read it; nothing else is asserted here.
 
 
 Code the HARNESS runs on a lifecycle event, independent of the model's judgment. This is the only mechanism whose FIRING the harness owns: the model cannot talk its way out of a hook running. Firing is not outcome, though. What happens after depends on the handler's failure policy (an HTTP handler fails OPEN on connection failure) and on the tamper boundary (disableAllHooks switches every hook off; only managed policy survives that), both covered below. Five handler types (command, http, mcp_tool, prompt, agent), and the last two carry judgment, so hooks are no longer purely mechanical.
@@ -43,9 +45,41 @@ Code the HARNESS runs on a lifecycle event, independent of the model's judgment.
 - Shares the generic capture-change-retest loop in [testing.md](testing.md)
 - Evidence source: matches, exit codes, and full stdout/stderr go to the debug log (claude --debug-file PATH, or ~/.claude/debug/SESSION-ID.txt with --debug, which prints NOTHING to the terminal); CLAUDE_CODE_DEBUG_LOG_LEVEL=verbose adds matcher-level detail [OFFICIAL]
 
+## What the matrix above cannot see
+
+Every row of that matrix drives the HANDLER and reads what comes back. A handler can be perfect and
+never run, and no amount of handler testing detects it.
+
+- Assert the REGISTRATION itself, as data. Load the settings or hooks file, walk to the entry you expect, and assert the event name, the matcher, the `shell` field and the command shape, printing the actual value on failure. This file already tells a reader that wiring causes outrank handler causes when a hook does not fire, and then offers no way to test the wiring  [ENGINEERING]
+- A SCHEMA VIOLATION ELSEWHERE IN THE FILE CAN STOP YOUR HOOKS LOADING, silently. Measured 2026-08-17 by a controlled A/B on 2.1.229: two runs differing only in `permissions.allow` being a valid array versus the string NOT_AN_ARRAY, with a byte-identical SessionStart hook block. The valid run fired and injected once; the invalid run did not fire at all and injected nothing, with NO warning in the debug log. So an unrelated key can disable every hook in the same file  [ENGINEERING]  [v2.1.229]
+- The documented behaviour at USER scope is the whole-file rejection, and it is documented as REPORTED: tolerance applies only to managed settings, while user, project and local files remain strict, a file that fails validation being rejected as a whole and reported. An interactive session shows a Settings Error dialog at startup, `/status` then lists the affected files, and `claude doctor` gives the details  [OFFICIAL]
+- So the gap the measurement found is NOT tolerant-versus-fatal, it is REPORTED-versus-SILENT. Whole-file rejection is exactly what the docs promise, and the surprise is that the probe saw no notice of any kind. A headless run has no startup dialog to show, which is the likeliest explanation and is not something this library has measured  [ENGINEERING]
+- Managed settings behave differently and are the case that must not be generalised from: they parse tolerantly, so a failing entry is STRIPPED, a warning recorded, and every remaining valid entry still enforced  [OFFICIAL]
+- The practical consequence is a validation step, not a bigger matrix: validate the whole settings file against its schema BEFORE writing it, because the failure mode is not a broken hook but a file whose hooks never load. `$schema` in the file gives editors the same check  [ENGINEERING]
+- Assert the NEGATIVE half of any branching output. Where two output shapes are mutually exclusive, assert the expected field is present AND each competing field is absent, or a handler emitting several at once passes a test written only for the one you wanted  [ENGINEERING]
+- Run integration tests against a THROWAWAY home and config directory supplied through the environment, so the install, activate, reinstall and uninstall cycle cannot touch the developer's real configuration and cannot pass merely because that machine is set up correctly. `CLAUDE_CONFIG_DIR` is the documented lever; note it redirects CONFIG only, so a probe that also needs a clean environment must scrub that separately  [ENGINEERING]
+
+## ENRICHING or ENFORCING: decide this before writing a line
+
+This file gives both postures and never says which one you are in. "A safety hook must not brick
+Claude Code" argues for failing open; the jq bullet under Contracts treats failing open as the
+defect. Both are right, for different hooks, and the discriminator decides how the handler is
+written down to its shell flags.
+
+- The event decides part of it for you, and this is documented rather than a matter of style. Nine events have NO DECISION CONTROL at all, WorktreeRemove, Notification, SessionEnd, PostCompact, InstructionsLoaded, StopFailure, CwdChanged, DirectoryAdded and FileChanged, and are for side effects like logging or cleanup. Setup and SubagentStart carry context only. A guard wired to any of those is enriching whatever its author intended  [OFFICIAL]
+- SessionStart sits in that same documented row and is the exception the row's label hides: it accepts four further outputs beyond context, listed under Contracts below. It still cannot BLOCK, so it is enriching for the purpose of this section, but calling it context-only is the error this library already corrected once  [OFFICIAL]  [v2.1.220]
+- The docs go further and say a hook is the WRONG MECHANISM for hard enforcement in at least one place: the `if` filter fails open when a Bash command cannot be parsed, and because it is best-effort, "use the [permission system](/docs/en/permissions) rather than a hook to enforce a hard allow or deny"  [OFFICIAL]
+- The no-opinion signal is a real contract, not an accident: exit 0 with no output means the hook has no decision to report and the call continues through the normal permission flow. An HTTP handler's 2xx with an empty body is equivalent. A timeout is stronger still, since the output is DISCARDED and the hook renders no decision whatever it printed  [OFFICIAL]
+- ENRICHING hooks must not fail fast. Write them without `set -euo pipefail` and end every branch in an unconditional `exit 0`, because strict mode aborts on any unexpected non-zero command, an aborting hook exits non-zero, and a non-zero exit on a blocking event converts a warning-only hook into one that blocks the user. Wrap even existence checks so a miss cannot propagate  [ENGINEERING]
+- ENFORCING hooks are the opposite and should use strict mode, because a guard that silently skips its own check is worse than no guard. This is the contradiction a hook-script linter and an advisory-hook rule appear to have with each other, and it dissolves once the posture is named first: the linter is describing gates, the advisory rule is describing enrichment  [ENGINEERING]
+- A guard may deliberately INVERT the runtime's fail-open default, and truncation is the case that proves it. If the runner caps stdin and reports truncation, a fail-open policy is itself an attack surface: pad the tool input past the cap and the protected filename never reaches the check. That is a bypass by padding, and the answer is exit 2 on truncation even though the surrounding default is to continue  [ENGINEERING]
+- For anything wrapping a hook, the rule is one line: FAIL OPEN ON TRANSPORT ERRORS, FAIL CLOSED ON A REAL BLOCK. Re-raise only the exit status that means block and treat every other non-zero as no opinion. Propagating every child failure turns a missing interpreter into a blocked tool call; propagating none silently disables the guard  [ENGINEERING]
+- A Node handler reading stdin needs an error listener that exits 0. A broken pipe or a dead parent emits `error` on `process.stdin`, Node rethrows it as an uncaught exception, and the harness reports a failing hook when nothing was wrong with the check itself  [ENGINEERING]
+- An ENRICHING hook still READS as a directive to the model, which is the trap in calling it advisory. Injected context is instruction-shaped whether or not it was meant that way, so a warning carrying an alarming number should name the inference it is NOT making: informational only, not an instruction to stop  [ENGINEERING]
+
 ## Failure safety / guard-the-guard
 
-- A safety hook must not brick Claude Code  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- A safety hook must not brick Claude Code, and the section above is how you decide whether that applies to the hook in front of you  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - Pass-path AND block-path both tested (toggle-bad → confirm → fix)
 - Change flow for a hook, run in order every time the handler is modified:
   1. Hook modification.

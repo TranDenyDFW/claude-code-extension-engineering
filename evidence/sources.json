@@ -678,7 +678,7 @@
         "supported": true
       },
       {
-        "claim": "sandboxing.md scope restrictions: sandbox.filesystem cannot be set from project or local settings, and strictAllowlist set in a repository settings file \"has no effect\". No equivalent sentence exists for failIfUnavailable, which is why this project treats its project-scope behaviour as undocumented rather than as restricted.",
+        "claim": "sandboxing.md scope restrictions: sandbox.filesystem.disabled cannot be set from project or local settings, and strictAllowlist set in a repository settings file \"has no effect\". No equivalent sentence exists for failIfUnavailable, which is why this project treats its project-scope behaviour as undocumented rather than as restricted. CORRECTED 2026-08-19: this spot check recorded the restriction against the whole filesystem block, which the page does not say. The library corrected that claim in three reference bullets and a tool rule before reaching this record.",
         "supported": true
       }
     ]
@@ -896,5 +896,39 @@
     "status": "verified",
     "notes": "Pinned snapshot patterns-20260816-211003.db, 1365 patterns from 11 source rows collapsing to 6 projects, extraction run 18. 366 tier-1 patterns were read individually and recorded in claim_gap: 204 out_of_scope, 104 gap, 51 covered, 5 wrong_referent, 2 contradicts. Claims attributed here are ENGINEERING judgments written in this library's terms after that survey, NOT quotations of corpus text. Cross-project corroboration in that corpus is 20 of 1365 patterns, so no claim here rests on frequency.",
     "spot_checks": []
+  },
+  {
+    "id": "SRC_BEST_PRACTICES",
+    "title": "Claude Code best practices",
+    "url": "https://code.claude.com/docs/en/best-practices",
+    "type": "official",
+    "retrieved": "2026-08-19",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Read from the local docs mirror at CCX-Extension-Research/sources/docs/md/best-practices.md on 2026-08-19, not a live fetch. Added for the grading section in testing.md, whose independent-grader rule this page states directly.",
+    "spot_checks": [
+      {
+        "line": 48,
+        "quote": "so the agent doing the work isn't the one grading it",
+        "found": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_LARGE_CODEBASES",
+    "title": "Work with large codebases",
+    "url": "https://code.claude.com/docs/en/large-codebases",
+    "type": "official",
+    "retrieved": "2026-08-19",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Read from the local docs mirror at CCX-Extension-Research/sources/docs/md/large-codebases.md on 2026-08-19, not a live fetch. Added because the re-baseline-after-a-model-change rule in testing.md cited SRC_FEATURES, which does not support it; this page is where the prescription actually lives.",
+    "spot_checks": [
+      {
+        "line": 115,
+        "quote": "may become overhead once a newer model handles the case on its own",
+        "found": true
+      }
+    ]
   }
 ]

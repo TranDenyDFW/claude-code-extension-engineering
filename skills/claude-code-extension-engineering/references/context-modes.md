@@ -1,6 +1,8 @@
 # Context modes
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
+> Claude Code 2.1.229. What that means here: this file carries NO verbatim quotes, so the quote gate
+> says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
+> it; nothing else is asserted here.
 
 
 How a piece of work gets its context: the main thread, a forked context, or a fully isolated subagent window. Choose by starting context, tool boundary, communication path and lifecycle, not by how big the task feels.

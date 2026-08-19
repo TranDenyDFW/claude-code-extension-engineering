@@ -1,9 +1,8 @@
 # Status line
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: every claim below was checked
-> against a live fetch of the Status line page on that date, not against the docs mirror, because
-> this file is new and had no prior verification to inherit. It carries NO verbatim quotes, so the
-> quote gate says nothing about it.
+> Claude Code 2.1.229. What that means here: this file carries NO verbatim quotes, so the quote gate
+> says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
+> it; nothing else is asserted here.
 
 
 A shell command Claude Code runs and renders as a bar at the bottom of the session. It receives
@@ -65,6 +64,21 @@ turns any file it reads into an input worth checking.
 - Do not style a shell command as clickable. A command the user is meant to TYPE, rendered as a link, invites a click on something that was never a URL  [ENGINEERING]
 - Render nothing rather than a placeholder before the first real measurement, so the line never shows a number that was never measured  [ENGINEERING]
 - Suppress errors per metric and supply a default, so one failing segment degrades rather than taking the whole line down  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- REFUTED as usually written, but the harness supplies what the probe was for. Claude Code CAPTURES the script's output instead of connecting it to the terminal, so `tput cols` and language-level width detection see nothing from inside the script. The documented substitute is to read the `COLUMNS` and `LINES` environment variables, which Claude Code sets to the current terminal dimensions before running the script, on v2.1.153 or later. So the answer is not to emit blindly: it is to take the dimensions from the environment rather than from a terminal query  [OFFICIAL]  [v2.1.153]
+- Hyperlink support is decided by the HARNESS, not by your script. Claude Code runs its own detection, which is why links that render as plain text on Windows Terminal are a detection-list miss rather than a script bug, and `FORCE_HYPERLINK` is the documented override. Emit conservatively for anything the harness does not resolve for you  [OFFICIAL]
+- Escape sequences can collide with the harness's own drawing: complex ANSI and OSC 8 output is documented as occasionally garbling when it overlaps other UI updates, and multi-line status lines with escape codes are more prone to it than single-line plain text. Treat a layout that survives only at one width as unsupported  [OFFICIAL]
+- A corpus practice keeps columns 15 to 25 of the second-to-last line clear because the harness draws there. UNVERIFIED against the current build: the collision phenomenon is documented, the specific column range is not, and it is exactly the kind of number a release moves. Prefer the general rule above to the coordinates  [ENGINEERING]
+
+## Paying for the line, which is the part that runs thousands of times
+
+- Cache expensive work to a file with a staleness check rather than shelling out on every render. The documented example runs `git` only when the cache is missing or older than five seconds, and it keys the cache filename on the SESSION so concurrent sessions in different repositories cannot read each other's state  [OFFICIAL]
+- The session key is the load-bearing half. A cache file at a fixed path is shared by every session on the machine, so the failure is not a stale number but one project's branch shown in another project's window  [ENGINEERING]
+- Serve the STALE value while refreshing rather than blanking the segment, so a slow refresh degrades to an old number instead of a hole. This is not the documented example's behaviour, which recomputes when stale and pays the wait  [ENGINEERING]
+- Where one segment must move faster than the rest, give it its OWN freshness clock rather than shortening the whole cache. One global interval sized for the fastest segment pays the slowest segment's cost at that rate  [ENGINEERING]
+- ANTI-PATTERN, and the sharpest one here: resolving a package from a registry inside the render loop, for instance calling `npx` for a version string. The docs warn that slow commands such as `git status` cause lag; a NETWORK call is that failure with an outage attached, and at render frequency it is a self-inflicted flood  [ENGINEERING]
+- On Windows, hide the console window of every subprocess the script spawns and lengthen the cache, or each render flashes a console. The setting is undocumented in the status line material even though the file already carries a Windows section  [ENGINEERING]
+- A single flag file at a predictable path is the only bridge between a hook and the status line, which are separate processes with no return channel. Have every reader honour `CLAUDE_CONFIG_DIR` so the bridge follows a relocated configuration rather than splitting in two  [ENGINEERING]
+- `statusLine` is a SINGLETON key: an installer that writes it unconditionally destroys whatever the user already had. Write it only when absent, and otherwise print the merge snippet and let the user apply it  [ENGINEERING]
 
 ## Failure posture
 

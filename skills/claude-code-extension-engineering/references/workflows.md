@@ -1,6 +1,8 @@
 # Dynamic Workflows
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
+> Claude Code 2.1.229. What that means here: this file carries NO verbatim quotes, so the quote gate
+> says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
+> it; nothing else is asserted here.
 
 
 An orchestration script saved to .claude/workflows/ and invoked as /<name>. A background runtime executes it to fan out subagents at scale, so the plan, the loop and the intermediate results stay in script variables and only the final answer returns to the caller's context. Write one when the CONTROL FLOW itself must be deterministic.
@@ -41,7 +43,9 @@ built-ins are available.
 `agent()` options: `label`, `phase`, `schema`, `model`, `effort`, `agentType`, and
 `isolation: 'worktree'` (expensive; only when agents mutate files in parallel).
 
-Limits: 16 concurrent agents, 1000 per run, 4096 items per `pipeline()` or `parallel()` call.
+Limits: concurrency `min(16, available CPUs - 2)`; 1000 agents per run; 4096 items per
+`pipeline()` or `parallel()` call. What that concurrency figure means on a real machine is under
+Detail below.
 
 `args` is whatever the caller passed in, verbatim. Pass arrays and objects as real JSON values,
 never a JSON-encoded string: `args: ["a.ts", "b.ts"]`, not `args: "[\"a.ts\", ...]"`. A stringified
@@ -102,6 +106,21 @@ where untrusted text becomes instructions, and nothing in the API stops it.
 - Put a conditional requirement in the output SCHEMA rather than the prompt, so it is enforced at the tool-call layer and retried, instead of hoped for  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - A retry means a CHANGED approach, not the same call again: feed the error back into the next prompt. Budget exhaustion is terminal rather than a retry condition  [ENGINEERING]
 - Agent-writable scratch belongs outside `.git`, and a base SHA should be recorded BEFORE dispatch rather than computed afterwards, because concurrent agents move HEAD  [ENGINEERING]
+- "Outside `.git`" reads two ways, and only one of them survives a crash. A directory INSIDE the working tree holding a `.gitignore` that ignores everything satisfies both readings at once: uncommittable, and still present after the process dies. Scratch placed outside the tree entirely satisfies commit hygiene and can vanish with the run  [ENGINEERING]
+- That mechanism has a documented cost worth paying deliberately: Grep respects `.gitignore` and skips ignored files, while Glob does not and finds them alongside tracked ones. So a self-ignoring scratch directory is invisible to the search tool a later phase would naturally reach for, and readable only by passing its path directly or by globbing  [OFFICIAL]
+
+## Integration is a PHASE, not the moment the results arrive
+
+- Collecting fan-out results is a step with its own checks. The one check per-item review cannot perform is the SET-level one: workers sharing a prompt template and a model tend to fail the SAME way, so every individual result looks fine and the set is wrong. [agent-teams.md](agent-teams.md) carries the mechanism, that agreement between agents sharing a model and a prompt is cheap and cheapest where they are most alike, and that a disagreement should be surfaced rather than silently resolved; what belongs here is that a fan-out needs a pass looking for the correlated failure, not only a pass over each finding  [ENGINEERING]
+- Note the CONTENTION rather than assuming the docs agree: every documented post-fan-out check is explicitly PER ITEM, adversarially verifying each finding, verifying each result, reproducing every reported finding independently. That is the approach the set-level check says is insufficient by itself. Both are worth running and they answer different questions  [ENGINEERING]
+- Bound the review-and-fix loop with a round cap that ESCALATES to the caller rather than starting another round, since the failure this catches is a loop that never converges. This CONTENDS with [testing.md](testing.md), whose generic loop deliberately ends by returning to capture-failure rather than terminating, and the two are reconciled by scope: a developer iterating on one failure wants the open loop, an unattended orchestrator spending budget per round wants the cap. Claude Code does exactly this to itself, overriding a Stop hook after a run of consecutive blocks and announcing the override  [ENGINEERING]
+
+## Constraints, contracts and what the runtime cannot do for you
+
+- Rules binding EVERY unit of work belong in one named place the script reads once and interpolates into every dispatch, rather than in the caller's memory. State them as script constants, not as a heading the tooling is expected to find  [ENGINEERING]
+- The reason for that wording is the runtime limit already stated in the Authoring API section above: a script cannot reach the filesystem, so it CANNOT open a plan file and lift a constraints section out of it. Any version of this technique that depends on tooling parsing the plan is impossible here; the workable form passes the constants in through `args` or defines them in the script  [OFFICIAL]
+- Where one agent writes JSON that a SEPARATE reader consumes with no schema between them, state the exact field names as a contract and say what a mismatch looks like, because a near-miss name yields SILENT EMPTY OUTPUT that is indistinguishable from a run which legitimately found nothing. Inside a workflow this is already handled: `schema` enforces the shape at the tool-call layer and retries  [ENGINEERING]
+- Do NOT generalise that into an assumption that the harness always fails loudly on a wrong key. For its own todo surface Claude Code REPAIRS some close-but-incorrect key names before execution, mapping `id` or `task_id` to `taskId`, and the repair is not reflected in the stream, which is why the documented advice there is to read those input fields DEFENSIVELY. Exact-names-as-contract is the rule for boundaries you own; it is not what the product does at boundaries it owns  [OFFICIAL]
 
 ## Known ambiguity
 
@@ -118,4 +137,4 @@ where untrusted text becomes instructions, and nothing in the API stops it.
 
 - Dynamic Workflows is STABLE since v2.1.154, not experimental.  [v2.1.154]
 - Claude authors the script; saving it to .claude/workflows/ turns it into a reusable /<name> command. It is also distributable as a plugin component.  [v2.1.154]
-- Hard caps: 1000 subagent invocations per run and 16 concurrent.  [v2.1.154]
+- Hard caps: 1000 subagent invocations per run, and concurrency capped at `min(16, available CPUs - 2)` rather than a flat 16, so on any machine under 18 cores the real ceiling is lower than the headline number and the tool text puts the practical figure at about 10. Excess calls queue rather than failing.  [v2.1.154]

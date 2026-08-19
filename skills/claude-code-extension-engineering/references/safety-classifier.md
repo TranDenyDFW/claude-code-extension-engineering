@@ -1,12 +1,8 @@
 # Safety classifiers and model fallback
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: every claim below was checked
-> against a live fetch of the Model configuration page on that date. Its sourcing is THINNER than
-> its siblings and that is recorded rather than glossed: this file rests on one page, where the
-> status line and session references each rest on dedicated pages of their own. The refusal-message
-> wording in the error reference is NOT restated here, because that page is `verified-partial` and
-> the relevant sections sit in the part of it that two fetches failed to return. It carries NO
-> verbatim quotes, so the quote gate says nothing about it.
+> Claude Code 2.1.229. What that means here: this file carries NO verbatim quotes, so the quote gate
+> says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
+> it; nothing else is asserted here.
 
 
 Why a request is refused, or is silently answered by a different model than the one selected. This

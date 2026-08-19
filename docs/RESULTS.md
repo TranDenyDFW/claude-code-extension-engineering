@@ -12,7 +12,7 @@ deciding that it should.
 
 ## Tier 1, deterministic regression
 
-**324 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
+**395 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
 file, run by [tests/run-tests.mjs](../tests/run-tests.mjs). Sixteen rows were added on
 2026-08-13 alongside the out-of-scope boundary table. Thirty-eight more were added on
 2026-08-18: three for Stop-hook mechanics measured against a live production hook,
@@ -48,15 +48,17 @@ content row can detect, because the content stays there while the path to it doe
 
 **On the quote gate's scope, since the count above has no denominator without it.**
 [tools/quote-check.mjs](../tools/quote-check.mjs) inspects double-quoted spans of 25
-characters or more, and ONLY on lines carrying an evidence tag. The same reviewer counted 42
-qualifying spans on untagged lines and read the plausible ones: all are the library's own
-scare quotes, its own phrasing of a wrong conclusion, or measured CLI output, so the scoping
-is correct. It is stated here because "every verbatim quote checked" is true of the tagged
-set and silent about the rest.
+characters or more. It COUNTS those on lines carrying an evidence tag, and separately HUNTS
+every other one: a span on an untagged line that resolves against the mirror is a citation of
+Anthropic's words where nothing checks it, and the gate refuses it. That second half was added
+2026-08-19 after a review found a real instance, and it reads logical lines rather than
+physical ones, because a citation broken by a line wrap was invisible to both halves, blockquotes
+included. Both halves skip code blocks in all three spellings, since a configuration example is
+not a citation.
 
 Near-tautological on the first run, since the keys derive from the content. It earns its keep
 as a regression gate and through `--prove-fail`, which guts every source file and confirms all
-309 positive assertions go red. A suite that stays green against deleted content proves
+380 positive assertions go red. A suite that stays green against deleted content proves
 nothing; this one cannot.
 
 Set v2 (2026-07-31) added coverage for the marketplace-submission facts, the frontmatter

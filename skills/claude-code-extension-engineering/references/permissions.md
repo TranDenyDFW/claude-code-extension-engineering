@@ -1,6 +1,8 @@
 # Permission rules
 
-> Claude Code 2.1.229, verified 2026-08-13. Source fetched live that day. The Bash-boundary section is MEASURED on this machine, paired against a control, and is the only section here that is not documentation.
+> Claude Code 2.1.229. What that means here: this file carries FOURTEEN verbatim quotes and
+> `tools/quote-check.mjs` confirms they still appear upstream. Per-claim provenance lives in
+> `evidence/claims.jsonl`, where the gates read it; nothing else is asserted here.
 
 
 Harness-owned allow, ask and deny rules over tool calls. This is the layer that still holds when a hook's handler is deleted, and the one to reach for when a requirement says "must" rather than "should". It is also the layer whose edge you cannot read out of the documentation, because the set of Bash commands it recognises is given by example and never enumerated.
@@ -52,8 +54,8 @@ Code 2.1.219 (2026-08-06) and 200 more on 2.1.224 (2026-08-07), 400 in total. A 
 requires UNANIMITY across the attributable passes and at least six of them; anything short is
 INCONCLUSIVE and stays out of the table.
 
-The second run was not a formality. Claude Code 2.1.223 shipped "Fixed a Bash permission
-bypass where a crafted command could hide parts of itself from permission checks", and the
+The second run was not a formality. Claude Code 2.1.223 shipped a changelog fix for a Bash
+permission bypass where a crafted command could hide parts of itself from permission checks, and the
 `cd` row below is a Bash permission bypass of exactly that shape, so the table might have
 been describing a closed hole. **Every shape reached the same verdict on both builds.** Only
 the discard counts moved, which is the model declining a different number of times and is the

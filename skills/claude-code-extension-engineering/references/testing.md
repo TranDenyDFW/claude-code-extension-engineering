@@ -1,6 +1,8 @@
 # Testing and iteration
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
+> Claude Code 2.1.229. What that means here: this file carries ONE verbatim quote and
+> `tools/quote-check.mjs` confirms it still appears upstream. Per-claim provenance lives in
+> `evidence/claims.jsonl`, where the gates read it; nothing else is asserted here.
 
 
 How to prove an extension works. Run the task WITHOUT the extension first and record the failure, because a control run is what separates content worth shipping from content the model already produces unaided. Trigger and behaviour are separate tests: firing when it should is not the same as being correct once it fires.
@@ -9,28 +11,31 @@ How to prove an extension works. Run the task WITHOUT the extension first and re
 
 ## Testing strategy
 
-- Establish a BASELINE first, in a fresh session, without the change in place.
-- Run every test in a fresh session so no context leaks in from the authoring conversation.
-- Two independent dimensions. Test them separately, because passing one says nothing about the other:
-  - **Discovery / routing.** Does it fire when it should? Measure false negatives (missed) and false positives (fired when it should not have).
-  - **Behaviour.** Once it fires, is the output correct?
-- Coverage classes, all six:
-  - Positive, the happy path.
-  - Negative, cases where the correct action is to do nothing.
-  - Edge and boundary.
-  - Adversarial and pressure, where the prompt pushes against the rule.
-  - Malformed or missing input.
-  - Repeated execution, to catch state that leaks between runs.
-- Guard-the-guard: enforcement code must not be able to break the tool it protects.
-- Integration: mechanisms tested together, not only alone. Parts that pass in isolation routinely fail in combination.
+- Establish a BASELINE, in a fresh session, without the change in place. The documentation prescribes exactly this for skills: collect a few realistic prompts, run each in a fresh session with the skill available and again with it disabled, and compare  [OFFICIAL]
+- Running the control FIRST is ours, not documented. The docs name the with-change arm first and state no order at all. Order matters anyway, because a baseline taken after you have seen the treatment is a baseline you already know the answer to  [ENGINEERING]
+- Run every test in a fresh session so no context leaks in from the authoring conversation. The documented reason is the same one: leftover context from authoring will MASK GAPS in the written instructions, so the session that wrote the extension is the worst place to test it  [OFFICIAL]
+- Two independent dimensions. Test them separately, because passing one says nothing about the other. Documented for skills in one sentence: seeing a skill trigger tells you Claude found it, not that it did what you intended  [OFFICIAL]
+  - **Discovery / routing.** Does it fire when it should? Measure false negatives (missed) and false positives (fired when it should not have). The documented instrument generates should-trigger and should-not-trigger prompts and measures the hit rate  [OFFICIAL]
+  - **Behaviour.** Once it fires, is the output correct? The same documented sentence carries this half: whether the output matches what you expect when it does  [OFFICIAL]
+- Extending both dimensions beyond SKILLS is ours. Every documented sentence here is scoped to skills and the skill-creator loop; nothing in the mirror applies the split to hooks, subagents or plugins, and the transfer is inference  [ENGINEERING]
+- Coverage classes, all six. No taxonomy of test-coverage classes exists anywhere in the documentation, so the SET is this library's, even where individual members are documented practice  [ENGINEERING]
+  - Positive, the happy path. The substance is documented for plugins, trigger the event each hook matches and confirm its effect, but not as a named class  [OFFICIAL]
+  - Negative, cases where the correct action is to do nothing. The should-not-trigger half of description tuning is the documented instance  [OFFICIAL]
+  - Edge and boundary  [ENGINEERING]
+  - Adversarial and pressure, where the prompt pushes against the rule  [ENGINEERING]
+  - Malformed or missing input. The docs prescribe HANDLING this in the code you write and never prescribe it as a case class to cover, which is the difference between a robust handler and a tested one  [ENGINEERING]
+  - Repeated execution, to catch state that leaks between runs  [ENGINEERING]
+- Guard-the-guard: enforcement code must not be able to break the tool it protects  [ENGINEERING]
+- Integration: mechanisms tested together, not only alone. Parts that pass in isolation routinely fail in combination. Note the documented guidance points the OTHER way, telling you to check each skill, agent and hook separately, though it says so while debugging a broken plugin rather than as a testing philosophy  [ENGINEERING]
 
 ## Regression strategy
 
-- Every baseline failure and every pressure failure becomes a permanent eval case. Fixed once means tested forever.
-- The rationalization table grows over time. Each recorded rationalization gets an explicit counter.
-- Maintain a red-flags list of self-check signals, so a known bad pattern is recognised rather than re-derived.
-- Re-run the full suite on any change to the mechanism.
-- Re-baseline after a model change or a Claude Code version change. Both can move behaviour without any edit on your side.
+- Every baseline failure and every pressure failure becomes a permanent eval case. Fixed once means tested forever  [ENGINEERING]
+- The rationalization table grows over time. Each recorded rationalization gets an explicit counter  [ENGINEERING]
+- Maintain a red-flags list of self-check signals, so a known bad pattern is recognised rather than re-derived  [ENGINEERING]
+- CADENCE, and the documentation disagrees with the obvious reading: run the FOCUSED tests while you are changing the mechanism, and the full suite ONCE before you commit, not after every edit. The only sentence in the docs about whole-suite runs prefers single tests for performance, and while that line is about a codebase's own tests rather than an extension eval suite, nothing anywhere recommends the whole suite per edit. A targeted test is already inside the suite, so a mid-iteration full run is duplication  [ENGINEERING]
+- Re-baseline after a MODEL change. The docs prescribe revisiting instructions after major model releases, because a rule written around an older model's limitation MAY BECOME OVERHEAD once a newer model handles the case on its own  [OFFICIAL]
+- Re-baseline after a Claude Code VERSION change too. That half is ours: no page prescribes it, and this library has repeatedly found behaviour moving between builds with no edit on the reader's side  [ENGINEERING]
 
 ## Iteration loops
 
@@ -48,6 +53,21 @@ Development is not a one-way checklist. The generic loop is CAPTURE FAILURE, the
 | Regression | An old case breaks again | Re-open its eval case | Re-run the FULL suite |
 
 - Bisect with --safe-mode (or CLAUDE_CODE_SAFE_MODE), which starts with CLAUDE.md, plugins, skills, hooks and MCP all disabled (2.1.169); iterate with /reload-skills (2.1.152) and /reload-plugins. Skill edits apply in-session, but a NEW top-level skills directory needs a restart [OFFICIAL]  [v2.1.169]
+
+## Grading CONTENT, which the conformance spec cannot do
+
+The conformance spec below settles whether a runnable artifact behaves. It says nothing about
+whether a piece of authored content is any GOOD, and this library publishes comparative results
+that only a grading method can produce. That method belongs here, next to the results it justifies.
+
+- The agent that did the work must not be the agent that grades it. The documentation states the principle directly, describing a verification subagent or dynamic workflow that has a fresh model try to refute the result, "so the agent doing the work isn't the one grading it"  [OFFICIAL]
+- A documented eval loop already exists and is worth using before building one: the `skill-creator` plugin stores cases in `evals/evals.json`, spawns a subagent PER CASE so each run starts with a clean context, records token count and duration, writes pass or fail WITH EVIDENCE to `grading.json`, aggregates with-skill against without-skill into `benchmark.json`, and runs a blind A/B between two versions so an edit is confirmed as an improvement before it is committed  [OFFICIAL]
+- Note what that loop already gives you, because two of its properties are rules this file states elsewhere on its own authority: a fresh context per case, and a with-versus-without comparison. The baseline discipline above is not a house convention  [ENGINEERING]
+- SPLIT THE ROLES, because one agent doing all three corrupts each. A COMPARATOR sees both outputs as A and B, knows nothing about which arm produced which, and scores against stated criteria. A REPORTER reads the aggregate and is forbidden from proposing improvements, so the report stays a neutral read rather than an argument written backwards from its recommendation. An ANALYST comes last, sees the verdict FIRST, and only then opens both artifacts to explain the difference  [ENGINEERING]
+- The ordering is the mechanism, not bureaucracy. An analyst who knows which arm is which before scoring will find reasons for the answer it expects, and a comparator that never unblinds produces a number nobody can act on. Blind scoring alone and diagnosis alone are both half a method  [ENGINEERING]
+- Grade against criteria that are individually checkable, and have the grader score each one separately. A single overall verdict hides which criterion failed, and a criterion nothing can check passes by default forever. This library has shipped that defect: the Definition of Done in [subagents.md](subagents.md) once asked for summary quality to be verified with nothing anywhere defining a good summary  [ENGINEERING]
+- When the grader cannot tell, the assertion FAILS. There is no partial credit, and every verdict carries the quoted evidence it rests on. An ambiguous result that drifts toward a pass is how a suite manufactures confidence, and [permissions.md](permissions.md) already takes the same conservative direction for a different question, where an unmatched shape is undetermined rather than allowed  [ENGINEERING]
+- A green aggregate is not a read of the run. Pass rates hide which cases are HIGH VARIANCE across repeats and where cost is being spent for no discrimination, neither of which a score surfaces. A separate pass over the raw runs, emitting observations rather than a number, is what makes an aggregate actionable  [ENGINEERING]
 
 ## The conformance spec: ship the expected outcome beside the artifact
 
@@ -71,14 +91,10 @@ Four case kinds, because each catches a distinct real failure:
 
 Three rules that decide whether the spec is worth anything:
 
-- **Score structurally, never on text.** A handler printing `BLOCKED` to stdout with exit 0 and
-  no `hookSpecificOutput` is an ALLOW. Matching on output text scores the banner, not the
-  decision.
-- **A false positive counts exactly like a miss.** Without the `near-miss` cases, a hook that
-  denies unconditionally passes everything.
-- **The spec must be able to fail.** Re-run every `enforce` and `wiring` case against two
-  controls: an EMPTY tree with nothing installed, and an INERT bundle whose handler is present,
-  executable and always exits 0. A case that still passes against either is asserting nothing.
+- **Score structurally, never on text.** A handler printing `BLOCKED` to stdout with exit 0 and no `hookSpecificOutput` reported NO DECISION, not an allow: exit 0 with no output means the hook has nothing to say, so the call continues through the normal permission flow where a deny rule or a prompt can still stop it. `permissionDecision` takes `allow`, `deny`, `ask` or `defer`, and silence is none of them. Score the decision field, because the banner is not one and neither is its absence  [OFFICIAL]
+- That distinction decides what a case PROVES. A `near-miss` case passing because the handler stayed silent has shown only that nothing blocked at that point, which is also what a deny rule further down the flow would produce. Assert the decision field, or the case cannot tell a working guard from an absent one  [ENGINEERING]
+- **A false positive counts exactly like a miss.** Without the `near-miss` cases, a hook that denies unconditionally passes everything. The docs measure a hit rate for skill routing and never state this equivalence, so the weighting is ours  [ENGINEERING]
+- **The spec must be able to fail.** Re-run every `enforce` and `wiring` case against two controls: an EMPTY tree with nothing installed, and an INERT bundle whose handler is present, executable and always exits 0. A case that still passes against either is asserting nothing. No page requires a test to be shown capable of failing, and neither control appears anywhere in the documentation  [ENGINEERING]
 
 `fail-posture` is the case kind that turns "does it work" into "is it a guarantee", and it is
 the one that most often changes the mechanism. A command hook cannot pass it: a missing or
@@ -137,6 +153,6 @@ reports NOT DONE rather than claiming a guarantee it cannot keep.
 
 ## Detail
 
-- Shared evaluation, regression, failure capture, and iteration practices.
-- Shared testing philosophy referenced by every extension mechanism.
-- Every fixed failure becomes a permanent test. Re-run the whole suite on each edit, and after a model upgrade.
+- Evaluation, regression, failure capture, and iteration practices. Two of those four, evaluation and iteration, are documented, for skills only; the other two are this library's  [ENGINEERING]
+- This file is the testing material other reference files point at, and "every mechanism" would be false: 6 of the 28 sibling reference files link here and 22 do not. The documentation has no shared testing page either, only per-mechanism sections on four pages using different vocabulary and different depth  [ENGINEERING]
+- Every fixed failure becomes a permanent test. Re-baseline after a model upgrade, and run the full suite once before committing rather than after each edit, per the cadence rule above  [ENGINEERING]

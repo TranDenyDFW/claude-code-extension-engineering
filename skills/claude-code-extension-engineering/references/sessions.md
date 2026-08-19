@@ -1,9 +1,8 @@
 # Sessions, transcripts and rewind
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: every claim below was checked
-> against live fetches of the Manage sessions and Checkpointing pages on that date, not against the
-> docs mirror, because this file is new and had no prior verification to inherit. It carries NO
-> verbatim quotes, so the quote gate says nothing about it.
+> Claude Code 2.1.229. What that means here: this file carries NO verbatim quotes, so the quote gate
+> says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
+> it; nothing else is asserted here.
 
 
 What survives when a session ends, what a resumed session carries back, and what `/rewind` can and

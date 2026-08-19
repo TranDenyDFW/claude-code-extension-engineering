@@ -197,9 +197,12 @@ If the environment genuinely cannot run either, say which one and why, and label
 unverified. That is a worse answer than a tested fix and a better one than a confident
 untested claim.
 
-Claims are tagged by evidence: untagged is official documentation, `[ANTHROPIC]` is an
-Anthropic recommendation, `[ENGINEERING]` is engineering judgment, `[COMMUNITY]` is
-community practice. A `[vX.Y.Z]` tag is the build the behaviour BELONGS to: the release it
+Claims are tagged by evidence: `[OFFICIAL]` and untagged both mean official documentation,
+`[ANTHROPIC]` is an Anthropic recommendation, `[ENGINEERING]` is engineering judgment,
+`[COMMUNITY]` is community practice. The two spellings of official are historical rather than
+a distinction: 434 claims carry the explicit tag and 25 rely on the untagged default, and this
+sentence described only the default until an audit found the explicit form defined nowhere.
+Prefer `[OFFICIAL]`; untagged stays valid so the older half of the corpus is not a lie. A `[vX.Y.Z]` tag is the build the behaviour BELONGS to: the release it
 was introduced or changed in, or the minimum build it requires. Where the documentation dates
 no version, the tag is the build the claim was verified against instead. The two senses are
 told apart mechanically: every reference file that carries version tags names its

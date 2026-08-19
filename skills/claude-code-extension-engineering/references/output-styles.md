@@ -1,6 +1,8 @@
 # Custom Output Styles
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
+> Claude Code 2.1.229. What that means here: this file carries NO verbatim quotes, so the quote gate
+> says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
+> it; nothing else is asserted here.
 
 
 The only authored surface that modifies Claude's SYSTEM PROMPT rather than adding context to it. A markdown file with frontmatter whose instructions are appended to the system prompt while the style is active.
@@ -26,7 +28,7 @@ The only authored surface that modifies Claude's SYSTEM PROMPT rather than addin
 
 ## Writing a style that survives the session
 
-The mechanism above is about loading. This is about the TEXT, which is where a style actually fails. None of the following is documented; it is practice observed in shipped styles, and a live instance running in this project exhibits six of the seven.
+The mechanism above is about loading. This is about the TEXT, which is where a style actually fails. None of the following is documented; it is practice observed in shipped styles. One installed style, the caveman plugin, exhibits six of the seven: a named off switch, an escape hatch for safety warnings and irreversible confirmations, graded intensity levels, a self-reference ban, a rule against invented abbreviations, and an explicit persistence clause. It ships as a plugin and is not part of this library.
 
 - State PERSISTENCE explicitly: the style applies to every response and does not lapse after many turns. Note the product is already on your side here, per the reminder mechanism below, so this clause is belt-and-braces rather than the load-bearing defence a corpus source treats it as. Whether an instruction decays in EFFECT across a long session is a behavioural question this library has not measured  [ENGINEERING]
 - Name one or two EXACT deactivation phrases and refuse to stop for anything else. Without a named off switch a model drops the style on any vaguely negative signal, which reads to the user as the style being broken rather than dismissed  [ENGINEERING]

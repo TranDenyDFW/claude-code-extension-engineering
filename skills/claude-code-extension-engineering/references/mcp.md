@@ -1,6 +1,8 @@
 # MCP servers
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries NO verbatim quotes, so the quote gate says nothing about it; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
+> Claude Code 2.1.229. What that means here: this file carries NO verbatim quotes, so the quote gate
+> says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
+> it; nothing else is asserted here.
 
 
 A governed connection to an external system: tools, resources and prompts served over a defined protocol with its own authentication and permission boundary. Choose it over a shell command when the connection needs credentials, a schema, or an audit boundary.
@@ -56,6 +58,26 @@ run being reachable, which nothing else in this library covers.
 - Tool annotations describing a tool as read-only or destructive are HINTS for display and routing, not enforcement. Nothing stops an annotated-read-only tool from writing, so the annotation is documentation and the permission layer is the control  [ENGINEERING]
 - Reject unknown fields rather than ignoring them, so a caller's typo fails loudly instead of silently doing nothing  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - Log the raw error and return a generic one. A transcript is written to disk, survives the session, and can be exported or resumed, so internals returned in an error text outlive the moment  [ENGINEERING]
+- A generic error is not an unhelpful one. Say what the caller should try DIFFERENTLY, because a model given no next step retries the identical call, and a retry that cannot differ is just latency. The two rules compose: the shape of the failure and the remedy are safe to return, the stack trace and the internal path are not  [ENGINEERING]
+- ANTI-PATTERN, and the one a setup command invites: asking the user for a credential IN CHAT and writing it to config. The secret is then in the transcript, which outlives the session and can be exported or resumed. The rules above forbid secrets in committed config, prompts and tool output and say nothing about the interactive path, which is the one people actually reach for. Read it from the environment or a keychain, and have the setup command tell the user where to put it rather than accept it  [ENGINEERING]
+
+## Designing a tool the caller can use WITHOUT invoking it first
+
+Every fact a caller can only learn by calling the tool is a call spent on discovery rather than work.
+
+- A description says when NOT to call the tool, not only what it does. The docs put the whole routing decision on this field, that Claude reads it to decide when to call, so a description with no negative clause is a router with no stop condition. This library's own skill description carries a NOT-for clause and it measurably drives correct declines  [ENGINEERING]
+- State the RETURN SHAPE in the description, so the caller does not have to invoke the tool once to learn what comes back. `structuredContent` is the documented mechanism for returning machine-readable fields alongside the human-readable content  [OFFICIAL]
+- REFUTED, do not adopt: returning both a JSON body and a markdown rendering so one response serves the agent and the transcript. When `structuredContent` is set, text blocks in `content` are NOT forwarded, because they are assumed to duplicate the structured data; only image and resource blocks survive alongside it. The dual-format instinct is real but the mechanism defeats it, so choose which audience the `content` array is for  [OFFICIAL]
+- On hitting the output cap, truncate WITH the guidance needed to narrow the next request: which filter, which page, which field selector. The caps are documented and what a server should DO at them is not, and a silent cut is indistinguishable to the caller from a genuinely small result  [ENGINEERING]
+
+## Transport and platform traps
+
+- An auth-gated response is a POSITIVE signal, not only a failure: a `401` proves the server is reachable and speaking, which separates a wrong command or a dead network from a credential problem. Without that discrimination the two look identical and get debugged in the wrong order  [ENGINEERING]
+- Give each request its own transport instance rather than sharing one, so concurrent calls cannot interleave state  [ENGINEERING]
+- Windows `.cmd` shims need a SHELL, and the two documented positions here look contradictory until you separate the spawners. For hooks, the docs state that the `.cmd` and `.bat` shims npm, npx and eslint install in `node_modules/.bin` are not executables and cannot be spawned without a shell, so shell form is the documented way to run one by name  [OFFICIAL]
+- The opposite-looking rule is REAL but narrower than it reads: the Agent SDK REFUSES to execute a `.bat` or `.cmd` as its own `cli_path`, because Windows rewrites that spawn into `cmd.exe /c` which re-parses the command line at execution time, and the docs state no reliable escaping for `cmd.exe` exists. That refusal is about the SDK launching the `claude` CLI, is version-gated, and does not transfer to spawning a third-party MCP server. Read it as the reason to prefer a native executable WHERE ONE EXISTS, not as a ban on shell form  [OFFICIAL]
+- The transfer between those two surfaces is inference, not documentation. No mirrored MCP page contains any `.cmd`, `.bat` or Windows-spawn guidance at all, and reading an npx-shipped stdio server as THAT case, on the grounds that no native executable exists for it, is this library extending the hooks rule rather than repeating one. So treat the shim question as answered by the hooks material and the injection risk as a reason to pass argv rather than to build a command string  [ENGINEERING]
+- Interposing a proxy between client and stdio server is the documented-nowhere lever for cost: it can compress prose fields before they reach the context. The Context and cost section below bounds what a server returns and never mentions rewriting it in transit  [ENGINEERING]
 
 ## Protocol primitives
 

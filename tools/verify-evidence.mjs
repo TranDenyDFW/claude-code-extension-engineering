@@ -22,7 +22,7 @@
  *   node tools/verify-evidence.mjs --prove-can-fail   mutate the committed ledger
  *                                             and require a NAMED rejection each time
  */
-import { readFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, readdirSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { extract } from './extract-claims.mjs';
@@ -90,6 +90,66 @@ if (process.argv.includes('--prove-can-fail')) {
     } finally { rmSync(dir, { recursive: true, force: true }); }
   };
 
+  /**
+   * FILE-LEVEL PROOFS. proveArtifactGate mutates the LEDGER, so checks computed from extraction are
+   * unreachable by it. Both of the checks below were added in this branch with no mutant at all.
+   */
+  const fileProof = (label, target, mutate, wanted) => {
+    const abs = join(ROOT, target);
+    const original = readFileSync(abs);
+    try {
+      writeFileSync(abs, mutate(original.toString('utf8')));
+      const r = spawnSync(process.execPath, [join(HERE, 'verify-evidence.mjs')],
+        { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+      const named = wanted.test(String(r.stdout));
+      writeFileSync(abs, original);
+      const restored = readFileSync(abs).equals(original);
+      const back = spawnSync(process.execPath, [join(HERE, 'verify-evidence.mjs')],
+        { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+      const ok = r.status === 1 && named && restored && back.status === 0;
+      console.log(`  ${ok ? 'rejected' : 'SURVIVED'}  ${label}  (exit ${r.status}, named ${named}, restored ${restored})`);
+      return ok;
+    } finally {
+      writeFileSync(abs, original);
+    }
+  };
+
+  console.log('\nfile-level mutants, which the ledger harness cannot reach:');
+  const REF = 'skills/claude-code-extension-engineering/references';
+  const fileOk = [
+    fileProof('a tag name written in a file header', `${REF}/themes.md`,
+      (s) => s.replace('this file carries NO verbatim quotes', 'this file carries NO verbatim quotes and is [OFFICIAL] throughout'),
+      /HEADER_CLAIM/),
+    (() => {
+      /* Ids are file-and-line derived, so a collision needs two files sharing a BASENAME in
+         different skills, which is the shape data/routing/skill-split.json plans. Appending a line
+         to one file cannot produce it, and an earlier version of this mutant passed on DRIFT
+         instead, which the duplicate check does not own. */
+      const probe = join(ROOT, 'skills', 'ccx-prove-fail-probe');
+      const donor = join(ROOT, REF, 'selection.md');
+      try {
+        mkdirSync(join(probe, 'references'), { recursive: true });
+        writeFileSync(join(probe, 'SKILL.md'), '# probe\n');
+        writeFileSync(join(probe, 'references', 'selection.md'), readFileSync(donor));
+        const r = spawnSync(process.execPath, [join(HERE, 'verify-evidence.mjs')],
+          { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+        const named = /DUPLICATE_EXTRACTION_ID/.test(String(r.stdout));
+        rmSync(probe, { recursive: true, force: true });
+        const back = spawnSync(process.execPath, [join(HERE, 'verify-evidence.mjs')],
+          { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+        const ok = r.status === 1 && named && back.status === 0;
+        console.log(`  ${ok ? 'rejected' : 'SURVIVED'}  two extracted claims sharing one id  (exit ${r.status}, named ${named}, tree restored ${back.status === 0})`);
+        return ok;
+      } finally {
+        rmSync(probe, { recursive: true, force: true });
+      }
+    })(),
+  ].every(Boolean);
+  if (!fileOk) {
+    console.log('\nEVIDENCE LEDGER GATE IS HOLLOW: a file-level check was not rejected');
+    process.exit(1);
+  }
+
   process.exit(proveArtifactGate({
     artifact: join(EV, 'claims.jsonl'),
     label: 'evidence ledger',
@@ -114,6 +174,25 @@ if (process.argv.includes('--prove-can-fail')) {
        */
       { label: 'a claim text rewritten to something no reference file says', expect: 'DRIFT',
         mutate: (v) => { v[0].text = 'this sentence appears in no reference file anywhere'; return v; } },
+      /**
+       * The tag and version comparisons in check 3 shipped 2026-08-19 with NO mutant, so deleting
+       * them left every gate green. That is the defect they were written to close, one layer up: a
+       * check nothing proves can fail is indistinguishable from a check that is not there. Both
+       * mutants below touch ONLY the ledger field and never the text, so they land exactly where
+       * the text comparison is blind.
+       */
+      { label: 'a claim ledger tags out of sync with the tagged line', expect: 'DRIFT',
+        mutate: (v) => {
+          const r = v.find((x) => (x.tags || []).length) || v[0];
+          r.tags = (r.tags || []).includes('COMMUNITY') ? ['OFFICIAL'] : ['COMMUNITY'];
+          return v;
+        } },
+      { label: 'a claim ledger versions out of sync with the tagged line', expect: 'DRIFT',
+        mutate: (v) => {
+          const r = v.find((x) => !(x.versions || []).includes('9.9.9')) || v[0];
+          r.versions = [...(r.versions || []), '9.9.9'];
+          return v;
+        } },
     ],
   }));
 }
@@ -184,6 +263,71 @@ const freshIds = new Set(fresh.map(c => c.id));
  * pre-existing failure. It is the provenance record the whole project rests on,
  * and it was guarded by a set-membership test.
  */
+/**
+ * A Map keyed by id LOSES the earlier record when two extracted lines share an id, and the reverse
+ * sweep below then reports both as accounted for, so one line's tags go unchecked with the gate
+ * green. Reproduced by an independent reviewer with a second reference file colliding on
+ * CLM-agent-sdk-012: 786 extraction rows, 785 distinct ids, exit 0.
+ *
+ * Latent today (0 duplicate ids) and not latent by design: data/routing/skill-split.json plans to
+ * duplicate four reference files into every skill, which is exactly the shape that produces
+ * byte-identical colliding ids. Detected here rather than at cutover.
+ */
+/**
+ * A CLAIM MAY NOT LIVE IN A FILE HEADER. On 2026-08-19 a header sentence naming [ENGINEERING] in
+ * prose minted a claim from the header itself: the extractor is right to read tags anywhere, and a
+ * provenance record pointing at a file's own verification blockquote is meaningless. Caught by hand
+ * that round, so nothing stopped the next one.
+ *
+ * A tagged section HEADING is a different thing and stays legal: `## Legacy lifecycle, builds
+ * before v2.1.178 [OFFICIAL] [LEGACY]` declares the status of everything under it, and two such
+ * records exist in agent-teams.md. The header blockquote describes how the FILE was verified, so a
+ * claim there cites the verification note rather than any statement about Claude Code.
+ */
+const headerLines = new Map();
+for (const c of fresh) {
+  if (!headerLines.has(c.file)) {
+    const lines = readFileSync(join(ROOT, c.file), 'utf8').split(/\r?\n/);
+    const block = new Set();
+    for (let i = 0; i < lines.length; i++) {
+      if (/^\s*>/.test(lines[i])) block.add(i + 1);
+      else if (block.size && lines[i].trim()) break;
+      else if (block.size) break;
+    }
+    headerLines.set(c.file, block);
+  }
+  if (headerLines.get(c.file).has(c.line)) {
+    errors.push(`HEADER_CLAIM: ${c.id} is a line of ${c.file}'s own verification header, not a claim; backtick the tag name so it reads as a mention`);
+  }
+}
+
+/**
+ * EVERY CITED SOURCE MUST BE LOOKABLE UP. references/sources.md is the reader's table; sources.json
+ * is the machine record. They drifted nine rows apart during this branch, so 183 of 789 claims
+ * cited an id with no row a reader could find, and no gate looked.
+ */
+{
+  const mdPath = join(ROOT, 'skills', 'claude-code-extension-engineering', 'references', 'sources.md');
+  if (existsSync(mdPath)) {
+    const md = readFileSync(mdPath, 'utf8');
+    const citedIds = [...new Set(claims.map((c) => c.source))].sort();
+    for (const id of citedIds) {
+      if (!md.includes(`| ${id} `)) {
+        errors.push(`SOURCE_NOT_LISTED: ${id} is cited by claims but has no row in references/sources.md, so a reader cannot look it up`);
+      }
+    }
+  }
+}
+
+const seenIds = new Map();
+for (const c of fresh) {
+  const prior = seenIds.get(c.id);
+  if (prior) {
+    errors.push(`DUPLICATE_EXTRACTION_ID: ${c.id} is produced by both ${prior.file}:${prior.line} and ${c.file}:${c.line}; one of the two would be invisible to every check below`);
+  } else {
+    seenIds.set(c.id, c);
+  }
+}
 const freshById = new Map(fresh.map(c => [c.id, c]));
 for (const c of claims) {
   if (!freshIds.has(c.id)) {
@@ -194,6 +338,34 @@ for (const c of claims) {
   if (f.file !== c.file) errors.push(`DRIFT: ${c.id} ledger says ${c.file}, extraction found it in ${f.file}`);
   if (f.line !== c.line) errors.push(`DRIFT: ${c.id} ledger says line ${c.line}, extraction found it at line ${f.line}`);
   if (f.text !== c.text) errors.push(`DRIFT: ${c.id} ledger text does not match the tagged line it cites`);
+  /**
+   * Tags were compared by NOTHING until 2026-08-19, and an independent review found the gap the
+   * hard way. The extractor change that stopped reading a tag written inside backticks correctly
+   * dropped [OFFICIAL] from permissions.md:100, whose own prose says that tag was withdrawn as
+   * wrong. The ledger kept both tags. It stayed invisible because the claim retained [ENGINEERING]
+   * and never moved the total, this tool diffed only file, line and text, and attrib-check compares
+   * two LEDGERS, so the unchanged value matched itself. The record asserted official documentation
+   * for the one claim whose sentence retracts it.
+   */
+  /**
+   * WHAT THIS PROVES, AND WHAT IT DOES NOT. Both sides are the same regex over the same line, so
+   * this catches a ledger that stopped matching the FILE and nothing else. It does not read
+   * sources.json's URL, the mirrored page, or the claim's note, so a bullet retagged to [OFFICIAL]
+   * in BOTH places, with its source swapped to an unrelated real page, passes here. An independent
+   * reviewer demonstrated exactly that end to end on 2026-08-19. Whether a tag is DESERVED is
+   * settled by quote-check for lines carrying a 25-character verbatim span, and by a human reading
+   * the cited page for everything else. Do not read a green run as a check on attribution truth.
+   *
+   * The `text` compared just above is the extractor's 400-CHARACTER PREFIX. An edit beyond that
+   * point is invisible here by construction; `text_sha256` holds a hash of the FULL claim text and
+   * tools/claim-drift.mjs is the gate that checks it.
+   */
+  const ft = JSON.stringify([...(f.tags || [])].sort());
+  const ct = JSON.stringify([...(c.tags || [])].sort());
+  if (ft !== ct) errors.push(`DRIFT: ${c.id} ledger tags ${ct} do not match the tagged line, which carries ${ft}`);
+  const fv = JSON.stringify([...(f.versions || [])].sort());
+  const cv = JSON.stringify([...(c.versions || [])].sort());
+  if (fv !== cv) errors.push(`DRIFT: ${c.id} ledger versions ${cv} do not match the tagged line, which carries ${fv}`);
 }
 for (const f of fresh) {
   if (!claimIds.has(f.id)) errors.push(`DRIFT: tagged line ${f.id} (${f.file}:${f.line}) has no ledger record`);

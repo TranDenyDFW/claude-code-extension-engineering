@@ -168,7 +168,23 @@ export const MIN_QUOTE = 25;
  */
 const CANNOT_START_A_QUOTE = /^[\s{[.,;:)\]$]/;
 
+/**
+ * Curly quotes were invisible here until 2026-08-19, so a fabricated citation written with them on
+ * an [OFFICIAL] line passed every gate while its straight-quoted twin was checked. The pairs are
+ * folded to straight quotes before extraction; `normalise` already folds them on the mirror side,
+ * so both halves of the comparison now agree.
+ */
+export function foldQuoteMarks(s) {
+  /* Double curly quotes were folded from 2026-08-19; the rest were added after a review pointed out
+     that a fabricated citation in guillemets, CJK brackets or single curly quotes was just as
+     invisible as one in the pair already handled. Straight single quotes stay OUT: they are
+     apostrophes far more often than quotation marks, and folding them would turn every possessive
+     into a citation. */
+  return String(s).replace(/[\u201C\u201D\u201E\u201F\u2018\u2019\u00AB\u00BB\u300C\u300D\u300E\u300F]/g, '"');
+}
+
 export function quotesIn(line) {
+  line = foldQuoteMarks(line);
   const out = [];
   for (const m of String(line).matchAll(/"([^"]{25,})"/g)) {
     const q = normalise(m[1]);
@@ -191,19 +207,166 @@ export const NOT_A_CITATION = new Map([
   ['reload the plugin and try again', 'monitors.md: our phrasing of the WRONG instruction, quoted to name it as wrong. Never an upstream sentence.'],
 ]);
 
-const TAGGED = /\[(OFFICIAL|ANTHROPIC|COMMUNITY|EXPERIMENTAL|LEGACY|DEPRECATED)\]|\[v\d+\.\d+\.\d+\]/;
+/**
+ * Lines whose quotes must resolve against ANTHROPIC'S OWN PAGES. COMMUNITY is deliberately NOT
+ * here. It was, and that was a semantic error waiting to fire: [COMMUNITY] means community
+ * practice, which by definition is not in Anthropic's documentation, so demanding that its quotes
+ * appear in the mirror would fail every honest community citation and pass only the ones that had
+ * drifted into paraphrasing Anthropic. Nothing broke while the set was wrong because no COMMUNITY
+ * line happened to carry a quoted span; the corpus adoption ahead would have supplied plenty.
+ */
+/**
+ * Case and padding tolerated, and the long spellings included. Keyed to the exact uppercase forms
+ * until 2026-08-19, so [Official], [OFFICIAL ] and [ANTHROPIC RECOMMENDATION] all fell OUT of the
+ * mirror regime and their quotes went unchecked. Six live lines use [ANTHROPIC RECOMMENDATION],
+ * and were in the regime only because each carries a bare [ANTHROPIC] beside it, which is luck
+ * rather than design; the claim extractor already accepts the long spellings, and two halves of
+ * one rule disagreeing is how the next hole arrives.
+ */
+const TAGGED = /\[\s*(OFFICIAL|ANTHROPIC(\s+RECOMMENDATION)?|EXPERIMENTAL|LEGACY|DEPRECATED)\s*\]|\[v\d+\.\d+\.\d+\]/i;
+
+/**
+ * The other half of that decision. Dropping COMMUNITY from the mirror check must not leave its
+ * quotes unchecked, so a verbatim span on a COMMUNITY-only line is refused outright: this project
+ * holds no mirror of community sources, so such a quote is unverifiable by construction and the
+ * honest move is to paraphrase and attribute rather than present quotation marks nothing can
+ * confirm. A line carrying BOTH tags still resolves against the mirror, because the OFFICIAL half
+ * is a promise about Anthropic's wording.
+ */
+const COMMUNITY_TAGGED = /\[\s*COMMUNITY(\s+PRACTICE)?\s*\]/i;
+
+/**
+ * The scan covers the references directory AND the skill's own SKILL.md. SKILL.md was outside it
+ * until 2026-08-19, which an adversarial panel flagged as a latent hole: the library's front page
+ * could carry a COMMUNITY-tagged quotation, or a documentation-tagged one that had gone stale
+ * upstream, and no gate would look. It carries 15 quoted spans today and none on a tagged line, so
+ * this changes no count; it removes the exemption before something lands in it.
+ */
+function scanTargets(refDir) {
+  const out = readdirSync(refDir)
+    .filter((x) => x.endsWith('.md'))
+    .map((f) => ({ name: f, path: join(refDir, f) }));
+  const skill = join(refDir, '..', 'SKILL.md');
+  if (existsSync(skill)) out.push({ name: 'SKILL.md', path: skill });
+  return out;
+}
+
+/**
+ * Physical lines joined into the sentences a reader sees. A bullet or paragraph continued onto the
+ * next line is ONE line here, which is what makes a citation broken by a wrap visible. Fenced and
+ * indented code blocks are passed through unjoined, since a wrap means nothing inside them.
+ *
+ * The reported `line` is where the logical line STARTS, so a citation is cited at the line a reader
+ * would look at.
+ */
+/** A fence line in either spelling. One definition, used by every caller. */
+export const isFence = (l) => /^\s*(```|~~~)/.test(String(l));
+
+/**
+ * An indented line is a code block only when nothing is open above it. A markdown list continuation
+ * is routinely indented four spaces, and treating it as code would hide any citation written there.
+ */
+export const isIndentedCode = (l, blockOpen) => /^ {4,}\S/.test(String(l)) && !blockOpen;
+
+/** A line that starts a new block rather than continuing the one above it. */
+export const startsBlock = (l) => /^\s*([-*+]\s|\d+[.)]\s|#{1,6}\s|\|)/.test(String(l));
+
+export function logicalLines(text) {
+  const lines = String(text).split(/\r?\n/);
+  const out = [];
+  let fenced = false;
+  let cur = null;
+  const flush = () => { if (cur) out.push(cur); cur = null; };
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    /* Each entry carries whether it is CODE, so both halves of the gate can skip the same set
+       without each keeping its own fence counter. Two counters is how one half skipped code blocks
+       and the other did not, which made a published sentence about the gate's scope false. */
+    if (isFence(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l, code: true }); continue; }
+    if (fenced || isIndentedCode(l, cur)) { flush(); out.push({ line: i + 1, text: l, code: true }); continue; }
+    if (!l.trim()) { flush(); continue; }
+    /* A BLOCKQUOTE CONTINUES like a paragraph. Flushing on every `>` line hid any citation wrapped
+       inside one, and the library's own file headers are blockquotes, so the shape was shipped. A
+       quoted line joins the block above it only when that block is also quoted, or a body
+       blockquote would absorb the paragraph before it. */
+    const quoted = /^\s*>/.test(l);
+    const curQuoted = cur ? /^\s*>/.test(cur.text) : false;
+    if (quoted && cur && curQuoted) { cur.text += ` ${l.replace(/^\s*>\s?/, '').trim()}`; continue; }
+    if (quoted || startsBlock(l) || !cur) { flush(); cur = { line: i + 1, text: l }; continue; }
+    cur.text += ` ${l.trim()}`;
+  }
+  flush();
+  return out;
+}
+
+function scanLines(refDir, predicate) {
+  const out = [];
+  for (const { name: f, path } of scanTargets(refDir)) {
+    for (const { line, text, code } of logicalLines(readFileSync(path, 'utf8'))) {
+      if (code) continue;
+      if (!predicate(text)) continue;
+      for (const q of quotesIn(text)) {
+        if (NOT_A_CITATION.has(q)) continue;
+        out.push({ file: f, line, quote: q });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Which regime a line's quotes fall under. Pure, so the must-fail rows can exercise it without
+ * writing fixture files into the tree during a gate run.
+ *   'mirror'    quotes must appear in Anthropic's pages
+ *   'community' quotes are unverifiable here and are refused
+ *   'none'      untagged prose and [ENGINEERING] judgment; this gate says nothing about them
+ */
+export function classifyLine(line) {
+  if (TAGGED.test(line)) return 'mirror';
+  if (COMMUNITY_TAGGED.test(line)) return 'community';
+  return 'none';
+}
 
 export function collectQuotes(refDir = REF_DIR) {
+  return scanLines(refDir, (line) => classifyLine(line) === 'mirror');
+}
+
+/** Quoted spans on COMMUNITY-only lines: unverifiable by construction, so always a finding. */
+export function collectUnverifiableQuotes(refDir = REF_DIR) {
+  return scanLines(refDir, (line) => classifyLine(line) === 'community');
+}
+
+/**
+ * Quoted spans on lines in NEITHER regime. Most are illustrative: a user phrase, a scare quote, an
+ * error string. A few are real quotations of Anthropic's prose, and those are the problem: nothing
+ * checks them, nothing counts them, and the file header still says every quote was confirmed
+ * upstream. Found 2026-08-19 at sandboxing.md:17, whose 27-character span resolves against the
+ * mirrored sandboxing page while sitting on an [ENGINEERING] line.
+ *
+ * FENCED CODE BLOCKS ARE SKIPPED. A JSON example's string values are not citations, and two of the
+ * three spans that resolved upstream were exactly that: "permissionDecisionReason" and a monitor
+ * description inside ``` fences. Treating those as citations would demand a documentation tag on
+ * every configuration example in the library.
+ */
+export function collectUncheckedResolvingQuotes(refDir = REF_DIR, pages) {
+  if (!pages) return [];
   const out = [];
-  for (const f of readdirSync(refDir).filter((x) => x.endsWith('.md'))) {
-    const lines = readFileSync(join(refDir, f), 'utf8').split(/\r?\n/);
-    lines.forEach((line, i) => {
-      if (!TAGGED.test(line)) return;
-      for (const q of quotesIn(line)) {
+  for (const { name: f, path } of scanTargets(refDir)) {
+    let fenced = false;
+    /* Logical lines here too, or a citation that escapes the COUNT by wrapping also escapes the
+       hunt meant to catch citations the count cannot see. Both fence spellings and indented blocks
+       are skipped, since a configuration example is not a citation. */
+    for (const { line, text, code } of logicalLines(readFileSync(path, 'utf8'))) {
+      /* ONE mark, set by the joiner. Two callers keeping their own fence counters is how the fence
+         fix reached one and not the other. */
+      if (code) continue;
+      if (classifyLine(text) !== 'none') continue;
+      for (const q of quotesIn(text)) {
         if (NOT_A_CITATION.has(q)) continue;
-        out.push({ file: f, line: i + 1, quote: q });
+        const page = findQuote(q, pages);
+        if (page) out.push({ file: f, line, quote: q, page });
       }
-    });
+    }
   }
   return out;
 }
@@ -235,6 +398,282 @@ export function findQuote(quote, pages) {
   return null;
 }
 
+/**
+ * A reference file's header states how many verbatim quotes it carries, which tells a reader how
+ * much of that file this gate actually covers. Nothing kept the two in agreement, so the sentence
+ * went stale the moment a quote was added and stayed stale through two verification passes: an
+ * independent review found testing.md still claiming NO quotes after one was added, and hooks.md
+ * claiming TWO while the extractor found six. hooks.md's own header already names this defect
+ * class in its own words, so the project had documented the failure and then repeated it.
+ *
+ * The header is a CLAIM ABOUT THIS GATE, so this gate is the right place to check it. Files whose
+ * header makes no quote claim are skipped rather than required to make one.
+ */
+const QUOTE_COUNT_WORDS = {
+  NO: 0, NONE: 0, ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6,
+  SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10, ELEVEN: 11, TWELVE: 12,
+  THIRTEEN: 13, FOURTEEN: 14, FIFTEEN: 15, SIXTEEN: 16, SEVENTEEN: 17,
+  EIGHTEEN: 18, NINETEEN: 19, TWENTY: 20,
+  'TWENTY-ONE': 21, 'TWENTY-TWO': 22, 'TWENTY-THREE': 23, 'TWENTY-FOUR': 24,
+  'TWENTY-FIVE': 25, 'TWENTY-SIX': 26, 'TWENTY-SEVEN': 27, 'TWENTY-EIGHT': 28,
+  'TWENTY-NINE': 29, THIRTY: 30,
+};
+
+/**
+ * Every dialect the reference headers actually use. Kept as a list rather than one clever regex so
+ * a new dialect is added deliberately: a header phrased in a way none of these match is treated as
+ * making NO claim, and a file with quotes that makes no claim is a failure below.
+ */
+const HEADER_CLAIM_PATTERNS = [
+  /carries\s+([A-Za-z]+(?:-[A-Za-z]+)?|\d+)\s+verbatim\s+quotes?/i,
+  /all\s+([A-Za-z]+(?:-[A-Za-z]+)?|\d+)\s+verbatim\s+quotes?\s+in\s+this\s+file/i,
+];
+
+/**
+ * TWO SHAPES THIS DELIBERATELY DOES NOT READ, both of which fail CLOSED and were measured on
+ * 2026-08-19. A CommonMark lazy continuation (a count phrase on an unmarked line following a
+ * blockquote line) and a SECOND blockquote paragraph after a blank line both yield no claim. For a
+ * file carrying quotes that is a FAILURE, since silence is only allowed at zero quotes, so the
+ * gate errs toward complaining rather than toward believing. Widening the parser to accept them
+ * would let body prose reach the header, which the boundary rule exists to prevent.
+ *
+ * THE HEADER IS THE LEADING BLOCKQUOTE, not a fixed number of lines. An adversarial panel found
+ * safety-classifier.md wrapping "It carries NO / verbatim quotes" across the 8-line boundary, so
+ * the claim was invisible and only the line break decided it. Reading the blockquote to its end
+ * removes the wrap from the question entirely.
+ */
+export function headerBlock(text) {
+  const lines = String(text).split(/\r?\n/);
+  const out = [];
+  let started = false;
+  /* No line cap. A cap of 8 hid safety-classifier.md's wrapped claim; a cap of 40 merely moves the
+     boundary somewhere less likely to be hit, which is the same defect with better odds. The
+     blockquote's own end is the only non-arbitrary stopping point. */
+  for (const l of lines) {
+    if (/^\s*>/.test(l)) { started = true; out.push(l.replace(/^\s*>\s?/, '')); continue; }
+    if (started && !l.trim()) break;
+    if (started) break;
+  }
+  return out.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+export function headerQuoteClaim(text) {
+  const head = headerBlock(text);
+  /* EVERY match, not the first. A header carrying two different counts would otherwise show the
+     reader one number while the gate checked another, and first-match-wins made that silent. Two
+     matches agreeing is fine, since a header may restate its count; two disagreeing is a claim the
+     gate refuses to pick between. */
+  const found = [];
+  for (const re of HEADER_CLAIM_PATTERNS) {
+    const all = head.match(new RegExp(re.source, `${re.flags.replace('g', '')}g`)) || [];
+    for (const hit of all) {
+      const m = hit.match(re);
+      if (m) found.push(m[1]);
+    }
+  }
+  if (!found.length) return null;
+  const parsed = found.map((raw) => ({
+    word: raw,
+    claimed: /^\d+$/.test(raw) ? Number(raw) : QUOTE_COUNT_WORDS[raw.toUpperCase()],
+  })).map((p) => ({ word: p.word, claimed: p.claimed === undefined ? null : p.claimed }));
+  const distinct = [...new Set(parsed.map((p) => String(p.claimed)))];
+  if (distinct.length > 1) return { word: found.join(' and '), claimed: null, conflicting: true };
+  return parsed[0];
+}
+
+/**
+ * The PURE decision. Silence is honest for a file with nothing to describe and a lie by omission
+ * for one whose quotes this gate is checking: permissions.md and sandboxing.md once held 34 of 46
+ * quotes and said nothing, so the PASS line overstated its reach.
+ *
+ * ONE comparison, not two branches. An unparseable count is null, and null !== actual for every
+ * real count, so the unknown-number case rides on the same line the wrong-count case does. Two
+ * branches meant the rarer one could be deleted with every gate green.
+ */
+export function quoteCountProblem(headerText, actual) {
+  const claim = headerQuoteClaim(headerText);
+  if (!claim) return actual > 0 ? { word: null, claimed: null, actual, reason: 'no claim' } : null;
+  if (claim.claimed !== actual) {
+    return { word: claim.word, claimed: claim.claimed, actual, reason: claim.claimed === null ? 'not a number' : 'wrong count' };
+  }
+  return null;
+}
+
+export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(refDir)) {
+  const byFile = new Map();
+  for (const q of quotes) byFile.set(q.file, (byFile.get(q.file) || 0) + 1);
+  const out = [];
+  for (const { name: f, path } of scanTargets(refDir).sort((a, b) => a.name.localeCompare(b.name))) {
+    const bad = quoteCountProblem(readFileSync(path, 'utf8'), byFile.get(f) || 0);
+    if (bad) out.push({ file: f, ...bad });
+  }
+  return out;
+}
+
+/**
+ * A UNIVERSAL SOURCING CLAIM in a header is a promise about every claim in the file, and the ledger
+ * is the only thing that can keep it. Rounds 1 to 3 of review found this construction false in
+ * safety-classifier.md, then statusline.md, then sessions.md; each round it was corrected only
+ * where it had been named, which is why it is a gate now rather than a habit.
+ *
+ * The rule is deliberately blunt: a header may say "every claim below was checked against X" only
+ * when every ledger record for that file shares ONE source id. Any other file must state its split,
+ * which is a sentence the ledger can be read against. Files with no ledger records are exempt,
+ * because there is nothing to contradict.
+ */
+/**
+ * Widened 2026-08-19: the first version matched three phrasings and a review found five more that
+ * a header could use to make the same promise, including one this library had itself used. The
+ * pattern is a family rather than a phrase, and it is deliberately generous, since a header that
+ * does not mean "everything here rests on that page" has no reason to say so.
+ */
+const UNIVERSAL_SOURCING = /\b(every|all|each)\s+(claims?|lines?|bullets?|statements?|facts?)\s+(below|here|in this file)\b|\ball of the (below|above|following)\b|\bthroughout this file\b|\beverything (here|below) (was|is|rests)\b/i;
+
+export function loadLedger(p = join(ROOT, 'evidence', 'claims.jsonl')) {
+  if (!existsSync(p)) return [];
+  return readFileSync(p, 'utf8').split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l));
+}
+
+/**
+ * The PURE decision, so the must-fail row can exercise it without a real header carrying the
+ * construction. Fixing the corpus once made the corpus-level row unfalsifiable: it passed because
+ * there was nothing left to find, which is a check that cannot fail wearing a green tick.
+ */
+export function sourcingMismatch(headerText, records) {
+  if (!UNIVERSAL_SOURCING.test(String(headerText))) return null;
+  if (!records || !records.length) return null;
+  const sources = [...new Set(records.map((c) => c.source))];
+  return sources.length > 1 ? { records: records.length, sources } : null;
+}
+
+/**
+ * A header saying its sources were fetched on the file's own verification date is a claim about
+ * sources.json, which records a `retrieved` date per source. Round 4 found four files asserting it
+ * over sources retrieved on other days, including two rewritten in the same branch and one whose
+ * exact date round 3 had already named.
+ *
+ * Only the "that day / that date" construction is checked, because a header naming an explicit
+ * fetch date says what it means and can be read directly.
+ */
+const FETCH_ON_THAT_DATE = /\b(fetched?|fetches)\b[^.;]{0,60}\b(that (day|date))\b|\bon that date\b/i;
+
+export function loadSources(p = join(ROOT, 'evidence', 'sources.json')) {
+  if (!existsSync(p)) return [];
+  return JSON.parse(readFileSync(p, 'utf8'));
+}
+
+/** The pure decision, so its must-fail rows do not depend on the corpus being dirty. */
+export function fetchDateMismatch(headerText, retrievedDates) {
+  const head = String(headerText);
+  if (!FETCH_ON_THAT_DATE.test(head)) return null;
+  const dates = head.match(/20\d\d-\d\d-\d\d/g) || [];
+  if (!dates.length) return null;
+  /* Every retrieved date must APPEAR somewhere in the header, not merely equal the first one. A
+     file citing pages fetched on two days is honest when it names both, and the earlier rule made
+     that unsayable: it forced either a false sentence or a reworded evasion. */
+  const claimed = dates[0];
+  const named = new Set(dates);
+  const wrong = [...new Set(retrievedDates)].filter((d) => d && !named.has(d));
+  return wrong.length ? { claimed, wrong } : null;
+}
+
+export function headerFetchDateMismatches(refDir = REF_DIR, ledger = loadLedger(), sources = loadSources()) {
+  const byId = new Map(sources.map((s) => [s.id, s]));
+  const out = [];
+  for (const { name: f, path } of scanTargets(refDir)) {
+    const cited = [...new Set(ledger.filter((c) => String(c.file).endsWith(`/${f}`)).map((c) => c.source))];
+    const dates = cited
+      .map((id) => byId.get(id))
+      .filter((s) => s && s.type !== 'internal')
+      .map((s) => s.retrieved);
+    const bad = fetchDateMismatch(headerBlock(readFileSync(path, 'utf8')), dates);
+    if (bad) out.push({ file: f, ...bad });
+  }
+  return out;
+}
+
+export function headerSourcingMismatches(refDir = REF_DIR, ledger = loadLedger()) {
+  const out = [];
+  for (const { name: f, path } of scanTargets(refDir)) {
+    const recs = ledger.filter((c) => String(c.file).endsWith(`/${f}`));
+    const bad = sourcingMismatch(headerBlock(readFileSync(path, 'utf8')), recs);
+    if (bad) out.push({ file: f, ...bad });
+  }
+  return out;
+}
+
+/**
+ * THE HEADER MAY STATE ONLY WHAT A GATE CHECKS. Six review rounds each found a stale header
+ * self-description, and three of the last ones were sentences written while building the gate meant
+ * to prevent them. They were all the same kind of thing: a fetch date, a source split, a count of
+ * measured sections, a page-diff figure. None was checkable and all of them rotted.
+ *
+ * So the SHAPE is checked rather than each new sentence. A header may carry the build and the
+ * verbatim-quote count. Any date, and any other number, is refused. Provenance did not go missing:
+ * it is recorded per claim in the ledger, where the gates already read it.
+ */
+export function headerShapeViolations(refDir = REF_DIR, version = readVerifiedVersion()) {
+  const out = [];
+  for (const { name: f, path } of scanTargets(refDir)) {
+    /* headerQuoteClaim extracts the block ITSELF, so it is given the raw file. Handing it an
+       already-extracted block returned null, which silently exempted nothing and made every count
+       word read as an unchecked figure. */
+    const raw = readFileSync(path, 'utf8');
+    const head = headerBlock(raw);
+    if (!head) continue;
+    const bad = headerShapeProblems(head, version, headerQuoteClaim(raw));
+    if (bad.length) out.push({ file: f, problems: bad });
+  }
+  return out;
+}
+
+export function readVerifiedVersion(p = join(ROOT, 'evidence', 'VERIFIED_VERSION')) {
+  return existsSync(p) ? readFileSync(p, 'utf8').trim() : null;
+}
+
+/** Pure, so its must-fail rows do not depend on the corpus being clean. */
+/**
+ * WHAT THIS CANNOT CATCH, stated rather than implied: it refuses dates and figures, in digits and
+ * in words, but it cannot tell a verifiable sentence from an unverifiable one. "Its sourcing is
+ * thinner than its siblings" carries no number and passes. The rule is a shape check that removes
+ * the class of stale FIGURES, which is what six review rounds actually found; judgment is still
+ * required for prose.
+ */
+const WORD_NUMBER = /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\b/i;
+const MONTH_NAME = /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i;
+
+export function headerShapeProblems(head, version, claim) {
+  const problems = [];
+  const dates = head.match(/\b20\d\d-\d\d-\d\d\b/g) || [];
+  if (dates.length) problems.push(`states ${dates.length} date(s): ${dates.join(', ')}`);
+  if (version && !head.includes(version)) problems.push(`does not name the verified build ${version}`);
+  /* Every number in the header, minus the build's own digits and the quote count if written as a
+     numeral. Anything left is a figure nothing checks. */
+  const stripped = head
+    .replace(new RegExp(String(version || '').replace(/\./g, '\\.'), 'g'), ' ')
+    .replace(/\b20\d\d-\d\d-\d\d\b/g, ' ');
+  const nums = (stripped.match(/\b\d+\b/g) || [])
+    .filter((n) => !(claim && String(claim.claimed) === n));
+  if (nums.length) problems.push(`states ${nums.length} unchecked figure(s): ${nums.join(', ')}`);
+  /* The quote count is written as a word in most headers, so the count word is exempt here the same
+     way its numeral is above. Everything else spelled out is a figure nothing checks. */
+  /* A hyphenated count word is two matches, so every part of it is exempt, not the whole string. */
+  const countParts = new Set(claim && claim.word ? String(claim.word).toLowerCase().split('-') : []);
+  const words = (stripped.match(new RegExp(WORD_NUMBER.source, 'gi')) || [])
+    .filter((w) => !countParts.has(w.toLowerCase()));
+  if (words.length) problems.push(`states ${words.length} figure(s) in words: ${words.join(', ')}`);
+  const months = stripped.match(new RegExp(MONTH_NAME.source, 'gi')) || [];
+  if (months.length) problems.push(`names ${months.length} month(s): ${months.join(', ')}`);
+  return problems;
+}
+
+/** How many reference files this gate actually read a claim from, for an honest PASS line. */
+export function headerClaimCoverage(refDir = REF_DIR) {
+  const files = scanTargets(refDir);
+  const withClaim = files.filter((f) => headerQuoteClaim(readFileSync(f.path, 'utf8')));
+  return { files: files.length, withClaim: withClaim.length };
+}
+
 function main(argv) {
   const mi = argv.indexOf('--mirror');
   const mirror = mi >= 0 ? argv[mi + 1] : DEFAULT_MIRROR;
@@ -245,6 +684,7 @@ function main(argv) {
   }
   const pages = loadMirror(mirror);
   const quotes = collectQuotes();
+  const unverifiable = collectUnverifiableQuotes();
   const missing = [];
   const byPage = new Map();
   for (const q of quotes) {
@@ -253,19 +693,88 @@ function main(argv) {
     byPage.set(page, (byPage.get(page) || 0) + 1);
   }
   if (argv.includes('--json')) {
-    console.log(JSON.stringify({ mirror, pages: pages.size, quotes: quotes.length, missing }, null, 2));
-    return missing.length ? 1 : 0;
+    console.log(JSON.stringify({ mirror, pages: pages.size, quotes: quotes.length, missing, unverifiable }, null, 2));
+    return missing.length || unverifiable.length ? 1 : 0;
   }
   console.log(`quote-check: ${quotes.length} verbatim quote(s) from ${new Set(quotes.map((q) => q.file)).size} reference file(s)`);
   console.log(`             against ${pages.size} mirrored page(s) at ${mirror}`);
+  console.log(`             plus ${unverifiable.length} quoted span(s) on COMMUNITY-only lines, which must be zero`);
+  let bad = 0;
   if (missing.length) {
     console.log('\nNO LONGER FOUND UPSTREAM:');
     for (const m of missing) console.log(`  ${m.file}:${m.line}\n    "${m.quote.slice(0, 150)}"`);
     console.log(`\nFAIL ${missing.length} quote(s) missing. Each is a claim whose source sentence is gone:`);
     console.log('re-read the page, then either update the quote or record what replaced it.');
-    return 1;
+    bad += missing.length;
   }
-  console.log('\nPASS every verbatim quote still appears upstream.');
+  if (unverifiable.length) {
+    console.log('\nVERBATIM QUOTE ON A COMMUNITY-ONLY LINE:');
+    for (const u of unverifiable) console.log(`  ${u.file}:${u.line}\n    "${u.quote.slice(0, 150)}"`);
+    console.log(`\nFAIL ${unverifiable.length} unverifiable quote(s). This project mirrors Anthropic's pages,`);
+    console.log('not community sources, so nothing here can confirm these words were ever written.');
+    console.log('Paraphrase and attribute instead, or promote the line to OFFICIAL with a real citation.');
+    bad += unverifiable.length;
+  }
+  const stray = collectUncheckedResolvingQuotes(REF_DIR, pages);
+  if (stray.length) {
+    console.log('\nUPSTREAM PROSE QUOTED WHERE THIS GATE DOES NOT CHECK IT:');
+    for (const s of stray) console.log(`  ${s.file}:${s.line}  resolves in ${s.page}\n    "${s.quote.slice(0, 150)}"`);
+    console.log(`\nFAIL ${stray.length} span(s) quote Anthropic's words from a line carrying no documentation tag.`);
+    console.log('The file header still reports every quote as confirmed, so the reader is told more');
+    console.log('was checked than was. Tag the line if the claim is documented, or paraphrase.');
+    bad += stray.length;
+  }
+  const shape = headerShapeViolations();
+  if (shape.length) {
+    console.log('\nHEADER STATES SOMETHING NO GATE CHECKS:');
+    for (const s of shape) console.log(`  ${s.file}  ${s.problems.join('; ')}`);
+    console.log(`\nFAIL ${shape.length} header(s) carry prose nothing can verify.`);
+    console.log('A header may state the build and the verbatim-quote count. Everything else about');
+    console.log('provenance belongs in evidence/claims.jsonl, per claim, where it is checked.');
+    bad += shape.length;
+  }
+  const fetchDates = headerFetchDateMismatches();
+  if (fetchDates.length) {
+    console.log('\nHEADER DATES A FETCH THAT THE SOURCE RECORDS CONTRADICT:');
+    for (const d of fetchDates) {
+      console.log(`  ${d.file}  header says ${d.claimed}, sources cited by this file were retrieved ${d.wrong.join(', ')}`);
+    }
+    console.log(`\nFAIL ${fetchDates.length} header(s) date a fetch sources.json disagrees with.`);
+    console.log('Name the real dates. "Fetched live that day" is a claim about the provenance');
+    console.log('record, and the record is right there.');
+    bad += fetchDates.length;
+  }
+  const sourcing = headerSourcingMismatches();
+  if (sourcing.length) {
+    console.log('\nHEADER CLAIMS ONE SOURCE FOR EVERY CLAIM IN THE FILE, AND THE LEDGER DISAGREES:');
+    for (const s of sourcing) {
+      console.log(`  ${s.file}  ${s.records} record(s) across ${s.sources.length} sources: ${s.sources.join(', ')}`);
+    }
+    console.log(`\nFAIL ${sourcing.length} header(s) promise something the provenance record contradicts.`);
+    console.log('State the split instead. A universal sourcing claim is only true when the file has');
+    console.log('exactly one source, and this construction has now been found false three times.');
+    bad += sourcing.length;
+  }
+  const headers = headerQuoteMismatches();
+  if (headers.length) {
+    console.log('\nHEADER MISDESCRIBES ITS OWN QUOTE COVERAGE:');
+    for (const h of headers) {
+      const said = h.reason === 'no claim'
+        ? 'header states no quote count at all'
+        : `header says ${h.word}${h.claimed === null ? ' (not a number)' : ` (${h.claimed})`}`;
+      console.log(`  ${h.file}  ${said}, this gate finds ${h.actual}`);
+    }
+    console.log(`\nFAIL ${headers.length} header(s) tell the reader how much of the file this gate covers, and say it wrong.`);
+    console.log('Fix the sentence, not the quote: the header is a claim about coverage, and a wrong one');
+    console.log('understates or overstates what has actually been verified against the mirror.');
+    bad += headers.length;
+  }
+  if (bad) return 1;
+  const cov = headerClaimCoverage();
+  console.log('\nPASS every verbatim quote still appears upstream, and no COMMUNITY-only line quotes.');
+  console.log(`     ${cov.withClaim} of ${cov.files} scanned files state a quote count in their header, and each`);
+  console.log('     matches what this gate found. The rest carry no quotes, which is the only case allowed');
+  console.log('     to stay silent. The scanned set is the references directory plus the skill SKILL.md.');
   const partial = quotes.filter((q) => droppedFragments(q.quote).length);
   if (partial.length) {
     console.log(`\nPARTIAL COVERAGE on ${partial.length} abridged quote(s): a fragment shorter than`);
@@ -280,11 +789,28 @@ function main(argv) {
 
 // ------------------------------------------------------------------ self-test
 function selfTest() {
+  const cannotCheck = [];
   let fails = 0;
   const check = (n, ok, got) => { console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${ok ? '' : `  (${got})`}`); if (!ok) fails++; };
 
   check('a long quote on a tagged line is extracted',
     quotesIn('- "Rules are evaluated in order: deny, then ask, then allow." [OFFICIAL]').length === 1);
+
+  // The COMMUNITY split. Each row asserts the regime, not just that something was extracted.
+  check('an OFFICIAL line resolves against the mirror',
+    classifyLine('- a claim  [OFFICIAL]') === 'mirror', classifyLine('- a claim  [OFFICIAL]'));
+  check('a COMMUNITY line does NOT resolve against the mirror',
+    classifyLine('- a claim  [COMMUNITY]') === 'community', classifyLine('- a claim  [COMMUNITY]'));
+  check('the [COMMUNITY PRACTICE] spelling is caught too, not just [COMMUNITY]',
+    classifyLine('- a claim  [COMMUNITY PRACTICE]') === 'community', classifyLine('- a claim  [COMMUNITY PRACTICE]'));
+  check('a line carrying BOTH tags still resolves against the mirror',
+    classifyLine('- a claim  [OFFICIAL]  [COMMUNITY]') === 'mirror', classifyLine('- a claim  [OFFICIAL]  [COMMUNITY]'));
+  check('an ENGINEERING line is in neither regime, which is why a retag changes coverage',
+    classifyLine('- a claim  [ENGINEERING]') === 'none', classifyLine('- a claim  [ENGINEERING]'));
+  check('a versioned line still resolves against the mirror',
+    classifyLine('- a claim  [v2.1.203]') === 'mirror', classifyLine('- a claim  [v2.1.203]'));
+  check('a quoted span on a COMMUNITY line IS extracted, so the refusal has something to refuse',
+    quotesIn('- the practice is "run the guard before the dispatcher" here  [COMMUNITY]').length === 1);
   check('a SHORT quote is ignored, because short quotes are green by construction',
     quotesIn('- he said "deny" loudly [OFFICIAL]').length === 0);
   /**
@@ -370,14 +896,197 @@ function selfTest() {
    * itself asserted. If this ever needs to grow past a handful, the extractor is
    * wrong and the fix belongs there, not here.
    */
+  check('every reference header that states a quote count states the RIGHT one',  // @header-row
+    headerQuoteMismatches().length === 0, JSON.stringify(headerQuoteMismatches()));
+  check('...and the header check can fail, given a count the gate contradicts',  // @header-row
+    headerQuoteMismatches(REF_DIR, []).length > 0,
+    `${headerQuoteMismatches(REF_DIR, []).length} file(s) claim a non-zero count`);
+  /**
+   * The first version of this check read ONE header dialect and exempted any file that claimed
+   * nothing, so it covered 21 of 30 files and 9 of the 46 quotes while its PASS line said
+   * "every header quote count matches". These rows pin the three properties that fixed it.
+   */
+  /**
+   * REWRITTEN 2026-08-19. The previous version of this row planted a quote in themes.md, which
+   * STATES a count, so it exercised the wrong-count branch under a label promising the no-claim
+   * branch. An adversarial panel found that deleting the branch it named left every gate green.
+   * sources.md states no count at all, which is the branch this row is for.
+   */
+  /* Synthetic headers, since every real one now states a count and the no-claim branch has no
+     live file left to exercise. A row that passes because there is nothing to find is the trap
+     this file has fallen into twice. */
+  const SILENT = '> Claude Code 2.1.229. Nothing about quotes.';
+  const STATES_SIX = '> Claude Code 2.1.229. This file carries SIX verbatim quotes.';
+  check('a header claiming nothing is a FAILURE when the file carries quotes',  // @header-row
+    quoteCountProblem(SILENT, 1)?.reason === 'no claim',
+    JSON.stringify(quoteCountProblem(SILENT, 1)));
+  check('...and silence is fine when the file carries none',  // @header-row
+    quoteCountProblem(SILENT, 0) === null);
+  check('...and a file that states a count is caught on the count branch instead',  // @header-row
+    quoteCountProblem(STATES_SIX, 2)?.reason === 'wrong count',
+    JSON.stringify(quoteCountProblem(STATES_SIX, 2)));
+  check('...and a stated count that matches passes',  // @header-row
+    quoteCountProblem(STATES_SIX, 6) === null);
+  /**
+   * The fixture wraps the claim across the EIGHTH and NINTH lines, which is the shape that broke:
+   * safety-classifier.md ends line 8 with "It carries NO" and starts line 9 with "verbatim quotes".
+   * A shorter fixture passes under the old fixed window too, so it would not have caught it.
+   */
+  const WRAPPED_AT_8 = '# T\n\n> filler line 1 standing in for a long provenance header.\n> filler line 2 standing in for a long provenance header.\n> filler line 3 standing in for a long provenance header.\n> filler line 4 standing in for a long provenance header.\n> filler line 5 standing in for a long provenance header.\n> the sourcing note runs on and eventually says it carries NO\n> verbatim quotes, so the gate is silent.';
+  check('a claim WRAPPED past the old fixed window is still read',  // @header-row
+    headerQuoteClaim(WRAPPED_AT_8)?.claimed === 0,
+    JSON.stringify(headerQuoteClaim(WRAPPED_AT_8)));
+  /* No BLANK line between the blockquote and the body: a blank line is stopped by the separate
+     blank-line rule, so a fixture containing one proves that rule instead of this one. */
+  /* Body text, THEN a second blockquote. Without the boundary rule the two blockquotes join and
+     the body's own quote count becomes the header's. A fixture whose forged claim sits in plain
+     body text cannot detect the revert, because skipping that line is the same as stopping at it. */
+  const FORGERY = '# T\n> a header with no count.\nBody text.\n> and it carries SIX verbatim quotes.';
+  check('...and the blockquote stops at the first non-quoted line, so body prose cannot forge a claim',  // @header-row
+    headerQuoteClaim(FORGERY) === null, JSON.stringify(headerQuoteClaim(FORGERY)));
+  check('...and both header dialects parse, including the "all N verbatim quote" form',  // @header-row
+    headerQuoteClaim('> all 1 verbatim quote in this file re-checked')?.claimed === 1
+    && headerQuoteClaim('> this file carries SIX verbatim quotes')?.claimed === 6);
+  check('...and a doubled space does not make a claim invisible, which it did in sessions.md',  // @header-row
+    headerQuoteClaim('> It carries NO  verbatim quotes')?.claimed === 0);
+  check('...and a number word the map does not know FAILS rather than being skipped',  // @header-row
+    headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')?.claimed === null,
+    JSON.stringify(headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')));
+  /* logicalLines was asserted by NOTHING until 2026-08-19: gutting it back to physical lines left
+     all fourteen gates green, so the fix that made wrapped citations visible was itself unproven. */
+  const WRAP_PARA = 'x\n\nThe docs say "a fabricated sentence that nobody\never wrote anywhere at all" here.';
+  const WRAP_QUOTE = 'x\n\n> The docs say "a fabricated sentence that nobody\n> ever wrote anywhere at all" here.';
+  const F3B = String.fromCharCode(96, 96, 96);
+  const FENCED_TAG = [F3B, '- x "a quoted span of at least twenty-five characters" y  [OFFICIAL]', F3B].join(String.fromCharCode(10));
+  check('a tagged line inside a code block is marked as code, so neither half reads it',  // @header-row
+    logicalLines(FENCED_TAG).every((x) => x.code === true),
+    JSON.stringify(logicalLines(FENCED_TAG).map((x) => ({ code: !!x.code, t: x.text.slice(0, 30) }))));
+  check('...and an ordinary line is not marked as code',  // @header-row
+    logicalLines('- an ordinary bullet  [OFFICIAL]').every((x) => !x.code));
+  /* A SECOND blockquote after a blank line is what the stopping rules control. Body prose can
+     never enter headerBlock whatever they do, since only quoted lines are collected, so a fixture
+     built on body text asserts something the structure guarantees and no revert can flip. */
+  const HDR_FIXTURE = ['# T', '> one', '', '> two'].join(String.fromCharCode(10));
+  check('headerBlock stops at the end of the FIRST blockquote',  // @header-row
+    headerBlock(HDR_FIXTURE) === 'one', JSON.stringify(headerBlock(HDR_FIXTURE)));
+  check('...and headerClaimCoverage counts the files it scanned and those stating a count',  // @header-row
+    (() => { const cov2 = headerClaimCoverage(); return cov2.files > 0 && cov2.withClaim <= cov2.files; })(),
+    JSON.stringify(headerClaimCoverage()));
+  check('a paragraph wrapped across two lines is ONE logical line',  // @header-row
+    logicalLines(WRAP_PARA).some((x) => /nobody ever wrote/.test(x.text)),
+    JSON.stringify(logicalLines(WRAP_PARA).map((x) => x.text)));
+  check('...and a BLOCKQUOTE wrapped the same way is too, which it was not',  // @header-row
+    logicalLines(WRAP_QUOTE).some((x) => /nobody ever wrote/.test(x.text)),
+    JSON.stringify(logicalLines(WRAP_QUOTE).map((x) => x.text)));
+  check('...and a blockquote does NOT absorb the paragraph above it',  // @header-row
+    logicalLines('A plain paragraph.\n> A quoted line.').length === 2);
+  const F3 = String.fromCharCode(96, 96, 96);
+  const FENCED = [F3, 'foo "a string of at least twenty-five chars"', 'bar', F3].join(String.fromCharCode(10));
+  check('...and a fenced block is never joined, whatever is inside it',  // @header-row
+    logicalLines(FENCED).length === 4,
+    JSON.stringify(logicalLines(FENCED).map((x) => x.text)));
+  check('no header states anything outside the build and the quote count',  // @header-row
+    headerShapeViolations().length === 0, JSON.stringify(headerShapeViolations()));
+  check('...and that decision refuses a date',  // @header-row
+    headerShapeProblems('Claude Code 2.1.229. Verified 2026-08-13.', '2.1.229', null).length > 0);
+  check('...and refuses a figure nothing checks',  // @header-row
+    headerShapeProblems('Claude Code 2.1.229. The surface moved to 44 tools.', '2.1.229', null).length > 0);
+  /* No digits in the fixture besides the missing build, or the unchecked-figure rule reddens the
+     row instead and the build requirement can be deleted unnoticed. */
+  check('...and refuses a header that does not name the verified build',  // @header-row
+    headerShapeProblems('Claude Code, some build. Nothing else.', '2.1.229', null).length > 0,
+    JSON.stringify(headerShapeProblems('Claude Code, some build. Nothing else.', '2.1.229', null)));
+  check('...and accepts the build plus a quote count written as a numeral',  // @header-row
+    headerShapeProblems('Claude Code 2.1.229. This file carries 14 verbatim quotes.', '2.1.229', { claimed: 14 }).length === 0,
+    JSON.stringify(headerShapeProblems('Claude Code 2.1.229. This file carries 14 verbatim quotes.', '2.1.229', { claimed: 14 })));
+  check('no header dates a fetch the source records contradict',  // @header-row
+    headerFetchDateMismatches().length === 0, JSON.stringify(headerFetchDateMismatches()));
+  const FETCH_HEAD = 'Claude Code 2.1.229, verified 2026-08-13. Sources fetched live that day.';
+  check('...and that decision fires when a cited source was retrieved on another day',  // @header-row
+    fetchDateMismatch(FETCH_HEAD, ['2026-08-13', '2026-08-05']) !== null,
+    JSON.stringify(fetchDateMismatch(FETCH_HEAD, ['2026-08-13', '2026-08-05'])));
+  /* A header that NAMES a second date is honest about a second fetch, which is the whole point of
+     comparing against every date in the header rather than only the first. */
+  const TWO_DATES = 'verified 2026-08-13. Sources fetched that day, and the settings page 2026-08-05.';
+  check('...and stays silent when every cited source date is named in the header',  // @header-row
+    fetchDateMismatch(TWO_DATES, ['2026-08-13', '2026-08-05']) === null,
+    JSON.stringify(fetchDateMismatch(TWO_DATES, ['2026-08-13', '2026-08-05'])));
+  check('no header promises one source for every claim while the ledger says otherwise',  // @header-row
+    headerSourcingMismatches().length === 0, JSON.stringify(headerSourcingMismatches()));
+  /* Synthetic header AND synthetic ledger, so neither the corpus being clean nor the corpus being
+     dirty can decide the outcome. */
+  const UNIVERSAL_HEAD = 'Claude Code 2.1.229. What that means here: every claim below was checked against one page.';
+  const TWO_SOURCES = [{ source: 'SRC_A' }, { source: 'SRC_B' }];
+  check('...and that decision fires when such a header sits over records with two sources',  // @header-row
+    sourcingMismatch(UNIVERSAL_HEAD, TWO_SOURCES) !== null,
+    JSON.stringify(sourcingMismatch(UNIVERSAL_HEAD, TWO_SOURCES)));
+  check('...and stays silent when every record shares one source',  // @header-row
+    sourcingMismatch(UNIVERSAL_HEAD, [{ source: 'SRC_A' }, { source: 'SRC_A' }]) === null);
+  check('...and stays silent for a header that makes no universal claim',  // @header-row
+    sourcingMismatch('Claude Code 2.1.229. Sources fetched live that day.', TWO_SOURCES) === null);
+  check('...and the phrasings it catches include all three quantifiers',  // @header-row
+    ['every claim below', 'all claims below', 'each claim below']
+      .every((p) => sourcingMismatch(`x ${p} was checked`, TWO_SOURCES) !== null));
+  /* THE MIRROR MAY BE ABSENT. It is not committed, for copyright, so a contributor without it must
+     still reach a verdict. main() has guarded this since it was written; this row did not, and with
+     the mirror missing the whole self-test died on an uncaught ENOENT with about thirty rows never
+     run, while the CI step comment still called the self-test the runner-safe half. A row that
+     cannot run is reported as skipped and turns the exit into 2, never into a silent pass. */
+  const mirrorHere = existsSync(DEFAULT_MIRROR);
+  if (!mirrorHere) cannotCheck.push('the unchecked-quotation row needs the docs mirror, which is not present');
+  const mirrorPages = mirrorHere ? loadMirror(DEFAULT_MIRROR) : null;
+  if (mirrorHere) {
+    check('no upstream prose is quoted on a line this gate does not check',  // @header-row
+      collectUncheckedResolvingQuotes(REF_DIR, mirrorPages).length === 0,
+      JSON.stringify(collectUncheckedResolvingQuotes(REF_DIR, mirrorPages).map((s) => `${s.file}:${s.line}`)));
+  }
+  check('...and that check ignores fenced code blocks, or every JSON example needs a tag',  // @header-row
+    collectUncheckedResolvingQuotes(REF_DIR, new Map([['x.md', normalise('Destructive command blocked by hook')]])).length === 0);
+  check('a header claim past the old 40-line cap is still read',  // @header-row
+    headerQuoteClaim(`# T\n\n${Array.from({ length: 60 }, (_, i) => `> filler ${i}`).join('\n')}\n> and it carries NO verbatim quotes.`)?.claimed === 0);
+  const CURLY = `- The docs say ${String.fromCharCode(0x201c)}a fabricated sentence nobody ever wrote${String.fromCharCode(0x201d)} here  [OFFICIAL]`;
+  check('a span in TYPOGRAPHIC quotes is extracted, or a fabricated citation hides in plain sight',  // @header-row
+    quotesIn(CURLY).length === 1, JSON.stringify(quotesIn(CURLY)));
+  check('...and it yields the same span as its straight-quoted twin',  // @header-row
+    quotesIn(CURLY)[0] === quotesIn('- The docs say "a fabricated sentence nobody ever wrote" here  [OFFICIAL]')[0]);
+  check('a header carrying TWO DIFFERENT counts is refused rather than resolved to the first',  // @header-row
+    headerQuoteClaim('> it carries SIX verbatim quotes, and elsewhere: carries TWO verbatim quotes')?.claimed === null,
+    JSON.stringify(headerQuoteClaim('> it carries SIX verbatim quotes, and elsewhere: carries TWO verbatim quotes')));
+  check('...and a header restating the SAME count twice is still read',  // @header-row
+    headerQuoteClaim('> it carries SIX verbatim quotes, and again it carries SIX verbatim quotes')?.claimed === 6);
+  check('a tag spelled with different case or padding stays in the mirror regime',  // @header-row
+    ['[Official]', '[OFFICIAL ]', '[ OFFICIAL]', '[ANTHROPIC RECOMMENDATION]']
+      .every((t) => classifyLine(`- x "a span of at least twenty-five characters" y  ${t}`) === 'mirror'),
+    JSON.stringify(['[Official]', '[OFFICIAL ]', '[ OFFICIAL]', '[ANTHROPIC RECOMMENDATION]']
+      .map((t) => classifyLine(`- x "a span of at least twenty-five characters" y  ${t}`))));
+  check('...and the COMMUNITY spellings too, or a retag changes coverage by accident',  // @header-row
+    ['[Community]', '[COMMUNITY PRACTICE]', '[ COMMUNITY ]']
+      .every((t) => classifyLine(`- x "a span of at least twenty-five characters" y  ${t}`) === 'community'));
+  check('a fabricated citation in guillemets or CJK brackets is extracted, not invisible',  // @header-row
+    [['\u00AB', '\u00BB'], ['\u300C', '\u300D'], ['\u2018', '\u2019']]
+      .every(([o, c2]) => quotesIn(`- The docs say ${o}a fabricated sentence nobody wrote${c2} here  [OFFICIAL]`).length === 1),
+    JSON.stringify([['\u00AB', '\u00BB'], ['\u300C', '\u300D'], ['\u2018', '\u2019']]
+      .map(([o, c2]) => quotesIn(`- The docs say ${o}a fabricated sentence nobody wrote${c2} here  [OFFICIAL]`).length)));
+  check('the universal-sourcing family catches the phrasings a header might reach for',  // @header-row
+    ['every claim below', 'all claims below', 'each claim below', 'every line below',
+     'all of the following', 'throughout this file', 'everything here was']
+      .every((p) => sourcingMismatch(`x ${p} checked against one page`, [{ source: 'A' }, { source: 'B' }]) !== null),
+    JSON.stringify(['every claim below', 'every line below', 'all of the following', 'throughout this file', 'everything here was']
+      .map((p) => sourcingMismatch(`x ${p} checked`, [{ source: 'A' }, { source: 'B' }]) !== null)));
   check('the not-a-citation exemption list stays small', NOT_A_CITATION.size <= 5, String(NOT_A_CITATION.size));
   check('...and every exemption states a reason',
     [...NOT_A_CITATION.values()].every((r) => typeof r === 'string' && r.length > 30));
   check('...and every one is at least the minimum length',
     live.every((q) => q.quote.length >= MIN_QUOTE));
 
-  console.log(fails ? `\nSELF-TEST FAIL (${fails})` : '\nSELF-TEST PASS');
-  return fails ? 1 : 0;
+  if (cannotCheck.length) {
+    console.log('\nCOULD NOT CHECK:');
+    for (const why of cannotCheck) console.log(`  ${why}`);
+  }
+  console.log(fails ? `\nSELF-TEST FAIL (${fails})` : cannotCheck.length ? '\nSELF-TEST INCOMPLETE' : '\nSELF-TEST PASS');
+  /* Exit 2 is the documented "cannot check" code, the same one main() returns without a mirror. A
+     row that could not run must never read as a pass. */
+  return fails ? 1 : cannotCheck.length ? 2 : 0;
 }
 
 if (IS_MAIN) {
