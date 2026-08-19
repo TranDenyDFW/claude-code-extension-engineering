@@ -9,28 +9,31 @@ How to prove an extension works. Run the task WITHOUT the extension first and re
 
 ## Testing strategy
 
-- Establish a BASELINE first, in a fresh session, without the change in place.
-- Run every test in a fresh session so no context leaks in from the authoring conversation.
-- Two independent dimensions. Test them separately, because passing one says nothing about the other:
-  - **Discovery / routing.** Does it fire when it should? Measure false negatives (missed) and false positives (fired when it should not have).
-  - **Behaviour.** Once it fires, is the output correct?
-- Coverage classes, all six:
-  - Positive, the happy path.
-  - Negative, cases where the correct action is to do nothing.
-  - Edge and boundary.
-  - Adversarial and pressure, where the prompt pushes against the rule.
-  - Malformed or missing input.
-  - Repeated execution, to catch state that leaks between runs.
-- Guard-the-guard: enforcement code must not be able to break the tool it protects.
-- Integration: mechanisms tested together, not only alone. Parts that pass in isolation routinely fail in combination.
+- Establish a BASELINE, in a fresh session, without the change in place. The documentation prescribes exactly this for skills: collect a few realistic prompts, run each in a fresh session with the skill available and again with it disabled, and compare  [OFFICIAL]
+- Running the control FIRST is ours, not documented. The docs name the with-change arm first and state no order at all. Order matters anyway, because a baseline taken after you have seen the treatment is a baseline you already know the answer to  [ENGINEERING]
+- Run every test in a fresh session so no context leaks in from the authoring conversation. The documented reason is the same one: leftover context from authoring will MASK GAPS in the written instructions, so the session that wrote the extension is the worst place to test it  [OFFICIAL]
+- Two independent dimensions. Test them separately, because passing one says nothing about the other. Documented for skills in one sentence: seeing a skill trigger tells you Claude found it, not that it did what you intended  [OFFICIAL]
+  - **Discovery / routing.** Does it fire when it should? Measure false negatives (missed) and false positives (fired when it should not have). The documented instrument generates should-trigger and should-not-trigger prompts and measures the hit rate  [OFFICIAL]
+  - **Behaviour.** Once it fires, is the output correct? The same documented sentence carries this half: whether the output matches what you expect when it does  [OFFICIAL]
+- Extending both dimensions beyond SKILLS is ours. Every documented sentence here is scoped to skills and the skill-creator loop; nothing in the mirror applies the split to hooks, subagents or plugins, and the transfer is inference  [ENGINEERING]
+- Coverage classes, all six. No taxonomy of test-coverage classes exists anywhere in the documentation, so the SET is this library's, even where individual members are documented practice  [ENGINEERING]
+  - Positive, the happy path. The substance is documented for plugins, trigger the event each hook matches and confirm its effect, but not as a named class  [OFFICIAL]
+  - Negative, cases where the correct action is to do nothing. The should-not-trigger half of description tuning is the documented instance  [OFFICIAL]
+  - Edge and boundary  [ENGINEERING]
+  - Adversarial and pressure, where the prompt pushes against the rule  [ENGINEERING]
+  - Malformed or missing input. The docs prescribe HANDLING this in the code you write and never prescribe it as a case class to cover, which is the difference between a robust handler and a tested one  [ENGINEERING]
+  - Repeated execution, to catch state that leaks between runs  [ENGINEERING]
+- Guard-the-guard: enforcement code must not be able to break the tool it protects  [ENGINEERING]
+- Integration: mechanisms tested together, not only alone. Parts that pass in isolation routinely fail in combination. Note the documented guidance points the OTHER way, telling you to check each skill, agent and hook separately, though it says so while debugging a broken plugin rather than as a testing philosophy  [ENGINEERING]
 
 ## Regression strategy
 
-- Every baseline failure and every pressure failure becomes a permanent eval case. Fixed once means tested forever.
-- The rationalization table grows over time. Each recorded rationalization gets an explicit counter.
-- Maintain a red-flags list of self-check signals, so a known bad pattern is recognised rather than re-derived.
-- Re-run the full suite on any change to the mechanism.
-- Re-baseline after a model change or a Claude Code version change. Both can move behaviour without any edit on your side.
+- Every baseline failure and every pressure failure becomes a permanent eval case. Fixed once means tested forever  [ENGINEERING]
+- The rationalization table grows over time. Each recorded rationalization gets an explicit counter  [ENGINEERING]
+- Maintain a red-flags list of self-check signals, so a known bad pattern is recognised rather than re-derived  [ENGINEERING]
+- CADENCE, and the documentation disagrees with the obvious reading: run the FOCUSED tests while you are changing the mechanism, and the full suite ONCE before you commit, not after every edit. The only sentence in the docs about whole-suite runs prefers single tests for performance, and while that line is about a codebase's own tests rather than an extension eval suite, nothing anywhere recommends the whole suite per edit. A targeted test is already inside the suite, so a mid-iteration full run is duplication  [ENGINEERING]
+- Re-baseline after a MODEL change. The docs prescribe revisiting instructions after major model releases, because guidance written around an older model's limitations can become unnecessary or actively harmful  [OFFICIAL]
+- Re-baseline after a Claude Code VERSION change too. That half is ours: no page prescribes it, and this library has repeatedly found behaviour moving between builds with no edit on the reader's side  [ENGINEERING]
 
 ## Iteration loops
 
@@ -88,11 +91,8 @@ Three rules that decide whether the spec is worth anything:
 
 - **Score structurally, never on text.** A handler printing `BLOCKED` to stdout with exit 0 and no `hookSpecificOutput` reported NO DECISION, not an allow: exit 0 with no output means the hook has nothing to say, so the call continues through the normal permission flow where a deny rule or a prompt can still stop it. `permissionDecision` takes `allow`, `deny`, `ask` or `defer`, and silence is none of them. Score the decision field, because the banner is not one and neither is its absence  [OFFICIAL]
 - That distinction decides what a case PROVES. A `near-miss` case passing because the handler stayed silent has shown only that nothing blocked at that point, which is also what a deny rule further down the flow would produce. Assert the decision field, or the case cannot tell a working guard from an absent one  [ENGINEERING]
-- **A false positive counts exactly like a miss.** Without the `near-miss` cases, a hook that
-  denies unconditionally passes everything.
-- **The spec must be able to fail.** Re-run every `enforce` and `wiring` case against two
-  controls: an EMPTY tree with nothing installed, and an INERT bundle whose handler is present,
-  executable and always exits 0. A case that still passes against either is asserting nothing.
+- **A false positive counts exactly like a miss.** Without the `near-miss` cases, a hook that denies unconditionally passes everything. The docs measure a hit rate for skill routing and never state this equivalence, so the weighting is ours  [ENGINEERING]
+- **The spec must be able to fail.** Re-run every `enforce` and `wiring` case against two controls: an EMPTY tree with nothing installed, and an INERT bundle whose handler is present, executable and always exits 0. A case that still passes against either is asserting nothing. No page requires a test to be shown capable of failing, and neither control appears anywhere in the documentation  [ENGINEERING]
 
 `fail-posture` is the case kind that turns "does it work" into "is it a guarantee", and it is
 the one that most often changes the mechanism. A command hook cannot pass it: a missing or
@@ -151,6 +151,6 @@ reports NOT DONE rather than claiming a guarantee it cannot keep.
 
 ## Detail
 
-- Shared evaluation, regression, failure capture, and iteration practices.
-- Shared testing philosophy referenced by every extension mechanism.
-- Every fixed failure becomes a permanent test. Re-run the whole suite on each edit, and after a model upgrade.
+- Evaluation, regression, failure capture, and iteration practices. Two of those four, evaluation and iteration, are documented, for skills only; the other two are this library's  [ENGINEERING]
+- This file is the testing material other reference files point at, and "every mechanism" would be false: 6 of the 28 sibling reference files link here and 22 do not. The documentation has no shared testing page either, only per-mechanism sections on four pages using different vocabulary and different depth  [ENGINEERING]
+- Every fixed failure becomes a permanent test. Re-baseline after a model upgrade, and run the full suite once before committing rather than after each edit, per the cadence rule above  [ENGINEERING]
