@@ -269,6 +269,20 @@ function restoredExactly(file, m) {
       row: /fenced block is never joined/,
     },
     {
+      label: 'the blockquote-only header read, so headerBlock returns the body too',
+      edits: [
+        { from: '    if (started && !l.trim()) break;', to: '    if (false) break;' },
+        { from: '    if (started) break;', to: '    if (false) break;' },
+      ],
+      row: /headerBlock stops at the end of the FIRST blockquote/,
+    },
+    {
+      label: 'the coverage tally, so it reports more claiming files than files',
+      from: '  return { files: files.length, withClaim: withClaim.length };',
+      to: '  return { files: 0, withClaim: withClaim.length };',
+      row: /headerClaimCoverage counts the files it scanned/,
+    },
+    {
       label: 'the code mark, without which both halves read fenced examples',
       from: "    if (isFence(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l, code: true }); continue; }",
       to: "    if (isFence(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l }); continue; }",
@@ -483,6 +497,18 @@ if (gutted.length) {
   for (const r of gutted) console.log(`    ${r}`);
   console.log('  A row whose assertion calls none of the header functions cannot be testing them.');
   problems += gutted.length;
+}
+
+/* EVERY header-only checker must be asserted by some marked row. A gate function nobody tests is
+   the shape this branch shipped twice: DUPLICATE_EXTRACTION_ID and HEADER_CLAIM both reached the
+   tree with no mutant, inside the commit that declared that class closed. */
+const HEADER_ONLY_NAMES = String(HEADER_ONLY_FNS.source).split('|').map((s) => s.replace(/\\\(/g, '').trim()).filter(Boolean);
+const unasserted = HEADER_ONLY_NAMES.filter((fn) => !everyRow.some((r) => r.marked && r.body.includes(fn)));
+if (unasserted.length) {
+  console.log('\n  HEADER CHECKERS THAT NO MARKED ROW ASSERTS OVER:');
+  for (const fn of unasserted) console.log(`    ${fn}`);
+  console.log('  A checker nobody tests is a gate that cannot be shown to fail.');
+  problems += unasserted.length;
 }
 
 /* Covered means OBSERVED to go red under some revert, not matched by a label pattern. */

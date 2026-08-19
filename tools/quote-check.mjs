@@ -218,9 +218,10 @@ export const NOT_A_CITATION = new Map([
 /**
  * Case and padding tolerated, and the long spellings included. Keyed to the exact uppercase forms
  * until 2026-08-19, so [Official], [OFFICIAL ] and [ANTHROPIC RECOMMENDATION] all fell OUT of the
- * mirror regime and their quotes went unchecked. No live line used one, which is why this is a
- * latent hole rather than a defect, but the claim extractor already accepts the long spellings and
- * two halves of one rule disagreeing is how the next one arrives.
+ * mirror regime and their quotes went unchecked. Six live lines use [ANTHROPIC RECOMMENDATION],
+ * and were in the regime only because each carries a bare [ANTHROPIC] beside it, which is luck
+ * rather than design; the claim extractor already accepts the long spellings, and two halves of
+ * one rule disagreeing is how the next hole arrives.
  */
 const TAGGED = /\[\s*(OFFICIAL|ANTHROPIC(\s+RECOMMENDATION)?|EXPERIMENTAL|LEGACY|DEPRECATED)\s*\]|\[v\d+\.\d+\.\d+\]/i;
 
@@ -238,7 +239,7 @@ const COMMUNITY_TAGGED = /\[\s*COMMUNITY(\s+PRACTICE)?\s*\]/i;
  * The scan covers the references directory AND the skill's own SKILL.md. SKILL.md was outside it
  * until 2026-08-19, which an adversarial panel flagged as a latent hole: the library's front page
  * could carry a COMMUNITY-tagged quotation, or a documentation-tagged one that had gone stale
- * upstream, and no gate would look. It carries 9 quoted spans today and none on a tagged line, so
+ * upstream, and no gate would look. It carries 15 quoted spans today and none on a tagged line, so
  * this changes no count; it removes the exemption before something lands in it.
  */
 function scanTargets(refDir) {
@@ -938,6 +939,15 @@ function selfTest() {
     JSON.stringify(logicalLines(FENCED_TAG).map((x) => ({ code: !!x.code, t: x.text.slice(0, 30) }))));
   check('...and an ordinary line is not marked as code',  // @header-row
     logicalLines('- an ordinary bullet  [OFFICIAL]').every((x) => !x.code));
+  /* A SECOND blockquote after a blank line is what the stopping rules control. Body prose can
+     never enter headerBlock whatever they do, since only quoted lines are collected, so a fixture
+     built on body text asserts something the structure guarantees and no revert can flip. */
+  const HDR_FIXTURE = ['# T', '> one', '', '> two'].join(String.fromCharCode(10));
+  check('headerBlock stops at the end of the FIRST blockquote',  // @header-row
+    headerBlock(HDR_FIXTURE) === 'one', JSON.stringify(headerBlock(HDR_FIXTURE)));
+  check('...and headerClaimCoverage counts the files it scanned and those stating a count',  // @header-row
+    (() => { const cov2 = headerClaimCoverage(); return cov2.files > 0 && cov2.withClaim <= cov2.files; })(),
+    JSON.stringify(headerClaimCoverage()));
   check('a paragraph wrapped across two lines is ONE logical line',  // @header-row
     logicalLines(WRAP_PARA).some((x) => /nobody ever wrote/.test(x.text)),
     JSON.stringify(logicalLines(WRAP_PARA).map((x) => x.text)));
