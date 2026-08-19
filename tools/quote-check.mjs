@@ -286,21 +286,60 @@ export function findQuote(quote, pages) {
  * The header is a CLAIM ABOUT THIS GATE, so this gate is the right place to check it. Files whose
  * header makes no quote claim are skipped rather than required to make one.
  */
+const QUOTE_COUNT_WORDS = {
+  NO: 0, NONE: 0, ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6,
+  SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10, ELEVEN: 11, TWELVE: 12,
+  THIRTEEN: 13, FOURTEEN: 14, FIFTEEN: 15, SIXTEEN: 16, SEVENTEEN: 17,
+  EIGHTEEN: 18, NINETEEN: 19, TWENTY: 20,
+};
+
+/**
+ * Every dialect the reference headers actually use. Kept as a list rather than one clever regex so
+ * a new dialect is added deliberately: a header phrased in a way none of these match is treated as
+ * making NO claim, and a file with quotes that makes no claim is a failure below.
+ */
+const HEADER_CLAIM_PATTERNS = [
+  /carries\s+([A-Za-z]+|\d+)\s+verbatim\s+quotes?/i,
+  /all\s+([A-Za-z]+|\d+)\s+verbatim\s+quotes?\s+in\s+this\s+file/i,
+];
+
+export function headerQuoteClaim(text) {
+  const head = String(text).split(/\r?\n/).slice(0, 8).join(' ').replace(/>\s*/g, ' ');
+  for (const re of HEADER_CLAIM_PATTERNS) {
+    const m = head.match(re);
+    if (!m) continue;
+    const raw = m[1];
+    const n = /^\d+$/.test(raw) ? Number(raw) : QUOTE_COUNT_WORDS[raw.toUpperCase()];
+    return { word: raw, claimed: n === undefined ? null : n };
+  }
+  return null;
+}
+
 export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(refDir)) {
-  const WORDS = { NO: 0, ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6, SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10 };
   const byFile = new Map();
   for (const q of quotes) byFile.set(q.file, (byFile.get(q.file) || 0) + 1);
   const out = [];
   for (const f of readdirSync(refDir).filter((x) => x.endsWith('.md')).sort()) {
-    const head = readFileSync(join(refDir, f), 'utf8').split(/\r?\n/).slice(0, 6).join(' ');
-    const m = head.match(/carries ([A-Z]+) verbatim quotes?/);
-    if (!m) continue;
-    const claimed = WORDS[m[1]];
+    const claim = headerQuoteClaim(readFileSync(join(refDir, f), 'utf8'));
     const actual = byFile.get(f) || 0;
-    if (claimed === undefined) out.push({ file: f, word: m[1], claimed: null, actual });
-    else if (claimed !== actual) out.push({ file: f, word: m[1], claimed, actual });
+    if (!claim) {
+      /* Silence is honest for a file with nothing to describe, and a lie by omission for one whose
+         quotes this gate is checking. permissions.md and sandboxing.md held 34 of 46 quotes and
+         said nothing, so the gate's own PASS line overstated its reach. */
+      if (actual > 0) out.push({ file: f, word: null, claimed: null, actual, reason: 'no claim' });
+      continue;
+    }
+    if (claim.claimed === null) out.push({ file: f, word: claim.word, claimed: null, actual, reason: 'not a number' });
+    else if (claim.claimed !== actual) out.push({ file: f, word: claim.word, claimed: claim.claimed, actual, reason: 'wrong count' });
   }
   return out;
+}
+
+/** How many reference files this gate actually read a claim from, for an honest PASS line. */
+export function headerClaimCoverage(refDir = REF_DIR) {
+  const files = readdirSync(refDir).filter((x) => x.endsWith('.md'));
+  const withClaim = files.filter((f) => headerQuoteClaim(readFileSync(join(refDir, f), 'utf8')));
+  return { files: files.length, withClaim: withClaim.length };
 }
 
 function main(argv) {
@@ -348,7 +387,10 @@ function main(argv) {
   if (headers.length) {
     console.log('\nHEADER MISDESCRIBES ITS OWN QUOTE COVERAGE:');
     for (const h of headers) {
-      console.log(`  ${h.file}  header says ${h.word}${h.claimed === null ? ' (not a number word)' : ` (${h.claimed})`}, this gate finds ${h.actual}`);
+      const said = h.reason === 'no claim'
+        ? 'header states no quote count at all'
+        : `header says ${h.word}${h.claimed === null ? ' (not a number)' : ` (${h.claimed})`}`;
+      console.log(`  ${h.file}  ${said}, this gate finds ${h.actual}`);
     }
     console.log(`\nFAIL ${headers.length} header(s) tell the reader how much of the file this gate covers, and say it wrong.`);
     console.log('Fix the sentence, not the quote: the header is a claim about coverage, and a wrong one');
@@ -356,8 +398,10 @@ function main(argv) {
     bad += headers.length;
   }
   if (bad) return 1;
-  console.log('\nPASS every verbatim quote still appears upstream, no COMMUNITY-only line quotes,');
-  console.log('     and every header quote count matches what this gate found.');
+  const cov = headerClaimCoverage();
+  console.log('\nPASS every verbatim quote still appears upstream, and no COMMUNITY-only line quotes.');
+  console.log(`     ${cov.withClaim} of ${cov.files} reference headers state a quote count, and each matches what`);
+  console.log('     this gate found. The rest carry no quotes, which is the only case allowed to stay silent.');
   const partial = quotes.filter((q) => droppedFragments(q.quote).length);
   if (partial.length) {
     console.log(`\nPARTIAL COVERAGE on ${partial.length} abridged quote(s): a fragment shorter than`);
@@ -483,6 +527,24 @@ function selfTest() {
   check('...and the header check can fail, given a count the gate contradicts',
     headerQuoteMismatches(REF_DIR, []).length > 0,
     `${headerQuoteMismatches(REF_DIR, []).length} file(s) claim a non-zero count`);
+  /**
+   * The first version of this check read ONE header dialect and exempted any file that claimed
+   * nothing, so it covered 21 of 30 files and 9 of the 46 quotes while its PASS line said
+   * "every header quote count matches". These rows pin the three properties that fixed it.
+   */
+  check('a header claiming nothing is a FAILURE when the file carries quotes',
+    headerQuoteMismatches(REF_DIR, [{ file: 'themes.md', line: 1, quote: 'x'.repeat(MIN_QUOTE) }])
+      .some((h) => h.file === 'themes.md' && h.reason === 'no claim') === false
+    && headerQuoteMismatches(REF_DIR, [{ file: 'themes.md', line: 1, quote: 'x'.repeat(MIN_QUOTE) }])
+      .some((h) => h.file === 'themes.md'),
+    'themes.md claims NO quotes, so one planted quote must be reported as a wrong count');
+  check('...and both header dialects parse, including the "all N verbatim quote" form',
+    headerQuoteClaim('> all 1 verbatim quote in this file re-checked')?.claimed === 1
+    && headerQuoteClaim('> this file carries SIX verbatim quotes')?.claimed === 6);
+  check('...and a doubled space does not make a claim invisible, which it did in sessions.md',
+    headerQuoteClaim('> It carries NO  verbatim quotes')?.claimed === 0);
+  check('...and a number word the map does not know FAILS rather than being skipped',
+    headerQuoteClaim('> this file carries THIRTY verbatim quotes')?.claimed === null);
   check('the not-a-citation exemption list stays small', NOT_A_CITATION.size <= 5, String(NOT_A_CITATION.size));
   check('...and every exemption states a reason',
     [...NOT_A_CITATION.values()].every((r) => typeof r === 'string' && r.length > 30));

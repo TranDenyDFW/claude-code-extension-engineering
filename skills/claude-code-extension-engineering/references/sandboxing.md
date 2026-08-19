@@ -1,6 +1,6 @@
 # Sandboxing
 
-> Claude Code 2.1.229, verified 2026-08-13. Sources fetched live that day; the sandbox itself could NOT be exercised here, because this machine is native Windows and the sandbox does not run there. Every line below is documentation, tagged accordingly, and nothing in this file is a local observation.
+> Claude Code 2.1.229, verified 2026-08-13. Sources fetched live that day; the sandbox itself could NOT be exercised here, because this machine is native Windows and the sandbox does not run there. This file carries TWENTY verbatim quotes, the most in the library, and `tools/quote-check.mjs` confirms every one still appears upstream. Every line below is documentation, tagged accordingly, and nothing in this file is a local observation.
 
 
 OS-level enforcement for Bash commands and their child processes. It is the only layer in Claude Code that a process cannot talk its way past: the operating system, not the model and not the harness, holds the boundary. It is also the narrowest layer, because it sees Bash and nothing else.
