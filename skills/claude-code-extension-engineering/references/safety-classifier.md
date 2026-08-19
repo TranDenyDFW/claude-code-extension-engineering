@@ -1,9 +1,10 @@
 # Safety classifiers and model fallback
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: every claim below was checked
-> against a live fetch of the Model configuration page on that date. Its sourcing is THINNER than
-> its siblings and that is recorded rather than glossed: this file rests on one page, where the
-> status line and session references each rest on dedicated pages of their own. The refusal-message
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: its DOCUMENTED claims were
+> checked against a live fetch of the Model configuration page on that date, and that is the only
+> page this file cites. Its sourcing is THINNER than its siblings and that is recorded rather than
+> glossed: 9 of its 15 ledgered claims rest on that one page, the other 6 on this project's own
+> research, where the status line and session references each rest on dedicated pages of their own. The refusal-message
 > wording in the error reference is NOT restated here, because that page is `verified-partial` and
 > the relevant sections sit in the part of it that two fetches failed to return. It carries NO
 > verbatim quotes, so the quote gate says nothing about it.

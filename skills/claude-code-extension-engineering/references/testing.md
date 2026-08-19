@@ -1,6 +1,6 @@
 # Testing and iteration
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries ONE verbatim quote, which the quote gate DOES check against the mirror; every other line is unquoted, so the gate is silent about the rest; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries ONE verbatim quote, which the quote gate DOES check against the mirror; no other line carries a span this gate checks, so it is silent about the rest; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
 
 
 How to prove an extension works. Run the task WITHOUT the extension first and record the failure, because a control run is what separates content worth shipping from content the model already produces unaided. Trigger and behaviour are separate tests: firing when it should is not the same as being correct once it fires.

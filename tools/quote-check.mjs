@@ -264,6 +264,37 @@ export function collectUnverifiableQuotes(refDir = REF_DIR) {
   return scanLines(refDir, (line) => classifyLine(line) === 'community');
 }
 
+/**
+ * Quoted spans on lines in NEITHER regime. Most are illustrative: a user phrase, a scare quote, an
+ * error string. A few are real quotations of Anthropic's prose, and those are the problem: nothing
+ * checks them, nothing counts them, and the file header still says every quote was confirmed
+ * upstream. Found 2026-08-19 at sandboxing.md:17, whose 27-character span resolves against the
+ * mirrored sandboxing page while sitting on an [ENGINEERING] line.
+ *
+ * FENCED CODE BLOCKS ARE SKIPPED. A JSON example's string values are not citations, and two of the
+ * three spans that resolved upstream were exactly that: "permissionDecisionReason" and a monitor
+ * description inside ``` fences. Treating those as citations would demand a documentation tag on
+ * every configuration example in the library.
+ */
+export function collectUncheckedResolvingQuotes(refDir = REF_DIR, pages) {
+  if (!pages) return [];
+  const out = [];
+  for (const { name: f, path } of scanTargets(refDir)) {
+    let fenced = false;
+    readFileSync(path, 'utf8').split(/\r?\n/).forEach((line, i) => {
+      if (/^\s*```/.test(line)) { fenced = !fenced; return; }
+      if (fenced) return;
+      if (classifyLine(line) !== 'none') return;
+      for (const q of quotesIn(line)) {
+        if (NOT_A_CITATION.has(q)) continue;
+        const page = findQuote(q, pages);
+        if (page) out.push({ file: f, line: i + 1, quote: q, page });
+      }
+    });
+  }
+  return out;
+}
+
 export function loadMirror(dir) {
   const pages = new Map();
   for (const f of readdirSync(dir)) {
@@ -332,7 +363,10 @@ export function headerBlock(text) {
   const lines = String(text).split(/\r?\n/);
   const out = [];
   let started = false;
-  for (const l of lines.slice(0, 40)) {
+  /* No line cap. A cap of 8 hid safety-classifier.md's wrapped claim; a cap of 40 merely moves the
+     boundary somewhere less likely to be hit, which is the same defect with better odds. The
+     blockquote's own end is the only non-arbitrary stopping point. */
+  for (const l of lines) {
     if (/^\s*>/.test(l)) { started = true; out.push(l.replace(/^\s*>\s?/, '')); continue; }
     if (started && !l.trim()) break;
     if (started) break;
@@ -366,8 +400,13 @@ export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(r
       if (actual > 0) out.push({ file: f, word: null, claimed: null, actual, reason: 'no claim' });
       continue;
     }
-    if (claim.claimed === null) out.push({ file: f, word: claim.word, claimed: null, actual, reason: 'not a number' });
-    else if (claim.claimed !== actual) out.push({ file: f, word: claim.word, claimed: claim.claimed, actual, reason: 'wrong count' });
+    /* ONE comparison, not two branches. An unparseable count is null, and null !== actual for
+       every real count, so the unknown-number case rides on the same line the wrong-count case
+       does. Two branches meant the rarer one could be deleted with every gate green, which a
+       review demonstrated. */
+    if (claim.claimed !== actual) {
+      out.push({ file: f, word: claim.word, claimed: claim.claimed, actual, reason: claim.claimed === null ? 'not a number' : 'wrong count' });
+    }
   }
   return out;
 }
@@ -420,6 +459,15 @@ function main(argv) {
     console.log('Paraphrase and attribute instead, or promote the line to OFFICIAL with a real citation.');
     bad += unverifiable.length;
   }
+  const stray = collectUncheckedResolvingQuotes(REF_DIR, pages);
+  if (stray.length) {
+    console.log('\nUPSTREAM PROSE QUOTED WHERE THIS GATE DOES NOT CHECK IT:');
+    for (const s of stray) console.log(`  ${s.file}:${s.line}  resolves in ${s.page}\n    "${s.quote.slice(0, 150)}"`);
+    console.log(`\nFAIL ${stray.length} span(s) quote Anthropic's words from a line carrying no documentation tag.`);
+    console.log('The file header still reports every quote as confirmed, so the reader is told more');
+    console.log('was checked than was. Tag the line if the claim is documented, or paraphrase.');
+    bad += stray.length;
+  }
   const headers = headerQuoteMismatches();
   if (headers.length) {
     console.log('\nHEADER MISDESCRIBES ITS OWN QUOTE COVERAGE:');
@@ -437,8 +485,9 @@ function main(argv) {
   if (bad) return 1;
   const cov = headerClaimCoverage();
   console.log('\nPASS every verbatim quote still appears upstream, and no COMMUNITY-only line quotes.');
-  console.log(`     ${cov.withClaim} of ${cov.files} reference headers state a quote count, and each matches what`);
-  console.log('     this gate found. The rest carry no quotes, which is the only case allowed to stay silent.');
+  console.log(`     ${cov.withClaim} of ${cov.files} scanned files state a quote count in their header, and each`);
+  console.log('     matches what this gate found. The rest carry no quotes, which is the only case allowed');
+  console.log('     to stay silent. The scanned set is the references directory plus the skill SKILL.md.');
   const partial = quotes.filter((q) => droppedFragments(q.quote).length);
   if (partial.length) {
     console.log(`\nPARTIAL COVERAGE on ${partial.length} abridged quote(s): a fragment shorter than`);
@@ -559,9 +608,9 @@ function selfTest() {
    * itself asserted. If this ever needs to grow past a handful, the extractor is
    * wrong and the fix belongs there, not here.
    */
-  check('every reference header that states a quote count states the RIGHT one',
+  check('every reference header that states a quote count states the RIGHT one',  // @header-row
     headerQuoteMismatches().length === 0, JSON.stringify(headerQuoteMismatches()));
-  check('...and the header check can fail, given a count the gate contradicts',
+  check('...and the header check can fail, given a count the gate contradicts',  // @header-row
     headerQuoteMismatches(REF_DIR, []).length > 0,
     `${headerQuoteMismatches(REF_DIR, []).length} file(s) claim a non-zero count`);
   /**
@@ -576,10 +625,10 @@ function selfTest() {
    * sources.md states no count at all, which is the branch this row is for.
    */
   const planted = (f) => headerQuoteMismatches(REF_DIR, [{ file: f, line: 1, quote: 'x'.repeat(MIN_QUOTE) }]);
-  check('a header claiming nothing is a FAILURE when the file carries quotes',
+  check('a header claiming nothing is a FAILURE when the file carries quotes',  // @header-row
     planted('sources.md').some((h) => h.file === 'sources.md' && h.reason === 'no claim'),
     JSON.stringify(planted('sources.md').filter((h) => h.file === 'sources.md')));
-  check('...and a file that states a count is caught on the count branch instead',
+  check('...and a file that states a count is caught on the count branch instead',  // @header-row
     planted('themes.md').some((h) => h.file === 'themes.md' && h.reason === 'wrong count'),
     JSON.stringify(planted('themes.md').filter((h) => h.file === 'themes.md')));
   /**
@@ -588,19 +637,32 @@ function selfTest() {
    * A shorter fixture passes under the old fixed window too, so it would not have caught it.
    */
   const WRAPPED_AT_8 = '# T\n\n> filler line 1 standing in for a long provenance header.\n> filler line 2 standing in for a long provenance header.\n> filler line 3 standing in for a long provenance header.\n> filler line 4 standing in for a long provenance header.\n> filler line 5 standing in for a long provenance header.\n> the sourcing note runs on and eventually says it carries NO\n> verbatim quotes, so the gate is silent.';
-  check('a claim WRAPPED past the old fixed window is still read',
+  check('a claim WRAPPED past the old fixed window is still read',  // @header-row
     headerQuoteClaim(WRAPPED_AT_8)?.claimed === 0,
     JSON.stringify(headerQuoteClaim(WRAPPED_AT_8)));
-  check('...and the blockquote stops at the first non-quoted line, so body prose cannot forge a claim',
-    headerQuoteClaim('# T\n\n> a header with no count.\n\nBody text claiming it carries SIX verbatim quotes.') === null);
-  check('...and both header dialects parse, including the "all N verbatim quote" form',
+  /* No BLANK line between the blockquote and the body: a blank line is stopped by the separate
+     blank-line rule, so a fixture containing one proves that rule instead of this one. */
+  /* Body text, THEN a second blockquote. Without the boundary rule the two blockquotes join and
+     the body's own quote count becomes the header's. A fixture whose forged claim sits in plain
+     body text cannot detect the revert, because skipping that line is the same as stopping at it. */
+  const FORGERY = '# T\n> a header with no count.\nBody text.\n> and it carries SIX verbatim quotes.';
+  check('...and the blockquote stops at the first non-quoted line, so body prose cannot forge a claim',  // @header-row
+    headerQuoteClaim(FORGERY) === null, JSON.stringify(headerQuoteClaim(FORGERY)));
+  check('...and both header dialects parse, including the "all N verbatim quote" form',  // @header-row
     headerQuoteClaim('> all 1 verbatim quote in this file re-checked')?.claimed === 1
     && headerQuoteClaim('> this file carries SIX verbatim quotes')?.claimed === 6);
-  check('...and a doubled space does not make a claim invisible, which it did in sessions.md',
+  check('...and a doubled space does not make a claim invisible, which it did in sessions.md',  // @header-row
     headerQuoteClaim('> It carries NO  verbatim quotes')?.claimed === 0);
-  check('...and a number word the map does not know FAILS rather than being skipped',
+  check('...and a number word the map does not know FAILS rather than being skipped',  // @header-row
     headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')?.claimed === null,
     JSON.stringify(headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')));
+  check('no upstream prose is quoted on a line this gate does not check',  // @header-row
+    collectUncheckedResolvingQuotes(REF_DIR, loadMirror(DEFAULT_MIRROR)).length === 0,
+    JSON.stringify(collectUncheckedResolvingQuotes(REF_DIR, loadMirror(DEFAULT_MIRROR)).map((s) => `${s.file}:${s.line}`)));
+  check('...and that check ignores fenced code blocks, or every JSON example needs a tag',  // @header-row
+    collectUncheckedResolvingQuotes(REF_DIR, new Map([['x.md', normalise('Destructive command blocked by hook')]])).length === 0);
+  check('a header claim past the old 40-line cap is still read',  // @header-row
+    headerQuoteClaim(`# T\n\n${Array.from({ length: 60 }, (_, i) => `> filler ${i}`).join('\n')}\n> and it carries NO verbatim quotes.`)?.claimed === 0);
   check('the not-a-citation exemption list stays small', NOT_A_CITATION.size <= 5, String(NOT_A_CITATION.size));
   check('...and every exemption states a reason',
     [...NOT_A_CITATION.values()].every((r) => typeof r === 'string' && r.length > 30));
