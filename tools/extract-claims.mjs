@@ -27,6 +27,15 @@ const ROOT = join(HERE, '..');
 
 const TAG_RE = /\[(OFFICIAL|ENGINEERING|COMMUNITY|ANTHROPIC|EXPERIMENTAL|LEGACY|DEPRECATED|ENGINEERING BEST PRACTICE|ANTHROPIC RECOMMENDATION|COMMUNITY PRACTICE)\]|\[v(\d+\.\d+\.\d+)\]/g;
 
+/**
+ * Replace the CONTENTS of every backticked code span with spaces, preserving length so that
+ * offsets into the returned string still index the original line. A tag written inside backticks
+ * is being named, not applied.
+ */
+export function ignoreBacktickedTags(line) {
+  return line.replace(/`[^`]*`/g, (span) => ' '.repeat(span.length));
+}
+
 export function extract() {
   const files = [];
   for (const skillDir of skillDirs(ROOT)) {
@@ -65,7 +74,13 @@ export function extract() {
       const versions = [];
       let m;
       TAG_RE.lastIndex = 0;
-      while ((m = TAG_RE.exec(line)) !== null) {
+      // A tag inside backticks is a MENTION, not a USE. SKILL.md's own legend writes
+      // `[ENGINEERING]` and `[COMMUNITY]` while DEFINING them, and this loop read those
+      // definitions as claims carrying the very tags they explain, producing three records that
+      // asserted, among other things, that Anthropic documents this library's editorial
+      // conventions. Blanked rather than deleted so every character offset stays put.
+      const scannable = ignoreBacktickedTags(line);
+      while ((m = TAG_RE.exec(scannable)) !== null) {
         if (m[1]) tags.push(m[1]);
         if (m[2]) versions.push(m[2]);
       }

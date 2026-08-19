@@ -38,8 +38,8 @@
  *   node tools/attrib-check.mjs --prove-fail           mutates a copy of the REAL ledger and
  *                                                      proves the gate goes red on real data
  */
-import { readFileSync, existsSync } from 'fs';
-import { execFileSync } from 'child_process';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
+import { execFileSync, spawnSync } from 'child_process';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
@@ -337,9 +337,60 @@ function proveFail(ref) {
 
   const sync = assertRegexInSync();
   if (sync.ok) pass++; else console.log(`  FAIL TAG_RE sync: ${sync.why}`);
-  const total = mutants.length + decCases.length + 1;
+
+  const proc = proveAtProcessBoundary(ref);
+  pass += proc.pass;
+
+  const total = mutants.length + decCases.length + 1 + proc.total;
   console.log(`\n${pass === total && observed.length ? 'GATE CAN FAIL' : 'FAIL'}  ${pass}/${total} real-artifact mutants rejected.`);
   return pass === total && observed.length ? 0 : 1;
+}
+
+/**
+ * Everything above proves the FUNCTIONS can fail. It does not prove the TOOL does, and an
+ * independent reviewer showed the difference matters: replacing `return bad ? 1 : 0` with
+ * `return 0` left every check above green while the gate became inert to any caller reading an
+ * exit code. This repo already wrote the rule down, in tools/verify-evidence.mjs:51: "The gate
+ * under proof is THIS TOOL SPAWNED AS A PROCESS, not an internal function. Five review rounds were
+ * lost to exactly that distinction." This lane obeys it.
+ *
+ * The ledger is mutated on disk, the tool is spawned, and the original BYTES are written back and
+ * verified. Buffer restore rather than `git checkout --`, because the ledger is LF on disk while
+ * the .mjs files are CRLF and the checkout filter would rewrite one of them.
+ */
+function proveAtProcessBoundary(ref) {
+  const path = join(ROOT, LEDGER);
+  const original = readFileSync(path);
+  const rows = parse(original.toString('utf8'));
+  const target = rows.find((r) => r.source && (r.tags || []).length);
+  const run = (args) => spawnSync(process.execPath, [HERE, ...args], { cwd: ROOT, encoding: 'utf8' });
+
+  let pass = 0;
+  const cases = [];
+  try {
+    const before = run(['--baseline', ref]);
+    cases.push({ label: 'spawned tool is GREEN on the unmutated ledger', ok: before.status === 0, got: before.status });
+
+    const mutated = rows.map((r) => (r.id === target.id ? { ...r, source: `${r.source}_MUTANT` } : r));
+    writeFileSync(path, mutated.map((r) => JSON.stringify(r)).join('\n') + '\n', 'utf8');
+    const after = run(['--baseline', ref]);
+    cases.push({ label: 'spawned tool EXITS NON-ZERO on a mutated ledger', ok: after.status === 1, got: after.status });
+    cases.push({ label: '...and says so on stderr rather than failing silently', ok: /changed while the substance did not/.test(after.stderr || ''), got: (after.stderr || '').slice(0, 40) });
+  } finally {
+    writeFileSync(path, original);
+  }
+
+  const restored = readFileSync(path);
+  cases.push({ label: 'ledger restored byte for byte', ok: restored.equals(original), got: `${restored.length} vs ${original.length} bytes` });
+  const final = run(['--baseline', ref]);
+  cases.push({ label: 'spawned tool GREEN again after restore', ok: final.status === 0, got: final.status });
+
+  console.log('  process boundary, the tool spawned rather than its functions called:');
+  for (const c of cases) {
+    if (c.ok) pass++;
+    console.log(`  ${c.ok ? 'ok  ' : 'FAIL'} ${c.label}  (${c.got})`);
+  }
+  return { pass, total: cases.length };
 }
 
 const DEFAULT_DECL = join(ROOT, 'evidence', 'attrib-expected.json');

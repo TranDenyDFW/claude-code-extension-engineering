@@ -295,6 +295,29 @@ jobs:
           # can tell those apart could regress unnoticed.
           node tools/gh-comments-harvest.mjs --self-test
           node tools/gh-comments-coverage.mjs --self-test
+          # The evidence-ledger trio, added 2026-08-18 after an independent reviewer
+          # measured that SEVEN of the fourteen gates a contributor runs by hand were
+          # invoked by nothing here, including BOTH gates the branch adding them was
+          # written to deliver. The npm scripts are not a bridge: the literal string
+          # "npm run" appears in this workflow zero times, because CI calls node
+          # directly. That is the same defect this step is named for, committed again
+          # by the author of this step's own comment.
+          node tools/fact-sweep.mjs
+          node tools/fact-sweep.mjs --self-test
+          node tools/claim-drift.mjs
+          node tools/claim-drift.mjs --self-test
+          node tools/attrib-check.mjs --self-test
+          # --baseline HEAD, NOT the default main. actions/checkout above sets no
+          # fetch-depth, so it clones depth 1 and `git rev-parse main` does not resolve
+          # on a runner. HEAD always does. This proves the gate BITES; comparing against
+          # main is a local and PR-review concern, and wiring the default here would
+          # produce a red meaning "shallow clone" rather than "defect".
+          node tools/attrib-check.mjs --prove-fail --baseline HEAD
+          # The process-boundary proof for the quotes gate. quote-check itself already
+          # runs in the "Verbatim quotes still exist upstream" step; this is the
+          # must-fail half, which appends a real offending line, requires exit 1, and
+          # restores the file byte for byte.
+          node tools/quote-prove-fail.mjs
 
   # ---------------------------------------------------------------- tier3 ----
   tier3:

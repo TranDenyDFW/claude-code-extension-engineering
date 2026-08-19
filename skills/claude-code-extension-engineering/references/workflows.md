@@ -118,4 +118,4 @@ where untrusted text becomes instructions, and nothing in the API stops it.
 
 - Dynamic Workflows is STABLE since v2.1.154, not experimental.  [v2.1.154]
 - Claude authors the script; saving it to .claude/workflows/ turns it into a reusable /<name> command. It is also distributable as a plugin component.  [v2.1.154]
-- Hard caps: 1000 subagent invocations per run and 16 concurrent.  [v2.1.154]
+- Hard caps: 1000 subagent invocations per run, and concurrency capped at `min(16, available CPUs - 2)` rather than a flat 16, so on any machine under 18 cores the real ceiling is lower than the headline number and the tool text puts the practical figure at about 10. Excess calls queue rather than failing.  [v2.1.154]
