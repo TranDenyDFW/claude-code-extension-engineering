@@ -228,10 +228,34 @@ function restoredExactly(file, m) {
       row: /doubled space does not make a claim invisible/,
     },
     {
+      label: 'joining a wrapped paragraph, back to physical lines',
+      from: '    cur.text += ` ${l.trim()}`;',
+      to: '    flush(); cur = { line: i + 1, text: l };',
+      row: /paragraph wrapped across two lines is ONE logical line/,
+    },
+    {
+      label: 'joining a wrapped BLOCKQUOTE, which flushed on every quoted line',
+      from: "    if (quoted && cur && curQuoted) { cur.text += ` ${l.replace(/^\\s*>\\s?/, '').trim()}`; continue; }",
+      to: '    if (false) { continue; }',
+      row: /BLOCKQUOTE wrapped the same way is too/,
+    },
+    {
+      label: 'the same-quotedness test, so a blockquote absorbs the paragraph above it',
+      from: '    const curQuoted = cur ? /^\\s*>/.test(cur.text) : false;',
+      to: '    const curQuoted = true;',
+      row: /blockquote does NOT absorb the paragraph above it/,
+    },
+    {
+      label: 'the fence rule in the joiner, so a fenced block is joined like prose',
+      from: 'export const isFence = (l) => /^\\s*(```|~~~)/.test(String(l));',
+      to: 'export const isFence = () => false;',
+      row: /fenced block is never joined/,
+    },
+    {
       label: 'skipping code blocks in the unchecked-quotation hunt, fenced AND indented',
       edits: [
-        { from: '      if (/^\\s*(```|~~~)/.test(text)) { fenced = !fenced; continue; }', to: '      if (false) { fenced = !fenced; continue; }' },
-        { from: '      if (/^ {4,}\\S/.test(text)) continue;', to: '      if (false) continue;' },
+        { from: '      if (isFence(text)) { fenced = !fenced; continue; }', to: '      if (false) { fenced = !fenced; continue; }' },
+        { from: '      if (isIndentedCode(text, false)) continue;', to: '      if (false) continue;' },
       ],
       row: /ignores fenced code blocks/,
     },

@@ -258,6 +258,18 @@ function scanTargets(refDir) {
  * The reported `line` is where the logical line STARTS, so a citation is cited at the line a reader
  * would look at.
  */
+/** A fence line in either spelling. One definition, used by every caller. */
+export const isFence = (l) => /^\s*(```|~~~)/.test(String(l));
+
+/**
+ * An indented line is a code block only when nothing is open above it. A markdown list continuation
+ * is routinely indented four spaces, and treating it as code would hide any citation written there.
+ */
+export const isIndentedCode = (l, blockOpen) => /^ {4,}\S/.test(String(l)) && !blockOpen;
+
+/** A line that starts a new block rather than continuing the one above it. */
+export const startsBlock = (l) => /^\s*([-*+]\s|\d+[.)]\s|#{1,6}\s|\|)/.test(String(l));
+
 export function logicalLines(text) {
   const lines = String(text).split(/\r?\n/);
   const out = [];
@@ -266,16 +278,17 @@ export function logicalLines(text) {
   const flush = () => { if (cur) out.push(cur); cur = null; };
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    if (/^\s*(```|~~~)/.test(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l }); continue; }
-    /* An indented line is a code block only when nothing is open above it. A markdown list
-       continuation is routinely indented four spaces, and treating it as code would hide any
-       citation written there, which is the hole the code-block skip was meant to avoid in the
-       other direction. */
-    if (fenced || (/^ {4,}\S/.test(l) && !cur)) { flush(); out.push({ line: i + 1, text: l }); continue; }
+    if (isFence(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l }); continue; }
+    if (fenced || isIndentedCode(l, cur)) { flush(); out.push({ line: i + 1, text: l }); continue; }
     if (!l.trim()) { flush(); continue; }
-    /* A new block starts at a bullet, a heading, a table row, or a blockquote marker. Anything else
-       that is not blank continues the block above it. */
-    if (/^\s*([-*+]\s|\d+[.)]\s|#{1,6}\s|\||>)/.test(l) || !cur) { flush(); cur = { line: i + 1, text: l }; continue; }
+    /* A BLOCKQUOTE CONTINUES like a paragraph. Flushing on every `>` line hid any citation wrapped
+       inside one, and the library's own file headers are blockquotes, so the shape was shipped. A
+       quoted line joins the block above it only when that block is also quoted, or a body
+       blockquote would absorb the paragraph before it. */
+    const quoted = /^\s*>/.test(l);
+    const curQuoted = cur ? /^\s*>/.test(cur.text) : false;
+    if (quoted && cur && curQuoted) { cur.text += ` ${l.replace(/^\s*>\s?/, '').trim()}`; continue; }
+    if (quoted || startsBlock(l) || !cur) { flush(); cur = { line: i + 1, text: l }; continue; }
     cur.text += ` ${l.trim()}`;
   }
   flush();
@@ -339,9 +352,11 @@ export function collectUncheckedResolvingQuotes(refDir = REF_DIR, pages) {
        hunt meant to catch citations the count cannot see. Both fence spellings and indented blocks
        are skipped, since a configuration example is not a citation. */
     for (const { line, text } of logicalLines(readFileSync(path, 'utf8'))) {
-      if (/^\s*(```|~~~)/.test(text)) { fenced = !fenced; continue; }
+      /* The SAME rules logicalLines uses, by name. Two copies is how the fence fix reached one
+         caller and not the other. */
+      if (isFence(text)) { fenced = !fenced; continue; }
       if (fenced) continue;
-      if (/^ {4,}\S/.test(text)) continue;
+      if (isIndentedCode(text, false)) continue;
       if (classifyLine(text) !== 'none') continue;
       for (const q of quotesIn(text)) {
         if (NOT_A_CITATION.has(q)) continue;
@@ -910,6 +925,23 @@ function selfTest() {
   check('...and a number word the map does not know FAILS rather than being skipped',  // @header-row
     headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')?.claimed === null,
     JSON.stringify(headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')));
+  /* logicalLines was asserted by NOTHING until 2026-08-19: gutting it back to physical lines left
+     all fourteen gates green, so the fix that made wrapped citations visible was itself unproven. */
+  const WRAP_PARA = 'x\n\nThe docs say "a fabricated sentence that nobody\never wrote anywhere at all" here.';
+  const WRAP_QUOTE = 'x\n\n> The docs say "a fabricated sentence that nobody\n> ever wrote anywhere at all" here.';
+  check('a paragraph wrapped across two lines is ONE logical line',  // @header-row
+    logicalLines(WRAP_PARA).some((x) => /nobody ever wrote/.test(x.text)),
+    JSON.stringify(logicalLines(WRAP_PARA).map((x) => x.text)));
+  check('...and a BLOCKQUOTE wrapped the same way is too, which it was not',  // @header-row
+    logicalLines(WRAP_QUOTE).some((x) => /nobody ever wrote/.test(x.text)),
+    JSON.stringify(logicalLines(WRAP_QUOTE).map((x) => x.text)));
+  check('...and a blockquote does NOT absorb the paragraph above it',  // @header-row
+    logicalLines('A plain paragraph.\n> A quoted line.').length === 2);
+  const F3 = String.fromCharCode(96, 96, 96);
+  const FENCED = [F3, 'foo "a string of at least twenty-five chars"', 'bar', F3].join(String.fromCharCode(10));
+  check('...and a fenced block is never joined, whatever is inside it',  // @header-row
+    logicalLines(FENCED).length === 4,
+    JSON.stringify(logicalLines(FENCED).map((x) => x.text)));
   check('no header states anything outside the build and the quote count',  // @header-row
     headerShapeViolations().length === 0, JSON.stringify(headerShapeViolations()));
   check('...and that decision refuses a date',  // @header-row
