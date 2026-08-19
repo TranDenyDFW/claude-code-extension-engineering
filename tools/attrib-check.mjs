@@ -4,7 +4,9 @@
  * WHY THIS EXISTS. `tools/verify-evidence.mjs` line 162 is the entire source check:
  *   if (!sourceIds.has(c.source)) errors.push(...)
  * That is set membership. It asks whether the source id EXISTS, never whether it is the RIGHT one.
- * `note` is read by no gate at all, and `tags` is read by no gate at all. So a claim can silently
+ * `note` is read by no gate at all. `tags` was read by no gate at all when this tool was written;
+ * since 2026-08-19 verify-evidence compares the ledger tags against the tagged LINE, which catches a
+ * ledger out of sync with the file but still not a retag of both together. So a claim can silently
  * change which source it rests on, lose the reasoning behind it, or be promoted from observation to
  * documentation, and every other gate stays green.
  *

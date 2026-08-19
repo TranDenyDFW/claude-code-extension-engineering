@@ -72,7 +72,7 @@
       "composition-cards.md",
       "sources.md"
     ],
-    "why": "These four are navigation and provenance, not subject matter, and a reader who lands in one skill needs them there. Duplication is cheap here because all four carry ZERO claims, so no CLM-* id collides across copies.",
+    "why": "These four are navigation and provenance, not subject matter, and a reader who lands in one skill needs them there. CORRECTED 2026-08-19 by independent review: this said duplication was cheap because all four carry ZERO claims, which is false at HEAD, where selection.md carries 1, composition-cards.md 1 and sources.md 2, all ledgered. Duplicating them therefore DOES collide CLM-* ids across copies, and verify-evidence now fails on a duplicate extraction id rather than silently dropping one of the pair. Before cutover either strip the tags from those four lines or give each skill copy its own id namespace.",
     "cost": "It contradicts this repo's own stated principle that a duplicated list is a second place for the truth to rot. Mitigated by a byte-identity gate against the canonical copy rather than by hoping."
   },
   "invariants": [

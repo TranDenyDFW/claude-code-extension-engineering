@@ -114,6 +114,25 @@ if (process.argv.includes('--prove-can-fail')) {
        */
       { label: 'a claim text rewritten to something no reference file says', expect: 'DRIFT',
         mutate: (v) => { v[0].text = 'this sentence appears in no reference file anywhere'; return v; } },
+      /**
+       * The tag and version comparisons in check 3 shipped 2026-08-19 with NO mutant, so deleting
+       * them left every gate green. That is the defect they were written to close, one layer up: a
+       * check nothing proves can fail is indistinguishable from a check that is not there. Both
+       * mutants below touch ONLY the ledger field and never the text, so they land exactly where
+       * the text comparison is blind.
+       */
+      { label: 'a claim ledger tags out of sync with the tagged line', expect: 'DRIFT',
+        mutate: (v) => {
+          const r = v.find((x) => (x.tags || []).length) || v[0];
+          r.tags = (r.tags || []).includes('COMMUNITY') ? ['OFFICIAL'] : ['COMMUNITY'];
+          return v;
+        } },
+      { label: 'a claim ledger versions out of sync with the tagged line', expect: 'DRIFT',
+        mutate: (v) => {
+          const r = v.find((x) => !(x.versions || []).includes('9.9.9')) || v[0];
+          r.versions = [...(r.versions || []), '9.9.9'];
+          return v;
+        } },
     ],
   }));
 }
@@ -184,6 +203,25 @@ const freshIds = new Set(fresh.map(c => c.id));
  * pre-existing failure. It is the provenance record the whole project rests on,
  * and it was guarded by a set-membership test.
  */
+/**
+ * A Map keyed by id LOSES the earlier record when two extracted lines share an id, and the reverse
+ * sweep below then reports both as accounted for, so one line's tags go unchecked with the gate
+ * green. Reproduced by an independent reviewer with a second reference file colliding on
+ * CLM-agent-sdk-012: 786 extraction rows, 785 distinct ids, exit 0.
+ *
+ * Latent today (0 duplicate ids) and not latent by design: data/routing/skill-split.json plans to
+ * duplicate four reference files into every skill, which is exactly the shape that produces
+ * byte-identical colliding ids. Detected here rather than at cutover.
+ */
+const seenIds = new Map();
+for (const c of fresh) {
+  const prior = seenIds.get(c.id);
+  if (prior) {
+    errors.push(`DUPLICATE_EXTRACTION_ID: ${c.id} is produced by both ${prior.file}:${prior.line} and ${c.file}:${c.line}; one of the two would be invisible to every check below`);
+  } else {
+    seenIds.set(c.id, c);
+  }
+}
 const freshById = new Map(fresh.map(c => [c.id, c]));
 for (const c of claims) {
   if (!freshIds.has(c.id)) {
@@ -202,6 +240,19 @@ for (const c of claims) {
    * and never moved the total, this tool diffed only file, line and text, and attrib-check compares
    * two LEDGERS, so the unchanged value matched itself. The record asserted official documentation
    * for the one claim whose sentence retracts it.
+   */
+  /**
+   * WHAT THIS PROVES, AND WHAT IT DOES NOT. Both sides are the same regex over the same line, so
+   * this catches a ledger that stopped matching the FILE and nothing else. It does not read
+   * sources.json's URL, the mirrored page, or the claim's note, so a bullet retagged to [OFFICIAL]
+   * in BOTH places, with its source swapped to an unrelated real page, passes here. An independent
+   * reviewer demonstrated exactly that end to end on 2026-08-19. Whether a tag is DESERVED is
+   * settled by quote-check for lines carrying a 25-character verbatim span, and by a human reading
+   * the cited page for everything else. Do not read a green run as a check on attribution truth.
+   *
+   * The `text` compared just above is the extractor's 400-CHARACTER PREFIX. An edit beyond that
+   * point is invisible here by construction; `text_sha256` holds a hash of the FULL claim text and
+   * tools/claim-drift.mjs is the gate that checks it.
    */
   const ft = JSON.stringify([...(f.tags || [])].sort());
   const ct = JSON.stringify([...(c.tags || [])].sort());

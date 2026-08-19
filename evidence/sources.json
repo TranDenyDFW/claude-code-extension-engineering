@@ -901,11 +901,34 @@
     "id": "SRC_BEST_PRACTICES",
     "title": "Claude Code best practices",
     "url": "https://code.claude.com/docs/en/best-practices",
-    "type": "",
+    "type": "official",
     "retrieved": "2026-08-19",
-    "build": "",
+    "build": "2.1.229",
     "status": "verified",
-    "notes": "",
-    "spot_checks": ""
+    "notes": "Read from the local docs mirror at CCX-Extension-Research/sources/docs/md/best-practices.md on 2026-08-19, not a live fetch. Added for the grading section in testing.md, whose independent-grader rule this page states directly.",
+    "spot_checks": [
+      {
+        "line": 48,
+        "quote": "so the agent doing the work isn't the one grading it",
+        "found": true
+      }
+    ]
+  },
+  {
+    "id": "SRC_LARGE_CODEBASES",
+    "title": "Work with large codebases",
+    "url": "https://code.claude.com/docs/en/large-codebases",
+    "type": "official",
+    "retrieved": "2026-08-19",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Read from the local docs mirror at CCX-Extension-Research/sources/docs/md/large-codebases.md on 2026-08-19, not a live fetch. Added because the re-baseline-after-a-model-change rule in testing.md cited SRC_FEATURES, which does not support it; this page is where the prescription actually lives.",
+    "spot_checks": [
+      {
+        "line": 115,
+        "quote": "may become overhead once a newer model handles the case on its own",
+        "found": true
+      }
+    ]
   }
 ]

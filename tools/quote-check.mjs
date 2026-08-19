@@ -275,6 +275,34 @@ export function findQuote(quote, pages) {
   return null;
 }
 
+/**
+ * A reference file's header states how many verbatim quotes it carries, which tells a reader how
+ * much of that file this gate actually covers. Nothing kept the two in agreement, so the sentence
+ * went stale the moment a quote was added and stayed stale through two verification passes: an
+ * independent review found testing.md still claiming NO quotes after one was added, and hooks.md
+ * claiming TWO while the extractor found six. hooks.md's own header already names this defect
+ * class in its own words, so the project had documented the failure and then repeated it.
+ *
+ * The header is a CLAIM ABOUT THIS GATE, so this gate is the right place to check it. Files whose
+ * header makes no quote claim are skipped rather than required to make one.
+ */
+export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(refDir)) {
+  const WORDS = { NO: 0, ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6, SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10 };
+  const byFile = new Map();
+  for (const q of quotes) byFile.set(q.file, (byFile.get(q.file) || 0) + 1);
+  const out = [];
+  for (const f of readdirSync(refDir).filter((x) => x.endsWith('.md')).sort()) {
+    const head = readFileSync(join(refDir, f), 'utf8').split(/\r?\n/).slice(0, 6).join(' ');
+    const m = head.match(/carries ([A-Z]+) verbatim quotes?/);
+    if (!m) continue;
+    const claimed = WORDS[m[1]];
+    const actual = byFile.get(f) || 0;
+    if (claimed === undefined) out.push({ file: f, word: m[1], claimed: null, actual });
+    else if (claimed !== actual) out.push({ file: f, word: m[1], claimed, actual });
+  }
+  return out;
+}
+
 function main(argv) {
   const mi = argv.indexOf('--mirror');
   const mirror = mi >= 0 ? argv[mi + 1] : DEFAULT_MIRROR;
@@ -316,8 +344,20 @@ function main(argv) {
     console.log('Paraphrase and attribute instead, or promote the line to OFFICIAL with a real citation.');
     bad += unverifiable.length;
   }
+  const headers = headerQuoteMismatches();
+  if (headers.length) {
+    console.log('\nHEADER MISDESCRIBES ITS OWN QUOTE COVERAGE:');
+    for (const h of headers) {
+      console.log(`  ${h.file}  header says ${h.word}${h.claimed === null ? ' (not a number word)' : ` (${h.claimed})`}, this gate finds ${h.actual}`);
+    }
+    console.log(`\nFAIL ${headers.length} header(s) tell the reader how much of the file this gate covers, and say it wrong.`);
+    console.log('Fix the sentence, not the quote: the header is a claim about coverage, and a wrong one');
+    console.log('understates or overstates what has actually been verified against the mirror.');
+    bad += headers.length;
+  }
   if (bad) return 1;
-  console.log('\nPASS every verbatim quote still appears upstream, and no COMMUNITY-only line quotes.');
+  console.log('\nPASS every verbatim quote still appears upstream, no COMMUNITY-only line quotes,');
+  console.log('     and every header quote count matches what this gate found.');
   const partial = quotes.filter((q) => droppedFragments(q.quote).length);
   if (partial.length) {
     console.log(`\nPARTIAL COVERAGE on ${partial.length} abridged quote(s): a fragment shorter than`);
@@ -438,6 +478,11 @@ function selfTest() {
    * itself asserted. If this ever needs to grow past a handful, the extractor is
    * wrong and the fix belongs there, not here.
    */
+  check('every reference header that states a quote count states the RIGHT one',
+    headerQuoteMismatches().length === 0, JSON.stringify(headerQuoteMismatches()));
+  check('...and the header check can fail, given a count the gate contradicts',
+    headerQuoteMismatches(REF_DIR, []).length > 0,
+    `${headerQuoteMismatches(REF_DIR, []).length} file(s) claim a non-zero count`);
   check('the not-a-citation exemption list stays small', NOT_A_CITATION.size <= 5, String(NOT_A_CITATION.size));
   check('...and every exemption states a reason',
     [...NOT_A_CITATION.values()].every((r) => typeof r === 'string' && r.length > 30));
