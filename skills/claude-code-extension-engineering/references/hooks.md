@@ -43,6 +43,18 @@ Code the HARNESS runs on a lifecycle event, independent of the model's judgment.
 - Shares the generic capture-change-retest loop in [testing.md](testing.md)
 - Evidence source: matches, exit codes, and full stdout/stderr go to the debug log (claude --debug-file PATH, or ~/.claude/debug/SESSION-ID.txt with --debug, which prints NOTHING to the terminal); CLAUDE_CODE_DEBUG_LOG_LEVEL=verbose adds matcher-level detail [OFFICIAL]
 
+## What the matrix above cannot see
+
+Every row of that matrix drives the HANDLER and reads what comes back. A handler can be perfect and
+never run, and no amount of handler testing detects it.
+
+- Assert the REGISTRATION itself, as data. Load the settings or hooks file, walk to the entry you expect, and assert the event name, the matcher, the `shell` field and the command shape, printing the actual value on failure. This file already tells a reader that wiring causes outrank handler causes when a hook does not fire, and then offers no way to test the wiring  [ENGINEERING]
+- A SCHEMA VIOLATION ELSEWHERE IN THE FILE CAN STOP YOUR HOOKS LOADING, silently. Measured 2026-08-17 by a controlled A/B on 2.1.229: two runs differing only in `permissions.allow` being a valid array versus the string NOT_AN_ARRAY, with a byte-identical SessionStart hook block. The valid run fired and injected once; the invalid run did not fire at all and injected nothing, with NO warning in the debug log. So an unrelated key can disable every hook in the same file  [ENGINEERING]  [v2.1.229]
+- Do NOT generalise that from the documented behaviour, which is the opposite and is scoped to MANAGED settings: those parse tolerantly, so an entry failing schema validation is STRIPPED, a warning is recorded, every remaining valid entry is still enforced, interactive sessions show a startup dialog listing the invalid entries, and `claude doctor` lists each one with its source and field. The tolerant path is documented; the silent one is what was measured at user scope  [OFFICIAL]
+- The practical consequence is a validation step, not a bigger matrix: validate the whole settings file against its schema BEFORE writing it, because the failure mode is not a broken hook but a file whose hooks never load. `$schema` in the file gives editors the same check  [ENGINEERING]
+- Assert the NEGATIVE half of any branching output. Where two output shapes are mutually exclusive, assert the expected field is present AND each competing field is absent, or a handler emitting several at once passes a test written only for the one you wanted  [ENGINEERING]
+- Run integration tests against a THROWAWAY home and config directory supplied through the environment, so the install, activate, reinstall and uninstall cycle cannot touch the developer's real configuration and cannot pass merely because that machine is set up correctly. `CLAUDE_CONFIG_DIR` is the documented lever; note it redirects CONFIG only, so a probe that also needs a clean environment must scrub that separately  [ENGINEERING]
+
 ## ENRICHING or ENFORCING: decide this before writing a line
 
 This file gives both postures and never says which one you are in. "A safety hook must not brick
