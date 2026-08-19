@@ -194,6 +194,21 @@ for (const c of claims) {
   if (f.file !== c.file) errors.push(`DRIFT: ${c.id} ledger says ${c.file}, extraction found it in ${f.file}`);
   if (f.line !== c.line) errors.push(`DRIFT: ${c.id} ledger says line ${c.line}, extraction found it at line ${f.line}`);
   if (f.text !== c.text) errors.push(`DRIFT: ${c.id} ledger text does not match the tagged line it cites`);
+  /**
+   * Tags were compared by NOTHING until 2026-08-19, and an independent review found the gap the
+   * hard way. The extractor change that stopped reading a tag written inside backticks correctly
+   * dropped [OFFICIAL] from permissions.md:100, whose own prose says that tag was withdrawn as
+   * wrong. The ledger kept both tags. It stayed invisible because the claim retained [ENGINEERING]
+   * and never moved the total, this tool diffed only file, line and text, and attrib-check compares
+   * two LEDGERS, so the unchanged value matched itself. The record asserted official documentation
+   * for the one claim whose sentence retracts it.
+   */
+  const ft = JSON.stringify([...(f.tags || [])].sort());
+  const ct = JSON.stringify([...(c.tags || [])].sort());
+  if (ft !== ct) errors.push(`DRIFT: ${c.id} ledger tags ${ct} do not match the tagged line, which carries ${ft}`);
+  const fv = JSON.stringify([...(f.versions || [])].sort());
+  const cv = JSON.stringify([...(c.versions || [])].sort());
+  if (fv !== cv) errors.push(`DRIFT: ${c.id} ledger versions ${cv} do not match the tagged line, which carries ${fv}`);
 }
 for (const f of fresh) {
   if (!claimIds.has(f.id)) errors.push(`DRIFT: tagged line ${f.id} (${f.file}:${f.line}) has no ledger record`);

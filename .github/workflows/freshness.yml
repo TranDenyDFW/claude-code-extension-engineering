@@ -298,10 +298,10 @@ jobs:
           # The evidence-ledger trio, added 2026-08-18 after an independent reviewer
           # measured that SEVEN of the fourteen gates a contributor runs by hand were
           # invoked by nothing here, including BOTH gates the branch adding them was
-          # written to deliver. The npm scripts are not a bridge: the literal string
-          # "npm run" appears in this workflow zero times, because CI calls node
-          # directly. That is the same defect this step is named for, committed again
-          # by the author of this step's own comment.
+          # written to deliver. The npm scripts are not a bridge, because CI calls node
+          # directly rather than through an npm script, so wiring a gate
+          # into package.json alone leaves it unrun. That is the same defect this step
+          # is named for, committed again by the author of this step's own comment.
           node tools/fact-sweep.mjs
           node tools/fact-sweep.mjs --self-test
           node tools/claim-drift.mjs

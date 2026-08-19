@@ -1,6 +1,6 @@
 {
   "baseline": "e983f436a859caa35a543e52b8d9263ba771a7a5",
-  "why": "Two claims retagged ENGINEERING to COMMUNITY because their evidence is that other projects do it rather than a mechanism argument made here, plus the referent correction on the always-on subagent guard. Each note records the reasoning.",
+  "why": "Attribution changes on claims whose SUBSTANCE is unchanged: two hook-events retags to COMMUNITY, the skills.md referent-correction note, and the permissions.md tag resync an independent review found, where the ledger asserted OFFICIAL for a claim whose own prose retracts that tag. Claims whose text changed are unpaired new substance and are deliberately NOT declared here.",
   "changes": [
     {
       "id": "CLM-skills-224",
@@ -30,6 +30,18 @@
       "id": "CLM-hook-events-079",
       "key": "note",
       "to": "Added 2026-08-18 from the pattern-corpus audit, hook-events.md cluster. The resume-exclusion guidance is the best-corroborated hook pattern in the audit at 3 distinct projects, and the mirror check changed how it had to be written: hooks.md frames the SessionStart resume re-run as the mechanism for REFRESHING stale context, which is the opposite motivation from the corpus practice of excluding resume to avoid spending the window twice. Both are recorded because they optimise for different things and the reader has to pick. The async-false corollary and the per-handler timeout sizing are ordinary engineering judgment from the same cluster. RETAGGED to COMMUNITY 2026-08-18. The evidence for this bullet is that other projects do it, not a mechanism argument we made: strip the observed practice and nothing supports it. That is what [COMMUNITY] means in SKILL.md, and [ENGINEERING] means engineering judgment. Of the 63 SRC_EXTINDEX_SURVEY claims tagged ENGINEERING, only this one and the resume-exclusion bullet rest on practice this way; the rest justify by mechanism or by measurement done here, so the source field records where the LEAD came from while the tag records how the claim is justified to the reader."
+    },
+    {
+      "id": "CLM-permissions-100",
+      "key": "tags",
+      "to": [
+        "ENGINEERING"
+      ]
+    },
+    {
+      "id": "CLM-permissions-100",
+      "key": "note",
+      "to": "Quoted from the live fetch of 2026-08-05; the quoted fragment appears verbatim on the page. TAGS CORRECTED 2026-08-19. The ledger recorded [\"OFFICIAL\",\"ENGINEERING\"] while the line carries only [ENGINEERING]: this is the single line in the library with a tag written inside backticks AND real tags outside, and the prose says that OFFICIAL tag was withdrawn as wrong. The extractor change of 2026-08-19 correctly stopped reading the backticked mention, but the ledger was never resynced, so the provenance record asserted official documentation for the one claim whose own sentence retracts it. Invisible by mechanism: verify-evidence diffed file, line and text only, and attrib-check compares two ledgers so the unchanged value matched itself. Found by independent review; verify-evidence now compares tags and versions."
     }
   ]
 }
