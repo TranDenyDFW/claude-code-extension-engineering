@@ -171,7 +171,11 @@ export const SHADOWING_NESTED_KEYS = [
 
 // Documented as unavailable from a repository settings file. Value is the reason.
 export const SANDBOX_PROJECT_INERT = new Map([
-  ['sandbox.filesystem', 'sandbox.filesystem cannot be set from project or local settings, "so a checked-out project can\'t switch filesystem isolation off"'],
+  /* NOT `sandbox.filesystem` itself: the mirrored page tells the reader to place a filesystem block
+     in a project settings file and says the arrays merge across scopes. Only the DISABLE key is
+     restricted, and it is listed below. Keying on the block emitted a finding against a
+     configuration the docs prescribe. */
+  ['sandbox.filesystem.disabled', 'sandbox.filesystem.disabled cannot be set from project or local settings, "so a checked-out project can\'t switch filesystem isolation off"'],
   ['sandbox.strictAllowlist', 'strictAllowlist works only in user, managed, or CLI --settings settings; "Setting it in a repository\'s .claude/settings.json or .claude/settings.local.json has no effect"'],
   ['sandbox.network.tlsTerminate', 'network.tlsTerminate is "ignored in a repository\'s .claude/settings.json or .claude/settings.local.json"'],
   ['sandbox.credentials.allowPlaintextInject', 'credentials.allowPlaintextInject is "ignored in a repository\'s .claude/settings.json or .claude/settings.local.json"'],

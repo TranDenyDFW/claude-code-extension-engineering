@@ -45,10 +45,27 @@ const gitClean = (p) => execFileSync('git', ['diff', '--stat', '--', p], { cwd: 
  * header row with neither fails this tool, which is the only thing that keeps the revert list from
  * falling behind the check it protects.
  */
-function headerRows() {
+/**
+ * Every check() call in the self-test, tolerant of quoting and whitespace, each with the text of
+ * its whole statement so a marker anywhere in the call counts. Keying on the literal "  check('"
+ * let three spellings evade the enumerator, and a marked row with a double-quoted label left the
+ * population silently while the tool still printed GATE CAN FAIL.
+ */
+function allCheckRows() {
   const src = readFileSync(CHECK, 'utf8');
-  const RE = new RegExp("check\\(\\s*'((?:[^'\\\\]|\\\\.)*)'[^\\n]*@header-row", 'g');
-  return [...src.matchAll(RE)].map((m) => m[1].replace(/\\'/g, "'"));
+  const RE = /check\(\s*(['"])((?:\\.|(?!\1).)*)\1/g;
+  const out = [];
+  for (const m of src.matchAll(RE)) {
+    const start = m.index;
+    const next = src.indexOf('check(', start + 6);
+    const body = src.slice(start, next === -1 ? start + 800 : next);
+    out.push({ label: m[2].replace(/\\(['"])/g, '$1'), body, marked: /@header-row/.test(body) });
+  }
+  return out;
+}
+
+function headerRows() {
+  return allCheckRows().filter((r) => r.marked).map((r) => r.label);
 }
 
 /**
@@ -420,9 +437,13 @@ const gutted = [];
 /* EVERY occurrence of a label, not the first. A literal twin placed AFTER the real row passed the
    guard, because the guard stopped looking once it found one honest copy. A duplicate marked label
    is now itself a failure, since two rows sharing a name make coverage unreadable either way. */
-const dupes = rows.filter((r, i) => rows.indexOf(r) !== i);
+/* Duplicates across EVERY row, marked or not. An unmarked twin sharing a marked row's label
+   supplies the FAIL line that credits it, which is how a literal `true` was recorded as OBSERVED
+   to redden. Looking only at marked labels could not see the twin. */
+const allLabels = allCheckRows().map((r) => r.label);
+const dupes = allLabels.filter((r, i) => allLabels.indexOf(r) !== i);
 if (dupes.length) {
-  console.log('\n  DUPLICATE MARKED ROW LABELS, WHICH MAKE COVERAGE UNREADABLE:');
+  console.log('\n  DUPLICATE ROW LABELS, WHICH MAKE COVERAGE UNREADABLE:');
   for (const d of [...new Set(dupes)]) console.log(`    ${d}`);
   problems += new Set(dupes).size;
 }
@@ -432,23 +453,20 @@ const bodyAt = (i) => {
   const next = src.indexOf('  check(', i + 8);
   return src.slice(i, next === -1 ? i + 600 : next);
 };
+const everyRow = allCheckRows();
 for (const r of rows) {
-  const occurrences = [];
-  for (let i = src.indexOf(`check('${r}'`); i !== -1; i = src.indexOf(`check('${r}'`, i + 1)) occurrences.push(i);
+  const occurrences = everyRow.filter((x) => x.label === r);
   if (!occurrences.length) { gutted.push(`${r} (row not found)`); continue; }
-  if (!occurrences.every((i) => HEADER_FNS.test(bodyAt(i)))) gutted.push(r);
+  if (!occurrences.every((x) => HEADER_FNS.test(x.body))) gutted.push(r);
 }
 
 /* THE INVERSE RULE. Moving a marker one line down un-marks a row silently, so a row that plainly
    tests the header check must SAY so. Anything asserting over a header function without the marker
    is reported, which is the only way the marked set can be trusted as the population. */
 const unmarked = [];
-for (let i = src.indexOf("  check('"); i !== -1; i = src.indexOf("  check('", i + 1)) {
-  const line = src.slice(i, src.indexOf('\n', i) === -1 ? i + 200 : src.indexOf('\n', i));
-  if (line.includes('@header-row')) continue;
-  const label = (line.match(/check\('((?:[^'\\]|\\.)*)'/) || [])[1];
-  if (!label || rows.includes(label)) continue;
-  if (HEADER_ONLY_FNS.test(bodyAt(i))) unmarked.push(label);
+for (const r of everyRow) {
+  if (r.marked || rows.includes(r.label)) continue;
+  if (HEADER_ONLY_FNS.test(r.body)) unmarked.push(r.label);
 }
 if (unmarked.length) {
   console.log('\n  ROWS THAT TEST THE HEADER CHECK WITHOUT THE @header-row MARKER:');

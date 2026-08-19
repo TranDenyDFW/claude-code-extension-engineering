@@ -678,7 +678,7 @@
         "supported": true
       },
       {
-        "claim": "sandboxing.md scope restrictions: sandbox.filesystem cannot be set from project or local settings, and strictAllowlist set in a repository settings file \"has no effect\". No equivalent sentence exists for failIfUnavailable, which is why this project treats its project-scope behaviour as undocumented rather than as restricted.",
+        "claim": "sandboxing.md scope restrictions: sandbox.filesystem.disabled cannot be set from project or local settings, and strictAllowlist set in a repository settings file \"has no effect\". No equivalent sentence exists for failIfUnavailable, which is why this project treats its project-scope behaviour as undocumented rather than as restricted. CORRECTED 2026-08-19: this spot check recorded the restriction against the whole filesystem block, which the page does not say. The library corrected that claim in three reference bullets and a tool rule before reaching this record.",
         "supported": true
       }
     ]

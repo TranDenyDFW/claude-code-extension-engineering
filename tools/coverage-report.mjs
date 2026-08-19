@@ -127,7 +127,7 @@ if (process.argv.includes('--prove-can-fail')) {
 
     const DOCS = join(dir2, 'docroot');
     for (const d of ['docs', 'tests', 'skills', '.claude-plugin']) cpSync(join(ROOT, d), join(DOCS, d), { recursive: true });
-    for (const f of ['IMPROVEMENTS.md', 'README.md']) cpSync(join(ROOT, f), join(DOCS, f));
+    for (const f of ['IMPROVEMENTS.md', 'README.md', 'CONTRIBUTING.md']) cpSync(join(ROOT, f), join(DOCS, f));
     const ctl = run({ COVERAGE_DOC_ROOT: DOCS });
     check('the copied docs are GREEN, so a doc mutant below means something', ctl.status === 0, 'exit ' + ctl.status);
 
@@ -433,6 +433,10 @@ if (DOC_NUMBERS) {
     { label: 'claims carrying the explicit OFFICIAL tag',
       live: ledgerRows.filter((c) => (c.tags || []).includes('OFFICIAL')).length,
       re: /(\d+)\s+claims carry the explicit tag/gi },
+    /* Added 2026-08-19: CONTRIBUTING.md advertised "eight scripts" against a live 15, unseen
+       because the file was outside the scan. */
+    { label: 'npm scripts', live: Object.keys(JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).scripts || {}).length,
+      re: /(\d+)\s+scripts for hand use/gi },
     { label: 'claims relying on the untagged default',
       live: ledgerRows.filter((c) => !(c.tags || []).length).length,
       re: /(\d+)\s+rely on the untagged default/gi },
@@ -549,7 +553,10 @@ if (DOC_NUMBERS) {
       });
     } catch { return []; }
   })();
-  const docs = ['README.md', 'IMPROVEMENTS.md', 'docs/SUBMISSION.md', 'docs/RESULTS.md', '.claude-plugin/plugin.json',
+  /* CONTRIBUTING.md joined the scan 2026-08-19: a review found it advertising "eight scripts"
+     against a live 15, and repeating a WSL2 claim the library had corrected in four other places.
+     A figure a reader can check belongs in this scan, wherever it is written. */
+  const docs = ['README.md', 'IMPROVEMENTS.md', 'CONTRIBUTING.md', 'docs/SUBMISSION.md', 'docs/RESULTS.md', '.claude-plugin/plugin.json',
     ...refFiles,
     ...readdirSync(join(ROOT, 'tests'))
       .filter(f => /^results.*\.md$/.test(f)).map(f => join('tests', f))]

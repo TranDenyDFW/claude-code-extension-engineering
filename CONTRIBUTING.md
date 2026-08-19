@@ -32,7 +32,7 @@ npm run verify
 npm run numbers
 ```
 
-`package.json` carries eight scripts for hand use. It is **not** a mirror of CI.
+`package.json` carries 15 scripts for hand use. It is **not** a mirror of CI.
 `.github/workflows/freshness.yml` runs about fifty commands and is the contract; read it
 before assuming a change is covered.
 
@@ -64,7 +64,8 @@ second place to forget.
 ## Platform
 
 Windows behaviour is a first-class concern in the reference material (native Windows has no
-OS sandbox, WSL2 cannot launch Windows binaries from a sandboxed command, and the
+OS sandbox, launching a Windows binary from a sandboxed command on WSL2 depends on an optional
+component rather than being blocked, and the
 deny-rule recognition measurement is Windows-specific). Say which platform you tested on.
 
 ## Pull requests
