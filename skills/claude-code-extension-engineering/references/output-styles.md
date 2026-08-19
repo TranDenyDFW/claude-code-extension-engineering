@@ -26,7 +26,7 @@ The only authored surface that modifies Claude's SYSTEM PROMPT rather than addin
 
 ## Writing a style that survives the session
 
-The mechanism above is about loading. This is about the TEXT, which is where a style actually fails. None of the following is documented; it is practice observed in shipped styles, and a live instance running in this project exhibits six of the seven.
+The mechanism above is about loading. This is about the TEXT, which is where a style actually fails. None of the following is documented; it is practice observed in shipped styles. One installed style, the caveman plugin, exhibits six of the seven: a named off switch, an escape hatch for safety warnings and irreversible confirmations, graded intensity levels, a self-reference ban, a rule against invented abbreviations, and an explicit persistence clause. It ships as a plugin and is not part of this library.
 
 - State PERSISTENCE explicitly: the style applies to every response and does not lapse after many turns. Note the product is already on your side here, per the reminder mechanism below, so this clause is belt-and-braces rather than the load-bearing defence a corpus source treats it as. Whether an instruction decays in EFFECT across a long session is a behavioural question this library has not measured  [ENGINEERING]
 - Name one or two EXACT deactivation phrases and refuse to stop for anything else. Without a named off switch a model drops the style on any vaguely negative signal, which reads to the user as the style being broken rather than dismissed  [ENGINEERING]

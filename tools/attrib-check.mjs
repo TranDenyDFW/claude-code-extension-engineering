@@ -132,12 +132,21 @@ export function reconcile(observed, declared) {
   const undeclared = observed.filter((r) => !dec.has(k(r)));
   const missing = [...dec.values()].filter((d) => !obs.has(k(d)));
   const mismatched = [];
+  /**
+   * An entry with no `to` is INCOMPLETE, not permissive. An earlier draft skipped the comparison
+   * when `to` was absent, so such an entry excused ANY value at that id and field while the run
+   * still printed "applied exactly as declared". An independent review demonstrated it: the same
+   * entry with a `to` rejected 6 of 7 arbitrary values, and without one accepted all 7. Omission
+   * is also the edit that looks like carelessness rather than intent, which is the worst possible
+   * shape for a silent opt-out, so it is now a failure in its own right.
+   */
+  const incomplete = [...dec.values()].filter((d) => d.to === undefined);
   for (const [key, d] of dec) {
     const o = obs.get(key);
     if (!o || d.to === undefined) continue;
     if (declaredNow(d) !== o.now) mismatched.push({ id: d.id, key: d.key, declared: declaredNow(d), observed: o.now });
   }
-  return { undeclared, missing, mismatched };
+  return { undeclared, missing, mismatched, incomplete };
 }
 
 function selfTest() {
@@ -202,14 +211,19 @@ function selfTest() {
     { label: 'an UNDECLARED source swap is CAUGHT even when a note edit on the SAME claim is declared',
       obs: [OBS('A', 'note', JSON.stringify('ok')), OBS('A', 'source', JSON.stringify('SRC_B'))],
       dec: [{ id: 'A', key: 'note', to: 'ok' }], u: 1, m: 0, x: 0 },
-    { label: 'a declaration with no expected value still reconciles by id and field',
-      obs: [OBS('A', 'note', JSON.stringify('whatever'))], dec: [{ id: 'A', key: 'note' }], u: 0, m: 0, x: 0 },
+    { label: 'a declaration entry with NO "to" is INCOMPLETE, never a wildcard',
+      obs: [OBS('A', 'note', JSON.stringify('whatever'))], dec: [{ id: 'A', key: 'note' }], u: 0, m: 0, x: 0, i: 1 },
+    { label: '...and it is incomplete even when the change did not happen, so it cannot hide either way',
+      obs: [], dec: [{ id: 'A', key: 'note' }], u: 0, m: 1, x: 0, i: 1 },
+    { label: 'to: null IS a stated value and is compared, not treated as absent',
+      obs: [OBS('A', 'note', JSON.stringify('something'))], dec: [{ id: 'A', key: 'note', to: null }], u: 0, m: 0, x: 1, i: 0 },
   ];
   for (const c of recCases) {
     const r = reconcile(c.obs, c.dec);
-    const ok = r.undeclared.length === c.u && r.missing.length === c.m && r.mismatched.length === c.x;
+    const ok = r.undeclared.length === c.u && r.missing.length === c.m && r.mismatched.length === c.x
+      && r.incomplete.length === (c.i || 0);
     if (ok) pass++;
-    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${c.label}  (undeclared ${r.undeclared.length}/${c.u}, missing ${r.missing.length}/${c.m}, mismatched ${r.mismatched.length}/${c.x})`);
+    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${c.label}  (undeclared ${r.undeclared.length}/${c.u}, missing ${r.missing.length}/${c.m}, mismatched ${r.mismatched.length}/${c.x}, incomplete ${r.incomplete.length}/${c.i || 0})`);
   }
 
   // Staleness: a declaration written against an old baseline must NEVER excuse a change.
@@ -291,11 +305,41 @@ function proveFail(ref) {
     if (caught) pass++;
     console.log(`  ${caught ? 'ok  ' : 'FAIL'} ${m.label} -> ${m.key} changes ${hit.length}, unpaired ${res.unpaired.length}`);
   }
+  /**
+   * The declaration path had NO real-artifact coverage: an independent review found that
+   * --prove-fail called reconcile() zero times, so the one mechanism standing between a bulk
+   * attribution edit and a green run was proven only by synthetic rows. These mutants exercise it
+   * against the real ledger.
+   */
+  const retagAll = baseline.map((r) => (r.id === target.id
+    ? { ...r, tags: ['COMMUNITY'], text: r.text.replace(/\[(OFFICIAL|ENGINEERING)\]/, '[COMMUNITY]') } : r));
+  const observed = compare(baseline, retagAll).changes;
+  const good = observed.map((c) => ({ id: c.id, key: c.key, to: c.key === 'tags' ? JSON.parse(c.now) : JSON.parse(c.now) }));
+  const decCases = [
+    { label: 'a correct declaration over a real retag reconciles clean',
+      dec: good, want: (r) => !r.undeclared.length && !r.missing.length && !r.mismatched.length && !r.incomplete.length },
+    { label: 'an EMPTY declaration over the same real retag is caught',
+      dec: [], want: (r) => r.undeclared.length > 0 },
+    { label: 'a declaration naming a claim that did NOT change is caught',
+      dec: good.concat([{ id: 'CLM-DOES-NOT-EXIST', key: 'tags', to: ['COMMUNITY'] }]), want: (r) => r.missing.length > 0 },
+    { label: 'a declaration with the WRONG value is caught',
+      dec: good.map((d) => ({ ...d, to: d.key === 'tags' ? ['LEGACY'] : 'wrong' })), want: (r) => r.mismatched.length > 0 },
+    { label: 'a declaration entry with NO "to" is caught rather than excusing the change',
+      dec: good.map(({ id, key }) => ({ id, key })), want: (r) => r.incomplete.length > 0 },
+  ];
+  for (const c of decCases) {
+    const r = reconcile(observed, c.dec);
+    const ok = c.want(r);
+    if (ok) pass++;
+    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${c.label}  (undeclared ${r.undeclared.length}, missing ${r.missing.length}, mismatched ${r.mismatched.length}, incomplete ${r.incomplete.length})`);
+  }
+  if (!observed.length) { console.log('  FAIL the real retag produced no observed change, so the declaration rows above prove nothing'); }
+
   const sync = assertRegexInSync();
   if (sync.ok) pass++; else console.log(`  FAIL TAG_RE sync: ${sync.why}`);
-  const total = mutants.length + 1;
-  console.log(`\n${pass === total ? 'GATE CAN FAIL' : 'FAIL'}  ${pass}/${total} real-artifact mutants rejected.`);
-  return pass === total ? 0 : 1;
+  const total = mutants.length + decCases.length + 1;
+  console.log(`\n${pass === total && observed.length ? 'GATE CAN FAIL' : 'FAIL'}  ${pass}/${total} real-artifact mutants rejected.`);
+  return pass === total && observed.length ? 0 : 1;
 }
 
 const DEFAULT_DECL = join(ROOT, 'evidence', 'attrib-expected.json');
@@ -324,8 +368,21 @@ function run(argv) {
   const declPath = ei > -1 ? argv[ei + 1] : (existsSync(DEFAULT_DECL) ? DEFAULT_DECL : null);
   const rawDecl = declPath ? JSON.parse(readFileSync(declPath, 'utf8')) : null;
 
+  /**
+   * `git rev-parse <an existing file>` exits 0 and echoes the PATH rather than resolving a
+   * revision, so a path baseline used to yield a non-sha "baselineSha" that never matched a
+   * declaration and silently forced the STALE branch. Accept only a real 40-hex object id.
+   */
   let baselineSha = null;
-  try { baselineSha = execFileSync('git', ['rev-parse', ref], { encoding: 'utf8', cwd: ROOT }).trim(); } catch { /* baseline given as a path */ }
+  try {
+    const out = execFileSync('git', ['rev-parse', ref], { encoding: 'utf8', cwd: ROOT }).trim();
+    if (/^[0-9a-f]{40}$/.test(out)) baselineSha = out;
+  } catch { /* baseline given as a path */ }
+  if (!baselineSha && rawDecl && !Array.isArray(rawDecl) && rawDecl.baseline) {
+    console.error(`FAIL  ${ref} does not resolve to a commit, so the declaration's baseline cannot be`);
+    console.error('      checked. Pass a revision, or use --expect with a bare array declaration.');
+    return 1;
+  }
   const { changes: declared, stale, was } = activeDeclarations(rawDecl, baselineSha);
   if (stale) {
     console.log(`note: ${declPath} declares against baseline ${was.slice(0, 12)} but ${ref} is ${baselineSha.slice(0, 12)};`);
@@ -344,7 +401,7 @@ function run(argv) {
     bad++;
   }
 
-  const { undeclared, missing, mismatched } = reconcile(changes, declared || []);
+  const { undeclared, missing, mismatched, incomplete } = reconcile(changes, declared || []);
   for (const r of undeclared) {
     console.error(`FAIL  ${r.id}  ${r.key} changed while the substance did not, and no declaration covers it`);
     console.error(`        was ${r.was}`);
@@ -354,9 +411,18 @@ function run(argv) {
   }
   for (const d of missing) { console.error(`FAIL  ${d.id} declares a ${d.key} change that did not happen`); bad++; }
   for (const m of mismatched) { console.error(`FAIL  ${m.id} ${m.key} declared ${m.declared} but observed ${m.observed}`); bad++; }
+  for (const d of incomplete) {
+    console.error(`FAIL  ${d.id} ${d.key} is declared with no "to" value, so it would excuse ANY value`);
+    console.error('        state the expected value; omission is not a wildcard');
+    bad++;
+  }
 
   if (!bad) {
-    const dec = declared ? `, ${changes.length} of them declared and applied exactly as declared` : '';
+    // Say only what was actually tested. The earlier wording claimed "applied exactly as declared"
+    // even when the declaration was stale and ignored, or carried no value to compare against.
+    const dec = changes.length
+      ? `, ${changes.length} declared change(s) each matching its stated value`
+      : ', no attribution changed';
     console.log(`PASS  ${matched} claim(s) paired by substance against ${ref}${dec}; ${unpaired.length} genuinely new.`);
   } else {
     console.error(`\n${bad} attribution finding(s). No other gate can see these.`);
