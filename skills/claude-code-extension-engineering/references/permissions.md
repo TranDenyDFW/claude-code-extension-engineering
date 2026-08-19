@@ -1,6 +1,6 @@
 # Permission rules
 
-> Claude Code 2.1.229, verified 2026-08-13. Source fetched live that day. This file carries 14 verbatim quotes and `tools/quote-check.mjs` confirms every one still appears upstream. THREE sections carry findings measured on this machine rather than read from a page: what the deny rule actually reached, the PowerShell parity gap, and where an allow rule has to live. Everything else is documentation, or judgment derived from it.
+> Claude Code 2.1.229, verified 2026-08-13. Source fetched live that day. This file carries 14 verbatim quotes and `tools/quote-check.mjs` confirms every one still appears upstream. Several sections carry findings MEASURED on this machine rather than read from a page. Each says so in its own words and carries the control it was paired against, which is the only place worth reading it from: three rounds of review corrected a count in this sentence and were wrong all three times, so the fourth removed the count.
 
 
 Harness-owned allow, ask and deny rules over tool calls. This is the layer that still holds when a hook's handler is deleted, and the one to reach for when a requirement says "must" rather than "should". It is also the layer whose edge you cannot read out of the documentation, because the set of Bash commands it recognises is given by example and never enumerated.

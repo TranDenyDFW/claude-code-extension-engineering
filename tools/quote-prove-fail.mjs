@@ -51,17 +51,35 @@ function headerRows() {
   return [...src.matchAll(RE)].map((m) => m[1].replace(/\\'/g, "'"));
 }
 
+/**
+ * A row that asserts the LIVE CORPUS is clean cannot be reddened by reverting a code path: breaking
+ * the check makes it find less, not more. Such a row is exempt only if an end-to-end proof in this
+ * same file plants a real offender and requires the gate to go red. The proof is named here and its
+ * result is asserted below, so an exemption whose proof stops running is a failure rather than a
+ * sentence that keeps being true on paper.
+ */
 const ROWS_EXEMPT = new Map([
   ['every reference header that states a quote count states the RIGHT one',
-    'asserts the live corpus is clean rather than one code path, and proof 2 already exercises it end to end'],
+    { why: 'asserts the live corpus is clean; a code revert makes the check find less, never more', provenBy: 'header coverage rule' }],
   ['...and the header check can fail, given a count the gate contradicts',
-    'is itself a must-fail probe, and the count-comparison revert reddens it as a side effect'],
+    { why: 'is itself a must-fail probe over the live corpus', provenBy: 'header coverage rule' }],
   ['no upstream prose is quoted on a line this gate does not check',
-    'asserts the live corpus is clean rather than one code path; proof 3b exercises the mechanism end to end by planting a real offender'],
+    { why: 'asserts the live corpus is clean, same shape as the row above', provenBy: 'unchecked-quotation rule' }],
+  ['no header promises one source for every claim while the ledger says otherwise',
+    { why: 'asserts the live corpus is clean; the pure decision beneath it is what can be reverted',
+      provenByRows: [
+        '...and that decision fires when such a header sits over records with two sources',
+        '...and stays silent when every record shares one source',
+        '...and stays silent for a header that makes no universal claim',
+      ] }],
 ]);
+
+/** Proof labels that passed in this run, so an exemption can be checked rather than believed. */
+const PROOFS_PASSED = new Set();
 
 let PROVEN_ROWS = 0;
 const REVERT_ROWS = [];
+const REDDENED = new Set();
 
 const before = gate();
 console.log(`  baseline gate exit: ${before.status}  (must be 0, or the experiments prove nothing)`);
@@ -99,7 +117,8 @@ function restoredExactly(file, m) {
   const restored = restoredExactly(TARGET, m);
   const ok = m.result.status === 1 && m.result.said && restored && gate().status === 0;
   console.log(`\n  1. COMMUNITY-quote rule: exit ${m.result.status} (must be 1), names the rule ${m.result.said}, restored ${restored}`);
-  if (!ok) problems++;
+  if (ok) PROOFS_PASSED.add('COMMUNITY-quote rule');
+  else problems++;
 }
 
 // ------------------------------------------------------- 2. the header coverage rule
@@ -125,7 +144,8 @@ function restoredExactly(file, m) {
   const ok = m.result.status === 1 && m.result.said && restored && gate().status === 0;
   console.log(`  2. header coverage rule: exit ${m.result.status} (must be 1), names the rule ${m.result.said}, restored ${restored}`);
   console.log('     a file carrying quotes cannot stay silent about how many');
-  if (!ok) problems++;
+  if (ok) PROOFS_PASSED.add('header coverage rule');
+  else problems++;
 }
 
 // ------------------------------------------------------- 3b. the unchecked-quotation rule
@@ -142,7 +162,8 @@ function restoredExactly(file, m) {
   const ok = m.result.status === 1 && m.result.said && restored && gate().status === 0;
   console.log(`  3b. unchecked-quotation rule: exit ${m.result.status} (must be 1), names the rule ${m.result.said}, restored ${restored}`);
   console.log("     Anthropic's words cannot be quoted from a line this gate does not read");
-  if (!ok) problems++;
+  if (ok) PROOFS_PASSED.add('unchecked-quotation rule');
+  else problems++;
 }
 
 // ------------------------------------------------------- 3. the self-test rows are load-bearing
@@ -178,8 +199,8 @@ function restoredExactly(file, m) {
     },
     {
       label: 'the unknown-number-word parse, which must return null rather than a number',
-      from: '    return { word: raw, claimed: n === undefined ? null : n };',
-      to: '    return { word: raw, claimed: n === undefined ? 0 : n };',
+      from: "  })).map((p) => ({ word: p.word, claimed: p.claimed === undefined ? null : p.claimed }));",
+      to: "  })).map((p) => ({ word: p.word, claimed: p.claimed === undefined ? 0 : p.claimed }));",
       row: /number word the map does not know/,
     },
     {
@@ -197,9 +218,11 @@ function restoredExactly(file, m) {
       row: /doubled space does not make a claim invisible/,
     },
     {
-      label: 'skipping fenced code blocks in the unchecked-quotation hunt',
-      from: '      if (/^\\s*```/.test(line)) { fenced = !fenced; return; }',
-      to: '      if (false) { fenced = !fenced; return; }',
+      label: 'skipping code blocks in the unchecked-quotation hunt, fenced AND indented',
+      edits: [
+        { from: '      if (/^\\s*(```|~~~)/.test(line)) { fenced = !fenced; return; }', to: '      if (false) { fenced = !fenced; return; }' },
+        { from: '      if (/^ {4,}\\S/.test(line)) return;', to: '      if (false) return;' },
+      ],
       row: /ignores fenced code blocks/,
     },
     {
@@ -207,6 +230,42 @@ function restoredExactly(file, m) {
       from: '  for (const l of lines) {',
       to: '  for (const l of lines.slice(0, 40)) {',
       row: /past the old 40-line cap/,
+    },
+    {
+      label: 'the universal-sourcing test, without which any header is treated as claiming one source',
+      from: '  if (!UNIVERSAL_SOURCING.test(String(headerText))) return null;',
+      to: '  if (false) return null;',
+      row: /stays silent for a header that makes no universal claim/,
+    },
+    {
+      label: 'the more-than-one-source condition, loosened so a single source reports too',
+      from: '  return sources.length > 1 ? { records: records.length, sources } : null;',
+      to: '  return sources.length >= 1 ? { records: records.length, sources } : null;',
+      row: /stays silent when every record shares one source/,
+    },
+    {
+      label: 'the sourcing decision itself, disabled',
+      from: '  return sources.length > 1 ? { records: records.length, sources } : null;',
+      to: '  return null;',
+      row: /decision fires when such a header sits over records with two sources/,
+    },
+    {
+      label: 'the typographic-quote fold, without which a curly citation is invisible',
+      from: '  line = foldQuoteMarks(line);',
+      to: '  line = String(line);',
+      row: /TYPOGRAPHIC quotes is extracted/,
+    },
+    {
+      label: 'the same-count-twice tolerance, so a restated count reads as a conflict',
+      from: '  const distinct = [...new Set(parsed.map((p) => String(p.claimed)))];',
+      to: '  const distinct = parsed.map((p) => String(p.claimed));',
+      row: /header restating the SAME count twice is still read/,
+    },
+    {
+      label: 'the two-count refusal, back to first-match-wins',
+      from: '  if (distinct.length > 1) return { word: found.join(\' and \'), claimed: null, conflicting: true };',
+      to: '  if (false) return null;',
+      row: /TWO DIFFERENT counts is refused/,
     },
   ];
 
@@ -231,6 +290,10 @@ function restoredExactly(file, m) {
     const restored = restoredExactly(CHECK, m);
     console.log(`     ${red && named && restored ? 'PROVEN  ' : 'SURVIVED'}  ${rv.label}  (self-test exit ${out.status}, row named ${named}, restored ${restored})`);
     REVERT_ROWS.push(rv.row);
+    for (const l of String(out.stdout).split(/\r?\n/)) {
+      const mm = l.match(/^\s*FAIL\s+(.*?)\s\s+\(/);
+      if (mm) REDDENED.add(mm[1]);
+    }
     if (red && named && restored) PROVEN_ROWS++;
     else problems++;
   }
@@ -242,16 +305,51 @@ console.log(`\n  gate exit after every restore: ${finalGate.status} (must be 0);
 if (finalGate.status !== 0 || finalSelf.status !== 0) problems++;
 
 const rows = headerRows();
-const covered = new Set();
-for (const rv of REVERT_ROWS) for (const r of rows) if (rv.test(r)) covered.add(r);
-const uncovered = rows.filter((r) => !covered.has(r) && !ROWS_EXEMPT.has(r));
-if (uncovered.length) {
-  console.log('\n  HEADER ROWS WITH NEITHER A REVERT NOR AN EXEMPTION:');
-  for (const r of uncovered) console.log(`    ${r}`);
-  problems += uncovered.length;
+
+/* A marked row must CALL something. Replacing its assertion with a literal passes any run, which is
+   how three rows were gutted undetected. The assertion text has to mention one of the functions the
+   header check is made of. */
+/* The planted() helper is the self-test's own wrapper over headerQuoteMismatches; a row calling
+   it is calling the header check one level down. Named explicitly rather than by pattern, so a
+   future helper has to be added deliberately. */
+const HEADER_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|collectUncheckedResolvingQuotes|headerSourcingMismatches|sourcingMismatch|planted\(|quotesIn|foldQuoteMarks/;
+const src = readFileSync(CHECK, 'utf8');
+const gutted = [];
+for (const r of rows) {
+  const i = src.indexOf(`check('${r}'`);
+  if (i < 0) { gutted.push(`${r} (row not found)`); continue; }
+  const body = src.slice(i, src.indexOf('  check(', i + 8) === -1 ? i + 600 : src.indexOf('  check(', i + 8));
+  if (!HEADER_FNS.test(body)) gutted.push(r);
 }
-console.log(`\n  header rows: ${rows.length} marked, ${covered.size} covered by a revert, ${ROWS_EXEMPT.size} exempt with a stated reason`);
+if (gutted.length) {
+  console.log('\n  MARKED ROWS THAT ASSERT NOTHING ABOUT THE HEADER CHECK:');
+  for (const r of gutted) console.log(`    ${r}`);
+  console.log('  A row whose assertion calls none of the header functions cannot be testing them.');
+  problems += gutted.length;
+}
+
+/* Covered means OBSERVED to go red under some revert, not matched by a label pattern. */
+const covered = rows.filter((r) => REDDENED.has(r));
+const exemptOk = [];
+const exemptBad = [];
+for (const r of rows) {
+  if (covered.includes(r)) continue;
+  const ex = ROWS_EXEMPT.get(r);
+  if (!ex) { exemptBad.push(`${r}  (no revert reddened it and it is not exempt)`); continue; }
+  if (ex.provenByRows) {
+    const missing = ex.provenByRows.filter((x) => !covered.includes(x));
+    if (missing.length) exemptBad.push(`${r}  (exempt on ${ex.provenByRows.length} rows, ${missing.length} of which no revert reddened)`);
+    else exemptOk.push(r);
+  } else if (PROOFS_PASSED.has(ex.provenBy)) exemptOk.push(r);
+  else exemptBad.push(`${r}  (exempt on proof "${ex.provenBy}", which did not pass)`);
+}
+if (exemptBad.length) {
+  console.log('\n  HEADER ROWS NEITHER REDDENED BY A REVERT NOR COVERED BY A PASSING PROOF:');
+  for (const r of exemptBad) console.log(`    ${r}`);
+  problems += exemptBad.length;
+}
+console.log(`\n  header rows: ${rows.length} marked, ${covered.length} OBSERVED to redden under a revert, ${exemptOk.length} exempt and covered by a named passing proof`);
 console.log(`\n  ${problems
   ? `FAIL  ${problems} proof(s) did not hold`
-  : `GATE CAN FAIL  the COMMUNITY-quote rule, the header-coverage rule, and every marked header self-test row, each covered by a revert that reddens it or exempt for a stated reason.`}`);
+  : `GATE CAN FAIL  the COMMUNITY-quote rule, the header-coverage rule, and every marked header self-test row, each OBSERVED to go red under a revert or covered by a named proof that passed.`}`);
 process.exit(problems ? 1 : 0);

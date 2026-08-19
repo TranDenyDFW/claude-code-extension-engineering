@@ -213,6 +213,29 @@ const freshIds = new Set(fresh.map(c => c.id));
  * duplicate four reference files into every skill, which is exactly the shape that produces
  * byte-identical colliding ids. Detected here rather than at cutover.
  */
+/**
+ * A CLAIM MAY NOT LIVE IN A FILE HEADER. On 2026-08-19 a header sentence naming [ENGINEERING] in
+ * prose minted a claim from the header itself: the extractor is right to read tags anywhere, and a
+ * provenance record pointing at a file's own verification blockquote is meaningless. Caught by hand
+ * that round, so nothing stopped the next one.
+ */
+const headerLines = new Map();
+for (const c of fresh) {
+  if (!headerLines.has(c.file)) {
+    const lines = readFileSync(join(ROOT, c.file), 'utf8').split(/\r?\n/);
+    const block = new Set();
+    for (let i = 0; i < lines.length; i++) {
+      if (/^\s*>/.test(lines[i])) block.add(i + 1);
+      else if (block.size && lines[i].trim()) break;
+      else if (block.size) break;
+    }
+    headerLines.set(c.file, block);
+  }
+  if (headerLines.get(c.file).has(c.line)) {
+    errors.push(`HEADER_CLAIM: ${c.id} is a line of ${c.file}'s own verification header, not a claim; backtick the tag name so it reads as a mention`);
+  }
+}
+
 const seenIds = new Map();
 for (const c of fresh) {
   const prior = seenIds.get(c.id);

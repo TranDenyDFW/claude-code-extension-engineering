@@ -1,6 +1,6 @@
 # Sandboxing
 
-> Claude Code 2.1.229, verified 2026-08-13. Sources fetched live that day; the sandbox itself could NOT be exercised here, because this machine is native Windows and the sandbox does not run there. This file carries 21 verbatim quotes and `tools/quote-check.mjs` confirms every one still appears upstream. Every SOURCE below is documentation and nothing here is a local observation, the sandbox being unrunnable on this machine; the 14 lines tagged `[ENGINEERING]` are judgment derived from those pages rather than citations of them, which is what that tag means in SKILL.md.
+> Claude Code 2.1.229, verified 2026-08-13. Sources fetched live that day; the sandbox itself could NOT be exercised here, because this machine is native Windows and the sandbox does not run there. This file carries 21 verbatim quotes and `tools/quote-check.mjs` confirms every one still appears upstream. Nothing here is a local observation, the sandbox being unrunnable on this machine. Its ledgered claims cite the Sandboxing page 20 times and two sibling pages once each; the other 13 are this project's own research, and the lines tagged `[ENGINEERING]` are judgment derived from those pages rather than citations of them, which is what that tag means in SKILL.md.
 
 
 OS-level enforcement for Bash commands and their child processes. It is the only layer in Claude Code that a process cannot talk its way past: the operating system, not the model and not the harness, holds the boundary. It is also the narrowest layer, because it sees Bash and nothing else.
@@ -70,8 +70,8 @@ distinction is scope.
 
 ## Scope restrictions worth knowing before you write a settings file
 
-- `sandbox.filesystem` cannot be set from project or local settings, "so a checked-out project can't switch filesystem isolation off" [OFFICIAL]  [v2.1.220]
-- When managed settings configure `sandbox.filesystem` at all, "only managed settings can set the key", which is how an administrator deployment stays in force [OFFICIAL]  [v2.1.220]
+- `sandbox.filesystem.disabled` cannot be set from project or local settings, "so a checked-out project can't switch filesystem isolation off". The restriction is on the DISABLE key, not on the filesystem block, which a project settings file may set and whose arrays merge across scopes [OFFICIAL]  [v2.1.220]
+- When managed settings configure `sandbox.filesystem` at all, "only managed settings can set the key", the key being `filesystem.disabled`, which is how an administrator deployment stays in force [OFFICIAL]  [v2.1.220]
 - `strictAllowlist` works only "in user, managed, or CLI `--settings` settings"; "Setting it in a repository's `.claude/settings.json` or `.claude/settings.local.json` has no effect" [OFFICIAL]  [v2.1.219]
 - `mask` credential entries, `network.tlsTerminate` and `credentials.allowPlaintextInject` "are all ignored in a repository's `.claude/settings.json` or `.claude/settings.local.json`" [OFFICIAL]  [v2.1.220]
 - The pattern across all four: the keys that WIDEN access, or that an administrator is expected to pin, are unavailable to a checked-in project file. Assume any sandbox key you write into a repo may be inert, and verify the specific key rather than the section  [ENGINEERING]

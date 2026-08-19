@@ -1,9 +1,11 @@
 # Sessions, transcripts and rewind
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: every claim below was checked
-> against live fetches of the Manage sessions and Checkpointing pages on that date, not against the
-> docs mirror, because this file is new and had no prior verification to inherit. It carries NO
-> verbatim quotes, so the quote gate says nothing about it.
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file was written from live
+> fetches of the Manage sessions and Checkpointing pages on that date rather than from the docs
+> mirror, because it was new and had no prior verification to inherit. Its 28 ledgered claims cite
+> SEVEN sources, not those two: 9 the sessions page, 6 checkpointing, 5 settings, 3 the .claude
+> directory, 3 this project's own research, and one each for agents and cross-session messaging.
+> It carries NO verbatim quotes, so the quote gate says nothing about it.
 
 
 What survives when a session ends, what a resumed session carries back, and what `/rewind` can and

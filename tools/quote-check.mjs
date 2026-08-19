@@ -168,7 +168,18 @@ export const MIN_QUOTE = 25;
  */
 const CANNOT_START_A_QUOTE = /^[\s{[.,;:)\]$]/;
 
+/**
+ * Curly quotes were invisible here until 2026-08-19, so a fabricated citation written with them on
+ * an [OFFICIAL] line passed every gate while its straight-quoted twin was checked. The pairs are
+ * folded to straight quotes before extraction; `normalise` already folds them on the mirror side,
+ * so both halves of the comparison now agree.
+ */
+export function foldQuoteMarks(s) {
+  return String(s).replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+}
+
 export function quotesIn(line) {
+  line = foldQuoteMarks(line);
   const out = [];
   for (const m of String(line).matchAll(/"([^"]{25,})"/g)) {
     const q = normalise(m[1]);
@@ -282,8 +293,12 @@ export function collectUncheckedResolvingQuotes(refDir = REF_DIR, pages) {
   for (const { name: f, path } of scanTargets(refDir)) {
     let fenced = false;
     readFileSync(path, 'utf8').split(/\r?\n/).forEach((line, i) => {
-      if (/^\s*```/.test(line)) { fenced = !fenced; return; }
+      /* Both fence spellings, and indented code blocks. Keying on backticks alone left two other
+         ways to hide a real citation from this hunt, which is the same defect as the hunt not
+         existing for those shapes. */
+      if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; return; }
       if (fenced) return;
+      if (/^ {4,}\S/.test(line)) return;
       if (classifyLine(line) !== 'none') return;
       for (const q of quotesIn(line)) {
         if (NOT_A_CITATION.has(q)) continue;
@@ -376,14 +391,26 @@ export function headerBlock(text) {
 
 export function headerQuoteClaim(text) {
   const head = headerBlock(text);
+  /* EVERY match, not the first. A header carrying two different counts would otherwise show the
+     reader one number while the gate checked another, and first-match-wins made that silent. Two
+     matches agreeing is fine, since a header may restate its count; two disagreeing is a claim the
+     gate refuses to pick between. */
+  const found = [];
   for (const re of HEADER_CLAIM_PATTERNS) {
-    const m = head.match(re);
-    if (!m) continue;
-    const raw = m[1];
-    const n = /^\d+$/.test(raw) ? Number(raw) : QUOTE_COUNT_WORDS[raw.toUpperCase()];
-    return { word: raw, claimed: n === undefined ? null : n };
+    const all = head.match(new RegExp(re.source, `${re.flags.replace('g', '')}g`)) || [];
+    for (const hit of all) {
+      const m = hit.match(re);
+      if (m) found.push(m[1]);
+    }
   }
-  return null;
+  if (!found.length) return null;
+  const parsed = found.map((raw) => ({
+    word: raw,
+    claimed: /^\d+$/.test(raw) ? Number(raw) : QUOTE_COUNT_WORDS[raw.toUpperCase()],
+  })).map((p) => ({ word: p.word, claimed: p.claimed === undefined ? null : p.claimed }));
+  const distinct = [...new Set(parsed.map((p) => String(p.claimed)))];
+  if (distinct.length > 1) return { word: found.join(' and '), claimed: null, conflicting: true };
+  return parsed[0];
 }
 
 export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(refDir)) {
@@ -407,6 +434,46 @@ export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(r
     if (claim.claimed !== actual) {
       out.push({ file: f, word: claim.word, claimed: claim.claimed, actual, reason: claim.claimed === null ? 'not a number' : 'wrong count' });
     }
+  }
+  return out;
+}
+
+/**
+ * A UNIVERSAL SOURCING CLAIM in a header is a promise about every claim in the file, and the ledger
+ * is the only thing that can keep it. Rounds 1 to 3 of review found this construction false in
+ * safety-classifier.md, then statusline.md, then sessions.md; each round it was corrected only
+ * where it had been named, which is why it is a gate now rather than a habit.
+ *
+ * The rule is deliberately blunt: a header may say "every claim below was checked against X" only
+ * when every ledger record for that file shares ONE source id. Any other file must state its split,
+ * which is a sentence the ledger can be read against. Files with no ledger records are exempt,
+ * because there is nothing to contradict.
+ */
+const UNIVERSAL_SOURCING = /\b(every|all|each)\s+claims?\s+below\b/i;
+
+export function loadLedger(p = join(ROOT, 'evidence', 'claims.jsonl')) {
+  if (!existsSync(p)) return [];
+  return readFileSync(p, 'utf8').split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l));
+}
+
+/**
+ * The PURE decision, so the must-fail row can exercise it without a real header carrying the
+ * construction. Fixing the corpus once made the corpus-level row unfalsifiable: it passed because
+ * there was nothing left to find, which is a check that cannot fail wearing a green tick.
+ */
+export function sourcingMismatch(headerText, records) {
+  if (!UNIVERSAL_SOURCING.test(String(headerText))) return null;
+  if (!records || !records.length) return null;
+  const sources = [...new Set(records.map((c) => c.source))];
+  return sources.length > 1 ? { records: records.length, sources } : null;
+}
+
+export function headerSourcingMismatches(refDir = REF_DIR, ledger = loadLedger()) {
+  const out = [];
+  for (const { name: f, path } of scanTargets(refDir)) {
+    const recs = ledger.filter((c) => String(c.file).endsWith(`/${f}`));
+    const bad = sourcingMismatch(headerBlock(readFileSync(path, 'utf8')), recs);
+    if (bad) out.push({ file: f, ...bad });
   }
   return out;
 }
@@ -467,6 +534,17 @@ function main(argv) {
     console.log('The file header still reports every quote as confirmed, so the reader is told more');
     console.log('was checked than was. Tag the line if the claim is documented, or paraphrase.');
     bad += stray.length;
+  }
+  const sourcing = headerSourcingMismatches();
+  if (sourcing.length) {
+    console.log('\nHEADER CLAIMS ONE SOURCE FOR EVERY CLAIM IN THE FILE, AND THE LEDGER DISAGREES:');
+    for (const s of sourcing) {
+      console.log(`  ${s.file}  ${s.records} record(s) across ${s.sources.length} sources: ${s.sources.join(', ')}`);
+    }
+    console.log(`\nFAIL ${sourcing.length} header(s) promise something the provenance record contradicts.`);
+    console.log('State the split instead. A universal sourcing claim is only true when the file has');
+    console.log('exactly one source, and this construction has now been found false three times.');
+    bad += sourcing.length;
   }
   const headers = headerQuoteMismatches();
   if (headers.length) {
@@ -656,6 +734,22 @@ function selfTest() {
   check('...and a number word the map does not know FAILS rather than being skipped',  // @header-row
     headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')?.claimed === null,
     JSON.stringify(headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')));
+  check('no header promises one source for every claim while the ledger says otherwise',  // @header-row
+    headerSourcingMismatches().length === 0, JSON.stringify(headerSourcingMismatches()));
+  /* Synthetic header AND synthetic ledger, so neither the corpus being clean nor the corpus being
+     dirty can decide the outcome. */
+  const UNIVERSAL_HEAD = 'Claude Code 2.1.229. What that means here: every claim below was checked against one page.';
+  const TWO_SOURCES = [{ source: 'SRC_A' }, { source: 'SRC_B' }];
+  check('...and that decision fires when such a header sits over records with two sources',  // @header-row
+    sourcingMismatch(UNIVERSAL_HEAD, TWO_SOURCES) !== null,
+    JSON.stringify(sourcingMismatch(UNIVERSAL_HEAD, TWO_SOURCES)));
+  check('...and stays silent when every record shares one source',  // @header-row
+    sourcingMismatch(UNIVERSAL_HEAD, [{ source: 'SRC_A' }, { source: 'SRC_A' }]) === null);
+  check('...and stays silent for a header that makes no universal claim',  // @header-row
+    sourcingMismatch('Claude Code 2.1.229. Sources fetched live that day.', TWO_SOURCES) === null);
+  check('...and the phrasings it catches include all three quantifiers',  // @header-row
+    ['every claim below', 'all claims below', 'each claim below']
+      .every((p) => sourcingMismatch(`x ${p} was checked`, TWO_SOURCES) !== null));
   check('no upstream prose is quoted on a line this gate does not check',  // @header-row
     collectUncheckedResolvingQuotes(REF_DIR, loadMirror(DEFAULT_MIRROR)).length === 0,
     JSON.stringify(collectUncheckedResolvingQuotes(REF_DIR, loadMirror(DEFAULT_MIRROR)).map((s) => `${s.file}:${s.line}`)));
@@ -663,6 +757,16 @@ function selfTest() {
     collectUncheckedResolvingQuotes(REF_DIR, new Map([['x.md', normalise('Destructive command blocked by hook')]])).length === 0);
   check('a header claim past the old 40-line cap is still read',  // @header-row
     headerQuoteClaim(`# T\n\n${Array.from({ length: 60 }, (_, i) => `> filler ${i}`).join('\n')}\n> and it carries NO verbatim quotes.`)?.claimed === 0);
+  const CURLY = `- The docs say ${String.fromCharCode(0x201c)}a fabricated sentence nobody ever wrote${String.fromCharCode(0x201d)} here  [OFFICIAL]`;
+  check('a span in TYPOGRAPHIC quotes is extracted, or a fabricated citation hides in plain sight',  // @header-row
+    quotesIn(CURLY).length === 1, JSON.stringify(quotesIn(CURLY)));
+  check('...and it yields the same span as its straight-quoted twin',  // @header-row
+    quotesIn(CURLY)[0] === quotesIn('- The docs say "a fabricated sentence nobody ever wrote" here  [OFFICIAL]')[0]);
+  check('a header carrying TWO DIFFERENT counts is refused rather than resolved to the first',  // @header-row
+    headerQuoteClaim('> it carries SIX verbatim quotes, and elsewhere: carries TWO verbatim quotes')?.claimed === null,
+    JSON.stringify(headerQuoteClaim('> it carries SIX verbatim quotes, and elsewhere: carries TWO verbatim quotes')));
+  check('...and a header restating the SAME count twice is still read',  // @header-row
+    headerQuoteClaim('> it carries SIX verbatim quotes, and again it carries SIX verbatim quotes')?.claimed === 6);
   check('the not-a-citation exemption list stays small', NOT_A_CITATION.size <= 5, String(NOT_A_CITATION.size));
   check('...and every exemption states a reason',
     [...NOT_A_CITATION.values()].every((r) => typeof r === 'string' && r.length > 30));

@@ -1,8 +1,8 @@
 # Safety classifiers and model fallback
 
 > Claude Code 2.1.229, verified 2026-08-13. What that means here: its DOCUMENTED claims were
-> checked against a live fetch of the Model configuration page on that date, and that is the only
-> page this file cites. Its sourcing is THINNER than its siblings and that is recorded rather than
+> checked against a live fetch of the Model configuration page, taken 2026-08-12 per that source's
+> own record, and that is the only page this file cites. Its sourcing is THINNER than its siblings and that is recorded rather than
 > glossed: 9 of its 15 ledgered claims rest on that one page, the other 6 on this project's own
 > research, where the status line and session references each rest on dedicated pages of their own. The refusal-message
 > wording in the error reference is NOT restated here, because that page is `verified-partial` and
