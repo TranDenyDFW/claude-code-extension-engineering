@@ -22,7 +22,7 @@
  *   node tools/verify-evidence.mjs --prove-can-fail   mutate the committed ledger
  *                                             and require a NAMED rejection each time
  */
-import { readFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, readdirSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { extract } from './extract-claims.mjs';
@@ -89,6 +89,66 @@ if (process.argv.includes('--prove-can-fail')) {
       return [...codes];
     } finally { rmSync(dir, { recursive: true, force: true }); }
   };
+
+  /**
+   * FILE-LEVEL PROOFS. proveArtifactGate mutates the LEDGER, so checks computed from extraction are
+   * unreachable by it. Both of the checks below were added in this branch with no mutant at all.
+   */
+  const fileProof = (label, target, mutate, wanted) => {
+    const abs = join(ROOT, target);
+    const original = readFileSync(abs);
+    try {
+      writeFileSync(abs, mutate(original.toString('utf8')));
+      const r = spawnSync(process.execPath, [join(HERE, 'verify-evidence.mjs')],
+        { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+      const named = wanted.test(String(r.stdout));
+      writeFileSync(abs, original);
+      const restored = readFileSync(abs).equals(original);
+      const back = spawnSync(process.execPath, [join(HERE, 'verify-evidence.mjs')],
+        { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+      const ok = r.status === 1 && named && restored && back.status === 0;
+      console.log(`  ${ok ? 'rejected' : 'SURVIVED'}  ${label}  (exit ${r.status}, named ${named}, restored ${restored})`);
+      return ok;
+    } finally {
+      writeFileSync(abs, original);
+    }
+  };
+
+  console.log('\nfile-level mutants, which the ledger harness cannot reach:');
+  const REF = 'skills/claude-code-extension-engineering/references';
+  const fileOk = [
+    fileProof('a tag name written in a file header', `${REF}/themes.md`,
+      (s) => s.replace('this file carries NO verbatim quotes', 'this file carries NO verbatim quotes and is [OFFICIAL] throughout'),
+      /HEADER_CLAIM/),
+    (() => {
+      /* Ids are file-and-line derived, so a collision needs two files sharing a BASENAME in
+         different skills, which is the shape data/routing/skill-split.json plans. Appending a line
+         to one file cannot produce it, and an earlier version of this mutant passed on DRIFT
+         instead, which the duplicate check does not own. */
+      const probe = join(ROOT, 'skills', 'ccx-prove-fail-probe');
+      const donor = join(ROOT, REF, 'selection.md');
+      try {
+        mkdirSync(join(probe, 'references'), { recursive: true });
+        writeFileSync(join(probe, 'SKILL.md'), '# probe\n');
+        writeFileSync(join(probe, 'references', 'selection.md'), readFileSync(donor));
+        const r = spawnSync(process.execPath, [join(HERE, 'verify-evidence.mjs')],
+          { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+        const named = /DUPLICATE_EXTRACTION_ID/.test(String(r.stdout));
+        rmSync(probe, { recursive: true, force: true });
+        const back = spawnSync(process.execPath, [join(HERE, 'verify-evidence.mjs')],
+          { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+        const ok = r.status === 1 && named && back.status === 0;
+        console.log(`  ${ok ? 'rejected' : 'SURVIVED'}  two extracted claims sharing one id  (exit ${r.status}, named ${named}, tree restored ${back.status === 0})`);
+        return ok;
+      } finally {
+        rmSync(probe, { recursive: true, force: true });
+      }
+    })(),
+  ].every(Boolean);
+  if (!fileOk) {
+    console.log('\nEVIDENCE LEDGER GATE IS HOLLOW: a file-level check was not rejected');
+    process.exit(1);
+  }
 
   process.exit(proveArtifactGate({
     artifact: join(EV, 'claims.jsonl'),

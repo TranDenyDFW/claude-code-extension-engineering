@@ -1,8 +1,8 @@
 # Status line
 
 > Claude Code 2.1.229, verified 2026-08-13. What that means here: this file was written from a
-> live fetch of the Status line page on that date rather than from the docs mirror, because it was
-> new and had no prior verification to inherit. Of its 33 ledgered claims, 15 cite that page; the
+> live fetch of the Status line page, taken 2026-08-12 per that source record, rather than from
+> the docs mirror, because it was new and had no prior verification to inherit. Of its 33 ledgered claims, 15 cite that page; the
 > other 18 are this project's own work, 14 from the extension-index survey and 4 from its research.
 > It carries NO verbatim quotes, so the quote gate says nothing about it.
 

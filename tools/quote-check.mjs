@@ -238,17 +238,44 @@ function scanTargets(refDir) {
   return out;
 }
 
+/**
+ * Physical lines joined into the sentences a reader sees. A bullet or paragraph continued onto the
+ * next line is ONE line here, which is what makes a citation broken by a wrap visible. Fenced and
+ * indented code blocks are passed through unjoined, since a wrap means nothing inside them.
+ *
+ * The reported `line` is where the logical line STARTS, so a citation is cited at the line a reader
+ * would look at.
+ */
+export function logicalLines(text) {
+  const lines = String(text).split(/\r?\n/);
+  const out = [];
+  let fenced = false;
+  let cur = null;
+  const flush = () => { if (cur) out.push(cur); cur = null; };
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (/^\s*(```|~~~)/.test(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l }); continue; }
+    if (fenced || /^ {4,}\S/.test(l)) { flush(); out.push({ line: i + 1, text: l }); continue; }
+    if (!l.trim()) { flush(); continue; }
+    /* A new block starts at a bullet, a heading, a table row, or a blockquote marker. Anything else
+       that is not blank continues the block above it. */
+    if (/^\s*([-*+]\s|\d+[.)]\s|#{1,6}\s|\||>)/.test(l) || !cur) { flush(); cur = { line: i + 1, text: l }; continue; }
+    cur.text += ` ${l.trim()}`;
+  }
+  flush();
+  return out;
+}
+
 function scanLines(refDir, predicate) {
   const out = [];
   for (const { name: f, path } of scanTargets(refDir)) {
-    const lines = readFileSync(path, 'utf8').split(/\r?\n/);
-    lines.forEach((line, i) => {
-      if (!predicate(line)) return;
-      for (const q of quotesIn(line)) {
+    for (const { line, text } of logicalLines(readFileSync(path, 'utf8'))) {
+      if (!predicate(text)) continue;
+      for (const q of quotesIn(text)) {
         if (NOT_A_CITATION.has(q)) continue;
-        out.push({ file: f, line: i + 1, quote: q });
+        out.push({ file: f, line, quote: q });
       }
-    });
+    }
   }
   return out;
 }
@@ -292,20 +319,20 @@ export function collectUncheckedResolvingQuotes(refDir = REF_DIR, pages) {
   const out = [];
   for (const { name: f, path } of scanTargets(refDir)) {
     let fenced = false;
-    readFileSync(path, 'utf8').split(/\r?\n/).forEach((line, i) => {
-      /* Both fence spellings, and indented code blocks. Keying on backticks alone left two other
-         ways to hide a real citation from this hunt, which is the same defect as the hunt not
-         existing for those shapes. */
-      if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; return; }
-      if (fenced) return;
-      if (/^ {4,}\S/.test(line)) return;
-      if (classifyLine(line) !== 'none') return;
-      for (const q of quotesIn(line)) {
+    /* Logical lines here too, or a citation that escapes the COUNT by wrapping also escapes the
+       hunt meant to catch citations the count cannot see. Both fence spellings and indented blocks
+       are skipped, since a configuration example is not a citation. */
+    for (const { line, text } of logicalLines(readFileSync(path, 'utf8'))) {
+      if (/^\s*(```|~~~)/.test(text)) { fenced = !fenced; continue; }
+      if (fenced) continue;
+      if (/^ {4,}\S/.test(text)) continue;
+      if (classifyLine(text) !== 'none') continue;
+      for (const q of quotesIn(text)) {
         if (NOT_A_CITATION.has(q)) continue;
         const page = findQuote(q, pages);
-        if (page) out.push({ file: f, line: i + 1, quote: q, page });
+        if (page) out.push({ file: f, line, quote: q, page });
       }
-    });
+    }
   }
   return out;
 }
@@ -475,6 +502,52 @@ export function sourcingMismatch(headerText, records) {
   return sources.length > 1 ? { records: records.length, sources } : null;
 }
 
+/**
+ * A header saying its sources were fetched on the file's own verification date is a claim about
+ * sources.json, which records a `retrieved` date per source. Round 4 found four files asserting it
+ * over sources retrieved on other days, including two rewritten in the same branch and one whose
+ * exact date round 3 had already named.
+ *
+ * Only the "that day / that date" construction is checked, because a header naming an explicit
+ * fetch date says what it means and can be read directly.
+ */
+const FETCH_ON_THAT_DATE = /\b(fetched?|fetches)\b[^.;]{0,60}\b(that (day|date))\b|\bon that date\b/i;
+
+export function loadSources(p = join(ROOT, 'evidence', 'sources.json')) {
+  if (!existsSync(p)) return [];
+  return JSON.parse(readFileSync(p, 'utf8'));
+}
+
+/** The pure decision, so its must-fail rows do not depend on the corpus being dirty. */
+export function fetchDateMismatch(headerText, retrievedDates) {
+  const head = String(headerText);
+  if (!FETCH_ON_THAT_DATE.test(head)) return null;
+  const dates = head.match(/20\d\d-\d\d-\d\d/g) || [];
+  if (!dates.length) return null;
+  /* Every retrieved date must APPEAR somewhere in the header, not merely equal the first one. A
+     file citing pages fetched on two days is honest when it names both, and the earlier rule made
+     that unsayable: it forced either a false sentence or a reworded evasion. */
+  const claimed = dates[0];
+  const named = new Set(dates);
+  const wrong = [...new Set(retrievedDates)].filter((d) => d && !named.has(d));
+  return wrong.length ? { claimed, wrong } : null;
+}
+
+export function headerFetchDateMismatches(refDir = REF_DIR, ledger = loadLedger(), sources = loadSources()) {
+  const byId = new Map(sources.map((s) => [s.id, s]));
+  const out = [];
+  for (const { name: f, path } of scanTargets(refDir)) {
+    const cited = [...new Set(ledger.filter((c) => String(c.file).endsWith(`/${f}`)).map((c) => c.source))];
+    const dates = cited
+      .map((id) => byId.get(id))
+      .filter((s) => s && s.type !== 'internal')
+      .map((s) => s.retrieved);
+    const bad = fetchDateMismatch(headerBlock(readFileSync(path, 'utf8')), dates);
+    if (bad) out.push({ file: f, ...bad });
+  }
+  return out;
+}
+
 export function headerSourcingMismatches(refDir = REF_DIR, ledger = loadLedger()) {
   const out = [];
   for (const { name: f, path } of scanTargets(refDir)) {
@@ -541,6 +614,17 @@ function main(argv) {
     console.log('The file header still reports every quote as confirmed, so the reader is told more');
     console.log('was checked than was. Tag the line if the claim is documented, or paraphrase.');
     bad += stray.length;
+  }
+  const fetchDates = headerFetchDateMismatches();
+  if (fetchDates.length) {
+    console.log('\nHEADER DATES A FETCH THAT THE SOURCE RECORDS CONTRADICT:');
+    for (const d of fetchDates) {
+      console.log(`  ${d.file}  header says ${d.claimed}, sources cited by this file were retrieved ${d.wrong.join(', ')}`);
+    }
+    console.log(`\nFAIL ${fetchDates.length} header(s) date a fetch sources.json disagrees with.`);
+    console.log('Name the real dates. "Fetched live that day" is a claim about the provenance');
+    console.log('record, and the record is right there.');
+    bad += fetchDates.length;
   }
   const sourcing = headerSourcingMismatches();
   if (sourcing.length) {
@@ -741,6 +825,18 @@ function selfTest() {
   check('...and a number word the map does not know FAILS rather than being skipped',  // @header-row
     headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')?.claimed === null,
     JSON.stringify(headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')));
+  check('no header dates a fetch the source records contradict',  // @header-row
+    headerFetchDateMismatches().length === 0, JSON.stringify(headerFetchDateMismatches()));
+  const FETCH_HEAD = 'Claude Code 2.1.229, verified 2026-08-13. Sources fetched live that day.';
+  check('...and that decision fires when a cited source was retrieved on another day',  // @header-row
+    fetchDateMismatch(FETCH_HEAD, ['2026-08-13', '2026-08-05']) !== null,
+    JSON.stringify(fetchDateMismatch(FETCH_HEAD, ['2026-08-13', '2026-08-05'])));
+  /* A header that NAMES a second date is honest about a second fetch, which is the whole point of
+     comparing against every date in the header rather than only the first. */
+  const TWO_DATES = 'verified 2026-08-13. Sources fetched that day, and the settings page 2026-08-05.';
+  check('...and stays silent when every cited source date is named in the header',  // @header-row
+    fetchDateMismatch(TWO_DATES, ['2026-08-13', '2026-08-05']) === null,
+    JSON.stringify(fetchDateMismatch(TWO_DATES, ['2026-08-13', '2026-08-05'])));
   check('no header promises one source for every claim while the ledger says otherwise',  // @header-row
     headerSourcingMismatches().length === 0, JSON.stringify(headerSourcingMismatches()));
   /* Synthetic header AND synthetic ledger, so neither the corpus being clean nor the corpus being

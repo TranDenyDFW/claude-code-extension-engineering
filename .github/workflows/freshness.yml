@@ -34,7 +34,7 @@ env:
 jobs:
   # ---------------------------------------------------------------- suite ----
   # Cross-platform, because Windows behaviour is a first-class claim in this reference
-  # (native Windows has no OS sandbox, WSL2 cannot launch Windows binaries from a
+  # (native Windows has no OS sandbox; on WSL2 launching a Windows binary from a
   # sandboxed command without the optional seccomp filter, and the deny-rule recognition
   # measurement is Windows-specific) while every job here ran only on Ubuntu. A reference
   # that documents platform differences and tests one platform is asserting something it

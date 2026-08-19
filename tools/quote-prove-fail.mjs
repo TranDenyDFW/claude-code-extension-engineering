@@ -220,8 +220,8 @@ function restoredExactly(file, m) {
     {
       label: 'skipping code blocks in the unchecked-quotation hunt, fenced AND indented',
       edits: [
-        { from: '      if (/^\\s*(```|~~~)/.test(line)) { fenced = !fenced; return; }', to: '      if (false) { fenced = !fenced; return; }' },
-        { from: '      if (/^ {4,}\\S/.test(line)) return;', to: '      if (false) return;' },
+        { from: '      if (/^\\s*(```|~~~)/.test(text)) { fenced = !fenced; continue; }', to: '      if (false) { fenced = !fenced; continue; }' },
+        { from: '      if (/^ {4,}\\S/.test(text)) continue;', to: '      if (false) continue;' },
       ],
       row: /ignores fenced code blocks/,
     },
@@ -248,6 +248,18 @@ function restoredExactly(file, m) {
       from: '  return sources.length > 1 ? { records: records.length, sources } : null;',
       to: '  return null;',
       row: /decision fires when such a header sits over records with two sources/,
+    },
+    {
+      label: 'the fetch-date construction test, so no header is ever checked against its sources',
+      from: '  if (!FETCH_ON_THAT_DATE.test(head)) return null;',
+      to: '  if (true) return null;',
+      row: /decision fires when a cited source was retrieved on another day/,
+    },
+    {
+      label: 'the named-dates set, so a header naming a second date is reported anyway',
+      from: '  const wrong = [...new Set(retrievedDates)].filter((d) => d && !named.has(d));',
+      to: '  const wrong = [...new Set(retrievedDates)].filter((d) => d && d !== claimed);',
+      row: /stays silent when every cited source date is named in the header/,
     },
     {
       label: 'the typographic-quote fold, without which a curly citation is invisible',
@@ -312,7 +324,7 @@ const rows = headerRows();
 /* The planted() helper is the self-test's own wrapper over headerQuoteMismatches; a row calling
    it is calling the header check one level down. Named explicitly rather than by pattern, so a
    future helper has to be added deliberately. */
-const HEADER_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|collectUncheckedResolvingQuotes|headerSourcingMismatches|sourcingMismatch|planted\(|quotesIn|foldQuoteMarks/;
+const HEADER_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|collectUncheckedResolvingQuotes|headerSourcingMismatches|sourcingMismatch|planted\(|quotesIn|foldQuoteMarks|headerFetchDateMismatches|fetchDateMismatch|logicalLines/;
 const src = readFileSync(CHECK, 'utf8');
 const gutted = [];
 for (const r of rows) {

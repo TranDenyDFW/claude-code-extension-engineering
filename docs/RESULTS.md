@@ -48,11 +48,12 @@ content row can detect, because the content stays there while the path to it doe
 
 **On the quote gate's scope, since the count above has no denominator without it.**
 [tools/quote-check.mjs](../tools/quote-check.mjs) inspects double-quoted spans of 25
-characters or more, and ONLY on lines carrying an evidence tag. The same reviewer counted 42
-qualifying spans on untagged lines and read the plausible ones: all are the library's own
-scare quotes, its own phrasing of a wrong conclusion, or measured CLI output, so the scoping
-is correct. It is stated here because "every verbatim quote checked" is true of the tagged
-set and silent about the rest.
+characters or more. It COUNTS those on lines carrying an evidence tag, and separately HUNTS
+every other one: a span on an untagged line that resolves against the mirror is a citation of
+Anthropic's words where nothing checks it, and the gate refuses it. That second half was added
+2026-08-19 after a review found a real instance, and it reads logical lines rather than
+physical ones, because a citation broken by a line wrap was invisible to both halves. Code
+blocks are skipped in all three spellings, since a configuration example is not a citation.
 
 Near-tautological on the first run, since the keys derive from the content. It earns its keep
 as a regression gate and through `--prove-fail`, which guts every source file and confirms all

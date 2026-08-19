@@ -1,8 +1,9 @@
 # Sessions, transcripts and rewind
 
 > Claude Code 2.1.229, verified 2026-08-13. What that means here: this file was written from live
-> fetches of the Manage sessions and Checkpointing pages on that date rather than from the docs
-> mirror, because it was new and had no prior verification to inherit. Its 28 ledgered claims cite
+> fetches of the Manage sessions and Checkpointing pages, taken 2026-08-12 and 2026-08-14 per
+> their source records, rather than from the docs mirror, because it was new and had no prior
+> verification to inherit. Its 28 ledgered claims cite
 > SEVEN sources, not those two: 9 the sessions page, 6 checkpointing, 5 settings, 3 the .claude
 > directory, 3 this project's own research, and one each for agents and cross-session messaging.
 > It carries NO verbatim quotes, so the quote gate says nothing about it.
