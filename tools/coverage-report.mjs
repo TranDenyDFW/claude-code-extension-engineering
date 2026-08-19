@@ -227,6 +227,8 @@ if (DOC_NUMBERS) {
   // checker that cries wolf gets ignored, which is worse than no checker.
   const qRows = readFileSync(join(ROOT, 'tests', 'questions.jsonl'), 'utf8')
     .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
+  const ledgerRows = readFileSync(join(ROOT, 'evidence', 'claims.jsonl'), 'utf8')
+    .split(/\r?\n/).filter(l => l.trim()).map(l => JSON.parse(l));
 
   /* Every skill's references, not one skill's. Counting card and event rows from a quarter of
      the tree and calling it the manifest is the same shape as a coverage number that only ever
@@ -425,6 +427,15 @@ if (DOC_NUMBERS) {
     // and 31, while this gate reported "none disagree". The gate was real; it simply
     // did not scan the manifest, which is the FIRST surface a marketplace reader sees.
     { label: 'composition cards', live: cardCount, re: /(\d+)\s+composition cards/gi },
+    /* Added 2026-08-19 after review found SKILL.md's tag split reading 405 and 31 against a live
+       434 and 25, stale since before this branch and reviewed past four times. A figure a reader
+       can check belongs in this gate, not in a habit. */
+    { label: 'claims carrying the explicit OFFICIAL tag',
+      live: ledgerRows.filter((c) => (c.tags || []).includes('OFFICIAL')).length,
+      re: /(\d+)\s+claims carry the explicit tag/gi },
+    { label: 'claims relying on the untagged default',
+      live: ledgerRows.filter((c) => !(c.tags || []).length).length,
+      re: /(\d+)\s+rely on the untagged default/gi },
     { label: 'hook-event contracts', live: eventCount, re: /(\d+)\s+hook-event contracts/gi },
     /**
      * Added 2026-08-06. The two rules above are CANONICAL-PHRASE rules, and the

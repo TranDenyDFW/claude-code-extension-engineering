@@ -175,7 +175,12 @@ const CANNOT_START_A_QUOTE = /^[\s{[.,;:)\]$]/;
  * so both halves of the comparison now agree.
  */
 export function foldQuoteMarks(s) {
-  return String(s).replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+  /* Double curly quotes were folded from 2026-08-19; the rest were added after a review pointed out
+     that a fabricated citation in guillemets, CJK brackets or single curly quotes was just as
+     invisible as one in the pair already handled. Straight single quotes stay OUT: they are
+     apostrophes far more often than quotation marks, and folding them would turn every possessive
+     into a citation. */
+  return String(s).replace(/[\u201C\u201D\u201E\u201F\u2018\u2019\u00AB\u00BB\u300C\u300D\u300E\u300F]/g, '"');
 }
 
 export function quotesIn(line) {
@@ -210,7 +215,14 @@ export const NOT_A_CITATION = new Map([
  * drifted into paraphrasing Anthropic. Nothing broke while the set was wrong because no COMMUNITY
  * line happened to carry a quoted span; the corpus adoption ahead would have supplied plenty.
  */
-const TAGGED = /\[(OFFICIAL|ANTHROPIC|EXPERIMENTAL|LEGACY|DEPRECATED)\]|\[v\d+\.\d+\.\d+\]/;
+/**
+ * Case and padding tolerated, and the long spellings included. Keyed to the exact uppercase forms
+ * until 2026-08-19, so [Official], [OFFICIAL ] and [ANTHROPIC RECOMMENDATION] all fell OUT of the
+ * mirror regime and their quotes went unchecked. No live line used one, which is why this is a
+ * latent hole rather than a defect, but the claim extractor already accepts the long spellings and
+ * two halves of one rule disagreeing is how the next one arrives.
+ */
+const TAGGED = /\[\s*(OFFICIAL|ANTHROPIC(\s+RECOMMENDATION)?|EXPERIMENTAL|LEGACY|DEPRECATED)\s*\]|\[v\d+\.\d+\.\d+\]/i;
 
 /**
  * The other half of that decision. Dropping COMMUNITY from the mirror check must not leave its
@@ -220,7 +232,7 @@ const TAGGED = /\[(OFFICIAL|ANTHROPIC|EXPERIMENTAL|LEGACY|DEPRECATED)\]|\[v\d+\.
  * confirm. A line carrying BOTH tags still resolves against the mirror, because the OFFICIAL half
  * is a promise about Anthropic's wording.
  */
-const COMMUNITY_TAGGED = /\[COMMUNITY( PRACTICE)?\]/;
+const COMMUNITY_TAGGED = /\[\s*COMMUNITY(\s+PRACTICE)?\s*\]/i;
 
 /**
  * The scan covers the references directory AND the skill's own SKILL.md. SKILL.md was outside it
@@ -483,7 +495,13 @@ export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(r
  * which is a sentence the ledger can be read against. Files with no ledger records are exempt,
  * because there is nothing to contradict.
  */
-const UNIVERSAL_SOURCING = /\b(every|all|each)\s+claims?\s+below\b/i;
+/**
+ * Widened 2026-08-19: the first version matched three phrasings and a review found five more that
+ * a header could use to make the same promise, including one this library had itself used. The
+ * pattern is a family rather than a phrase, and it is deliberately generous, since a header that
+ * does not mean "everything here rests on that page" has no reason to say so.
+ */
+const UNIVERSAL_SOURCING = /\b(every|all|each)\s+(claims?|lines?|bullets?|statements?|facts?)\s+(below|here|in this file)\b|\ball of the (below|above|following)\b|\bthroughout this file\b|\beverything (here|below) (was|is|rests)\b/i;
 
 export function loadLedger(p = join(ROOT, 'evidence', 'claims.jsonl')) {
   if (!existsSync(p)) return [];
@@ -870,6 +888,25 @@ function selfTest() {
     JSON.stringify(headerQuoteClaim('> it carries SIX verbatim quotes, and elsewhere: carries TWO verbatim quotes')));
   check('...and a header restating the SAME count twice is still read',  // @header-row
     headerQuoteClaim('> it carries SIX verbatim quotes, and again it carries SIX verbatim quotes')?.claimed === 6);
+  check('a tag spelled with different case or padding stays in the mirror regime',  // @header-row
+    ['[Official]', '[OFFICIAL ]', '[ OFFICIAL]', '[ANTHROPIC RECOMMENDATION]']
+      .every((t) => classifyLine(`- x "a span of at least twenty-five characters" y  ${t}`) === 'mirror'),
+    JSON.stringify(['[Official]', '[OFFICIAL ]', '[ OFFICIAL]', '[ANTHROPIC RECOMMENDATION]']
+      .map((t) => classifyLine(`- x "a span of at least twenty-five characters" y  ${t}`))));
+  check('...and the COMMUNITY spellings too, or a retag changes coverage by accident',  // @header-row
+    ['[Community]', '[COMMUNITY PRACTICE]', '[ COMMUNITY ]']
+      .every((t) => classifyLine(`- x "a span of at least twenty-five characters" y  ${t}`) === 'community'));
+  check('a fabricated citation in guillemets or CJK brackets is extracted, not invisible',  // @header-row
+    [['\u00AB', '\u00BB'], ['\u300C', '\u300D'], ['\u2018', '\u2019']]
+      .every(([o, c2]) => quotesIn(`- The docs say ${o}a fabricated sentence nobody wrote${c2} here  [OFFICIAL]`).length === 1),
+    JSON.stringify([['\u00AB', '\u00BB'], ['\u300C', '\u300D'], ['\u2018', '\u2019']]
+      .map(([o, c2]) => quotesIn(`- The docs say ${o}a fabricated sentence nobody wrote${c2} here  [OFFICIAL]`).length)));
+  check('the universal-sourcing family catches the phrasings a header might reach for',  // @header-row
+    ['every claim below', 'all claims below', 'each claim below', 'every line below',
+     'all of the following', 'throughout this file', 'everything here was']
+      .every((p) => sourcingMismatch(`x ${p} checked against one page`, [{ source: 'A' }, { source: 'B' }]) !== null),
+    JSON.stringify(['every claim below', 'every line below', 'all of the following', 'throughout this file', 'everything here was']
+      .map((p) => sourcingMismatch(`x ${p} checked`, [{ source: 'A' }, { source: 'B' }]) !== null)));
   check('the not-a-citation exemption list stays small', NOT_A_CITATION.size <= 5, String(NOT_A_CITATION.size));
   check('...and every exemption states a reason',
     [...NOT_A_CITATION.values()].every((r) => typeof r === 'string' && r.length > 30));

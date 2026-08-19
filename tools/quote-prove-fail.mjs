@@ -262,6 +262,25 @@ function restoredExactly(file, m) {
       row: /stays silent when every cited source date is named in the header/,
     },
     {
+      label: 'case and padding tolerance in the tag regexes',
+      edits: [
+        { from: 'const TAGGED = /\\[\\s*(OFFICIAL|ANTHROPIC(\\s+RECOMMENDATION)?|EXPERIMENTAL|LEGACY|DEPRECATED)\\s*\\]|\\[v\\d+\\.\\d+\\.\\d+\\]/i;', to: 'const TAGGED = /\\[(OFFICIAL|ANTHROPIC|EXPERIMENTAL|LEGACY|DEPRECATED)\\]|\\[v\\d+\\.\\d+\\.\\d+\\]/;' },
+      ],
+      row: /tag spelled with different case or padding/,
+    },
+    {
+      label: 'case and padding tolerance in the COMMUNITY regex',
+      from: String.raw`const COMMUNITY_TAGGED = /\[\s*COMMUNITY(\s+PRACTICE)?\s*\]/i;`,
+      to: String.raw`const COMMUNITY_TAGGED = /\[COMMUNITY( PRACTICE)?\]/;`,
+      row: /COMMUNITY spellings too/,
+    },
+    {
+      label: 'the wider glyph set, back to double curly quotes only',
+      from: "  return String(s).replace(/[\\u201C\\u201D\\u201E\\u201F\\u2018\\u2019\\u00AB\\u00BB\\u300C\\u300D\\u300E\\u300F]/g, '\"');",
+      to: "  return String(s).replace(/[\\u201C\\u201D\\u201E\\u201F]/g, '\"');",
+      row: /guillemets or CJK brackets is extracted/,
+    },
+    {
       label: 'the typographic-quote fold, without which a curly citation is invisible',
       from: '  line = foldQuoteMarks(line);',
       to: '  line = String(line);',
@@ -324,7 +343,7 @@ const rows = headerRows();
 /* The planted() helper is the self-test's own wrapper over headerQuoteMismatches; a row calling
    it is calling the header check one level down. Named explicitly rather than by pattern, so a
    future helper has to be added deliberately. */
-const HEADER_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|collectUncheckedResolvingQuotes|headerSourcingMismatches|sourcingMismatch|planted\(|quotesIn|foldQuoteMarks|headerFetchDateMismatches|fetchDateMismatch|logicalLines/;
+const HEADER_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|collectUncheckedResolvingQuotes|headerSourcingMismatches|sourcingMismatch|planted\(|quotesIn|foldQuoteMarks|headerFetchDateMismatches|fetchDateMismatch|logicalLines|classifyLine/;
 const src = readFileSync(CHECK, 'utf8');
 const gutted = [];
 for (const r of rows) {
