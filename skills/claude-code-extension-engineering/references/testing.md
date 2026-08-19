@@ -49,6 +49,21 @@ Development is not a one-way checklist. The generic loop is CAPTURE FAILURE, the
 
 - Bisect with --safe-mode (or CLAUDE_CODE_SAFE_MODE), which starts with CLAUDE.md, plugins, skills, hooks and MCP all disabled (2.1.169); iterate with /reload-skills (2.1.152) and /reload-plugins. Skill edits apply in-session, but a NEW top-level skills directory needs a restart [OFFICIAL]  [v2.1.169]
 
+## Grading CONTENT, which the conformance spec cannot do
+
+The conformance spec below settles whether a runnable artifact behaves. It says nothing about
+whether a piece of authored content is any GOOD, and this library publishes comparative results
+that only a grading method can produce. That method belongs here, next to the results it justifies.
+
+- The agent that did the work must not be the agent that grades it. The documentation states the principle directly, describing a verification subagent or dynamic workflow that has a fresh model try to refute the result, "so the agent doing the work isn't the one grading it"  [OFFICIAL]
+- A documented eval loop already exists and is worth using before building one: the `skill-creator` plugin stores cases in `evals/evals.json`, spawns a subagent PER CASE so each run starts with a clean context, records token count and duration, writes pass or fail WITH EVIDENCE to `grading.json`, aggregates with-skill against without-skill into `benchmark.json`, and runs a blind A/B between two versions so an edit is confirmed as an improvement before it is committed  [OFFICIAL]
+- Note what that loop already gives you, because two of its properties are rules this file states elsewhere on its own authority: a fresh context per case, and a with-versus-without comparison. The baseline discipline above is not a house convention  [ENGINEERING]
+- SPLIT THE ROLES, because one agent doing all three corrupts each. A COMPARATOR sees both outputs as A and B, knows nothing about which arm produced which, and scores against stated criteria. A REPORTER reads the aggregate and is forbidden from proposing improvements, so the report stays a neutral read rather than an argument written backwards from its recommendation. An ANALYST comes last, sees the verdict FIRST, and only then opens both artifacts to explain the difference  [ENGINEERING]
+- The ordering is the mechanism, not bureaucracy. An analyst who knows which arm is which before scoring will find reasons for the answer it expects, and a comparator that never unblinds produces a number nobody can act on. Blind scoring alone and diagnosis alone are both half a method  [ENGINEERING]
+- Grade against criteria that are individually checkable, and have the grader score each one separately. A single overall verdict hides which criterion failed, and a criterion nothing can check passes by default forever. This file has shipped that defect: the Definition of Done lists below once asked for summary quality to be verified with nothing anywhere defining a good summary  [ENGINEERING]
+- When the grader cannot tell, the assertion FAILS. There is no partial credit, and every verdict carries the quoted evidence it rests on. An ambiguous result that drifts toward a pass is how a suite manufactures confidence, and [permissions.md](permissions.md) already takes the same conservative direction for a different question, where an unmatched shape is undetermined rather than allowed  [ENGINEERING]
+- A green aggregate is not a read of the run. Pass rates hide which cases are HIGH VARIANCE across repeats and where cost is being spent for no discrimination, neither of which a score surfaces. A separate pass over the raw runs, emitting observations rather than a number, is what makes an aggregate actionable  [ENGINEERING]
+
 ## The conformance spec: ship the expected outcome beside the artifact
 
 An extension that has no recorded expected outcome cannot be tested, only run. Ship a
