@@ -211,10 +211,26 @@ const TAGGED = /\[(OFFICIAL|ANTHROPIC|EXPERIMENTAL|LEGACY|DEPRECATED)\]|\[v\d+\.
  */
 const COMMUNITY_TAGGED = /\[COMMUNITY( PRACTICE)?\]/;
 
+/**
+ * The scan covers the references directory AND the skill's own SKILL.md. SKILL.md was outside it
+ * until 2026-08-19, which an adversarial panel flagged as a latent hole: the library's front page
+ * could carry a COMMUNITY-tagged quotation, or a documentation-tagged one that had gone stale
+ * upstream, and no gate would look. It carries 9 quoted spans today and none on a tagged line, so
+ * this changes no count; it removes the exemption before something lands in it.
+ */
+function scanTargets(refDir) {
+  const out = readdirSync(refDir)
+    .filter((x) => x.endsWith('.md'))
+    .map((f) => ({ name: f, path: join(refDir, f) }));
+  const skill = join(refDir, '..', 'SKILL.md');
+  if (existsSync(skill)) out.push({ name: 'SKILL.md', path: skill });
+  return out;
+}
+
 function scanLines(refDir, predicate) {
   const out = [];
-  for (const f of readdirSync(refDir).filter((x) => x.endsWith('.md'))) {
-    const lines = readFileSync(join(refDir, f), 'utf8').split(/\r?\n/);
+  for (const { name: f, path } of scanTargets(refDir)) {
+    const lines = readFileSync(path, 'utf8').split(/\r?\n/);
     lines.forEach((line, i) => {
       if (!predicate(line)) return;
       for (const q of quotesIn(line)) {
@@ -340,8 +356,8 @@ export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(r
   const byFile = new Map();
   for (const q of quotes) byFile.set(q.file, (byFile.get(q.file) || 0) + 1);
   const out = [];
-  for (const f of readdirSync(refDir).filter((x) => x.endsWith('.md')).sort()) {
-    const claim = headerQuoteClaim(readFileSync(join(refDir, f), 'utf8'));
+  for (const { name: f, path } of scanTargets(refDir).sort((a, b) => a.name.localeCompare(b.name))) {
+    const claim = headerQuoteClaim(readFileSync(path, 'utf8'));
     const actual = byFile.get(f) || 0;
     if (!claim) {
       /* Silence is honest for a file with nothing to describe, and a lie by omission for one whose
@@ -358,8 +374,8 @@ export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(r
 
 /** How many reference files this gate actually read a claim from, for an honest PASS line. */
 export function headerClaimCoverage(refDir = REF_DIR) {
-  const files = readdirSync(refDir).filter((x) => x.endsWith('.md'));
-  const withClaim = files.filter((f) => headerQuoteClaim(readFileSync(join(refDir, f), 'utf8')));
+  const files = scanTargets(refDir);
+  const withClaim = files.filter((f) => headerQuoteClaim(readFileSync(f.path, 'utf8')));
   return { files: files.length, withClaim: withClaim.length };
 }
 

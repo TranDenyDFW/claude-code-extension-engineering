@@ -1,6 +1,6 @@
 # Claude Code GitHub Action
 
-> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries ONE verbatim quote, the `--mcp-config` invocation, which the quote gate DOES check against the mirror; every other line is paraphrase, so the gate is silent about the rest; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: this file carries ONE verbatim quote, which the quote gate DOES check against the mirror; every other line is paraphrase, so the gate is silent about the rest; the capability surface moved to 44 current tools and held at 31 current hook events. 129 of 190 mirrored pages changed since 2.1.224 and were NOT all re-read, so this is a quote-and-capability check rather than a full re-reading.
 
 
 Authored CI workflow YAML that runs Claude Code in GitHub Actions, built on the Agent SDK. The one genuinely authorable mechanism in the CI tier.
