@@ -291,6 +291,9 @@ const QUOTE_COUNT_WORDS = {
   SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10, ELEVEN: 11, TWELVE: 12,
   THIRTEEN: 13, FOURTEEN: 14, FIFTEEN: 15, SIXTEEN: 16, SEVENTEEN: 17,
   EIGHTEEN: 18, NINETEEN: 19, TWENTY: 20,
+  'TWENTY-ONE': 21, 'TWENTY-TWO': 22, 'TWENTY-THREE': 23, 'TWENTY-FOUR': 24,
+  'TWENTY-FIVE': 25, 'TWENTY-SIX': 26, 'TWENTY-SEVEN': 27, 'TWENTY-EIGHT': 28,
+  'TWENTY-NINE': 29, THIRTY: 30,
 };
 
 /**
@@ -299,12 +302,30 @@ const QUOTE_COUNT_WORDS = {
  * making NO claim, and a file with quotes that makes no claim is a failure below.
  */
 const HEADER_CLAIM_PATTERNS = [
-  /carries\s+([A-Za-z]+|\d+)\s+verbatim\s+quotes?/i,
-  /all\s+([A-Za-z]+|\d+)\s+verbatim\s+quotes?\s+in\s+this\s+file/i,
+  /carries\s+([A-Za-z]+(?:-[A-Za-z]+)?|\d+)\s+verbatim\s+quotes?/i,
+  /all\s+([A-Za-z]+(?:-[A-Za-z]+)?|\d+)\s+verbatim\s+quotes?\s+in\s+this\s+file/i,
 ];
 
+/**
+ * THE HEADER IS THE LEADING BLOCKQUOTE, not a fixed number of lines. An adversarial panel found
+ * safety-classifier.md wrapping "It carries NO / verbatim quotes" across the 8-line boundary, so
+ * the claim was invisible and only the line break decided it. Reading the blockquote to its end
+ * removes the wrap from the question entirely.
+ */
+export function headerBlock(text) {
+  const lines = String(text).split(/\r?\n/);
+  const out = [];
+  let started = false;
+  for (const l of lines.slice(0, 40)) {
+    if (/^\s*>/.test(l)) { started = true; out.push(l.replace(/^\s*>\s?/, '')); continue; }
+    if (started && !l.trim()) break;
+    if (started) break;
+  }
+  return out.join(' ').replace(/\s+/g, ' ').trim();
+}
+
 export function headerQuoteClaim(text) {
-  const head = String(text).split(/\r?\n/).slice(0, 8).join(' ').replace(/>\s*/g, ' ');
+  const head = headerBlock(text);
   for (const re of HEADER_CLAIM_PATTERNS) {
     const m = head.match(re);
     if (!m) continue;
@@ -532,19 +553,38 @@ function selfTest() {
    * nothing, so it covered 21 of 30 files and 9 of the 46 quotes while its PASS line said
    * "every header quote count matches". These rows pin the three properties that fixed it.
    */
+  /**
+   * REWRITTEN 2026-08-19. The previous version of this row planted a quote in themes.md, which
+   * STATES a count, so it exercised the wrong-count branch under a label promising the no-claim
+   * branch. An adversarial panel found that deleting the branch it named left every gate green.
+   * sources.md states no count at all, which is the branch this row is for.
+   */
+  const planted = (f) => headerQuoteMismatches(REF_DIR, [{ file: f, line: 1, quote: 'x'.repeat(MIN_QUOTE) }]);
   check('a header claiming nothing is a FAILURE when the file carries quotes',
-    headerQuoteMismatches(REF_DIR, [{ file: 'themes.md', line: 1, quote: 'x'.repeat(MIN_QUOTE) }])
-      .some((h) => h.file === 'themes.md' && h.reason === 'no claim') === false
-    && headerQuoteMismatches(REF_DIR, [{ file: 'themes.md', line: 1, quote: 'x'.repeat(MIN_QUOTE) }])
-      .some((h) => h.file === 'themes.md'),
-    'themes.md claims NO quotes, so one planted quote must be reported as a wrong count');
+    planted('sources.md').some((h) => h.file === 'sources.md' && h.reason === 'no claim'),
+    JSON.stringify(planted('sources.md').filter((h) => h.file === 'sources.md')));
+  check('...and a file that states a count is caught on the count branch instead',
+    planted('themes.md').some((h) => h.file === 'themes.md' && h.reason === 'wrong count'),
+    JSON.stringify(planted('themes.md').filter((h) => h.file === 'themes.md')));
+  /**
+   * The fixture wraps the claim across the EIGHTH and NINTH lines, which is the shape that broke:
+   * safety-classifier.md ends line 8 with "It carries NO" and starts line 9 with "verbatim quotes".
+   * A shorter fixture passes under the old fixed window too, so it would not have caught it.
+   */
+  const WRAPPED_AT_8 = '# T\n\n> filler line 1 standing in for a long provenance header.\n> filler line 2 standing in for a long provenance header.\n> filler line 3 standing in for a long provenance header.\n> filler line 4 standing in for a long provenance header.\n> filler line 5 standing in for a long provenance header.\n> the sourcing note runs on and eventually says it carries NO\n> verbatim quotes, so the gate is silent.';
+  check('a claim WRAPPED past the old fixed window is still read',
+    headerQuoteClaim(WRAPPED_AT_8)?.claimed === 0,
+    JSON.stringify(headerQuoteClaim(WRAPPED_AT_8)));
+  check('...and the blockquote stops at the first non-quoted line, so body prose cannot forge a claim',
+    headerQuoteClaim('# T\n\n> a header with no count.\n\nBody text claiming it carries SIX verbatim quotes.') === null);
   check('...and both header dialects parse, including the "all N verbatim quote" form',
     headerQuoteClaim('> all 1 verbatim quote in this file re-checked')?.claimed === 1
     && headerQuoteClaim('> this file carries SIX verbatim quotes')?.claimed === 6);
   check('...and a doubled space does not make a claim invisible, which it did in sessions.md',
     headerQuoteClaim('> It carries NO  verbatim quotes')?.claimed === 0);
   check('...and a number word the map does not know FAILS rather than being skipped',
-    headerQuoteClaim('> this file carries THIRTY verbatim quotes')?.claimed === null);
+    headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')?.claimed === null,
+    JSON.stringify(headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')));
   check('the not-a-citation exemption list stays small', NOT_A_CITATION.size <= 5, String(NOT_A_CITATION.size));
   check('...and every exemption states a reason',
     [...NOT_A_CITATION.values()].every((r) => typeof r === 'string' && r.length > 30));

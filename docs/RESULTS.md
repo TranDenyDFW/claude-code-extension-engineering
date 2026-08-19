@@ -12,7 +12,7 @@ deciding that it should.
 
 ## Tier 1, deterministic regression
 
-**394 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
+**395 questions (set v2), 100% pass.** Each question carries a regex answer key and a source
 file, run by [tests/run-tests.mjs](../tests/run-tests.mjs). Sixteen rows were added on
 2026-08-13 alongside the out-of-scope boundary table. Thirty-eight more were added on
 2026-08-18: three for Stop-hook mechanics measured against a live production hook,
@@ -56,7 +56,7 @@ set and silent about the rest.
 
 Near-tautological on the first run, since the keys derive from the content. It earns its keep
 as a regression gate and through `--prove-fail`, which guts every source file and confirms all
-379 positive assertions go red. A suite that stays green against deleted content proves
+380 positive assertions go red. A suite that stays green against deleted content proves
 nothing; this one cannot.
 
 Set v2 (2026-07-31) added coverage for the marketplace-submission facts, the frontmatter
