@@ -218,6 +218,11 @@ const freshIds = new Set(fresh.map(c => c.id));
  * prose minted a claim from the header itself: the extractor is right to read tags anywhere, and a
  * provenance record pointing at a file's own verification blockquote is meaningless. Caught by hand
  * that round, so nothing stopped the next one.
+ *
+ * A tagged section HEADING is a different thing and stays legal: `## Legacy lifecycle, builds
+ * before v2.1.178 [OFFICIAL] [LEGACY]` declares the status of everything under it, and two such
+ * records exist in agent-teams.md. The header blockquote describes how the FILE was verified, so a
+ * claim there cites the verification note rather than any statement about Claude Code.
  */
 const headerLines = new Map();
 for (const c of fresh) {

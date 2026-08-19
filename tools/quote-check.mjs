@@ -369,6 +369,13 @@ const HEADER_CLAIM_PATTERNS = [
 ];
 
 /**
+ * TWO SHAPES THIS DELIBERATELY DOES NOT READ, both of which fail CLOSED and were measured on
+ * 2026-08-19. A CommonMark lazy continuation (a count phrase on an unmarked line following a
+ * blockquote line) and a SECOND blockquote paragraph after a blank line both yield no claim. For a
+ * file carrying quotes that is a FAILURE, since silence is only allowed at zero quotes, so the
+ * gate errs toward complaining rather than toward believing. Widening the parser to accept them
+ * would let body prose reach the header, which the boundary rule exists to prevent.
+ *
  * THE HEADER IS THE LEADING BLOCKQUOTE, not a fixed number of lines. An adversarial panel found
  * safety-classifier.md wrapping "It carries NO / verbatim quotes" across the 8-line boundary, so
  * the claim was invisible and only the line break decided it. Reading the blockquote to its end
