@@ -53,7 +53,9 @@ const gitClean = (p) => execFileSync('git', ['diff', '--stat', '--', p], { cwd: 
  */
 function allCheckRows() {
   const src = readFileSync(CHECK, 'utf8');
-  const RE = /check\(\s*(['"])((?:\\.|(?!\1).)*)\1/g;
+  /* Backticks too: a template-literal label dropped a row out of the population silently, which is
+     the same shape as the quoting spellings that evaded the earlier version. */
+  const RE = /check\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g;
   const out = [];
   for (const m of src.matchAll(RE)) {
     const start = m.index;
@@ -448,7 +450,25 @@ const rows = headerRows();
 /* The planted() helper is the self-test's own wrapper over headerQuoteMismatches; a row calling
    it is calling the header check one level down. Named explicitly rather than by pattern, so a
    future helper has to be added deliberately. */
-const HEADER_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|collectUncheckedResolvingQuotes|headerSourcingMismatches|sourcingMismatch|planted\(|quotesIn|foldQuoteMarks|headerFetchDateMismatches|fetchDateMismatch|logicalLines|classifyLine|quoteCountProblem|headerShapeProblems|headerShapeViolations/;
+/* The broad list: everything the narrow list names, plus the shared extractor helpers a marked row
+   may legitimately assert over. */
+/**
+ * DERIVED from quote-check's own exports, not hand-maintained. A hand list meant a new checker was
+ * unasserted and undetected until someone remembered to register it, which is the failure this rule
+ * exists to catch, one level up. The naming convention is the header check's own: anything exported
+ * whose name begins header/sourcing/fetchDate/quoteCount, plus the unchecked-quotation hunt.
+ *
+ * `planted(` used to sit in this list and named no function at all: it matched a COMMENT, so the
+ * guard could be satisfied by prose. Removed with the rows that needed it.
+ */
+const headerOnlyNames = () => {
+  const src = readFileSync(CHECK, 'utf8');
+  const names = [...src.matchAll(/export\s+(?:function|const)\s+([A-Za-z0-9_]+)/g)].map((m) => m[1]);
+  return names.filter((n) => /^(header|sourcing|fetchDate|quoteCount)/.test(n) || n === 'collectUncheckedResolvingQuotes');
+};
+const HEADER_ONLY_FNS = new RegExp(headerOnlyNames().join('|'));
+
+const HEADER_FNS = new RegExp([...headerOnlyNames(), 'quotesIn', 'foldQuoteMarks', 'logicalLines', 'classifyLine', 'isFence', 'isIndentedCode'].join('|'));
 const src = readFileSync(CHECK, 'utf8');
 const gutted = [];
 
@@ -466,7 +486,6 @@ if (dupes.length) {
   problems += new Set(dupes).size;
 }
 
-const HEADER_ONLY_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|headerSourcingMismatches|sourcingMismatch|headerFetchDateMismatches|fetchDateMismatch|collectUncheckedResolvingQuotes|planted\(|quoteCountProblem|headerShapeProblems|headerShapeViolations/;
 const bodyAt = (i) => {
   const next = src.indexOf('  check(', i + 8);
   return src.slice(i, next === -1 ? i + 600 : next);

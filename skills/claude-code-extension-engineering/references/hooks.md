@@ -1,7 +1,7 @@
 # Hooks
 
 > Claude Code 2.1.229. What that means here: this file carries SIX verbatim quotes and
-> `tools/quote-check.mjs` confirms every one still appears upstream. Per-claim provenance lives in
+> `tools/quote-check.mjs` confirms they still appear upstream. Per-claim provenance lives in
 > `evidence/claims.jsonl`, where the gates read it; nothing else is asserted here.
 
 

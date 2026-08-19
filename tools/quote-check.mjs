@@ -615,9 +615,13 @@ export function headerSourcingMismatches(refDir = REF_DIR, ledger = loadLedger()
 export function headerShapeViolations(refDir = REF_DIR, version = readVerifiedVersion()) {
   const out = [];
   for (const { name: f, path } of scanTargets(refDir)) {
-    const head = headerBlock(readFileSync(path, 'utf8'));
+    /* headerQuoteClaim extracts the block ITSELF, so it is given the raw file. Handing it an
+       already-extracted block returned null, which silently exempted nothing and made every count
+       word read as an unchecked figure. */
+    const raw = readFileSync(path, 'utf8');
+    const head = headerBlock(raw);
     if (!head) continue;
-    const bad = headerShapeProblems(head, version, headerQuoteClaim(head));
+    const bad = headerShapeProblems(head, version, headerQuoteClaim(raw));
     if (bad.length) out.push({ file: f, problems: bad });
   }
   return out;
@@ -628,6 +632,16 @@ export function readVerifiedVersion(p = join(ROOT, 'evidence', 'VERIFIED_VERSION
 }
 
 /** Pure, so its must-fail rows do not depend on the corpus being clean. */
+/**
+ * WHAT THIS CANNOT CATCH, stated rather than implied: it refuses dates and figures, in digits and
+ * in words, but it cannot tell a verifiable sentence from an unverifiable one. "Its sourcing is
+ * thinner than its siblings" carries no number and passes. The rule is a shape check that removes
+ * the class of stale FIGURES, which is what six review rounds actually found; judgment is still
+ * required for prose.
+ */
+const WORD_NUMBER = /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\b/i;
+const MONTH_NAME = /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i;
+
 export function headerShapeProblems(head, version, claim) {
   const problems = [];
   const dates = head.match(/\b20\d\d-\d\d-\d\d\b/g) || [];
@@ -641,6 +655,15 @@ export function headerShapeProblems(head, version, claim) {
   const nums = (stripped.match(/\b\d+\b/g) || [])
     .filter((n) => !(claim && String(claim.claimed) === n));
   if (nums.length) problems.push(`states ${nums.length} unchecked figure(s): ${nums.join(', ')}`);
+  /* The quote count is written as a word in most headers, so the count word is exempt here the same
+     way its numeral is above. Everything else spelled out is a figure nothing checks. */
+  /* A hyphenated count word is two matches, so every part of it is exempt, not the whole string. */
+  const countParts = new Set(claim && claim.word ? String(claim.word).toLowerCase().split('-') : []);
+  const words = (stripped.match(new RegExp(WORD_NUMBER.source, 'gi')) || [])
+    .filter((w) => !countParts.has(w.toLowerCase()));
+  if (words.length) problems.push(`states ${words.length} figure(s) in words: ${words.join(', ')}`);
+  const months = stripped.match(new RegExp(MONTH_NAME.source, 'gi')) || [];
+  if (months.length) problems.push(`names ${months.length} month(s): ${months.join(', ')}`);
   return problems;
 }
 
@@ -766,6 +789,7 @@ function main(argv) {
 
 // ------------------------------------------------------------------ self-test
 function selfTest() {
+  const cannotCheck = [];
   let fails = 0;
   const check = (n, ok, got) => { console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${n}${ok ? '' : `  (${got})`}`); if (!ok) fails++; };
 
@@ -1003,9 +1027,19 @@ function selfTest() {
   check('...and the phrasings it catches include all three quantifiers',  // @header-row
     ['every claim below', 'all claims below', 'each claim below']
       .every((p) => sourcingMismatch(`x ${p} was checked`, TWO_SOURCES) !== null));
-  check('no upstream prose is quoted on a line this gate does not check',  // @header-row
-    collectUncheckedResolvingQuotes(REF_DIR, loadMirror(DEFAULT_MIRROR)).length === 0,
-    JSON.stringify(collectUncheckedResolvingQuotes(REF_DIR, loadMirror(DEFAULT_MIRROR)).map((s) => `${s.file}:${s.line}`)));
+  /* THE MIRROR MAY BE ABSENT. It is not committed, for copyright, so a contributor without it must
+     still reach a verdict. main() has guarded this since it was written; this row did not, and with
+     the mirror missing the whole self-test died on an uncaught ENOENT with about thirty rows never
+     run, while the CI step comment still called the self-test the runner-safe half. A row that
+     cannot run is reported as skipped and turns the exit into 2, never into a silent pass. */
+  const mirrorHere = existsSync(DEFAULT_MIRROR);
+  if (!mirrorHere) cannotCheck.push('the unchecked-quotation row needs the docs mirror, which is not present');
+  const mirrorPages = mirrorHere ? loadMirror(DEFAULT_MIRROR) : null;
+  if (mirrorHere) {
+    check('no upstream prose is quoted on a line this gate does not check',  // @header-row
+      collectUncheckedResolvingQuotes(REF_DIR, mirrorPages).length === 0,
+      JSON.stringify(collectUncheckedResolvingQuotes(REF_DIR, mirrorPages).map((s) => `${s.file}:${s.line}`)));
+  }
   check('...and that check ignores fenced code blocks, or every JSON example needs a tag',  // @header-row
     collectUncheckedResolvingQuotes(REF_DIR, new Map([['x.md', normalise('Destructive command blocked by hook')]])).length === 0);
   check('a header claim past the old 40-line cap is still read',  // @header-row
@@ -1045,8 +1079,14 @@ function selfTest() {
   check('...and every one is at least the minimum length',
     live.every((q) => q.quote.length >= MIN_QUOTE));
 
-  console.log(fails ? `\nSELF-TEST FAIL (${fails})` : '\nSELF-TEST PASS');
-  return fails ? 1 : 0;
+  if (cannotCheck.length) {
+    console.log('\nCOULD NOT CHECK:');
+    for (const why of cannotCheck) console.log(`  ${why}`);
+  }
+  console.log(fails ? `\nSELF-TEST FAIL (${fails})` : cannotCheck.length ? '\nSELF-TEST INCOMPLETE' : '\nSELF-TEST PASS');
+  /* Exit 2 is the documented "cannot check" code, the same one main() returns without a mirror. A
+     row that could not run must never read as a pass. */
+  return fails ? 1 : cannotCheck.length ? 2 : 0;
 }
 
 if (IS_MAIN) {

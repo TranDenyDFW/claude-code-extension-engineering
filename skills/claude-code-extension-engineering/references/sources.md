@@ -43,8 +43,17 @@
 | SRC_SUBAGENTS | Claude Code Subagents | https://code.claude.com/docs/en/sub-agents | 2026-07-29 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_SUPERPOWERS | Superpowers writing-skills | https://raw.githubusercontent.com/obra/superpowers/main/skills/writing-skills/SKILL.md | 2026-07-29 | 2.1.220 | verified | yes | MIT, Copyright (c) 2025 Jesse Vincent |
 | SRC_TOOLS_REF | Claude Code Tools reference | https://code.claude.com/docs/en/tools-reference | 2026-08-05 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_CHECKPOINTING | Checkpointing | https://code.claude.com/docs/en/checkpointing | 2026-08-12 | 2.1.224 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_CLAUDE_DIRECTORY | Claude Code the .claude directory | https://code.claude.com/docs/en/claude-directory | 2026-08-14 | 2.1.229 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_MODEL_CONFIG | Model configuration | https://code.claude.com/docs/en/model-config | 2026-08-12 | 2.1.224 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_SESSIONS | Manage sessions | https://code.claude.com/docs/en/sessions | 2026-08-12 | 2.1.224 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_STATUSLINE | Customize your status line | https://code.claude.com/docs/en/statusline | 2026-08-12 | 2.1.224 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_AGENT_SDK_FEATURES | Use Claude Code features in the SDK (settingSources and what loads regardless) | https://code.claude.com/docs/en/agent-sdk/claude-code-features | 2026-08-16 | 2.1.229 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_EXTINDEX_SURVEY | ExtIndex corpus survey: 366 tier-1 patterns judged against this library | internal | 2026-08-16 | 2.1.233 | verified | yes | Own work |
+| SRC_BEST_PRACTICES | Claude Code best practices | https://code.claude.com/docs/en/best-practices | 2026-08-19 | 2.1.229 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_LARGE_CODEBASES | Work with large codebases | https://code.claude.com/docs/en/large-codebases | 2026-08-19 | 2.1.229 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 
-Every external row was fetched live on the retrieved date and spot-checked against 2 or 3 claims that cite it; the spot-check records live in sources.json. A row's `Retrieved` date is the date of ITS OWN fetch, never a date copied from a neighbour: the five rows dated 2026-08-05 were fetched that day for the monitors and channels pass, and reading the mirror at `P:\ClaudeExt\CCX-Extension-Research\sources\docs\md` is not a retrieval and is never dated as one.
+A row's `Retrieved` date is the date that row's own content was taken, never a date copied from a neighbour. Most were fetched live; SOME were read from the local docs mirror instead, and those say so in their `notes` field in sources.json, which is the machine-readable record this table is generated against. Every row is spot-checked against 2 or 3 claims that cite it, and those records live there too. The claim that every external row was a live fetch stood here until 2026-08-19 and was never true of the mirror-read rows.
 
 Two page titles have drifted upstream without the URL changing: the memory page and the hooks guide. Three findings from verification:
 

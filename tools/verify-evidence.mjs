@@ -301,6 +301,24 @@ for (const c of fresh) {
   }
 }
 
+/**
+ * EVERY CITED SOURCE MUST BE LOOKABLE UP. references/sources.md is the reader's table; sources.json
+ * is the machine record. They drifted nine rows apart during this branch, so 183 of 789 claims
+ * cited an id with no row a reader could find, and no gate looked.
+ */
+{
+  const mdPath = join(ROOT, 'skills', 'claude-code-extension-engineering', 'references', 'sources.md');
+  if (existsSync(mdPath)) {
+    const md = readFileSync(mdPath, 'utf8');
+    const citedIds = [...new Set(claims.map((c) => c.source))].sort();
+    for (const id of citedIds) {
+      if (!md.includes(`| ${id} `)) {
+        errors.push(`SOURCE_NOT_LISTED: ${id} is cited by claims but has no row in references/sources.md, so a reader cannot look it up`);
+      }
+    }
+  }
+}
+
 const seenIds = new Map();
 for (const c of fresh) {
   const prior = seenIds.get(c.id);
