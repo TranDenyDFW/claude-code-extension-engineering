@@ -86,9 +86,8 @@ Four case kinds, because each catches a distinct real failure:
 
 Three rules that decide whether the spec is worth anything:
 
-- **Score structurally, never on text.** A handler printing `BLOCKED` to stdout with exit 0 and
-  no `hookSpecificOutput` is an ALLOW. Matching on output text scores the banner, not the
-  decision.
+- **Score structurally, never on text.** A handler printing `BLOCKED` to stdout with exit 0 and no `hookSpecificOutput` reported NO DECISION, not an allow: exit 0 with no output means the hook has nothing to say, so the call continues through the normal permission flow where a deny rule or a prompt can still stop it. `permissionDecision` takes `allow`, `deny`, `ask` or `defer`, and silence is none of them. Score the decision field, because the banner is not one and neither is its absence  [OFFICIAL]
+- That distinction decides what a case PROVES. A `near-miss` case passing because the handler stayed silent has shown only that nothing blocked at that point, which is also what a deny rule further down the flow would produce. Assert the decision field, or the case cannot tell a working guard from an absent one  [ENGINEERING]
 - **A false positive counts exactly like a miss.** Without the `near-miss` cases, a hook that
   denies unconditionally passes everything.
 - **The spec must be able to fail.** Re-run every `enforce` and `wiring` case against two
