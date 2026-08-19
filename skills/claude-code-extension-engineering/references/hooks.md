@@ -43,9 +43,26 @@ Code the HARNESS runs on a lifecycle event, independent of the model's judgment.
 - Shares the generic capture-change-retest loop in [testing.md](testing.md)
 - Evidence source: matches, exit codes, and full stdout/stderr go to the debug log (claude --debug-file PATH, or ~/.claude/debug/SESSION-ID.txt with --debug, which prints NOTHING to the terminal); CLAUDE_CODE_DEBUG_LOG_LEVEL=verbose adds matcher-level detail [OFFICIAL]
 
+## ENRICHING or ENFORCING: decide this before writing a line
+
+This file gives both postures and never says which one you are in. "A safety hook must not brick
+Claude Code" argues for failing open; the jq bullet under Contracts treats failing open as the
+defect. Both are right, for different hooks, and the discriminator decides how the handler is
+written down to its shell flags.
+
+- The event decides part of it for you, and this is documented rather than a matter of style. Nine events have NO DECISION CONTROL at all, WorktreeRemove, Notification, SessionEnd, PostCompact, InstructionsLoaded, StopFailure, CwdChanged, DirectoryAdded and FileChanged, and are for side effects like logging or cleanup. SessionStart, Setup and SubagentStart are context-only. A guard wired to any of those is enriching whatever its author intended  [OFFICIAL]
+- The docs go further and say a hook is the WRONG MECHANISM for hard enforcement in at least one place: the `if` filter fails open when a Bash command cannot be parsed, and because it is best-effort, "use the [permission system](/docs/en/permissions) rather than a hook to enforce a hard allow or deny"  [OFFICIAL]
+- The no-opinion signal is a real contract, not an accident: exit 0 with no output means the hook has no decision to report and the call continues through the normal permission flow. An HTTP handler's 2xx with an empty body is equivalent. A timeout is stronger still, since the output is DISCARDED and the hook renders no decision whatever it printed  [OFFICIAL]
+- ENRICHING hooks must not fail fast. Write them without `set -euo pipefail` and end every branch in an unconditional `exit 0`, because strict mode aborts on any unexpected non-zero command, an aborting hook exits non-zero, and a non-zero exit on a blocking event converts a warning-only hook into one that blocks the user. Wrap even existence checks so a miss cannot propagate  [ENGINEERING]
+- ENFORCING hooks are the opposite and should use strict mode, because a guard that silently skips its own check is worse than no guard. This is the contradiction a hook-script linter and an advisory-hook rule appear to have with each other, and it dissolves once the posture is named first: the linter is describing gates, the advisory rule is describing enrichment  [ENGINEERING]
+- A guard may deliberately INVERT the runtime's fail-open default, and truncation is the case that proves it. If the runner caps stdin and reports truncation, a fail-open policy is itself an attack surface: pad the tool input past the cap and the protected filename never reaches the check. That is a bypass by padding, and the answer is exit 2 on truncation even though the surrounding default is to continue  [ENGINEERING]
+- For anything wrapping a hook, the rule is one line: FAIL OPEN ON TRANSPORT ERRORS, FAIL CLOSED ON A REAL BLOCK. Re-raise only the exit status that means block and treat every other non-zero as no opinion. Propagating every child failure turns a missing interpreter into a blocked tool call; propagating none silently disables the guard  [ENGINEERING]
+- A Node handler reading stdin needs an error listener that exits 0. A broken pipe or a dead parent emits `error` on `process.stdin`, Node rethrows it as an uncaught exception, and the harness reports a failing hook when nothing was wrong with the check itself  [ENGINEERING]
+- An ENRICHING hook still READS as a directive to the model, which is the trap in calling it advisory. Injected context is instruction-shaped whether or not it was meant that way, so a warning carrying an alarming number should name the inference it is NOT making: informational only, not an instruction to stop  [ENGINEERING]
+
 ## Failure safety / guard-the-guard
 
-- A safety hook must not brick Claude Code  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- A safety hook must not brick Claude Code, and the section above is how you decide whether that applies to the hook in front of you  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
 - Pass-path AND block-path both tested (toggle-bad → confirm → fix)
 - Change flow for a hook, run in order every time the handler is modified:
   1. Hook modification.
