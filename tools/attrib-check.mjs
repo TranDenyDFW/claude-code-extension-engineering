@@ -19,11 +19,13 @@
  * out of this check in exactly the commit that rewrites attribution. Pairing here is on the text
  * with tag markers STRIPPED, so a retag stays paired and stays visible.
  *
- * THE DECLARED-RETAG CONTRACT. A tag change is legitimate but must never be silent. Pass
- * `--expect-retag <file.json>` naming the claims whose tags are expected to change. The gate passes
- * only if the observed retag set EXACTLY equals the declared set, in BOTH directions: an undeclared
- * retag fails, and a declared retag that did not happen fails too. That turns a bulk edit into an
- * operation whose blast radius was stated in advance and then proven.
+ * THE DECLARATION CONTRACT. An attribution change is often legitimate but must never be silent.
+ * Pass `--expect <file.json>`, an array of {id, key, to} covering every intended change to source,
+ * note or tags. The gate passes only if the observed change set EXACTLY equals the declared set, in
+ * BOTH directions: an undeclared change fails, a declared change that did not happen fails, and a
+ * change landing on the wrong value fails. That turns a bulk edit into an operation whose blast
+ * radius was stated in advance and then proven. Keyed on id AND field, so a claim that legitimately
+ * changes its note cannot smuggle an undeclared source swap alongside it.
  *
  * An empty-string `note` and an ABSENT `note` are DIFFERENT. Not pedantry: a repair pass using
  * `.get('note','')` wrote empty strings over absent keys and an independent review caught exactly
@@ -31,12 +33,12 @@
  *
  *   node tools/attrib-check.mjs                        compare against main
  *   node tools/attrib-check.mjs --baseline <ref|path>  compare against another ref or file
- *   node tools/attrib-check.mjs --expect-retag <file>  declare the intended tag changes
+ *   node tools/attrib-check.mjs --expect <file.json>   declare the intended attribution changes
  *   node tools/attrib-check.mjs --self-test            synthetic rows, proves each check can fail
- *   node tools/attrib-check.mjs --prove-fail           mutates the REAL ledger in memory and
+ *   node tools/attrib-check.mjs --prove-fail           mutates a copy of the REAL ledger and
  *                                                      proves the gate goes red on real data
  */
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -84,9 +86,9 @@ const tagKey = (rec) => {
 };
 
 /**
- * Returns { drift, retag, collisions, matched, unpaired }.
- *   drift      source or note changed on substance-identical text. Always a failure.
- *   retag      tags changed on substance-identical text. A failure unless declared.
+ * Returns { changes, collisions, matched, unpaired }.
+ *   changes    source, note or tags differ on substance-identical text. Every one is a failure
+ *              unless it appears in a declaration; there is no field that may drift quietly.
  *   collisions two baseline records share a substance hash, so pairing is ambiguous. Reported
  *              rather than silently resolved to the first, which is what the previous draft did.
  */
@@ -98,8 +100,7 @@ export function compare(baseline, current) {
     if (byHash.has(h)) { collisions.push({ a: byHash.get(h).id, b: b.id, hash: h.slice(0, 12) }); continue; }
     byHash.set(h, b);
   }
-  const drift = [];
-  const retag = [];
+  const changes = [];
   let matched = 0;
   const unpaired = [];
   for (const c of current) {
@@ -108,27 +109,33 @@ export function compare(baseline, current) {
     matched++;
     for (const key of ['source', 'note']) {
       const was = fieldOf(b, key), now = fieldOf(c, key);
-      if (was !== now) drift.push({ id: c.id, was_id: b.id, key, was: show(was), now: show(now) });
+      if (was !== now) changes.push({ id: c.id, was_id: b.id, key, was: show(was), now: show(now) });
     }
     const wt = tagKey(b), nt = tagKey(c);
-    if (wt !== nt) retag.push({ id: c.id, was_id: b.id, was: wt ?? '<absent>', now: nt ?? '<absent>' });
+    if (wt !== nt) changes.push({ id: c.id, was_id: b.id, key: 'tags', was: wt ?? '<absent>', now: nt ?? '<absent>' });
   }
-  return { drift, retag, collisions, matched, unpaired };
+  return { changes, collisions, matched, unpaired };
 }
 
-/** Compares the observed retag set against a declaration, in BOTH directions. */
-export function reconcileRetag(observed, declared) {
-  const obs = new Map(observed.map((r) => [r.id, r]));
-  const dec = new Map((declared || []).map((r) => [r.id, r]));
-  const undeclared = observed.filter((r) => !dec.has(r.id));
-  const missing = [...dec.keys()].filter((id) => !obs.has(id)).map((id) => dec.get(id));
+/** A declaration entry's expected new value, normalised the same way compare() reports it. */
+const declaredNow = (d) => (d.key === 'tags' ? JSON.stringify([...d.to].sort()) : show(d.to));
+
+/**
+ * Compares the observed attribution changes against a declaration, in BOTH directions, so that an
+ * undeclared change, a declared change that did not happen, and a change to the wrong value all
+ * fail. Keyed on id AND field, because one claim may legitimately change two fields at once.
+ */
+export function reconcile(observed, declared) {
+  const k = (x) => `${x.id}|${x.key}`;
+  const obs = new Map(observed.map((r) => [k(r), r]));
+  const dec = new Map((declared || []).map((d) => [k(d), d]));
+  const undeclared = observed.filter((r) => !dec.has(k(r)));
+  const missing = [...dec.values()].filter((d) => !obs.has(k(d)));
   const mismatched = [];
-  for (const [id, d] of dec) {
-    const o = obs.get(id);
-    if (!o) continue;
-    if (d.now && JSON.stringify([...d.now].sort()) !== o.now) {
-      mismatched.push({ id, declared: JSON.stringify([...d.now].sort()), observed: o.now });
-    }
+  for (const [key, d] of dec) {
+    const o = obs.get(key);
+    if (!o || d.to === undefined) continue;
+    if (declaredNow(d) !== o.now) mismatched.push({ id: d.id, key: d.key, declared: declaredNow(d), observed: o.now });
   }
   return { undeclared, missing, mismatched };
 }
@@ -168,33 +175,63 @@ function selfTest() {
   let pass = 0;
   for (const c of cases) {
     const r = compare(c.base || base, c.cur);
-    const ok = r.drift.length === (c.drift || 0) && r.retag.length === (c.retag || 0)
+    const want = (c.drift || 0) + (c.retag || 0);
+    const ok = r.changes.length === want
       && r.collisions.length === (c.collisions || 0) && r.unpaired.length === (c.unpaired || 0)
-      && (c.matched === undefined || r.matched === c.matched);
+      && (c.matched === undefined || r.matched === c.matched)
+      && (c.retag === undefined || r.changes.filter((x) => x.key === 'tags').length === c.retag);
     if (ok) pass++;
-    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${c.label}  (drift ${r.drift.length}/${c.drift || 0}, retag ${r.retag.length}/${c.retag || 0}, collision ${r.collisions.length}/${c.collisions || 0}, unpaired ${r.unpaired.length}/${c.unpaired || 0})`);
+    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${c.label}  (changes ${r.changes.length}/${want}, of which tags ${r.changes.filter((x) => x.key === 'tags').length}/${c.retag || 0}, collision ${r.collisions.length}/${c.collisions || 0}, unpaired ${r.unpaired.length}/${c.unpaired || 0})`);
   }
 
-  // The declaration reconciler needs its own must-fail rows.
+  // The declaration reconciler needs its own must-fail rows, across every field.
+  const OBS = (id, key, now) => ({ id, key, now });
   const recCases = [
     { label: 'declared retag that happened reconciles clean',
-      obs: [{ id: 'A', now: JSON.stringify(['COMMUNITY']) }], dec: [{ id: 'A', now: ['COMMUNITY'] }], u: 0, m: 0, x: 0 },
+      obs: [OBS('A', 'tags', JSON.stringify(['COMMUNITY']))], dec: [{ id: 'A', key: 'tags', to: ['COMMUNITY'] }], u: 0, m: 0, x: 0 },
     { label: 'an UNDECLARED retag is CAUGHT',
-      obs: [{ id: 'A', now: JSON.stringify(['COMMUNITY']) }], dec: [], u: 1, m: 0, x: 0 },
+      obs: [OBS('A', 'tags', JSON.stringify(['COMMUNITY']))], dec: [], u: 1, m: 0, x: 0 },
     { label: 'a declared retag that did NOT happen is CAUGHT',
-      obs: [], dec: [{ id: 'A', now: ['COMMUNITY'] }], u: 0, m: 1, x: 0 },
+      obs: [], dec: [{ id: 'A', key: 'tags', to: ['COMMUNITY'] }], u: 0, m: 1, x: 0 },
     { label: 'a retag to the WRONG tag is CAUGHT',
-      obs: [{ id: 'A', now: JSON.stringify(['OFFICIAL']) }], dec: [{ id: 'A', now: ['COMMUNITY'] }], u: 0, m: 0, x: 1 },
+      obs: [OBS('A', 'tags', JSON.stringify(['OFFICIAL']))], dec: [{ id: 'A', key: 'tags', to: ['COMMUNITY'] }], u: 0, m: 0, x: 1 },
+    { label: 'a declared NOTE edit reconciles clean',
+      obs: [OBS('A', 'note', JSON.stringify('new reasoning'))], dec: [{ id: 'A', key: 'note', to: 'new reasoning' }], u: 0, m: 0, x: 0 },
+    { label: 'an UNDECLARED note edit is CAUGHT',
+      obs: [OBS('A', 'note', JSON.stringify('new reasoning'))], dec: [], u: 1, m: 0, x: 0 },
+    { label: 'an UNDECLARED source swap is CAUGHT even when a note edit on the SAME claim is declared',
+      obs: [OBS('A', 'note', JSON.stringify('ok')), OBS('A', 'source', JSON.stringify('SRC_B'))],
+      dec: [{ id: 'A', key: 'note', to: 'ok' }], u: 1, m: 0, x: 0 },
+    { label: 'a declaration with no expected value still reconciles by id and field',
+      obs: [OBS('A', 'note', JSON.stringify('whatever'))], dec: [{ id: 'A', key: 'note' }], u: 0, m: 0, x: 0 },
   ];
   for (const c of recCases) {
-    const r = reconcileRetag(c.obs, c.dec);
+    const r = reconcile(c.obs, c.dec);
     const ok = r.undeclared.length === c.u && r.missing.length === c.m && r.mismatched.length === c.x;
     if (ok) pass++;
     console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${c.label}  (undeclared ${r.undeclared.length}/${c.u}, missing ${r.missing.length}/${c.m}, mismatched ${r.mismatched.length}/${c.x})`);
   }
 
+  // Staleness: a declaration written against an old baseline must NEVER excuse a change.
+  const staleCases = [
+    { label: 'a declaration matching the baseline is ACTIVE',
+      decl: { baseline: 'abc', changes: [{ id: 'A', key: 'tags' }] }, sha: 'abc', n: 1, stale: false },
+    { label: 'a declaration against a DIFFERENT baseline is ignored, not honoured',
+      decl: { baseline: 'abc', changes: [{ id: 'A', key: 'tags' }] }, sha: 'def', n: 0, stale: true },
+    { label: 'a bare array declaration stays active (explicit --expect)',
+      decl: [{ id: 'A', key: 'tags' }], sha: 'def', n: 1, stale: false },
+    { label: 'no declaration means no excuses',
+      decl: null, sha: 'abc', n: 0, stale: false },
+  ];
+  for (const c of staleCases) {
+    const r = activeDeclarations(c.decl, c.sha);
+    const ok = r.changes.length === c.n && Boolean(r.stale) === c.stale;
+    if (ok) pass++;
+    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${c.label}  (active ${r.changes.length}/${c.n}, stale ${Boolean(r.stale)}/${c.stale})`);
+  }
+
   const sync = assertRegexInSync();
-  const total = cases.length + recCases.length + 1;
+  const total = cases.length + recCases.length + staleCases.length + 1;
   if (sync.ok) { pass++; console.log('  ok   TAG_RE is identical to the extractor\'s'); }
   else console.log(`  FAIL TAG_RE sync: ${sync.why}`);
 
@@ -220,51 +257,85 @@ function loadBaseline(ref) {
  * mutates the REAL ledger in memory and requires the gate to go red on each mutation.
  */
 function proveFail(ref) {
+  // Mutates a COPY of the baseline against the baseline itself, so this proves the gate can fail
+  // regardless of what the working tree currently holds. An earlier draft compared the live ledger
+  // against the baseline and therefore refused to run on any branch with an intentional edit, which
+  // is precisely when someone most wants evidence that the gate still bites.
   const baseline = parse(loadBaseline(ref));
-  const clean = compare(baseline, parse(readFileSync(join(ROOT, LEDGER), 'utf8')));
-  const live = parse(readFileSync(join(ROOT, LEDGER), 'utf8'));
-  const target = live.find((r) => byHashHas(baseline, r) && r.source && (r.tags || []).length);
+  const target = baseline.find((r) => r.source && (r.tags || []).length && r.note !== undefined);
   if (!target) { console.error('FAIL  no real record was usable as a mutation target'); return 1; }
 
-  const mutants = [
-    { label: 'real record, source swapped', mutate: (r) => ({ ...r, source: r.source === 'SRC_HOOKS' ? 'SRC_SKILLS' : 'SRC_HOOKS' }), field: 'drift' },
-    { label: 'real record, note blanked to empty string', mutate: (r) => ({ ...r, note: '' }), field: 'drift' },
-    { label: 'real record, retagged ENGINEERING to COMMUNITY', mutate: (r) => ({ ...r, tags: ['COMMUNITY'], text: r.text.replace(/\[(OFFICIAL|ENGINEERING)\]/, '[COMMUNITY]') }), field: 'retag' },
-  ];
-  let pass = 0;
-  console.log(`  baseline ${ref}: ${baseline.length} records; live ledger: ${live.length}; target ${target.id}`);
-  console.log(`  clean run: drift ${clean.drift.length}, retag ${clean.retag.length}, collisions ${clean.collisions.length}`);
-  if (clean.drift.length || clean.retag.length) {
-    console.error('  FAIL  the ledger is NOT clean against the baseline, so a red result proves nothing');
+  const control = compare(baseline, baseline);
+  console.log(`  baseline ${ref}: ${baseline.length} records; target ${target.id}`);
+  console.log(`  NEGATIVE CONTROL, baseline against itself: changes ${control.changes.length}, collisions ${control.collisions.length}, unpaired ${control.unpaired.length}`);
+  if (control.changes.length) {
+    console.error('  FAIL  the baseline disagrees with itself, so no red result below would mean anything');
     return 1;
   }
+
+  const mutants = [
+    { label: 'source swapped', key: 'source',
+      mutate: (r) => ({ ...r, source: r.source === 'SRC_HOOKS' ? 'SRC_SKILLS' : 'SRC_HOOKS' }) },
+    { label: 'note blanked to empty string', key: 'note', mutate: (r) => ({ ...r, note: '' }) },
+    { label: 'note key deleted entirely', key: 'note',
+      mutate: (r) => { const c = { ...r }; delete c.note; return c; } },
+    { label: 'retagged to COMMUNITY, text marker moved with it', key: 'tags',
+      mutate: (r) => ({ ...r, tags: ['COMMUNITY'], text: r.text.replace(/\[(OFFICIAL|ENGINEERING)\]/, '[COMMUNITY]') }) },
+  ];
+  let pass = 0;
   for (const m of mutants) {
-    const mutated = live.map((r) => (r.id === target.id ? m.mutate(r) : r));
+    const mutated = baseline.map((r) => (r.id === target.id ? m.mutate(r) : r));
     const res = compare(baseline, mutated);
-    const caught = res[m.field].length > 0;
+    const hit = res.changes.filter((c) => c.key === m.key);
+    const caught = hit.length > 0 && res.unpaired.length === 0;
     if (caught) pass++;
-    console.log(`  ${caught ? 'ok  ' : 'FAIL'} ${m.label} -> ${m.field} ${res[m.field].length}`);
+    console.log(`  ${caught ? 'ok  ' : 'FAIL'} ${m.label} -> ${m.key} changes ${hit.length}, unpaired ${res.unpaired.length}`);
   }
   const sync = assertRegexInSync();
   if (sync.ok) pass++; else console.log(`  FAIL TAG_RE sync: ${sync.why}`);
-  console.log(`\n${pass === mutants.length + 1 ? 'GATE CAN FAIL' : 'FAIL'}  ${pass}/${mutants.length + 1} real-artifact mutants rejected.`);
-  return pass === mutants.length + 1 ? 0 : 1;
+  const total = mutants.length + 1;
+  console.log(`\n${pass === total ? 'GATE CAN FAIL' : 'FAIL'}  ${pass}/${total} real-artifact mutants rejected.`);
+  return pass === total ? 0 : 1;
 }
-function byHashHas(baseline, rec) {
-  const h = substanceHash(rec.text);
-  return baseline.some((b) => substanceHash(b.text) === h);
+
+const DEFAULT_DECL = join(ROOT, 'evidence', 'attrib-expected.json');
+
+/**
+ * A declaration is scoped to the baseline it was written against, as {baseline, changes}. Once the
+ * branch merges, the baseline sha advances, the file's entries no longer describe anything, and a
+ * naive reader would report every one as "declared but did not happen". So a declaration whose
+ * baseline does not match the resolved one is STALE and is ignored, leaving the strict check in
+ * force. That is the safe direction: a stale file can never excuse a change, only fail to excuse
+ * one.
+ */
+export function activeDeclarations(decl, baselineSha) {
+  if (!decl) return { changes: [], stale: false };
+  if (Array.isArray(decl)) return { changes: decl, stale: false };   // bare array: always active
+  if (decl.baseline && baselineSha && decl.baseline !== baselineSha) {
+    return { changes: [], stale: true, was: decl.baseline };
+  }
+  return { changes: decl.changes || [], stale: false };
 }
 
 function run(argv) {
   const bi = argv.indexOf('--baseline');
   const ref = bi > -1 ? argv[bi + 1] : 'main';
-  const ei = argv.indexOf('--expect-retag');
-  const declared = ei > -1 ? JSON.parse(readFileSync(argv[ei + 1], 'utf8')) : null;
+  const ei = argv.indexOf('--expect');
+  const declPath = ei > -1 ? argv[ei + 1] : (existsSync(DEFAULT_DECL) ? DEFAULT_DECL : null);
+  const rawDecl = declPath ? JSON.parse(readFileSync(declPath, 'utf8')) : null;
+
+  let baselineSha = null;
+  try { baselineSha = execFileSync('git', ['rev-parse', ref], { encoding: 'utf8', cwd: ROOT }).trim(); } catch { /* baseline given as a path */ }
+  const { changes: declared, stale, was } = activeDeclarations(rawDecl, baselineSha);
+  if (stale) {
+    console.log(`note: ${declPath} declares against baseline ${was.slice(0, 12)} but ${ref} is ${baselineSha.slice(0, 12)};`);
+    console.log('      the declaration is STALE and is being ignored, so the strict check applies.');
+  }
 
   const sync = assertRegexInSync();
   if (!sync.ok) { console.error(`FAIL  ${sync.why}`); return 1; }
 
-  const { drift, retag, collisions, matched, unpaired } =
+  const { changes, collisions, matched, unpaired } =
     compare(parse(loadBaseline(ref)), parse(readFileSync(join(ROOT, LEDGER), 'utf8')));
 
   let bad = 0;
@@ -272,25 +343,24 @@ function run(argv) {
     console.error(`FAIL  baseline records ${c.a} and ${c.b} share substance hash ${c.hash}; pairing is ambiguous`);
     bad++;
   }
-  for (const d of drift) {
-    console.error(`FAIL  ${d.id}  ${d.key} changed while the substance did not`);
-    console.error(`        was ${d.was}`);
-    console.error(`        now ${d.now}`);
-    if (d.was_id !== d.id) console.error(`        (baseline id was ${d.was_id}; renumbering alone is fine)`);
+
+  const { undeclared, missing, mismatched } = reconcile(changes, declared || []);
+  for (const r of undeclared) {
+    console.error(`FAIL  ${r.id}  ${r.key} changed while the substance did not, and no declaration covers it`);
+    console.error(`        was ${r.was}`);
+    console.error(`        now ${r.now}`);
+    if (r.was_id !== r.id) console.error(`        (baseline id was ${r.was_id}; renumbering alone is fine)`);
     bad++;
   }
+  for (const d of missing) { console.error(`FAIL  ${d.id} declares a ${d.key} change that did not happen`); bad++; }
+  for (const m of mismatched) { console.error(`FAIL  ${m.id} ${m.key} declared ${m.declared} but observed ${m.observed}`); bad++; }
 
-  if (declared) {
-    const { undeclared, missing, mismatched } = reconcileRetag(retag, declared);
-    for (const r of undeclared) { console.error(`FAIL  ${r.id} was retagged ${r.was} to ${r.now} but the declaration does not list it`); bad++; }
-    for (const r of missing) { console.error(`FAIL  ${r.id} is declared for retag but its tags did not change`); bad++; }
-    for (const r of mismatched) { console.error(`FAIL  ${r.id} declared ${r.declared} but observed ${r.observed}`); bad++; }
-    if (!bad) console.log(`PASS  ${retag.length} declared retag(s) applied exactly as declared; ${matched} claim(s) paired by substance, ${unpaired.length} genuinely new.`);
+  if (!bad) {
+    const dec = declared ? `, ${changes.length} of them declared and applied exactly as declared` : '';
+    console.log(`PASS  ${matched} claim(s) paired by substance against ${ref}${dec}; ${unpaired.length} genuinely new.`);
   } else {
-    for (const r of retag) { console.error(`FAIL  ${r.id} tags changed ${r.was} to ${r.now} with no --expect-retag declaration`); bad++; }
-    if (!bad) console.log(`PASS  ${matched} claim(s) unchanged in substance also unchanged in source, note and tags (baseline ${ref}); ${unpaired.length} genuinely new.`);
+    console.error(`\n${bad} attribution finding(s). No other gate can see these.`);
   }
-  if (bad) console.error(`\n${bad} attribution finding(s). No other gate can see these.`);
   return bad ? 1 : 0;
 }
 

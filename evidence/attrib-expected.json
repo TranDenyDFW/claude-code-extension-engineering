@@ -1,0 +1,11 @@
+{
+  "baseline": "e983f436a859caa35a543e52b8d9263ba771a7a5",
+  "why": "Referent correction on the always-on subagent guard claim. The note records why; the claim text itself changed past the 400-char prefix, which claim-drift caught and rekey could not.",
+  "changes": [
+    {
+      "id": "CLM-skills-224",
+      "key": "note",
+      "to": "Added 2026-08-18, Tier 1. Four of the five skills.md gaps; the fifth, phase-agent-names-primary-and-secondary-references, is DEFERRED to the dispatch-prompt section in subagents.md, which does not exist yet, because its own note says it merges there and writing it here would separate it from its three siblings. The always-on subagent guard is the sharpest of the four: both mechanisms are documented and neither is usable for an always-on routing skill, so the convention fills a real hole. CORRECTED 2026-08-18: the closing clause read \"A live instance runs in this project\", which was wrong. An independent review flagged it as unverified; re-verification found the pattern ships in the superpowers plugin (using-superpowers/SKILL.md, guard first in the body) and that SUBAGENT-STOP occurs zero times across all 30 files of this library, positive control 30 of 30 on \"claude\". The mechanism half of the claim was never in doubt; only the referent was."
+    }
+  ]
+}
