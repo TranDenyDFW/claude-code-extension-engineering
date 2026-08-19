@@ -1,11 +1,35 @@
 {
   "baseline": "e983f436a859caa35a543e52b8d9263ba771a7a5",
-  "why": "Referent correction on the always-on subagent guard claim. The note records why; the claim text itself changed past the 400-char prefix, which claim-drift caught and rekey could not.",
+  "why": "Two claims retagged ENGINEERING to COMMUNITY because their evidence is that other projects do it rather than a mechanism argument made here, plus the referent correction on the always-on subagent guard. Each note records the reasoning.",
   "changes": [
     {
       "id": "CLM-skills-224",
       "key": "note",
       "to": "Added 2026-08-18, Tier 1. Four of the five skills.md gaps; the fifth, phase-agent-names-primary-and-secondary-references, is DEFERRED to the dispatch-prompt section in subagents.md, which does not exist yet, because its own note says it merges there and writing it here would separate it from its three siblings. The always-on subagent guard is the sharpest of the four: both mechanisms are documented and neither is usable for an always-on routing skill, so the convention fills a real hole. CORRECTED 2026-08-18: the closing clause read \"A live instance runs in this project\", which was wrong. An independent review flagged it as unverified; re-verification found the pattern ships in the superpowers plugin (using-superpowers/SKILL.md, guard first in the body) and that SUBAGENT-STOP occurs zero times across all 30 files of this library, positive control 30 of 30 on \"claude\". The mechanism half of the claim was never in doubt; only the referent was."
+    },
+    {
+      "id": "CLM-hook-events-013",
+      "key": "tags",
+      "to": [
+        "COMMUNITY"
+      ]
+    },
+    {
+      "id": "CLM-hook-events-013",
+      "key": "note",
+      "to": "Added 2026-08-18 from the pattern-corpus audit, hook-events.md cluster. The resume-exclusion guidance is the best-corroborated hook pattern in the audit at 3 distinct projects, and the mirror check changed how it had to be written: hooks.md frames the SessionStart resume re-run as the mechanism for REFRESHING stale context, which is the opposite motivation from the corpus practice of excluding resume to avoid spending the window twice. Both are recorded because they optimise for different things and the reader has to pick. The async-false corollary and the per-handler timeout sizing are ordinary engineering judgment from the same cluster. RETAGGED to COMMUNITY 2026-08-18. The evidence for this bullet is that other projects do it, not a mechanism argument we made: strip the observed practice and nothing supports it. That is what [COMMUNITY] means in SKILL.md, and [ENGINEERING] means engineering judgment. Of the 63 SRC_EXTINDEX_SURVEY claims tagged ENGINEERING, only this one and the resume-exclusion bullet rest on practice this way; the rest justify by mechanism or by measurement done here, so the source field records where the LEAD came from while the tag records how the claim is justified to the reader."
+    },
+    {
+      "id": "CLM-hook-events-079",
+      "key": "tags",
+      "to": [
+        "COMMUNITY"
+      ]
+    },
+    {
+      "id": "CLM-hook-events-079",
+      "key": "note",
+      "to": "Added 2026-08-18 from the pattern-corpus audit, hook-events.md cluster. The resume-exclusion guidance is the best-corroborated hook pattern in the audit at 3 distinct projects, and the mirror check changed how it had to be written: hooks.md frames the SessionStart resume re-run as the mechanism for REFRESHING stale context, which is the opposite motivation from the corpus practice of excluding resume to avoid spending the window twice. Both are recorded because they optimise for different things and the reader has to pick. The async-false corollary and the per-handler timeout sizing are ordinary engineering judgment from the same cluster. RETAGGED to COMMUNITY 2026-08-18. The evidence for this bullet is that other projects do it, not a mechanism argument we made: strip the observed practice and nothing supports it. That is what [COMMUNITY] means in SKILL.md, and [ENGINEERING] means engineering judgment. Of the 63 SRC_EXTINDEX_SURVEY claims tagged ENGINEERING, only this one and the resume-exclusion bullet rest on practice this way; the rest justify by mechanism or by measurement done here, so the source field records where the LEAD came from while the tag records how the claim is justified to the reader."
     }
   ]
 }
