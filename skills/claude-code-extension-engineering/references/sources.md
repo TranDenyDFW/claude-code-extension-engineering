@@ -1,6 +1,8 @@
 # Sources
 
-> Claude Code 2.1.229, verified 2026-08-13. Machine-readable form: [evidence/sources.json](../../../evidence/sources.json); per-claim attribution: [evidence/claims.jsonl](../../../evidence/claims.jsonl); integrity gate: tools/verify-evidence.mjs.
+> Claude Code 2.1.229. What that means here: this file carries NO verbatim quotes, so the quote gate
+> says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
+> it; nothing else is asserted here.
 
 | Id | Title | URL | Retrieved | Build | Status | Redistributable | Licence |
 |---|---|---|---|---|---|---|---|

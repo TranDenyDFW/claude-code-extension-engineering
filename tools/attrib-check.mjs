@@ -128,7 +128,11 @@ const declaredNow = (d) => (d.key === 'tags' ? JSON.stringify([...d.to].sort()) 
  * fail. Keyed on id AND field, because one claim may legitimately change two fields at once.
  */
 export function reconcile(observed, declared) {
-  const k = (x) => `${x.id}|${x.key}`;
+  /* BASELINE ids, not current ones. A declaration is written against the baseline, and claim ids
+     are line-derived, so any insertion above a declared claim renumbers it and every declaration
+     reads as "did not happen" while the change sits there exactly as written. Observed changes
+     already carry `was_id` for this; it simply was not used. */
+  const k = (x) => `${x.was_id ?? x.id}|${x.key}`;
   const obs = new Map(observed.map((r) => [k(r), r]));
   const dec = new Map((declared || []).map((d) => [k(d), d]));
   const undeclared = observed.filter((r) => !dec.has(k(r)));

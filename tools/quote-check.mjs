@@ -463,27 +463,31 @@ export function headerQuoteClaim(text) {
   return parsed[0];
 }
 
+/**
+ * The PURE decision. Silence is honest for a file with nothing to describe and a lie by omission
+ * for one whose quotes this gate is checking: permissions.md and sandboxing.md once held 34 of 46
+ * quotes and said nothing, so the PASS line overstated its reach.
+ *
+ * ONE comparison, not two branches. An unparseable count is null, and null !== actual for every
+ * real count, so the unknown-number case rides on the same line the wrong-count case does. Two
+ * branches meant the rarer one could be deleted with every gate green.
+ */
+export function quoteCountProblem(headerText, actual) {
+  const claim = headerQuoteClaim(headerText);
+  if (!claim) return actual > 0 ? { word: null, claimed: null, actual, reason: 'no claim' } : null;
+  if (claim.claimed !== actual) {
+    return { word: claim.word, claimed: claim.claimed, actual, reason: claim.claimed === null ? 'not a number' : 'wrong count' };
+  }
+  return null;
+}
+
 export function headerQuoteMismatches(refDir = REF_DIR, quotes = collectQuotes(refDir)) {
   const byFile = new Map();
   for (const q of quotes) byFile.set(q.file, (byFile.get(q.file) || 0) + 1);
   const out = [];
   for (const { name: f, path } of scanTargets(refDir).sort((a, b) => a.name.localeCompare(b.name))) {
-    const claim = headerQuoteClaim(readFileSync(path, 'utf8'));
-    const actual = byFile.get(f) || 0;
-    if (!claim) {
-      /* Silence is honest for a file with nothing to describe, and a lie by omission for one whose
-         quotes this gate is checking. permissions.md and sandboxing.md held 34 of 46 quotes and
-         said nothing, so the gate's own PASS line overstated its reach. */
-      if (actual > 0) out.push({ file: f, word: null, claimed: null, actual, reason: 'no claim' });
-      continue;
-    }
-    /* ONE comparison, not two branches. An unparseable count is null, and null !== actual for
-       every real count, so the unknown-number case rides on the same line the wrong-count case
-       does. Two branches meant the rarer one could be deleted with every gate green, which a
-       review demonstrated. */
-    if (claim.claimed !== actual) {
-      out.push({ file: f, word: claim.word, claimed: claim.claimed, actual, reason: claim.claimed === null ? 'not a number' : 'wrong count' });
-    }
+    const bad = quoteCountProblem(readFileSync(path, 'utf8'), byFile.get(f) || 0);
+    if (bad) out.push({ file: f, ...bad });
   }
   return out;
 }
@@ -580,6 +584,48 @@ export function headerSourcingMismatches(refDir = REF_DIR, ledger = loadLedger()
   return out;
 }
 
+/**
+ * THE HEADER MAY STATE ONLY WHAT A GATE CHECKS. Six review rounds each found a stale header
+ * self-description, and three of the last ones were sentences written while building the gate meant
+ * to prevent them. They were all the same kind of thing: a fetch date, a source split, a count of
+ * measured sections, a page-diff figure. None was checkable and all of them rotted.
+ *
+ * So the SHAPE is checked rather than each new sentence. A header may carry the build and the
+ * verbatim-quote count. Any date, and any other number, is refused. Provenance did not go missing:
+ * it is recorded per claim in the ledger, where the gates already read it.
+ */
+export function headerShapeViolations(refDir = REF_DIR, version = readVerifiedVersion()) {
+  const out = [];
+  for (const { name: f, path } of scanTargets(refDir)) {
+    const head = headerBlock(readFileSync(path, 'utf8'));
+    if (!head) continue;
+    const bad = headerShapeProblems(head, version, headerQuoteClaim(head));
+    if (bad.length) out.push({ file: f, problems: bad });
+  }
+  return out;
+}
+
+export function readVerifiedVersion(p = join(ROOT, 'evidence', 'VERIFIED_VERSION')) {
+  return existsSync(p) ? readFileSync(p, 'utf8').trim() : null;
+}
+
+/** Pure, so its must-fail rows do not depend on the corpus being clean. */
+export function headerShapeProblems(head, version, claim) {
+  const problems = [];
+  const dates = head.match(/\b20\d\d-\d\d-\d\d\b/g) || [];
+  if (dates.length) problems.push(`states ${dates.length} date(s): ${dates.join(', ')}`);
+  if (version && !head.includes(version)) problems.push(`does not name the verified build ${version}`);
+  /* Every number in the header, minus the build's own digits and the quote count if written as a
+     numeral. Anything left is a figure nothing checks. */
+  const stripped = head
+    .replace(new RegExp(String(version || '').replace(/\./g, '\\.'), 'g'), ' ')
+    .replace(/\b20\d\d-\d\d-\d\d\b/g, ' ');
+  const nums = (stripped.match(/\b\d+\b/g) || [])
+    .filter((n) => !(claim && String(claim.claimed) === n));
+  if (nums.length) problems.push(`states ${nums.length} unchecked figure(s): ${nums.join(', ')}`);
+  return problems;
+}
+
 /** How many reference files this gate actually read a claim from, for an honest PASS line. */
 export function headerClaimCoverage(refDir = REF_DIR) {
   const files = scanTargets(refDir);
@@ -636,6 +682,15 @@ function main(argv) {
     console.log('The file header still reports every quote as confirmed, so the reader is told more');
     console.log('was checked than was. Tag the line if the claim is documented, or paraphrase.');
     bad += stray.length;
+  }
+  const shape = headerShapeViolations();
+  if (shape.length) {
+    console.log('\nHEADER STATES SOMETHING NO GATE CHECKS:');
+    for (const s of shape) console.log(`  ${s.file}  ${s.problems.join('; ')}`);
+    console.log(`\nFAIL ${shape.length} header(s) carry prose nothing can verify.`);
+    console.log('A header may state the build and the verbatim-quote count. Everything else about');
+    console.log('provenance belongs in evidence/claims.jsonl, per claim, where it is checked.');
+    bad += shape.length;
   }
   const fetchDates = headerFetchDateMismatches();
   if (fetchDates.length) {
@@ -815,13 +870,21 @@ function selfTest() {
    * branch. An adversarial panel found that deleting the branch it named left every gate green.
    * sources.md states no count at all, which is the branch this row is for.
    */
-  const planted = (f) => headerQuoteMismatches(REF_DIR, [{ file: f, line: 1, quote: 'x'.repeat(MIN_QUOTE) }]);
+  /* Synthetic headers, since every real one now states a count and the no-claim branch has no
+     live file left to exercise. A row that passes because there is nothing to find is the trap
+     this file has fallen into twice. */
+  const SILENT = '> Claude Code 2.1.229. Nothing about quotes.';
+  const STATES_SIX = '> Claude Code 2.1.229. This file carries SIX verbatim quotes.';
   check('a header claiming nothing is a FAILURE when the file carries quotes',  // @header-row
-    planted('sources.md').some((h) => h.file === 'sources.md' && h.reason === 'no claim'),
-    JSON.stringify(planted('sources.md').filter((h) => h.file === 'sources.md')));
+    quoteCountProblem(SILENT, 1)?.reason === 'no claim',
+    JSON.stringify(quoteCountProblem(SILENT, 1)));
+  check('...and silence is fine when the file carries none',  // @header-row
+    quoteCountProblem(SILENT, 0) === null);
   check('...and a file that states a count is caught on the count branch instead',  // @header-row
-    planted('themes.md').some((h) => h.file === 'themes.md' && h.reason === 'wrong count'),
-    JSON.stringify(planted('themes.md').filter((h) => h.file === 'themes.md')));
+    quoteCountProblem(STATES_SIX, 2)?.reason === 'wrong count',
+    JSON.stringify(quoteCountProblem(STATES_SIX, 2)));
+  check('...and a stated count that matches passes',  // @header-row
+    quoteCountProblem(STATES_SIX, 6) === null);
   /**
    * The fixture wraps the claim across the EIGHTH and NINTH lines, which is the shape that broke:
    * safety-classifier.md ends line 8 with "It carries NO" and starts line 9 with "verbatim quotes".
@@ -847,6 +910,20 @@ function selfTest() {
   check('...and a number word the map does not know FAILS rather than being skipped',  // @header-row
     headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')?.claimed === null,
     JSON.stringify(headerQuoteClaim('> this file carries FORTY-TWO verbatim quotes')));
+  check('no header states anything outside the build and the quote count',  // @header-row
+    headerShapeViolations().length === 0, JSON.stringify(headerShapeViolations()));
+  check('...and that decision refuses a date',  // @header-row
+    headerShapeProblems('Claude Code 2.1.229. Verified 2026-08-13.', '2.1.229', null).length > 0);
+  check('...and refuses a figure nothing checks',  // @header-row
+    headerShapeProblems('Claude Code 2.1.229. The surface moved to 44 tools.', '2.1.229', null).length > 0);
+  /* No digits in the fixture besides the missing build, or the unchecked-figure rule reddens the
+     row instead and the build requirement can be deleted unnoticed. */
+  check('...and refuses a header that does not name the verified build',  // @header-row
+    headerShapeProblems('Claude Code, some build. Nothing else.', '2.1.229', null).length > 0,
+    JSON.stringify(headerShapeProblems('Claude Code, some build. Nothing else.', '2.1.229', null)));
+  check('...and accepts the build plus a quote count written as a numeral',  // @header-row
+    headerShapeProblems('Claude Code 2.1.229. This file carries 14 verbatim quotes.', '2.1.229', { claimed: 14 }).length === 0,
+    JSON.stringify(headerShapeProblems('Claude Code 2.1.229. This file carries 14 verbatim quotes.', '2.1.229', { claimed: 14 })));
   check('no header dates a fetch the source records contradict',  // @header-row
     headerFetchDateMismatches().length === 0, JSON.stringify(headerFetchDateMismatches()));
   const FETCH_HEAD = 'Claude Code 2.1.229, verified 2026-08-13. Sources fetched live that day.';

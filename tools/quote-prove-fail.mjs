@@ -65,6 +65,16 @@ const ROWS_EXEMPT = new Map([
     { why: 'is itself a must-fail probe over the live corpus', provenBy: 'header coverage rule' }],
   ['no upstream prose is quoted on a line this gate does not check',
     { why: 'asserts the live corpus is clean, same shape as the row above', provenBy: 'unchecked-quotation rule' }],
+  ['no header states anything outside the build and the quote count',
+    { why: 'asserts the live corpus is clean; a code revert makes the shape check find less, never more',
+      provenByRows: [
+        '...and that decision refuses a date',
+        '...and refuses a figure nothing checks',
+        '...and refuses a header that does not name the verified build',
+      ] }],
+  ['no header dates a fetch the source records contradict',
+    { why: 'asserts the live corpus is clean, same shape as the row above',
+      provenByRows: ['...and that decision fires when a cited source was retrieved on another day'] }],
   ['no header promises one source for every claim while the ledger says otherwise',
     { why: 'asserts the live corpus is clean; the pure decision beneath it is what can be reverted',
       provenByRows: [
@@ -181,8 +191,8 @@ function restoredExactly(file, m) {
     },
     {
       label: 'silence exempting a file that carries quotes',
-      from: "      if (actual > 0) out.push({ file: f, word: null, claimed: null, actual, reason: 'no claim' });",
-      to: '      /* reverted by quote-prove-fail */',
+      from: "  if (!claim) return actual > 0 ? { word: null, claimed: null, actual, reason: 'no claim' } : null;",
+      to: '  if (!claim) return null;',
       row: /header claiming nothing is a FAILURE/,
     },
     {
@@ -193,8 +203,8 @@ function restoredExactly(file, m) {
     },
     {
       label: 'the count comparison, which carries both the wrong-count and unknown-word cases',
-      from: '    if (claim.claimed !== actual) {',
-      to: '    if (false) {',
+      from: '  if (claim.claimed !== actual) {',
+      to: '  if (false) {',
       row: /caught on the count branch instead/,
     },
     {
@@ -281,6 +291,42 @@ function restoredExactly(file, m) {
       row: /guillemets or CJK brackets is extracted/,
     },
     {
+      label: 'the no-claim tolerance for a file with no quotes',
+      from: '  if (!claim) return actual > 0 ? { word: null, claimed: null, actual, reason: \'no claim\' } : null;',
+      to: '  if (!claim) return { word: null, claimed: null, actual, reason: \'no claim\' };',
+      row: /silence is fine when the file carries none/,
+    },
+    {
+      label: 'the equality that lets a correct count pass',
+      from: '  if (claim.claimed !== actual) {',
+      to: '  if (claim.claimed === actual) {',
+      row: /stated count that matches passes/,
+    },
+    {
+      label: 'the date refusal in the header shape',
+      from: "  if (dates.length) problems.push(`states ${dates.length} date(s): ${dates.join(', ')}`);",
+      to: '  if (false) problems.push(String(dates.length));',
+      row: /decision refuses a date/,
+    },
+    {
+      label: 'the unchecked-figure refusal in the header shape',
+      from: "  if (nums.length) problems.push(`states ${nums.length} unchecked figure(s): ${nums.join(', ')}`);",
+      to: '  if (false) problems.push(String(nums.length));',
+      row: /refuses a figure nothing checks/,
+    },
+    {
+      label: 'the build-name requirement in the header shape',
+      from: "  if (version && !head.includes(version)) problems.push(`does not name the verified build ${version}`);",
+      to: '  if (false) problems.push(String(version));',
+      row: /refuses a header that does not name the verified build/,
+    },
+    {
+      label: 'the quote-count exemption, so a stated numeral counts as an unchecked figure',
+      from: "    .filter((n) => !(claim && String(claim.claimed) === n));",
+      to: '    .filter(() => true);',
+      row: /accepts the build plus a quote count written as a numeral/,
+    },
+    {
       label: 'the typographic-quote fold, without which a curly citation is invisible',
       from: '  line = foldQuoteMarks(line);',
       to: '  line = String(line);',
@@ -343,7 +389,7 @@ const rows = headerRows();
 /* The planted() helper is the self-test's own wrapper over headerQuoteMismatches; a row calling
    it is calling the header check one level down. Named explicitly rather than by pattern, so a
    future helper has to be added deliberately. */
-const HEADER_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|collectUncheckedResolvingQuotes|headerSourcingMismatches|sourcingMismatch|planted\(|quotesIn|foldQuoteMarks|headerFetchDateMismatches|fetchDateMismatch|logicalLines|classifyLine/;
+const HEADER_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|collectUncheckedResolvingQuotes|headerSourcingMismatches|sourcingMismatch|planted\(|quotesIn|foldQuoteMarks|headerFetchDateMismatches|fetchDateMismatch|logicalLines|classifyLine|quoteCountProblem|headerShapeProblems|headerShapeViolations/;
 const src = readFileSync(CHECK, 'utf8');
 const gutted = [];
 
@@ -357,7 +403,7 @@ if (dupes.length) {
   problems += new Set(dupes).size;
 }
 
-const HEADER_ONLY_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|headerSourcingMismatches|sourcingMismatch|headerFetchDateMismatches|fetchDateMismatch|collectUncheckedResolvingQuotes|planted\(/;
+const HEADER_ONLY_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|headerSourcingMismatches|sourcingMismatch|headerFetchDateMismatches|fetchDateMismatch|collectUncheckedResolvingQuotes|planted\(|quoteCountProblem|headerShapeProblems|headerShapeViolations/;
 const bodyAt = (i) => {
   const next = src.indexOf('  check(', i + 8);
   return src.slice(i, next === -1 ? i + 600 : next);
