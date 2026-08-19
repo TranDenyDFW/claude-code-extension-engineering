@@ -70,3 +70,4 @@ independently of each other.
 ## Detail
 
 - Persistent project, user, organization, and directory-scoped instructions loaded into Claude Code context.
+- ANTI-PATTERN with a named instance: a CHANGELOG inside the always-loaded instruction file. The 200-line target and the rule against anything procedural or long are already here; the changelog is the case that makes them actionable, because it grows monotonically, is read by nobody, and pays its context cost on every session forever  [ENGINEERING]

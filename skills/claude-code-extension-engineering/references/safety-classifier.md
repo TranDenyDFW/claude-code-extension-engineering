@@ -53,3 +53,5 @@ underneath you, is otherwise unattributable.
 - A refusal is attributed to a category and a model, not to a settings key
 - `--safe-mode` is used to test the local-context hypothesis before blaming the request
 - Any claim about refusal wording is checked against a live fetch first
+- Character-level hygiene and the restate-everywhere rule are NOT here: [claude-md-family.md](claude-md-family.md) already carries both, naming the model-read surface set (CLAUDE.md, rules, a skill body, a subagent prompt, an MCP tool description), the invisible and confusable Unicode vector across exactly those files, and the fact that a rule stated in one surface is absent from the others. Pointing rather than restating, because a second copy is the thing that drifts  [ENGINEERING]
+- Keep a COVERAGE MATRIX of attack vectors against defence layers, so an uncovered cell is visible rather than implicit. The composition cards do exactly this for mechanism pairings and nothing does it for threats, which is why a missing defence currently looks the same as a defence nobody wrote down  [ENGINEERING]
