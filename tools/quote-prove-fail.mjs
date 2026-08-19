@@ -346,11 +346,45 @@ const rows = headerRows();
 const HEADER_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|collectUncheckedResolvingQuotes|headerSourcingMismatches|sourcingMismatch|planted\(|quotesIn|foldQuoteMarks|headerFetchDateMismatches|fetchDateMismatch|logicalLines|classifyLine/;
 const src = readFileSync(CHECK, 'utf8');
 const gutted = [];
+
+/* EVERY occurrence of a label, not the first. A literal twin placed AFTER the real row passed the
+   guard, because the guard stopped looking once it found one honest copy. A duplicate marked label
+   is now itself a failure, since two rows sharing a name make coverage unreadable either way. */
+const dupes = rows.filter((r, i) => rows.indexOf(r) !== i);
+if (dupes.length) {
+  console.log('\n  DUPLICATE MARKED ROW LABELS, WHICH MAKE COVERAGE UNREADABLE:');
+  for (const d of [...new Set(dupes)]) console.log(`    ${d}`);
+  problems += new Set(dupes).size;
+}
+
+const HEADER_ONLY_FNS = /headerQuoteMismatches|headerQuoteClaim|headerBlock|headerClaimCoverage|headerSourcingMismatches|sourcingMismatch|headerFetchDateMismatches|fetchDateMismatch|collectUncheckedResolvingQuotes|planted\(/;
+const bodyAt = (i) => {
+  const next = src.indexOf('  check(', i + 8);
+  return src.slice(i, next === -1 ? i + 600 : next);
+};
 for (const r of rows) {
-  const i = src.indexOf(`check('${r}'`);
-  if (i < 0) { gutted.push(`${r} (row not found)`); continue; }
-  const body = src.slice(i, src.indexOf('  check(', i + 8) === -1 ? i + 600 : src.indexOf('  check(', i + 8));
-  if (!HEADER_FNS.test(body)) gutted.push(r);
+  const occurrences = [];
+  for (let i = src.indexOf(`check('${r}'`); i !== -1; i = src.indexOf(`check('${r}'`, i + 1)) occurrences.push(i);
+  if (!occurrences.length) { gutted.push(`${r} (row not found)`); continue; }
+  if (!occurrences.every((i) => HEADER_FNS.test(bodyAt(i)))) gutted.push(r);
+}
+
+/* THE INVERSE RULE. Moving a marker one line down un-marks a row silently, so a row that plainly
+   tests the header check must SAY so. Anything asserting over a header function without the marker
+   is reported, which is the only way the marked set can be trusted as the population. */
+const unmarked = [];
+for (let i = src.indexOf("  check('"); i !== -1; i = src.indexOf("  check('", i + 1)) {
+  const line = src.slice(i, src.indexOf('\n', i) === -1 ? i + 200 : src.indexOf('\n', i));
+  if (line.includes('@header-row')) continue;
+  const label = (line.match(/check\('((?:[^'\\]|\\.)*)'/) || [])[1];
+  if (!label || rows.includes(label)) continue;
+  if (HEADER_ONLY_FNS.test(bodyAt(i))) unmarked.push(label);
+}
+if (unmarked.length) {
+  console.log('\n  ROWS THAT TEST THE HEADER CHECK WITHOUT THE @header-row MARKER:');
+  for (const u of unmarked) console.log(`    ${u}`);
+  console.log('  An unmarked row is outside the population this tool measures coverage over.');
+  problems += unmarked.length;
 }
 if (gutted.length) {
   console.log('\n  MARKED ROWS THAT ASSERT NOTHING ABOUT THE HEADER CHECK:');

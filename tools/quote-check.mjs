@@ -267,7 +267,11 @@ export function logicalLines(text) {
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
     if (/^\s*(```|~~~)/.test(l)) { flush(); fenced = !fenced; out.push({ line: i + 1, text: l }); continue; }
-    if (fenced || /^ {4,}\S/.test(l)) { flush(); out.push({ line: i + 1, text: l }); continue; }
+    /* An indented line is a code block only when nothing is open above it. A markdown list
+       continuation is routinely indented four spaces, and treating it as code would hide any
+       citation written there, which is the hole the code-block skip was meant to avoid in the
+       other direction. */
+    if (fenced || (/^ {4,}\S/.test(l) && !cur)) { flush(); out.push({ line: i + 1, text: l }); continue; }
     if (!l.trim()) { flush(); continue; }
     /* A new block starts at a bullet, a heading, a table row, or a blockquote marker. Anything else
        that is not blank continues the block above it. */
