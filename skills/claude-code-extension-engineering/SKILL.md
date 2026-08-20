@@ -74,6 +74,21 @@ the page that is authoritative. The thing being prevented is a confident answer 
 the wrong reference. A correct answer from general knowledge, labelled as such, was never the
 problem.
 
+**Answer first; the provenance note goes last and stays one clause.** It never describes this
+library's own filing: not that a topic is on a "not owned" list, not that it is outside "this
+skill's reference set", not which file would have held it. That is internal bookkeeping and nobody
+asked for it. MEASURED on the 2026-08-19 head-to-head: answers opening with a scope disclaimer won
+0 of 4 cells and lost 3, while the bare provenance note went 3 and 3 across 8. The honesty is not
+the defect; the filing talk is. On GQ-60, "claude code extension not working", both arms listed the
+same five fixes and the only structural difference was this library's arm opening with a paragraph
+about what it does not cover. It lost in both grader orders.
+
+**Answer the WHOLE question, including the half that is off this list.** Every loss of this shape
+split the question and answered only the part it owned: GQ-47 asked for
+`CLAUDE_CODE_MAX_OUTPUT_TOKENS` in VS Code and never got `terminal.integrated.env.windows`;
+GQ-18 asked how to run several agents and never got `git worktree` or headless `claude -p`. Half
+an answer plus a boundary note loses to a whole answer from an arm carrying no library at all.
+
 | If the question is about | It is | Official page |
 |---|---|---|
 | Watching usage, cost, tokens, latency or errors across sessions or a team; OpenTelemetry, OTLP, a metrics backend | telemetry, NOT the Monitor mechanism | `monitoring-usage`, `analytics` |

@@ -947,5 +947,25 @@
         "found": true
       }
     ]
+  },
+  {
+    "id": "SRC_COSTS",
+    "title": "Manage costs and usage limits",
+    "url": "https://code.claude.com/docs/en/costs",
+    "type": "official",
+    "retrieved": "2026-08-13",
+    "build": "2.1.220",
+    "status": "verified",
+    "notes": "NOT fetched live for this attribution. The claim rests on the docs mirror at P:/ClaudeExt/CCX-Extension-Research/sources/docs/md/costs.md, whose bytes were hashed on 2026-08-19 and matched the corpus MANIFEST.json record exactly (sha256 98bdf036000ead4997d141b8660dd99b619c48e0b41d16986b1eb46792f5e04c, fetched_at 2026-08-13T01:28:57Z, http 200). Recorded as mirror-verified rather than verified because no live fetch was made.",
+    "spot_checks": [
+      {
+        "claim": "costs.md:49 states that when the usage endpoint is rate limited, /usage shows the last bars loaded on this machine within the past 60 minutes with a Showing last-known usage note, and r retries",
+        "supported": true
+      },
+      {
+        "claim": "costs.md:49 states that before v2.1.208 a rate-limited request in a session that had not loaded usage always showed the error with no bars",
+        "supported": true
+      }
+    ]
   }
 ]

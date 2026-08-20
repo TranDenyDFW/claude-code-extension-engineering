@@ -52,6 +52,24 @@ silently. This is the first thing to check when a settings key "does nothing".
 - Launch-time configuration is not restored and must be passed again, specifically `--mcp-config`, `--settings`, `--plugin-dir`, `--fallback-model` and directories added with `--add-dir`, while the standard settings files are re-read at launch: this is the usual cause of a setup that worked right up until it was resumed. [OFFICIAL]
 - The model is not restored when it has been retired, when `availableModels` disallows it, when a `--model` flag or an `ANTHROPIC_MODEL`-family variable picks one at launch, or on providers that use deployment IDs. [OFFICIAL]
 
+## Hitting a usage limit does not end the session
+
+- A usage limit BLOCKS NEW REQUESTS until the reset time printed in the message; it does not touch
+  saved state, so nothing needs recovering and `--continue` / `--resume` behave exactly as they do
+  otherwise. The three messages are `You've hit your session limit`, `You've hit your weekly limit`
+  and `You've hit your Opus limit`, each followed by its reset time. [OFFICIAL]
+- **Session and weekly limits are SHARED ACROSS ALL MODELS, so `/model` does not restore access.**
+  The Opus limit is the exception: it applies only to Opus requests, so switching to another model
+  keeps the user working. Lead with this distinction, because the reflex on any of the three
+  messages is to switch models, and for two of them that does nothing. [OFFICIAL]
+- `/usage` is the command that shows the bars and the remaining allowance, NOT `/status` or
+  `/cost`. When the usage endpoint is itself rate limited, `/usage` falls back to the last bars
+  loaded on this machine within the past 60 minutes and prints `Showing last-known usage`, with
+  `r` to retry. Before v2.1.208 a session that had not yet loaded usage showed the error with no
+  bars at all. [OFFICIAL]
+- The authority for limits and billing is `costs` and `errors`. What belongs in THIS file is only
+  the durability half: a limit is a block on new requests, not a loss of the record. [ENGINEERING]
+
 ## What /rewind can undo, and what it cannot
 
 - Every user prompt creates a checkpoint and file snapshots are kept for the 100 most recent checkpoints in a session, saved with the conversation so `/rewind` still works after a resume. [OFFICIAL]
