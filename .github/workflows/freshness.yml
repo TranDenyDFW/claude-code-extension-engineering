@@ -95,6 +95,21 @@ jobs:
           node tools/version-consistency.mjs --self-test
           node tools/version-consistency.mjs --prove-fail
 
+      - name: No tool holds a stale copy of the skill description
+        # tools/split-skillmd.mjs held a hardcoded copy of the description's exclusion
+        # clause ending "Name the page and stop." while the live description had moved to
+        # "Answer; name the page.". SKILL.md records the stop-reading as a rule about
+        # SILENCE that lost two blind pairwise comparisons to an arm carrying no library
+        # at all, and split-skillmd.mjs REBUILDS skill files from that constant. The
+        # description is capped at 1536 characters with 3 spare, so every edit to it is a
+        # substitution, which is exactly the edit that leaves copies behind.
+        run: node tools/description-copy-check.mjs
+
+      - name: Prove the description-copy gate can fail
+        run: |
+          node tools/description-copy-check.mjs --self-test
+          node tools/description-copy-check.mjs --prove-fail
+
       - name: Documentation numbers match the artifacts
         run: node tools/coverage-report.mjs --doc-numbers
 

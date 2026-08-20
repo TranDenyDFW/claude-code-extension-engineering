@@ -23,9 +23,31 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { skillDirs } from './skill-roots.mjs';
+import { sentenceContaining } from './live-clauses.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
+
+/* REVERTED EXPERIMENT: THIS TOOL DOES NOT RUN.
+ *
+ * The four-skill cutover it belongs to was undone in 32adbf3, because four skills invoked the
+ * library LESS than one: 22 of 36 against 26 of 36, below a floor of 26 that was frozen before
+ * the run. skills/ holds a single skill again, nothing in this repo or in .github/workflows
+ * calls this file, and any cc-ext-* loop inside it now iterates an EMPTY SET, so its checks
+ * report success having examined nothing.
+ *
+ * It is kept as READABLE REFERENCE for how the experiment was built, not as a reproducible
+ * harness. An independent reviewer pointed out that an earlier version of this comment claimed
+ * the latter while the same commit edited these constants, which makes the claim false: running
+ * this now would not rebuild what was measured. The reproducible apparatus is the tree at
+ * 8123b95, immutably, and git is the right place for it. Set SPLIT_EXPERIMENT=1 to run this
+ * deliberately, knowing it is no longer the measured configuration. */
+if (process.env.SPLIT_EXPERIMENT !== '1') {
+  console.error('split-questions.mjs: the four-skill split was REVERTED in 32adbf3, and nothing calls this tool.');
+  console.error('  skills/ holds one skill, so any cc-ext-* loop here iterates an empty set.');
+  console.error('  Set SPLIT_EXPERIMENT=1 to run it deliberately.');
+  process.exit(2);
+}
 const MAP = JSON.parse(readFileSync(join(ROOT, 'data', 'routing', 'skill-split.json'), 'utf8'));
 const SRC = join(ROOT, 'tests', 'questions.jsonl');
 const DST = join(ROOT, 'tests', 'questions.split.jsonl');
@@ -70,12 +92,15 @@ for (const r of rows) {
 /* The check that does the real work: the shared clauses must be IDENTICAL in all four
    descriptions. Four copies of a question assigned to one skill would not catch divergence; this
    does, and it is the thing the R### rows were really protecting. */
+/* DERIVED from the live description, never pasted. The previous array held five hardcoded
+   copies, one of which had already drifted to the superseded "Name the page and stop." wording.
+   Deriving removes the possibility rather than detecting the symptom. */
 const CLAUSES = [
-  'A bare noun phrase is a QUESTION, not system output to acknowledge.',
-  'They presuppose it can, and often it cannot.',
-  'Use when choosing between these mechanisms, writing one, or diagnosing one that will not load, fire, or behave.',
-  'NOT for operating Claude Code rather than extending it',
-  'Name the page and stop.',
+  sentenceContaining('bare noun phrase'),
+  sentenceContaining('They presuppose it can'),
+  sentenceContaining('Use when choosing between'),
+  sentenceContaining('NOT for operating'),
+  sentenceContaining('Answer; name the page'),
 ];
 const descs = {};
 for (const d of skillDirs(ROOT)) {
