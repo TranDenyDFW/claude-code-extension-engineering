@@ -39,9 +39,12 @@ const ROOT = join(HERE, '..');
  * calls this file, and any cc-ext-* loop inside it now iterates an EMPTY SET, so its checks
  * report success having examined nothing.
  *
- * It is kept rather than deleted because it is the apparatus of a measured negative, and
- * deleting it would make that measurement harder to reproduce. Set SPLIT_EXPERIMENT=1 to run it
- * deliberately. */
+ * It is kept as READABLE REFERENCE for how the experiment was built, not as a reproducible
+ * harness. An independent reviewer pointed out that an earlier version of this comment claimed
+ * the latter while the same commit edited these constants, which makes the claim false: running
+ * this now would not rebuild what was measured. The reproducible apparatus is the tree at
+ * 8123b95, immutably, and git is the right place for it. Set SPLIT_EXPERIMENT=1 to run this
+ * deliberately, knowing it is no longer the measured configuration. */
 if (process.env.SPLIT_EXPERIMENT !== '1') {
   console.error('split-cutover.mjs: the four-skill split was REVERTED in 32adbf3, and nothing calls this tool.');
   console.error('  skills/ holds one skill, so any cc-ext-* loop here iterates an empty set.');
