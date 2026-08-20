@@ -1,6 +1,6 @@
 # Skills
 
-> Claude Code 2.1.229. What that means here: this file carries ONE verbatim quote and
+> Claude Code 2.1.233. What that means here: this file carries ONE verbatim quote and
 > `tools/quote-check.mjs` confirms it still appears upstream. Per-claim provenance lives in
 > `evidence/claims.jsonl`, where the gates read it; nothing else is asserted here.
 
