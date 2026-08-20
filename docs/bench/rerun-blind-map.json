@@ -1,0 +1,10 @@
+{
+  "note": "Which arm sat in which position. NEVER given to a grader.",
+  "seed": "fixed, both orders graded",
+  "map": {
+    "GQ-06": {
+      "one": "A",
+      "two": "C"
+    }
+  }
+}

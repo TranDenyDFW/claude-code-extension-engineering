@@ -1,0 +1,602 @@
+[
+  {
+    "cellId": "GQ-01",
+    "sourceId": "Q-0158",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G1",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "claude code skip permissions"
+  },
+  {
+    "cellId": "GQ-02",
+    "sourceId": "Q-0203",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G1",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "how to sandbox agents"
+  },
+  {
+    "cellId": "GQ-03",
+    "sourceId": "Q-0179",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G1",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "claude code stop hook notification"
+  },
+  {
+    "cellId": "GQ-04",
+    "sourceId": "Q-0046",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G1",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how to manage claude code permissions"
+  },
+  {
+    "cellId": "GQ-05",
+    "sourceId": "Q-0235",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G1",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "how to disable sandbox"
+  },
+  {
+    "cellId": "GQ-06",
+    "sourceId": "Q-0084",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G2",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code stop hook not working"
+  },
+  {
+    "cellId": "GQ-07",
+    "sourceId": "Q-0030",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G3",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code ignores agents md"
+  },
+  {
+    "cellId": "GQ-08",
+    "sourceId": "Q-0146",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G3",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code claude md best practices"
+  },
+  {
+    "cellId": "GQ-09",
+    "sourceId": "Q-0011",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G3",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code # memory not working"
+  },
+  {
+    "cellId": "GQ-10",
+    "sourceId": "Q-0324",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G4",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "can claude code use skills"
+  },
+  {
+    "cellId": "GQ-11",
+    "sourceId": "Q-0422",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G4",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "pluginmanagement vs plugins"
+  },
+  {
+    "cellId": "GQ-12",
+    "sourceId": "Q-0256",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G4",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "how to use claude code skill creator"
+  },
+  {
+    "cellId": "GQ-13",
+    "sourceId": "Q-0131",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G4",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how do i add claude code skills"
+  },
+  {
+    "cellId": "GQ-14",
+    "sourceId": "Q-0092",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G4",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how to install claude code marketplace"
+  },
+  {
+    "cellId": "GQ-15",
+    "sourceId": "Q-0095",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G4",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code github plugin not working"
+  },
+  {
+    "cellId": "GQ-16",
+    "sourceId": "Q-0440",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G4",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how to install anthropic skills in claude code"
+  },
+  {
+    "cellId": "GQ-17",
+    "sourceId": "Q-0404",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G5",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how to create a claude code agent"
+  },
+  {
+    "cellId": "GQ-18",
+    "sourceId": "Q-0406",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G5",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how to run multiple claude code agents"
+  },
+  {
+    "cellId": "GQ-19",
+    "sourceId": "Q-0392",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G5",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how to make subagents in claude code"
+  },
+  {
+    "cellId": "GQ-20",
+    "sourceId": "Q-0008",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G5",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how do claude code workflows work"
+  },
+  {
+    "cellId": "GQ-21",
+    "sourceId": "Q-0376",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G5",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how to install claude code agent"
+  },
+  {
+    "cellId": "GQ-22",
+    "sourceId": "Q-0304",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how to add figma mcp to claude code cli"
+  },
+  {
+    "cellId": "GQ-23",
+    "sourceId": "Q-0398",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how to add local mcp server in claude code"
+  },
+  {
+    "cellId": "GQ-24",
+    "sourceId": "Q-0405",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "claude code mcp server config json"
+  },
+  {
+    "cellId": "GQ-25",
+    "sourceId": "Q-0156",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "how to use figma mcp server with claude code"
+  },
+  {
+    "cellId": "GQ-26",
+    "sourceId": "Q-0014",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how to claude code mcp"
+  },
+  {
+    "cellId": "GQ-27",
+    "sourceId": "Q-0029",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how to use claude code mcp server"
+  },
+  {
+    "cellId": "GQ-28",
+    "sourceId": "Q-0416",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "claude code mcp settings path"
+  },
+  {
+    "cellId": "GQ-29",
+    "sourceId": "Q-0269",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "where is claude code mcp configuration"
+  },
+  {
+    "cellId": "GQ-30",
+    "sourceId": "Q-0448",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how to add mcp client to claude code"
+  },
+  {
+    "cellId": "GQ-31",
+    "sourceId": "Q-0227",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G7",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "configuring remote session stuck"
+  },
+  {
+    "cellId": "GQ-32",
+    "sourceId": "Q-0243",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G7",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "how to resume claude code session after rate limit"
+  },
+  {
+    "cellId": "GQ-33",
+    "sourceId": "Q-0056",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G7",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how do i save claude code session"
+  },
+  {
+    "cellId": "GQ-34",
+    "sourceId": "Q-0015",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G7",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how to change claude code theme"
+  },
+  {
+    "cellId": "GQ-35",
+    "sourceId": "Q-0298",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G7",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "how to resume claude code session in terminal"
+  },
+  {
+    "cellId": "GQ-36",
+    "sourceId": "Q-0126",
+    "stratum": "A",
+    "tier": "T1",
+    "group": "G7",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how do i delete claude code sessions"
+  },
+  {
+    "cellId": "GQ-37",
+    "sourceId": "Q-0127",
+    "stratum": "B",
+    "tier": "T1",
+    "group": "G6",
+    "depth": 0,
+    "floorFor": "github-action.md",
+    "prompt": "claude code github actions mcp"
+  },
+  {
+    "cellId": "GQ-38",
+    "sourceId": "Q-0110",
+    "stratum": "B",
+    "tier": "T2",
+    "group": null,
+    "depth": 0,
+    "floorFor": "agent-sdk.md",
+    "prompt": "claude code agent sdk dev"
+  },
+  {
+    "cellId": "GQ-39",
+    "sourceId": "Q-0334",
+    "stratum": "B",
+    "tier": "T1",
+    "group": "G3",
+    "depth": 2,
+    "floorFor": "auto-memory.md",
+    "prompt": "claude code memory.md とは"
+  },
+  {
+    "cellId": "GQ-40",
+    "sourceId": "Q-0040",
+    "stratum": "C",
+    "tier": "T1",
+    "group": "G9",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code slash commands custom"
+  },
+  {
+    "cellId": "GQ-41",
+    "sourceId": "Q-0076",
+    "stratum": "C",
+    "tier": "T1",
+    "group": "G9",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code claude_code_max_output_tokens"
+  },
+  {
+    "cellId": "GQ-42",
+    "sourceId": "Q-0024",
+    "stratum": "C",
+    "tier": "T1",
+    "group": "G9",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code settings json ignored"
+  },
+  {
+    "cellId": "GQ-43",
+    "sourceId": "Q-0145",
+    "stratum": "C",
+    "tier": "T1",
+    "group": "G9",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "where is claude code settings.json located"
+  },
+  {
+    "cellId": "GQ-44",
+    "sourceId": "Q-0028",
+    "stratum": "C",
+    "tier": "T1",
+    "group": "G9",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how to edit claude code settings json"
+  },
+  {
+    "cellId": "GQ-45",
+    "sourceId": "Q-0117",
+    "stratum": "C",
+    "tier": "T1",
+    "group": "G9",
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code slash commands vs skills"
+  },
+  {
+    "cellId": "GQ-46",
+    "sourceId": "Q-0323",
+    "stratum": "C",
+    "tier": "T1",
+    "group": "G9",
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "install claude code plugin in cursor"
+  },
+  {
+    "cellId": "GQ-47",
+    "sourceId": "Q-0160",
+    "stratum": "C",
+    "tier": "T1",
+    "group": "G9",
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "vs code claude_code_max_output_tokens"
+  },
+  {
+    "cellId": "GQ-48",
+    "sourceId": "Q-0112",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how claude code is better than cursor"
+  },
+  {
+    "cellId": "GQ-49",
+    "sourceId": "Q-0303",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "claude code leaked source github rust"
+  },
+  {
+    "cellId": "GQ-50",
+    "sourceId": "Q-0428",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how do you review claude code changes"
+  },
+  {
+    "cellId": "GQ-51",
+    "sourceId": "Q-0002",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code agent sdk typescript"
+  },
+  {
+    "cellId": "GQ-52",
+    "sourceId": "Q-0161",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 1,
+    "floorFor": null,
+    "prompt": "how to remove claude code session limit"
+  },
+  {
+    "cellId": "GQ-53",
+    "sourceId": "Q-0326",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "claude says api is overloaded"
+  },
+  {
+    "cellId": "GQ-54",
+    "sourceId": "Q-0149",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how to monitor claude code from phone"
+  },
+  {
+    "cellId": "GQ-55",
+    "sourceId": "Q-0039",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how to monitor claude code"
+  },
+  {
+    "cellId": "GQ-56",
+    "sourceId": "Q-0049",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how to improve claude code workflow"
+  },
+  {
+    "cellId": "GQ-57",
+    "sourceId": "Q-0369",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "claude invalid phone number"
+  },
+  {
+    "cellId": "GQ-58",
+    "sourceId": "Q-0043",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "how i claude code"
+  },
+  {
+    "cellId": "GQ-59",
+    "sourceId": "Q-0349",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 2,
+    "floorFor": null,
+    "prompt": "how i use claude code boris"
+  },
+  {
+    "cellId": "GQ-60",
+    "sourceId": "Q-0006",
+    "stratum": "D",
+    "tier": "T2",
+    "group": null,
+    "depth": 0,
+    "floorFor": null,
+    "prompt": "claude code extension not working"
+  }
+]

@@ -1,0 +1,370 @@
+{
+  "note": "Which arm sat in which position. NEVER given to a grader.",
+  "seed": 20260819,
+  "map": {
+    "GQ-01": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-02": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-03": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-04": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-05": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-06": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-07": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-08": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-09": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-10": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-11": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-12": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-13": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-14": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-15": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-16": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-17": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-18": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-19": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-20": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-21": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-22": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-23": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-24": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-25": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-26": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-27": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-28": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-29": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-30": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-31": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-32": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-33": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-34": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-35": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-36": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-37": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-38": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-39": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-40": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-41": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-42": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-43": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-44": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-45": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-46": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-47": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-48": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-49": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-50": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-51": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-52": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-53": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-54": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-55": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-56": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-57": {
+      "one": "A",
+      "two": "C"
+    },
+    "GQ-58": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-59": {
+      "one": "C",
+      "two": "A"
+    },
+    "GQ-60": {
+      "one": "A",
+      "two": "C"
+    }
+  },
+  "leakDetection": {
+    "note": "Responses were NOT edited. A tell is a finding about the pair, carried into the report.",
+    "pairsWithATell": 16,
+    "byArm": {
+      "A": 7,
+      "C": 9
+    },
+    "detail": [
+      {
+        "cellId": "GQ-02",
+        "arm": "A",
+        "tells": [
+          "claude-code-extension-engineering"
+        ]
+      },
+      {
+        "cellId": "GQ-10",
+        "arm": "C",
+        "tells": [
+          "skill-creator",
+          "skill-development"
+        ]
+      },
+      {
+        "cellId": "GQ-12",
+        "arm": "A",
+        "tells": [
+          "skill-creator"
+        ]
+      },
+      {
+        "cellId": "GQ-12",
+        "arm": "C",
+        "tells": [
+          "skill-creator"
+        ]
+      },
+      {
+        "cellId": "GQ-13",
+        "arm": "C",
+        "tells": [
+          "skill-creator",
+          "skill-development"
+        ]
+      },
+      {
+        "cellId": "GQ-14",
+        "arm": "A",
+        "tells": [
+          "extension-engineering skill"
+        ]
+      },
+      {
+        "cellId": "GQ-16",
+        "arm": "C",
+        "tells": [
+          "anthropic-skills"
+        ]
+      },
+      {
+        "cellId": "GQ-23",
+        "arm": "A",
+        "tells": [
+          "claude-code-extension-engineering"
+        ]
+      },
+      {
+        "cellId": "GQ-23",
+        "arm": "C",
+        "tells": [
+          "mcp-builder"
+        ]
+      },
+      {
+        "cellId": "GQ-25",
+        "arm": "A",
+        "tells": [
+          "claude-code-extension-engineering"
+        ]
+      },
+      {
+        "cellId": "GQ-26",
+        "arm": "C",
+        "tells": [
+          "mcp-builder"
+        ]
+      },
+      {
+        "cellId": "GQ-27",
+        "arm": "C",
+        "tells": [
+          "mcp-builder"
+        ]
+      },
+      {
+        "cellId": "GQ-30",
+        "arm": "C",
+        "tells": [
+          "mcp-builder"
+        ]
+      },
+      {
+        "cellId": "GQ-36",
+        "arm": "A",
+        "tells": [
+          "extension-engineering skill"
+        ]
+      },
+      {
+        "cellId": "GQ-41",
+        "arm": "A",
+        "tells": [
+          "extension-engineering skill"
+        ]
+      },
+      {
+        "cellId": "GQ-45",
+        "arm": "C",
+        "tells": [
+          "reference file"
+        ]
+      }
+    ]
+  }
+}
