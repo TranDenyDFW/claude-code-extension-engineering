@@ -18,10 +18,12 @@
  * WHAT IT ASSERTS, all against VERIFIED_VERSION as the single source of truth:
  *
  *   VERSION_CATALOG_MISMATCH   data/capabilities/catalog.json catalogVersion differs.
- *   VERSION_HEADER_MISMATCH    a reference file's leading blockquote names a different build, or
- *                              names none at all. quote-check already requires the header to name
- *                              the verified build; this repeats it so a version bump has ONE gate
- *                              that reports every surface at once instead of three partial ones.
+ *   VERSION_HEADER_MISMATCH    a reference file's leading blockquote names a DIFFERENT build. A
+ *                              header naming no build at all is NOT caught here and is not meant
+ *                              to be: quote-check already requires every header to name the
+ *                              verified build, and duplicating that check would mean two gates
+ *                              disagreeing about which one owns it. An earlier draft of this
+ *                              comment claimed otherwise and a reviewer's mutant proved it wrong.
  *   VERSION_SOURCE_AHEAD       evidence/sources.json records a source captured at a build NEWER
  *                              than the verified one. That is not automatically wrong, but it is
  *                              always a decision: either the library is due a re-verification, or
@@ -42,7 +44,7 @@
  *
  * exit: 0 consistent, 1 a code was raised, 2 cannot check (no mirror on this machine)
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -109,14 +111,18 @@ export function headerVersion(src) {
  * fire at all.
  */
 export function mirrorStatus(mirror = DEFAULT_MIRROR) {
+  /* The MIRROR DIRECTORY decides absent, not the changelog inside it. Keying on the changelog
+     made a present-but-incomplete mirror report "is absent" about a directory that exists, which
+     is the fail-open this tri-state was introduced to remove, surviving one step earlier. */
+  if (!existsSync(mirror)) return { state: 'absent' };
   const changelog = join(mirror, 'changelog.md');
-  if (!existsSync(changelog)) return { state: 'absent' };
+  if (!existsSync(changelog)) return { state: 'unreadable', why: 'it has no changelog.md' };
   let newest = null;
   const LABEL = /label="(\d+\.\d+\.\d+)"/g;
   for (const m of readFileSync(changelog, 'utf8').matchAll(LABEL)) {
     if (!newest || cmpVersion(m[1], newest) > 0) newest = m[1];
   }
-  if (!newest) return { state: 'unreadable' };
+  if (!newest) return { state: 'unreadable', why: 'its changelog.md carries no readable release label' };
   return { state: 'ok', newest };
 }
 
@@ -127,13 +133,34 @@ export function mirrorNewestVersion(mirror = DEFAULT_MIRROR) {
 }
 
 /**
- * Top-level markdown that may carry a verification claim. Deliberately a short, named list rather
- * than a recursive walk: a walk would pull in .md/ review artifacts and historical run notes,
- * which record what WAS true at the time and must not be rewritten to match today.
+ * Markdown that may carry a verification claim.
+ *
+ * A WALK, not a list. The first version named five files by hand and was wrong in both
+ * directions: it missed data/capabilities/README.md, which carried a stale claim through TWO
+ * bumps, and SECURITY.md, where a reviewer's mutant survived every gate in the repo; and it named
+ * three files that cite VERIFIED_VERSION nowhere. A hand list of files to check has the same
+ * failure mode as a hand list of phrases to match, which this repo has now watched fail twice.
+ *
+ * Excluded, with reasons: .md/ holds plan and review artifacts that record what WAS true and must
+ * not be rewritten to match today; skills/ is covered by the header rule, which is structural;
+ * tests/ holds fixtures whose content is deliberately arbitrary; node_modules and tmp are not ours.
  */
 export function docsCiting(root = ROOT) {
-  return ['IMPROVEMENTS.md', 'README.md', 'CONTRIBUTING.md', join('docs', 'RESULTS.md'), join('docs', 'SUBMISSION.md')]
-    .filter((rel) => existsSync(join(root, rel)));
+  const SKIP = new Set(['.md', 'skills', 'tests', 'node_modules', 'tmp', '.git']);
+  const out = [];
+  const walk = (rel) => {
+    const abs = rel ? join(root, rel) : root;
+    for (const e of readdirSync(abs, { withFileTypes: true })) {
+      if (e.isDirectory()) {
+        if (SKIP.has(e.name)) continue;
+        walk(rel ? join(rel, e.name) : e.name);
+      } else if (e.name.endsWith('.md')) {
+        out.push(rel ? join(rel, e.name) : e.name);
+      }
+    }
+  };
+  walk('');
+  return out;
 }
 
 /** Every problem, as {code, detail}. */
@@ -194,7 +221,7 @@ export function problems({ root = ROOT, mirror = DEFAULT_MIRROR } = {}) {
 
   const st = mirrorStatus(mirror);
   if (st.state === 'unreadable') {
-    out.push({ code: 'VERSION_MIRROR_UNREADABLE', detail: `the docs mirror at ${mirror} carries a changelog with no readable release label. Present but unreadable is a failure, not a skip: treating it as absent would fail open.` });
+    out.push({ code: 'VERSION_MIRROR_UNREADABLE', detail: `the docs mirror at ${mirror} is present but unreadable: ${st.why}. Present-but-unreadable is a FAILURE, never a skip, because treating it as absent would fail open.` });
   } else if (st.state === 'ok' && cmpVersion(st.newest, V) < 0) {
     out.push({ code: 'VERSION_MIRROR_BEHIND', detail: `the docs mirror documents nothing above ${st.newest}, but VERIFIED_VERSION is ${V}. The evidence base is older than the claim; refresh the mirror into a dated revision before bumping.` });
   }
@@ -304,6 +331,18 @@ function proveFail() {
     writeFileSync(p2, readFileSync(p2, 'utf8') + '\n\nSpurious: verified against 0.0.1, the build in `evidence/VERIFIED_VERSION`.\n');
   });
 
+  /* The one code with no mutant until a reviewer pointed it out. It needs no tree mutation:
+     an empty scratch directory IS the known-bad input, so there is nothing to restore. */
+  {
+    const scratch = join(ROOT, 'tmp', 'version-gate-unreadable-probe');
+    mkdirSync(scratch, { recursive: true });
+    const got = problems({ mirror: scratch }).problems.map((x) => x.code);
+    const caught = got.includes('VERSION_MIRROR_UNREADABLE');
+    console.log(`  ${caught ? 'rejected' : 'SURVIVED'}  a mirror directory present but carrying no changelog [VERSION_MIRROR_UNREADABLE]`);
+    if (!caught) bad++;
+    rmSync(scratch, { recursive: true, force: true });
+  }
+
   let restored = true;
   for (const [p, s] of originals) if (readFileSync(p, 'utf8') !== s) restored = false;
   console.log(`  tree restored: ${restored}`);
@@ -330,7 +369,8 @@ if (IS_MAIN) {
 
   if (argv.includes('--json')) {
     console.log(JSON.stringify(r, null, 2));
-    process.exit(r.problems.length ? 1 : 0);
+    /* Same contract as the text path: cannot-check is 2, not a pass. */
+    process.exit(r.problems.length ? 1 : (r.mirror.state === 'absent' ? 2 : 0));
   }
 
   /* An absent mirror is CANNOT CHECK, not a pass. CI runners have no mirror, and the siblings

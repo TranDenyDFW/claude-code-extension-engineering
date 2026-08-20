@@ -79,8 +79,15 @@ jobs:
         # DRIFT_UNCLASSIFIED from capability-catalog, because the docs mirror had no
         # 2.1.233 content to fingerprint; the real cause, an evidence base older than
         # the claim, appeared nowhere in the message. VERSION_MIRROR_BEHIND names it.
-        # Exit 2 is "cannot check": the runners have no docs mirror. Same tolerance the
-        # sibling gates already use, at capability-catalog --check and quote-check.
+        # Exit 2 is "cannot check": the runners have no docs mirror.
+        #
+        # shell: bash is REQUIRED, not stylistic. This is the only matrix job, runs-on
+        # ${{ matrix.os }} with no shell set, so the Windows leg defaults to pwsh and
+        # `|| [ $? -eq 2 ]` is a ParserError before node ever runs. The sibling gates
+        # that use this tolerance (capability-catalog --check, quote-check) all live in
+        # ubuntu-only jobs, so their precedent does not transfer here. Caught by review
+        # after this gate's wiring shipped unrun for a second time.
+        shell: bash
         run: node tools/version-consistency.mjs || [ $? -eq 2 ]
 
       - name: Prove the version gate can fail

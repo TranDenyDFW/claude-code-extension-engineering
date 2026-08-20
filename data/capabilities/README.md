@@ -9,8 +9,8 @@ the `integrity` seal, and the gates will say so.
 
 | | |
 |---|---|
-| catalog version | `2.1.220` (read from `evidence/VERIFIED_VERSION`) |
-| tools | 51 total: 43 current, 5 legacy, 2 historical, 1 unlisted |
+| catalog version | `2.1.233` (read from `evidence/VERIFIED_VERSION`) |
+| tools | 52 total: 44 current, 5 legacy, 2 historical, 1 unlisted |
 | hook events | 31 total, all current |
 | sources | 9 (2 primary, 5 supporting, 1 absence scan, 1 corroborating) |
 | provenance rows | 103 |
