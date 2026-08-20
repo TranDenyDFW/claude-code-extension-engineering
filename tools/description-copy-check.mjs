@@ -63,7 +63,12 @@ const ROOT = resolve(HERE, '..');
 const SKILL = join(ROOT, 'skills', 'claude-code-extension-engineering', 'SKILL.md');
 const SELF = 'description-copy-check.mjs';
 
-/** Measured floor: 20 produces a false positive on a partition literal, 25 does not. */
+/**
+ * Measured, not chosen. Sweeping the real tree: a false positive on split-skillmd.mjs's partition
+ * literal at 15 through 23, clean from 24 upward, and at 38 and above a known mutant survives. The
+ * usable plateau is 24 to 37; 25 sits one character above the floor. The floor is an artefact of
+ * "incl." manufacturing a sentence boundary, so a future wording change can move it.
+ */
 export const PROBE_LEN = 25;
 
 /**
@@ -88,12 +93,21 @@ export function liveDescription(root = ROOT) {
   try { return JSON.parse(line.slice('description:'.length).trim()); } catch { return null; }
 }
 
-/** One probe per sentence of the description: its opening PROBE_LEN characters. */
+/**
+ * One probe per sentence of the description: its opening PROBE_LEN characters.
+ *
+ * EVERY sentence contributes, including short ones. The first version filtered out sentences
+ * below PROBE_LEN + 5, and exactly one description sentence sits under that line: "Answer; name
+ * the page." at 22 characters. That clause is the one this gate was built for, and it had no
+ * probe at all, so changing it to "Answer; name the page first." passed. An independent reviewer
+ * found it by mutation. The trailing period is stripped so a short sentence contributes its own
+ * text rather than being dropped.
+ */
 export function probesOf(description, len = PROBE_LEN) {
   return description.split(/(?<=\.)\s+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length >= len + 5)
-    .map((s) => s.slice(0, len));
+    .map((x) => x.trim().replace(/\.$/, ''))
+    .filter((x) => x.length > 0)
+    .map((x) => x.slice(0, len));
 }
 
 /**
@@ -231,8 +245,12 @@ function selfTest() {
   ok('an escaped quote inside a literal does not truncate it',
     literalsOf(`const X = 'it\\'s a fairly long literal with an escape';`).literals.length === 1);
 
-  ok('probes are derived per sentence and are all PROBE_LEN long',
-    probesOf(DESC).length >= 2 && probesOf(DESC).every((p) => p.length === PROBE_LEN));
+  ok('probes are derived per sentence and never exceed PROBE_LEN',
+    probesOf(DESC).length >= 2 && probesOf(DESC).every((p) => p.length > 0 && p.length <= PROBE_LEN));
+
+  ok('MUST cover a sentence SHORTER than PROBE_LEN',
+    probesOf('Short one. A much longer sentence that easily clears the probe length.').includes('Short one'),
+    'the reviewer mutant survived because a 22-char sentence produced no probe');
 
   console.log(`\nSELF-TEST ${fails ? 'FAIL' : 'PASS'} (${ran - fails}/${ran} checks)`);
   return fails ? 1 : 0;
@@ -255,6 +273,10 @@ function proveFail() {
     { file: 'split-skillmd.mjs', label: 'one word changed inside a quoted clause', from: 'NOT for operating Claude Code rather than extending it', to: 'NOT for operating Claude Code rather than extend it' },
     { file: 'split-questions.mjs', label: 'a RETIRED clause with no probe (reviewer mutant 1)', from: "'Answer; name the page.',", to: "'Name the page and stop.'," },
     { file: 'split-questions.mjs', label: 'a diverged clause no hand-written marker covered (reviewer mutant 2)', from: "'They presuppose it can, and often it cannot.',", to: "'They presuppose it can, and often it will not.'," },
+    /* Reviewer mutant 3. The clause this gate exists for is 22 characters, and an earlier
+       probesOf dropped every sentence below PROBE_LEN + 5, so it had no probe and this mutant
+       passed. A regression to that filtering fails here. */
+    { file: 'split-questions.mjs', label: 'the 22-char clause this gate is FOR (reviewer mutant 3)', from: "'Answer; name the page.',", to: "'Answer; name the page first.'," },
   ];
 
   let bad = 0;
