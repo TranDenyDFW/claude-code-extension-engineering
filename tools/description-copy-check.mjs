@@ -23,7 +23,11 @@
  *               independent reviewer defeated it twice: once with a literal carrying no marker,
  *               and again with a diverged copy of the "ALSO capability and scope" clause, which no
  *               marker covered. Three of the description's clauses were unguarded.
- *   2. RETIRED  text KNOWN to have been removed from the description fails outright. This catches
+ *   2. PREFIX   a literal beginning with the same 15 characters as a description sentence, while
+ *               not being a substring of it. Probes are prefixes, so a mutation INSIDE the probe
+ *               evades them; this is the signal that sees it. Measured at zero false positives
+ *               across the tools directory at every prefix length from 10 to 25.
+ *   3. RETIRED  text KNOWN to have been removed from the description fails outright. This catches
  *               short superseded clauses: "Name the page and stop." is 23 characters, below any
  *               workable probe length, so PROBES alone cannot see it.
  *
@@ -36,6 +40,13 @@
  * PROBE_LEN was measured, not chosen: at 20 the probes flag a legitimate partition literal in
  * split-skillmd.mjs; at 25 they flag nothing false across the whole tools directory while still
  * catching the reviewer's mutant.
+ *
+ * A REMAINING LIMIT, stated rather than discovered later: the scanner is line-based, so a
+ * template literal SPANNING lines is only seen line by line and a clause split across a newline
+ * is not reconstructed. Every clause in the tree today sits on one line. The same line-based
+ * design means an unclosed block comment opened inside a template literal can desynchronise the
+ * comment state; that is reported as an unscannable file when it persists to end of file, and is
+ * silently healed if a later line closes it. Exposure measured at zero across 51 tracked files.
  *
  * WHAT IT DELIBERATELY DOES NOT DO
  * --------------------------------
@@ -72,6 +83,29 @@ const SELF = 'description-copy-check.mjs';
 export const PROBE_LEN = 25;
 
 /**
+ * A sentence shorter than this contributes no probe.
+ *
+ * Admitting short sentences fixed a real hole, "Answer; name the page." at 22 characters had none,
+ * but it removed the floor entirely. A reviewer's positive control showed a hypothetical one-word
+ * sentence such as "The." would generate a probe matching 41 literals. 12 keeps every real clause
+ * (the shortest is 21) while refusing anything that short.
+ */
+export const MIN_PROBE = 12;
+
+/**
+ * Shared-prefix length for the PREFIX signal.
+ *
+ * Probes are prefixes, so a mutation INSIDE the probe evades them: "ALSO capability and REACH: "
+ * does not contain the probe "ALSO capability and scop" and so reads as unrelated. A literal that
+ * begins with the same K characters as a description sentence, yet is not a substring of the
+ * description, is a diverged copy of that sentence's opening.
+ *
+ * Measured across the real tools directory: ZERO false positives at every K from 10 to 25, and the
+ * mutant is caught at K up to 20. 15 sits inside the clean range with margin on both sides.
+ */
+export const PREFIX_LEN = 15;
+
+/**
  * Text KNOWN to have been in the description and since removed.
  *
  * A retired phrase in a live literal is always a defect: either a stale copy, or someone
@@ -103,10 +137,17 @@ export function liveDescription(root = ROOT) {
  * found it by mutation. The trailing period is stripped so a short sentence contributes its own
  * text rather than being dropped.
  */
+/** The description's sentences, trimmed and stripped of the trailing period. */
+export function sentencesOf(description) {
+  return description.split(/(?<=\.)\s+/)
+    .map((x) => x.trim().replace(/\.$/, ''))
+    .filter((x) => x.length >= MIN_PROBE);
+}
+
 export function probesOf(description, len = PROBE_LEN) {
   return description.split(/(?<=\.)\s+/)
     .map((x) => x.trim().replace(/\.$/, ''))
-    .filter((x) => x.length > 0)
+    .filter((x) => x.length >= MIN_PROBE)
     .map((x) => x.slice(0, len));
 }
 
@@ -135,21 +176,38 @@ export function literalsOf(src) {
       const raw = m[1] !== undefined ? m[1] : m[2];
       if (raw && raw.length >= 20) out.push({ line: i + 1, text: raw.replace(/\\'/g, "'").replace(/\\"/g, '"') });
     }
+    /* TEMPLATE literals, by their STATIC SEGMENTS between placeholders.
+       Four of the description's clause openers live in template literals in split-skillmd.mjs,
+       the file this gate names as the original offender, and scanning only quoted strings left
+       them unreachable: a reviewer inserted the RETIRED phrase into one and the gate exited 0.
+       Each segment between placeholders is plain text and is checked exactly like any literal.
+       Segments are NOT trimmed, because a clause opener legitimately ends in a space and that
+       space is part of the description. */
+    for (const m of line.matchAll(/`((?:[^`\\]|\\.)*)`/g)) {
+      for (const seg of m[1].split(/\$\{[^}]*\}/)) {
+        if (seg.length >= 20) out.push({ line: i + 1, text: seg });
+      }
+    }
   }
   return { literals: out, blockDesync: inBlock };
 }
 
 /** Why a literal is considered to be quoting the description, or null. */
-export function quotingReason(text, description, probes) {
+export function quotingReason(text, description, probes, sentences = sentencesOf(description)) {
   for (const r of RETIRED) if (text.includes(r.text)) return { kind: 'retired', detail: r.why };
   const p = probes.find((x) => text.includes(x));
   if (p) return { kind: 'probe', detail: p };
+  /* Same opening as a description sentence, but not a substring: the clause was edited INSIDE the
+     probe, where a prefix probe cannot see it. */
+  const pre = sentences.find((x) => x.length >= PREFIX_LEN && text.length >= PREFIX_LEN && x.slice(0, PREFIX_LEN) === text.slice(0, PREFIX_LEN));
+  if (pre) return { kind: 'prefix', detail: pre.slice(0, PREFIX_LEN) };
   return null;
 }
 
 /** Literals that quote the description but do not match it, plus unscannable files. */
 export function divergences(files, description) {
   const probes = probesOf(description);
+  const sentences = sentencesOf(description);
   const bad = [];
   for (const { name, src } of files) {
     const { literals, blockDesync } = literalsOf(src);
@@ -157,7 +215,7 @@ export function divergences(files, description) {
       bad.push({ file: name, line: 0, text: '(whole file)', kind: 'unscannable', detail: 'the scan ended inside an unterminated block comment, so literals after it were never examined' });
     }
     for (const lit of literals) {
-      const reason = quotingReason(lit.text, description, probes);
+      const reason = quotingReason(lit.text, description, probes, sentences);
       if (!reason) continue;
       /* A retired phrase fails even when the literal is otherwise a substring: the live
          description cannot contain retired text, so a match would mean the description regressed. */
@@ -185,7 +243,7 @@ function audit() {
   let n = 0;
   for (const { name, src } of readTools()) {
     for (const lit of literalsOf(src).literals) {
-      const reason = quotingReason(lit.text, desc, probes);
+      const reason = quotingReason(lit.text, desc, probes, sentencesOf(desc));
       if (!reason) continue;
       n++;
       const ok = reason.kind !== 'retired' && desc.includes(lit.text);
@@ -248,9 +306,28 @@ function selfTest() {
   ok('probes are derived per sentence and never exceed PROBE_LEN',
     probesOf(DESC).length >= 2 && probesOf(DESC).every((p) => p.length > 0 && p.length <= PROBE_LEN));
 
-  ok('MUST cover a sentence SHORTER than PROBE_LEN',
-    probesOf('Short one. A much longer sentence that easily clears the probe length.').includes('Short one'),
-    'the reviewer mutant survived because a 22-char sentence produced no probe');
+  ok('MUST cover a sentence SHORTER than PROBE_LEN but at or above MIN_PROBE',
+    probesOf('Answer; name it now. A much longer sentence that easily clears the probe length.').includes('Answer; name it now'),
+    'the reviewer mutant survived because the 22-char clause produced no probe');
+
+  ok('MUST scan the static segments of a TEMPLATE literal',
+    D('const x = [`NOT for operating Claude Code rather than EXTENDING it: ${X}.`];').length === 1,
+    'four clause openers live in template literals in the file this gate is named after');
+
+  ok('MUST catch a RETIRED phrase inside a template literal',
+    D('const x = [`prefix ${Y} Name the page and stop.`];').length === 1,
+    'RETIRED is the catch-all and reached nothing inside a template literal');
+
+  ok('a template literal whose segments all match is clean',
+    D('const x = [`NOT for operating Claude Code rather than extending it: ${X}`];').length === 0);
+
+  ok('a sentence below MIN_PROBE contributes no probe',
+    probesOf('The. A much longer sentence that clears the probe length easily.').every((p) => p.length >= MIN_PROBE),
+    'no floor meant a one-word sentence would match almost everything');
+
+  ok('MUST FAIL on a clause edited INSIDE the probe prefix',
+    D('const x = [`NOT for operating Claude Code rather than STRETCHING it: ${X}`];').length === 1,
+    'a prefix probe cannot see a mutation that falls inside itself');
 
   console.log(`\nSELF-TEST ${fails ? 'FAIL' : 'PASS'} (${ran - fails}/${ran} checks)`);
   return fails ? 1 : 0;
@@ -277,6 +354,13 @@ function proveFail() {
        probesOf dropped every sentence below PROBE_LEN + 5, so it had no probe and this mutant
        passed. A regression to that filtering fails here. */
     { file: 'split-questions.mjs', label: 'the 22-char clause this gate is FOR (reviewer mutant 3)', from: "'Answer; name the page.',", to: "'Answer; name the page first.'," },
+    /* Reviewer mutants 4 and 5, both inside TEMPLATE literals in split-skillmd.mjs. literalsOf
+       scanned only quoted strings, so four clause openers in the file this gate is named after
+       were unreachable, and inserting the RETIRED phrase into one of them passed at exit 0.
+       The second is a mutation INSIDE the probe prefix, which a prefix probe cannot see and
+       which the PREFIX signal exists to catch. */
+    { file: 'split-skillmd.mjs', label: 'a RETIRED phrase inside a template literal (reviewer mutant 4)', from: '${QUESTION_CLAUSE}', to: '${QUESTION_CLAUSE} Name the page and stop.' },
+    { file: 'split-skillmd.mjs', label: 'a clause edited INSIDE the probe prefix (reviewer mutant 5)', from: 'ALSO capability and scope:', to: 'ALSO capability and REACH:' },
   ];
 
   let bad = 0;
