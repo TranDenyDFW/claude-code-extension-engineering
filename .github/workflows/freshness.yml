@@ -71,6 +71,30 @@ jobs:
       - name: Verify evidence ledger
         run: node tools/verify-evidence.mjs
 
+      - name: Every version claim agrees with VERIFIED_VERSION
+        # The repo asserted 2.1.229 across VERIFIED_VERSION, catalogVersion and 28 file
+        # headers while the host producing every benchmark result ran 2.1.233, and
+        # nothing compared them. One source record already carried a build NEWER than
+        # the verified one, unchecked. Bumping then failed as an opaque
+        # DRIFT_UNCLASSIFIED from capability-catalog, because the docs mirror had no
+        # 2.1.233 content to fingerprint; the real cause, an evidence base older than
+        # the claim, appeared nowhere in the message. VERSION_MIRROR_BEHIND names it.
+        # Exit 2 is "cannot check": the runners have no docs mirror.
+        #
+        # shell: bash is REQUIRED, not stylistic. This is the only matrix job, runs-on
+        # ${{ matrix.os }} with no shell set, so the Windows leg defaults to pwsh and
+        # `|| [ $? -eq 2 ]` is a ParserError before node ever runs. The sibling gates
+        # that use this tolerance (capability-catalog --check, quote-check) all live in
+        # ubuntu-only jobs, so their precedent does not transfer here. Caught by review
+        # after this gate's wiring shipped unrun for a second time.
+        shell: bash
+        run: node tools/version-consistency.mjs || [ $? -eq 2 ]
+
+      - name: Prove the version gate can fail
+        run: |
+          node tools/version-consistency.mjs --self-test
+          node tools/version-consistency.mjs --prove-fail
+
       - name: Documentation numbers match the artifacts
         run: node tools/coverage-report.mjs --doc-numbers
 
