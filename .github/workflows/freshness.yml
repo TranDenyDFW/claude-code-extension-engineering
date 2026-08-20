@@ -79,7 +79,9 @@ jobs:
         # DRIFT_UNCLASSIFIED from capability-catalog, because the docs mirror had no
         # 2.1.233 content to fingerprint; the real cause, an evidence base older than
         # the claim, appeared nowhere in the message. VERSION_MIRROR_BEHIND names it.
-        run: node tools/version-consistency.mjs
+        # Exit 2 is "cannot check": the runners have no docs mirror. Same tolerance the
+        # sibling gates already use, at capability-catalog --check and quote-check.
+        run: node tools/version-consistency.mjs || [ $? -eq 2 ]
 
       - name: Prove the version gate can fail
         run: |

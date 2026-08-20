@@ -92,24 +92,48 @@ export function headerVersion(src) {
 }
 
 /**
- * The newest build the docs mirror documents, or null when the mirror is absent.
+ * What the docs mirror documents, as a tri-state rather than a nullable string.
  *
- * Read from the CHANGELOG'S OWN RELEASE LABELS, never from any three-dotted number in the
- * corpus. The first version of this scanned every page and reported the newest build as
- * "192.168.1", because the docs contain IP addresses. That is worse than a wrong display value:
- * 192.x compares newer than any real build, so VERSION_MIRROR_BEHIND could never have fired.
- * A check that cannot fail is the defect this repo names first, and it was caught by RUNNING
- * the gate rather than by reading it.
+ *   { state: 'absent'     }            no mirror on this machine. CI runners have none.
+ *   { state: 'unreadable' }            the mirror is here but no release label could be read.
+ *   { state: 'ok', newest }            the newest build it documents.
+ *
+ * The distinction is the whole point. ABSENT is "cannot check" and exits 2, which CI tolerates the
+ * same way it tolerates capability-catalog and quote-check. UNREADABLE is a FAILURE: the mirror is
+ * present and we could not read it, and returning null there would fail open, which is the exact
+ * class of defect this gate already shipped once when it read IP addresses as version numbers.
+ *
+ * Labels only, never bare dotted numbers. The corpus contains 192.168.1.1 and 127.0.0.1, the
+ * latter inside changelog.md itself, and a bare-number scan reported the newest build as
+ * "192.168.1", which compares newer than any real build and made VERSION_MIRROR_BEHIND unable to
+ * fire at all.
  */
-export function mirrorNewestVersion(mirror = DEFAULT_MIRROR) {
+export function mirrorStatus(mirror = DEFAULT_MIRROR) {
   const changelog = join(mirror, 'changelog.md');
-  if (!existsSync(changelog)) return null;
+  if (!existsSync(changelog)) return { state: 'absent' };
   let newest = null;
   const LABEL = /label="(\d+\.\d+\.\d+)"/g;
   for (const m of readFileSync(changelog, 'utf8').matchAll(LABEL)) {
     if (!newest || cmpVersion(m[1], newest) > 0) newest = m[1];
   }
-  return newest;
+  if (!newest) return { state: 'unreadable' };
+  return { state: 'ok', newest };
+}
+
+/** Back-compat shim: the newest documented build, or null. */
+export function mirrorNewestVersion(mirror = DEFAULT_MIRROR) {
+  const st = mirrorStatus(mirror);
+  return st.state === 'ok' ? st.newest : null;
+}
+
+/**
+ * Top-level markdown that may carry a verification claim. Deliberately a short, named list rather
+ * than a recursive walk: a walk would pull in .md/ review artifacts and historical run notes,
+ * which record what WAS true at the time and must not be rewritten to match today.
+ */
+export function docsCiting(root = ROOT) {
+  return ['IMPROVEMENTS.md', 'README.md', 'CONTRIBUTING.md', join('docs', 'RESULTS.md'), join('docs', 'SUBMISSION.md')]
+    .filter((rel) => existsSync(join(root, rel)));
 }
 
 /** Every problem, as {code, detail}. */
@@ -152,12 +176,30 @@ export function problems({ root = ROOT, mirror = DEFAULT_MIRROR } = {}) {
     }
   }
 
-  const newest = mirrorNewestVersion(mirror);
-  if (newest !== null && cmpVersion(newest, V) < 0) {
-    out.push({ code: 'VERSION_MIRROR_BEHIND', detail: `the docs mirror documents nothing above ${newest}, but VERIFIED_VERSION is ${V}. The evidence base is older than the claim; refresh the mirror into a dated revision before bumping.` });
+  /* Prose that cites VERIFIED_VERSION by name and states a build must state the CURRENT one.
+     An independent reviewer's mutant, a README sentence claiming verification against 1.0.0,
+     survived every gate in the repo. It was not hypothetical: IMPROVEMENTS.md carried exactly
+     that shape, stale, and the commit adding this gate shipped it unchanged. Scoped to lines
+     that NAME evidence/VERIFIED_VERSION, so ordinary prose mentioning a build is untouched. */
+  for (const rel of docsCiting(root)) {
+    const abs = join(root, rel);
+    const lines = readFileSync(abs, 'utf8').replace(/\r\n/g, '\n').split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].includes('VERIFIED_VERSION')) continue;
+      for (const m of lines[i].matchAll(/\b(\d+\.\d+\.\d+)\b/g)) {
+        if (m[1] !== V) out.push({ code: 'VERSION_PROSE_STALE', detail: `${rel}:${i + 1} cites VERIFIED_VERSION alongside ${m[1]}, but it is ${V}` });
+      }
+    }
   }
 
-  return { version: V, mirrorNewest: newest, problems: out };
+  const st = mirrorStatus(mirror);
+  if (st.state === 'unreadable') {
+    out.push({ code: 'VERSION_MIRROR_UNREADABLE', detail: `the docs mirror at ${mirror} carries a changelog with no readable release label. Present but unreadable is a failure, not a skip: treating it as absent would fail open.` });
+  } else if (st.state === 'ok' && cmpVersion(st.newest, V) < 0) {
+    out.push({ code: 'VERSION_MIRROR_BEHIND', detail: `the docs mirror documents nothing above ${st.newest}, but VERIFIED_VERSION is ${V}. The evidence base is older than the claim; refresh the mirror into a dated revision before bumping.` });
+  }
+
+  return { version: V, mirror: st, mirrorNewest: st.state === 'ok' ? st.newest : null, problems: out };
 }
 
 // ------------------------------------------------------------------ self-test
@@ -185,6 +227,9 @@ function selfTest() {
     'the corpus contains IP addresses; only labelled releases count');
   ok('...and DOES read a labelled release',
     /label="(\d+\.\d+\.\d+)"/.test('<Update label="2.1.237" description="x">'));
+  ok('an absent mirror is reported as absent, not as ok',
+    mirrorStatus('P:/definitely/not/a/mirror/anywhere').state === 'absent');
+
   console.log(`\nSELF-TEST ${fails ? 'FAIL' : 'PASS'} (${ran - fails}/${ran} checks)`);
   return fails ? 1 : 0;
 }
@@ -206,6 +251,7 @@ function proveFail() {
   };
   const originals = new Map();
   for (const p of Object.values(targets)) originals.set(p, readFileSync(p, 'utf8'));
+  for (const rel of docsCiting()) originals.set(join(ROOT, rel), readFileSync(join(ROOT, rel), 'utf8'));
 
   const V = verifiedVersion();
   let bad = 0;
@@ -239,8 +285,23 @@ function proveFail() {
     writeFileSync(p, JSON.stringify(arr, null, 2) + '\n');
   });
 
-  run('a verified build the mirror has never documented', 'VERSION_MIRROR_BEHIND', () => {
-    writeFileSync(targets.VERSION_MIRROR_BEHIND, '99.9.9\n');
+  /* Only meaningful with a mirror. Claiming HOLLOW for a check that could not run is the
+     "could not check equals failure" confusion in reverse, and on a mirror-less runner it made
+     --prove-fail exit 1 and fail the build. */
+  if (mirrorStatus().state === 'ok') {
+    run('a verified build the mirror has never documented', 'VERSION_MIRROR_BEHIND', () => {
+      writeFileSync(targets.VERSION_MIRROR_BEHIND, '99.9.9\n');
+    });
+  } else {
+    console.log('  skipped   a verified build the mirror has never documented [VERSION_MIRROR_BEHIND] (no mirror here)');
+  }
+
+  run('prose citing VERIFIED_VERSION with the wrong build', 'VERSION_PROSE_STALE', () => {
+    const docs = docsCiting();
+    if (!docs.length) throw new Error('no citing doc to mutate');
+    const p2 = join(ROOT, docs[0]);
+    originals.set(p2, originals.get(p2) ?? readFileSync(p2, 'utf8'));
+    writeFileSync(p2, readFileSync(p2, 'utf8') + '\n\nSpurious: verified against 0.0.1, the build in `evidence/VERIFIED_VERSION`.\n');
   });
 
   let restored = true;
@@ -270,6 +331,18 @@ if (IS_MAIN) {
   if (argv.includes('--json')) {
     console.log(JSON.stringify(r, null, 2));
     process.exit(r.problems.length ? 1 : 0);
+  }
+
+  /* An absent mirror is CANNOT CHECK, not a pass. CI runners have no mirror, and the siblings
+     already model this: freshness.yml invokes capability-catalog and quote-check as
+     `... || [ $? -eq 2 ]`. Documenting exit 2 and never emitting it, which is what shipped in
+     f2d7375, is worse than not documenting it: the live check then passed on every runner with
+     VERSION_MIRROR_BEHIND silently unreachable. */
+  if (r.mirror.state === 'absent') {
+    for (const p2 of r.problems) console.error(`${p2.code}  ${p2.detail}`);
+    console.error(`\nCANNOT CHECK the mirror on this machine (${mirror} is absent).`);
+    console.error(`${r.problems.length} non-mirror problem(s) found against VERIFIED_VERSION ${r.version}.`);
+    process.exit(r.problems.length ? 1 : 2);
   }
 
   if (r.problems.length) {
