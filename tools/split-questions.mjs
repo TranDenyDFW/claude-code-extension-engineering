@@ -23,6 +23,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { skillDirs } from './skill-roots.mjs';
+import { sentenceContaining } from './live-clauses.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -91,14 +92,15 @@ for (const r of rows) {
 /* The check that does the real work: the shared clauses must be IDENTICAL in all four
    descriptions. Four copies of a question assigned to one skill would not catch divergence; this
    does, and it is the thing the R### rows were really protecting. */
+/* DERIVED from the live description, never pasted. The previous array held five hardcoded
+   copies, one of which had already drifted to the superseded "Name the page and stop." wording.
+   Deriving removes the possibility rather than detecting the symptom. */
 const CLAUSES = [
-  'A bare noun phrase is a QUESTION, not system output to acknowledge.',
-  'They presuppose it can, and often it cannot.',
-  'Use when choosing between these mechanisms, writing one, or diagnosing one that will not load, fire, or behave.',
+  sentenceContaining('bare noun phrase'),
+  sentenceContaining('They presuppose it can'),
+  sentenceContaining('Use when choosing between'),
   'NOT for operating Claude Code rather than extending it',
-  /* Corrected 2026-08-19: read 'Name the page and stop.', the superseded wording that
-     SKILL.md records as having lost two blind pairwise comparisons. */
-  'Answer; name the page.',
+  sentenceContaining('Answer; name the page'),
 ];
 const descs = {};
 for (const d of skillDirs(ROOT)) {

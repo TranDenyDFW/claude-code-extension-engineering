@@ -346,14 +346,19 @@ function proveFail() {
   if (!desc) { console.error('cannot read the live description'); return 2; }
 
   const mutants = [
-    { file: 'split-skillmd.mjs', label: 'the historical drift, restored', from: 'install and login. Answer; name the page.', to: 'install and login. Name the page and stop.' },
-    { file: 'split-skillmd.mjs', label: 'one word changed inside a quoted clause', from: 'NOT for operating Claude Code rather than extending it', to: 'NOT for operating Claude Code rather than extend it' },
-    { file: 'split-questions.mjs', label: 'a RETIRED clause with no probe (reviewer mutant 1)', from: "'Answer; name the page.',", to: "'Name the page and stop.'," },
-    { file: 'split-questions.mjs', label: 'a diverged clause no hand-written marker covered (reviewer mutant 2)', from: "'They presuppose it can, and often it cannot.',", to: "'They presuppose it can, and often it will not.'," },
+    /* The retired wording, now planted in a QUOTED literal rather than the deleted EXCLUSIONS
+       constant, so the RETIRED signal is still proven outside a template literal. */
+    { file: 'split-questions.mjs', label: 'the historical drift, in a quoted locator', from: "sentenceContaining('Answer; name the page')", to: "sentenceContaining('Answer; name the page and stop')" },
+    { file: 'split-questions.mjs', label: 'one word changed inside a quoted clause', from: "'NOT for operating Claude Code rather than extending it',", to: "'NOT for operating Claude Code rather than extend it'," },
+    { file: 'split-skillmd.mjs', label: 'a diverged opening clause (was reviewer mutant 1)', from: 'Building, debugging, or reasoning about the limits of a Claude Code extension', to: 'Building, debugging, or reasoning about the edges of a Claude Code extension' },
+    /* Re-aimed after the shared clauses became DERIVED: the literals these two used to mutate no
+       longer exist, which is the point. They now target copies that remain, the per-skill clause
+       openers in split-skillmd.mjs, which are scaffolding rather than shared text. */
+    { file: 'split-skillmd.mjs', label: 'a diverged clause opener carrying a probe (was reviewer mutant 2)', from: 'ALSO for IMPERATIVE build requests', to: 'ALSO for IMPERATIVE build orders' },
     /* Reviewer mutant 3. The clause this gate exists for is 22 characters, and an earlier
        probesOf dropped every sentence below PROBE_LEN + 5, so it had no probe and this mutant
        passed. A regression to that filtering fails here. */
-    { file: 'split-questions.mjs', label: 'the 22-char clause this gate is FOR (reviewer mutant 3)', from: "'Answer; name the page.',", to: "'Answer; name the page first.'," },
+    { file: 'split-skillmd.mjs', label: 'a diverged bare-symptom opener (was reviewer mutant 3)', from: 'ALSO for a BARE SYMPTOM or lookup with no artifact attached', to: 'ALSO for a BARE SYMPTOM or lookup with no artefact attached' },
     /* Reviewer mutants 4 and 5, both inside TEMPLATE literals in split-skillmd.mjs. literalsOf
        scanned only quoted strings, so four clause openers in the file this gate is named after
        were unreachable, and inserting the RETIRED phrase into one of them passed at exit 0.

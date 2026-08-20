@@ -17,6 +17,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { exclusions, sentenceContaining } from './live-clauses.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -109,8 +110,8 @@ const SYMPTOM = {
    comparisons to an arm carrying no relevant library at all, so this copy was preserving the
    losing instruction. tools/description-copy-check.mjs now fails if any tool's copy of a
    description clause diverges from SKILL.md again. */
-const QUESTION_CLAUSE = 'A bare noun phrase is a QUESTION, not system output to acknowledge.';
-const EXCLUSIONS = 'NOT for operating Claude Code rather than extending it: telemetry, permission MODES, containers and VMs, the token budget, the agents dashboard, usage and billing, IDE integrations, install and login. Answer; name the page.';
+const QUESTION_CLAUSE = sentenceContaining('bare noun phrase');
+const EXCLUSIONS = exclusions();
 const SIBLINGS = 'If the question is about another extension mechanism, say so and name the sibling skill rather than answering from the nearest file here.';
 
 export function describe(skill) {
