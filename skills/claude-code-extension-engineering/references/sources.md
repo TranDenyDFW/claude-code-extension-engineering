@@ -53,6 +53,7 @@
 | SRC_BEST_PRACTICES | Claude Code best practices | https://code.claude.com/docs/en/best-practices | 2026-08-19 | 2.1.229 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_LARGE_CODEBASES | Work with large codebases | https://code.claude.com/docs/en/large-codebases | 2026-08-19 | 2.1.229 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 | SRC_DEBUG_CONFIG | Debug your configuration | https://code.claude.com/docs/en/debug-your-config | 2026-08-19 | 2.1.229 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
+| SRC_COSTS | Manage costs and usage limits | https://code.claude.com/docs/en/costs | 2026-08-13 | 2.1.220 | verified | no | Proprietary; Anthropic PBC, all rights reserved |
 
 A row's `Retrieved` date is the date that row's own content was taken, never a date copied from a neighbour. Most were fetched live; SOME were read from the local docs mirror instead, and those say so in their `notes` field in sources.json, which is the machine-readable record this table is generated against. Every row is spot-checked against 2 or 3 claims that cite it, and those records live there too. The claim that every external row was a live fetch stood here until 2026-08-19 and was never true of the mirror-read rows.
 
