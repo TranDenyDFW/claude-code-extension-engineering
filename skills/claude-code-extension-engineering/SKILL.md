@@ -168,7 +168,7 @@ json ignored", is a question about the mechanism's documented CONTRACT, not a re
 audit the workspace this session happens to be running in. Answer from the reference first
 and offer to inspect the user's config second. Opening this session's settings files and
 reporting that nothing is configured there answers a question nobody asked, and it looks like
-diligence. MEASURED: that answer scored 1 of 6 on the 2026-08-13 benchmark, question GQ-06.
+diligence. MEASURED: that answer scored 1 of 6 on the 2026-08-13 benchmark, question GQ-06. Hand over the read-only command that shows the asker their OWN state instead: `/hooks` for hooks, `/status` and `claude doctor` for settings, `/context` for what loaded.
 
 If you do describe this workspace, name the path you read and say it is this session's, which may
 not be the asker's. MEASURED, and the reason this is one sentence rather than a section: two longer
@@ -200,7 +200,7 @@ untested claim.
 Claims are tagged by evidence: `[OFFICIAL]` and untagged both mean official documentation,
 `[ANTHROPIC]` is an Anthropic recommendation, `[ENGINEERING]` is engineering judgment,
 `[COMMUNITY]` is community practice. The two spellings of official are historical rather than
-a distinction: 434 claims carry the explicit tag and 25 rely on the untagged default, and this
+a distinction: 435 claims carry the explicit tag and 25 rely on the untagged default, and this
 sentence described only the default until an audit found the explicit form defined nowhere.
 Prefer `[OFFICIAL]`; untagged stays valid so the older half of the corpus is not a lie. A `[vX.Y.Z]` tag is the build the behaviour BELONGS to: the release it
 was introduced or changed in, or the minimum build it requires. Where the documentation dates

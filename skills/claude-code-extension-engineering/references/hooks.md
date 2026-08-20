@@ -43,6 +43,7 @@ Code the HARNESS runs on a lifecycle event, independent of the model's judgment.
 - False negative (misses a bad action)
 - Repeated execution (idempotent, fast)
 - Shares the generic capture-change-retest loop in [testing.md](testing.md)
+- ASK THE ASKER TO RUN `/hooks` BEFORE ENUMERATING CAUSES. It opens a read-only browser of every hook registered for the current session, grouped by event, with the settings file each came from, and a hook that does not appear there is not being read at all. That settles in one command what a list of causes can only enumerate, and it reaches what reading settings files by hand does not: managed policy settings, a plugin's own `hooks/hooks.json`, and hooks declared in skill or subagent frontmatter. `/status` lists the active settings sources and `claude doctor` reports a file that failed validation  [OFFICIAL]
 - Evidence source: matches, exit codes, and full stdout/stderr go to the debug log (claude --debug-file PATH, or ~/.claude/debug/SESSION-ID.txt with --debug, which prints NOTHING to the terminal); CLAUDE_CODE_DEBUG_LOG_LEVEL=verbose adds matcher-level detail [OFFICIAL]
 
 ## What the matrix above cannot see

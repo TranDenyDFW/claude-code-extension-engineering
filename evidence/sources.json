@@ -930,5 +930,22 @@
         "found": true
       }
     ]
+  },
+  {
+    "id": "SRC_DEBUG_CONFIG",
+    "title": "Debug your configuration",
+    "url": "https://code.claude.com/docs/en/debug-your-config",
+    "type": "official",
+    "retrieved": "2026-08-19",
+    "build": "2.1.229",
+    "status": "verified",
+    "notes": "Read from the local docs mirror at CCX-Extension-Research/sources/docs/md/debug-your-config.md on 2026-08-19, not a live fetch. Added because a benchmark loss showed the library citing this page zero times while enumerating causes the page settles with one command.",
+    "spot_checks": [
+      {
+        "line": 62,
+        "quote": "Run `/hooks` to list every hook registered for the current session, grouped by event.",
+        "found": true
+      }
+    ]
   }
 ]
