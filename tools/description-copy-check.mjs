@@ -346,10 +346,17 @@ function proveFail() {
   if (!desc) { console.error('cannot read the live description'); return 2; }
 
   const mutants = [
-    /* The retired wording, now planted in a QUOTED literal rather than the deleted EXCLUSIONS
-       constant, so the RETIRED signal is still proven outside a template literal. */
-    { file: 'split-questions.mjs', label: 'the historical drift, in a quoted locator', from: "sentenceContaining('Answer; name the page')", to: "sentenceContaining('Answer; name the page and stop')" },
-    { file: 'split-questions.mjs', label: 'one word changed inside a quoted clause', from: "'NOT for operating Claude Code rather than extending it',", to: "'NOT for operating Claude Code rather than extend it'," },
+    /* The retired wording in a QUOTED literal, so the RETIRED signal is proven outside a template
+       literal. The planted text must carry the EXACT retired casing: an earlier version wrote a
+       lowercase "name", which RETIRED (case-sensitive) never matched, so the mutant was caught by
+       PROBE instead and the comment claimed a coverage this case was not providing. Found by a
+       reviewer instrumenting which signal actually fired. */
+    { file: 'split-questions.mjs', label: 'the retired wording, in a quoted locator', from: "sentenceContaining('Answer; name the page')", to: "sentenceContaining('Name the page and stop')" },
+    /* Re-aimed again after that clause became derived. Locator fragments are the copies that
+       SURVIVE derivation, so they are the durable target: if a fragment stops matching the
+       description, sentenceContaining throws, and if it drifts while still matching, this catches
+       it. */
+    { file: 'split-questions.mjs', label: 'a drifted locator fragment', from: "sentenceContaining('Use when choosing between')", to: "sentenceContaining('Use when choosing among mechanisms')" },
     { file: 'split-skillmd.mjs', label: 'a diverged opening clause (was reviewer mutant 1)', from: 'Building, debugging, or reasoning about the limits of a Claude Code extension', to: 'Building, debugging, or reasoning about the edges of a Claude Code extension' },
     /* Re-aimed after the shared clauses became DERIVED: the literals these two used to mutate no
        longer exist, which is the point. They now target copies that remain, the per-skill clause

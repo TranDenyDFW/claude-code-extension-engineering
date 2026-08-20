@@ -99,7 +99,7 @@ const CLAUSES = [
   sentenceContaining('bare noun phrase'),
   sentenceContaining('They presuppose it can'),
   sentenceContaining('Use when choosing between'),
-  'NOT for operating Claude Code rather than extending it',
+  sentenceContaining('NOT for operating'),
   sentenceContaining('Answer; name the page'),
 ];
 const descs = {};

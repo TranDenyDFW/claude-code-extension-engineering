@@ -112,14 +112,16 @@ const SYMPTOM = {
    description clause diverges from SKILL.md again. */
 const QUESTION_CLAUSE = sentenceContaining('bare noun phrase');
 const EXCLUSIONS = exclusions();
+const USE_WHEN = sentenceContaining('Use when choosing between');
+const PRESUPPOSE = sentenceContaining('They presuppose it can');
 const SIBLINGS = 'If the question is about another extension mechanism, say so and name the sibling skill rather than answering from the nearest file here.';
 
 export function describe(skill) {
   return [
     `Building, debugging, or reasoning about the limits of a Claude Code extension: ${SUBJECTS[skill]}.`,
-    'Use when choosing between these mechanisms, writing one, or diagnosing one that will not load, fire, or behave.',
+    USE_WHEN,
     `ALSO capability and scope: ${CAPABILITY[skill]}.`,
-    `ALSO for IMPERATIVE build requests, not only questions: ${IMPERATIVE[skill]}. They presuppose it can, and often it cannot.`,
+    `ALSO for IMPERATIVE build requests, not only questions: ${IMPERATIVE[skill]}. ${PRESUPPOSE}`,
     `ALSO for a BARE SYMPTOM or lookup with no artifact attached: ${SYMPTOM[skill]}. ${QUESTION_CLAUSE}`,
     SIBLINGS,
     EXCLUSIONS,
