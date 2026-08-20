@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "catalogVersion": "2.1.233",
-  "generated": "2026-08-20T06:33:44.243Z",
+  "generated": "2026-08-20T08:22:44.761Z",
   "generator": "tools/capability-catalog.mjs --from-mirror P:/ClaudeExt/CCX-Extension-Research/sources/docs/md",
   "quotePolicy": "Quotes are markdown-link-flattened, whitespace-collapsed, truncated to 140 chars, and dash-family characters (U+2010..U+2015, U+2212) are replaced with ' - ' per the repo house rule. For byte-verbatim text, read the cited line from the source whose sha256 is recorded in sources[].",
   "statuses": [
@@ -60,7 +60,7 @@
       "id": "tests/lint-bench/results.json",
       "role": "corroborating",
       "sha256": "0a6b56d1c9ff7b109ea6c5e4de82f5345f3cbbe94399351bf72ccbf86746abae",
-      "bytes": 171459,
+      "bytes": 170559,
       "note": "agnix 0.45.0 CC-AG-009 diagnostic captured by the lint bench"
     },
     {
@@ -1088,5 +1088,5 @@
       ]
     }
   },
-  "integrity": "758960ae9f1573b0d6dc8198a7e73436c8bc30b4de6003e1c3c9ce49b63fde16"
+  "integrity": "e588199a3ea57f1a4cb049d77a48f16c8bb298da9ce46241f54ac00259ed2dd5"
 }

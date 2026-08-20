@@ -6,3 +6,11 @@
 # source tree, once after a commit rewrote the copies.
 skills/**/*.md    text eol=lf
 skills/**/*.json  text eol=lf
+
+# The capability catalog records a BYTE COUNT for every source it measures. Eight of the nine
+# are docs-mirror pages outside this repo; this one is a repo text file, so its size depended on
+# which checkout produced it. A catalog generated in a CRLF worktree recorded 171459 bytes and
+# --check then failed on an LF main reading 170559, exactly 900 apart, one byte per line, and it
+# surfaced as DRIFT_UNCLASSIFIED because the mismatch is a size rather than any compared field.
+# Same hazard, same fix, as the skills rule above.
+tests/lint-bench/results.json  text eol=lf
