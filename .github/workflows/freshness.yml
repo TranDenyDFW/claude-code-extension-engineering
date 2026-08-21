@@ -562,7 +562,18 @@ jobs:
           git checkout -B "$BRANCH"
           git add evidence/status.json
           git commit -m "$TITLE"
-          git push --force-with-lease origin "$BRANCH"
+          # The lease needs a basis. actions/checkout gives a single-branch shallow clone, so
+          # refs/remotes/origin/$BRANCH does not exist, and --force-with-lease refuses rather
+          # than guesses: "! [rejected] ... (stale info)". That failed every scheduled run from
+          # 2026-08-17 onward. Fetch the branch so the lease can be evaluated, and keep the
+          # lease rather than dropping to --force, because the whole point is to fail if a
+          # human has pushed to the bot branch.
+          if git fetch --depth=1 origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" 2>/dev/null; then
+            git push --force-with-lease="$BRANCH:$(git rev-parse "refs/remotes/origin/$BRANCH")" origin "$BRANCH"
+          else
+            # No such branch upstream yet: a plain push creates it, and there is nothing to lease against.
+            git push origin "$BRANCH"
+          fi
           if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
             gh pr edit "$BRANCH" --title "$TITLE"
             echo "updated existing PR on $BRANCH"
