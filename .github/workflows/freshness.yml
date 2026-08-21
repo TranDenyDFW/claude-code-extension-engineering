@@ -435,6 +435,7 @@ jobs:
     permissions:
       contents: write
       issues: write
+      pull-requests: write
     steps:
       # persist-credentials stays DEFAULT here, deliberately: this job pushes.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
