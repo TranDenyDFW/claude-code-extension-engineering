@@ -35,7 +35,6 @@ Code the HARNESS runs on a lifecycle event, independent of the model's judgment.
 - Expected BLOCK (exit 2 on a blocking event)
 - Boundary case
 - Malformed input JSON
-- A handler module that is BOTH importable and executable must gate its CLI dispatch on being the process entry point, for example `pathToFileURL(process.argv[1]).href === import.meta.url`. Without that guard, importing the module for its exports RUNS it: observed cases include an import that started a full data harvest and an import that exited the host process outright, both hit while trying to reuse exported functions. This matters here because driving a handler from a separate harness is exactly that access pattern  [ENGINEERING]
 - Missing field
 - Unexpected tool / event
 - Hook runtime error
@@ -83,6 +82,7 @@ written down to its shell flags.
 ## Failure safety / guard-the-guard
 
 - A safety hook must not brick Claude Code, and the section above is how you decide whether that applies to the hook in front of you  [ENGINEERING BEST PRACTICE]  [ENGINEERING]
+- A handler module that is BOTH importable and executable must gate its CLI dispatch on being the process entry point, for example `pathToFileURL(process.argv[1]).href === import.meta.url`. Without that guard, importing the module for its exports RUNS it: observed cases include an import that started a full data harvest and an import that exited the host process outright, both hit while trying to reuse exported functions. This matters here because driving a handler from a separate harness is exactly that access pattern  [ENGINEERING]
 - Pass-path AND block-path both tested (toggle-bad → confirm → fix)
 - Change flow for a hook, run in order every time the handler is modified:
   1. Hook modification.

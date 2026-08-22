@@ -1,47 +1,51 @@
 {
-  "baseline": "e983f436a859caa35a543e52b8d9263ba771a7a5",
-  "why": "Attribution changes on claims whose SUBSTANCE is unchanged: two hook-events retags to COMMUNITY, the skills.md referent-correction note, and the permissions.md tag resync an independent review found, where the ledger asserted OFFICIAL for a claim whose own prose retracts that tag. Claims whose text changed are unpaired new substance and are deliberately NOT declared here.",
+  "baseline": "a94c756b87b0d99b4a042a245cb88715ab62b455",
+  "why": "Per-claim notes added to the ten patterns harvested from the ccxe project. The SUBSTANCE of each claim is unchanged; what changes is that each now records what was observed and where, which all 22 pre-existing LOCAL_ENV claims already did and these did not. An independent review found the omission. Ids here are BASELINE ids, per the contract in tools/attrib-check.mjs.",
   "changes": [
     {
-      "id": "CLM-skills-224",
+      "id": "CLM-hooks-075",
       "key": "note",
-      "to": "Added 2026-08-18, Tier 1. Four of the five skills.md gaps; the fifth, phase-agent-names-primary-and-secondary-references, is DEFERRED to the dispatch-prompt section in subagents.md, which does not exist yet, because its own note says it merges there and writing it here would separate it from its three siblings. The always-on subagent guard is the sharpest of the four: both mechanisms are documented and neither is usable for an always-on routing skill, so the convention fills a real hole. CORRECTED 2026-08-18: the closing clause read \"A live instance runs in this project\", which was wrong. An independent review flagged it as unverified; re-verification found the pattern ships in the superpowers plugin (using-superpowers/SKILL.md, guard first in the body) and that SUBAGENT-STOP occurs zero times across all 30 files of this library, positive control, case-insensitive \"claude\", 30 of 30 files; the lowercase literal is 27 of 30, so the scope and the case both matter. The mechanism half of the claim was never in doubt; only the referent was."
+      "to": "Added 2026-08-22 from a live compaction-capture hook (ccxe hooks/compact-hook.mjs), whose own comment records the reason: a compaction it could not record is a gap, and a gap with no explanation is indistinguishable from a compaction that never happened."
     },
     {
-      "id": "CLM-hook-events-013",
-      "key": "tags",
-      "to": [
-        "COMMUNITY"
-      ]
-    },
-    {
-      "id": "CLM-hook-events-013",
+      "id": "CLM-hooks-038",
       "key": "note",
-      "to": "Added 2026-08-18 from the pattern-corpus audit, hook-events.md cluster. The resume-exclusion guidance is the best-corroborated hook pattern in the audit at 3 distinct projects, and the mirror check changed how it had to be written: hooks.md frames the SessionStart resume re-run as the mechanism for REFRESHING stale context, which is the opposite motivation from the corpus practice of excluding resume to avoid spending the window twice. Both are recorded because they optimise for different things and the reader has to pick. The async-false corollary and the per-handler timeout sizing are ordinary engineering judgment from the same cluster. RETAGGED to COMMUNITY 2026-08-18. The evidence for this bullet is that other projects do it, not a mechanism argument we made: strip the observed practice and nothing supports it. That is what [COMMUNITY] means in SKILL.md, and [ENGINEERING] means engineering judgment. Of the 63 SRC_EXTINDEX_SURVEY claims tagged ENGINEERING, only this one and the resume-exclusion bullet rest on practice this way; the rest justify by mechanism or by measurement done here, so the source field records where the LEAD came from while the tag records how the claim is justified to the reader."
+      "to": "Added 2026-08-22. Observed twice in the ccxe tools: importing harvest.mjs for its exports started a full harvest, and importing segments.mjs exited the host process. Both were hit by a reviewer trying to reuse exported functions, and the workaround was monkey-patching process.exit for the duration of the import."
     },
     {
-      "id": "CLM-hook-events-079",
-      "key": "tags",
-      "to": [
-        "COMMUNITY"
-      ]
-    },
-    {
-      "id": "CLM-hook-events-079",
+      "id": "CLM-hooks-238",
       "key": "note",
-      "to": "Added 2026-08-18 from the pattern-corpus audit, hook-events.md cluster. The resume-exclusion guidance is the best-corroborated hook pattern in the audit at 3 distinct projects, and the mirror check changed how it had to be written: hooks.md frames the SessionStart resume re-run as the mechanism for REFRESHING stale context, which is the opposite motivation from the corpus practice of excluding resume to avoid spending the window twice. Both are recorded because they optimise for different things and the reader has to pick. The async-false corollary and the per-handler timeout sizing are ordinary engineering judgment from the same cluster. RETAGGED to COMMUNITY 2026-08-18. The evidence for this bullet is that other projects do it, not a mechanism argument we made: strip the observed practice and nothing supports it. That is what [COMMUNITY] means in SKILL.md, and [ENGINEERING] means engineering judgment. Of the 63 SRC_EXTINDEX_SURVEY claims tagged ENGINEERING, only this one and the resume-exclusion bullet rest on practice this way; the rest justify by mechanism or by measurement done here, so the source field records where the LEAD came from while the tag records how the claim is justified to the reader."
+      "to": "Added 2026-08-22. Resolves a contradiction INSIDE this library: this file derived the stored-offset technique from the transcript being append-only, while sessions.md documents performCompactTranscript renaming a shorter file over the same path. Mechanism read from the installed binary by the ccxe project."
     },
     {
-      "id": "CLM-permissions-100",
-      "key": "tags",
-      "to": [
-        "ENGINEERING"
-      ]
-    },
-    {
-      "id": "CLM-permissions-100",
+      "id": "CLM-statusline-071",
       "key": "note",
-      "to": "Quoted from the live fetch of 2026-08-05; the quoted fragment appears verbatim on the page. TAGS CORRECTED 2026-08-19. The ledger recorded [\"OFFICIAL\",\"ENGINEERING\"] while the line carries only [ENGINEERING]: this is the single line in the library with a tag written inside backticks AND real tags outside, and the prose says that OFFICIAL tag was withdrawn as wrong. The extractor change of 2026-08-19 correctly stopped reading the backticked mention, but the ledger was never resynced, so the provenance record asserted official documentation for the one claim whose own sentence retracts it. Invisible by mechanism: verify-evidence diffed file, line and text only, and attrib-check compares two ledgers so the unchanged value matched itself. Found by independent review; verify-evidence now compares tags and versions."
+      "to": "Added 2026-08-22 from ccxe tools/statusline.mjs, whose capture wrapper reports a failed write to stderr precisely because Claude Code discards it, so the line still prints. Observed on the installed build."
+    },
+    {
+      "id": "CLM-statusline-072",
+      "key": "note",
+      "to": "Added 2026-08-22 from ccxe tools/statusline.mjs, which keeps the received payload byte-faithful and puts its own receive timestamp beside it, and asserts both properties in its self-test, including that unknown future fields survive capture."
+    },
+    {
+      "id": "CLM-testing-028",
+      "key": "note",
+      "to": "Added 2026-08-22 from ccxe tools/statusline.mjs, where an earlier version called require(\"node:fs\") inside an ES module; the ReferenceError was swallowed by an empty catch, the fixture was never cleaned, and the test passed on a clean directory and failed on every rerun."
+    },
+    {
+      "id": "CLM-testing-125",
+      "key": "note",
+      "to": "Added 2026-08-22. Uniform convention across six ccxe files in three languages, each carrying a --self-test that runs with Claude Code absent, which is what let them be verified on a machine with neither the harness nor the CLI installed."
+    },
+    {
+      "id": "CLM-testing-126",
+      "key": "note",
+      "to": "Added 2026-08-22 from ccxe tools/pty-control-arm.py and dashcheck2.py, which exit 0 if the status line ran, 1 if it did not, and 2 if the arm could not run. Deliberately distinguished from the grading rule in this same file, which is about a grader that cannot tell rather than a probe that cannot run."
+    },
+    {
+      "id": "CLM-testing-127",
+      "key": "note",
+      "to": "Added 2026-08-22 from ccxe tools/dashcheck2.py, whose header records that an earlier version hardcoded lines 180 and 181 and would have kept reporting CLEAN against whatever landed on those lines. The same defect recurred three times while writing this very harvest."
     }
   ]
 }
