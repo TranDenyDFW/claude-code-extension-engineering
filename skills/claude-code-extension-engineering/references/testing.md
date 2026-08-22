@@ -24,6 +24,32 @@ How to prove an extension works. Run the task WITHOUT the extension first and re
 - Guard-the-guard: enforcement code must not be able to break the tool it protects.
 - Integration: mechanisms tested together, not only alone. Parts that pass in isolation routinely fail in combination.
 
+## A test that writes where production writes destroys the evidence it was meant to produce
+
+An extension under test usually writes somewhere: a capture file, a log, an append-only sidecar. If
+the test writes to that same path, its rows become indistinguishable from real ones, and the file
+then reads as proof that the mechanism is live. This is worse than no evidence, because the file
+looks like evidence and is checked instead of the thing itself.
+
+- Give the writer a path override and make every test set it, so a test row cannot land in the
+  production file by default. A path passed explicitly is a decision; a path defaulted to is an
+  accident waiting for the first hurried run  [ENGINEERING]
+- STAMP the synthetic rows at write time rather than telling them apart later. A row written through
+  the override carries `probe: true` forever; a heuristic applied afterwards ("this session id looks
+  fake") has to be re-derived by every reader and gets it wrong once  [ENGINEERING]
+- Ship a one-command report that counts genuine, probe and UNCLASSIFIABLE rows separately, and make
+  it refuse to guess. Rows written before the stamp existed are not genuine and not probes; a report
+  that folds them into either number is the same failure again, one level up  [ENGINEERING]
+- Beware the synthetic row that carries real identifiers. A test that replays a captured payload,
+  or that hand-builds one using the live session id and real token counts, produces rows that pass
+  every plausibility check. The tell is timing and variance: a debounced UI writes rows that DIFFER,
+  while a replay writes N identical rows inside a second  [ENGINEERING]
+- Absence of genuine rows is not a finding on its own. Before concluding "the host never invoked
+  it", exclude the gates that produce the same silence: the entrypoint, workspace trust, whether the
+  settings file was even loaded, and whether the command can spawn at all. A negative needs a paired
+  POSITIVE control, one run where the mechanism did fire, or it is just a file that is empty
+  [ENGINEERING]
+
 ## Regression strategy
 
 - Every baseline failure and every pressure failure becomes a permanent eval case. Fixed once means tested forever.
