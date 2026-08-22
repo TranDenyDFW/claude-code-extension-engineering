@@ -570,14 +570,18 @@ jobs:
           V="${{ steps.verified.outputs.version }}"
           L="${{ steps.latest.outputs.version }}"
           TODAY=$(date -u +%Y-%m-%d)
+          # The date goes in the MESSAGE, not only in the json body. The color does not decay
+          # with age, so when this job died on 2026-08-12 the badge kept rendering a plausible
+          # orange against ten-day-old data and nothing on the page said so. A monitor whose own
+          # death is indistinguishable from a healthy reading is not a monitor.
           if [ "$V" = "$L" ]; then
             STATE=verified
             COLOR=brightgreen
-            MSG="verified against $V"
+            MSG="verified against $V ($TODAY)"
           else
             STATE=stale
             COLOR=orange
-            MSG="$L released after last verification ($V)"
+            MSG="$L released after last verification ($V), checked $TODAY"
           fi
           printf '{"schemaVersion":1,"label":"claude code","message":"%s","color":"%s","state":"%s","verified":"%s","latest":"%s","checked":"%s"}\n' \
             "$MSG" "$COLOR" "$STATE" "$V" "$L" "$TODAY" > evidence/status.json

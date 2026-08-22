@@ -1,6 +1,6 @@
 # claude-code-extension-engineering
 
-![freshness](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FTranDenyDFW%2Fclaude-code-extension-engineering%2Fmain%2Fevidence%2Fstatus.json)
+![freshness](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FTranDenyDFW%2Fclaude-code-extension-engineering%2Fbot%2Ffreshness-status%2Fevidence%2Fstatus.json)
 
 Decide which Claude Code extension mechanism should own a behaviour before you build it,
 find out which of your existing extensions are silently broken right now, and prove the one
