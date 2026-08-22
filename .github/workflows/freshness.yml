@@ -152,6 +152,8 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+          # attrib-check --baseline HEAD~1 below needs a parent commit to exist.
+          fetch-depth: 2
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -362,6 +364,13 @@ jobs:
           node tools/claim-drift.mjs
           node tools/claim-drift.mjs --self-test
           node tools/attrib-check.mjs --self-test
+          # The DECLARATION itself was ungated until now: CI ran --self-test and --prove-fail
+          # but never the plain check against a real baseline, so a wrong or superseded
+          # evidence/attrib-expected.json passed every green run. The DEFAULT baseline is main,
+          # which on the commit under test resolves to HEAD, so the gate compared the ledger
+          # against itself and could not fail. A reported "0 genuinely new" is the tell.
+          # HEAD~1 is a real baseline and needs fetch-depth 2, set on this checkout above.
+          node tools/attrib-check.mjs --baseline HEAD~1
           # --baseline HEAD, NOT the default main. actions/checkout above sets no
           # fetch-depth, so it clones depth 1 and `git rev-parse main` does not resolve
           # on a runner. HEAD always does. This proves the gate BITES; comparing against

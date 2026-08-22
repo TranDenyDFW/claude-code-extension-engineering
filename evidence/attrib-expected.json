@@ -1,51 +1,11 @@
 {
-  "baseline": "a94c756b87b0d99b4a042a245cb88715ab62b455",
-  "why": "Per-claim notes added to the ten patterns harvested from the ccxe project. The SUBSTANCE of each claim is unchanged; what changes is that each now records what was observed and where, which all 22 pre-existing LOCAL_ENV claims already did and these did not. An independent review found the omission. Ids here are BASELINE ids, per the contract in tools/attrib-check.mjs.",
+  "baseline": "edc84ecec2aa43b56d9e3c7d01b65236c284f1d6",
+  "why": "One note corrected. CLM-testing-135 claimed the --self-test convention spanned six ccxe files in three languages. Counted from the source it is NINE files, eight JavaScript and one Python. The number came from a summary rather than from the files, and note is read by no gate, so an independent review is what caught it. Ids are BASELINE ids, per the contract in tools/attrib-check.mjs.",
   "changes": [
     {
-      "id": "CLM-hooks-075",
+      "id": "CLM-testing-135",
       "key": "note",
-      "to": "Added 2026-08-22 from a live compaction-capture hook (ccxe hooks/compact-hook.mjs), whose own comment records the reason: a compaction it could not record is a gap, and a gap with no explanation is indistinguishable from a compaction that never happened."
-    },
-    {
-      "id": "CLM-hooks-038",
-      "key": "note",
-      "to": "Added 2026-08-22. Observed twice in the ccxe tools: importing harvest.mjs for its exports started a full harvest, and importing segments.mjs exited the host process. Both were hit by a reviewer trying to reuse exported functions, and the workaround was monkey-patching process.exit for the duration of the import."
-    },
-    {
-      "id": "CLM-hooks-238",
-      "key": "note",
-      "to": "Added 2026-08-22. Resolves a contradiction INSIDE this library: this file derived the stored-offset technique from the transcript being append-only, while sessions.md documents performCompactTranscript renaming a shorter file over the same path. Mechanism read from the installed binary by the ccxe project."
-    },
-    {
-      "id": "CLM-statusline-071",
-      "key": "note",
-      "to": "Added 2026-08-22 from ccxe tools/statusline.mjs, whose capture wrapper reports a failed write to stderr precisely because Claude Code discards it, so the line still prints. Observed on the installed build."
-    },
-    {
-      "id": "CLM-statusline-072",
-      "key": "note",
-      "to": "Added 2026-08-22 from ccxe tools/statusline.mjs, which keeps the received payload byte-faithful and puts its own receive timestamp beside it, and asserts both properties in its self-test, including that unknown future fields survive capture."
-    },
-    {
-      "id": "CLM-testing-028",
-      "key": "note",
-      "to": "Added 2026-08-22 from ccxe tools/statusline.mjs, where an earlier version called require(\"node:fs\") inside an ES module; the ReferenceError was swallowed by an empty catch, the fixture was never cleaned, and the test passed on a clean directory and failed on every rerun."
-    },
-    {
-      "id": "CLM-testing-125",
-      "key": "note",
-      "to": "Added 2026-08-22. Uniform convention across six ccxe files in three languages, each carrying a --self-test that runs with Claude Code absent, which is what let them be verified on a machine with neither the harness nor the CLI installed."
-    },
-    {
-      "id": "CLM-testing-126",
-      "key": "note",
-      "to": "Added 2026-08-22 from ccxe tools/pty-control-arm.py and dashcheck2.py, which exit 0 if the status line ran, 1 if it did not, and 2 if the arm could not run. Deliberately distinguished from the grading rule in this same file, which is about a grader that cannot tell rather than a probe that cannot run."
-    },
-    {
-      "id": "CLM-testing-127",
-      "key": "note",
-      "to": "Added 2026-08-22 from ccxe tools/dashcheck2.py, whose header records that an earlier version hardcoded lines 180 and 181 and would have kept reporting CLEAN against whatever landed on those lines. The same defect recurred three times while writing this very harvest."
+      "to": "Added 2026-08-22. Uniform convention across NINE ccxe files, eight JavaScript and one Python, counted directly from the source rather than taken from a summary, each carrying a --self-test that runs with Claude Code absent, which is what let them be verified on a machine with neither the harness nor the CLI installed."
     }
   ]
 }
