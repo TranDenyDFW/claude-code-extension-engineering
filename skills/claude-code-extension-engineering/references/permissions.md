@@ -1,6 +1,6 @@
 # Permission rules
 
-> Claude Code 2.1.233. What that means here: this file carries FOURTEEN verbatim quotes and
+> Claude Code 2.1.239. What that means here: this file carries FOURTEEN verbatim quotes and
 > `tools/quote-check.mjs` confirms they still appear upstream. Per-claim provenance lives in
 > `evidence/claims.jsonl`, where the gates read it; nothing else is asserted here.
 

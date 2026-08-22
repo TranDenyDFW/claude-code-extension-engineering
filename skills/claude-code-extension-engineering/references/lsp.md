@@ -1,6 +1,6 @@
 # LSP / code intelligence
 
-> Claude Code 2.1.233. What that means here: this file carries NO verbatim quotes, so the quote gate
+> Claude Code 2.1.239. What that means here: this file carries NO verbatim quotes, so the quote gate
 > says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
 > it; nothing else is asserted here.
 

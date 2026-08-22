@@ -5,7 +5,7 @@ names a file and line where it applies so it can be checked rather than taken on
 Resolved items keep their entry, struck through, so the history stays auditable.
 
 Last reviewed 2026-08-13 against Claude Code 2.1.229.
-`evidence/VERIFIED_VERSION` now records 2.1.233, the build the benchmark host runs. The content
+`evidence/VERIFIED_VERSION` now records 2.1.239, the build the benchmark host runs. The content
 review above has NOT been repeated on it, so the verified build is ahead of the last content pass.
 The 2026-08-05 pass reconciled items 20 to 23, 25 and 27 against their own artifacts and
 re-ran their gates; the 2026-08-06 pass added items 31 to 36 and closed the Bash-recognition
