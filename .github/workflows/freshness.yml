@@ -91,6 +91,14 @@ jobs:
         run: node tools/version-consistency.mjs || [ $? -eq 2 ]
 
       - name: Prove the version gate can fail
+        # shell: bash is REQUIRED, and for a reason beyond the sibling step above.
+        # This is a MULTI-LINE run block in the only matrix job. The Windows leg
+        # defaults to pwsh, whose wrapper ends by exiting with LASTEXITCODE, so only
+        # the LAST command status reaches Actions. Measured locally: a node one-liner
+        # exiting 1, followed by one exiting 0, leaves LASTEXITCODE at 0. A --self-test
+        # failure here would have been swallowed and the step reported green, which is
+        # the self-certifying gate this repo exists to refuse.
+        shell: bash
         run: |
           node tools/version-consistency.mjs --self-test
           node tools/version-consistency.mjs --prove-fail
@@ -106,6 +114,14 @@ jobs:
         run: node tools/description-copy-check.mjs
 
       - name: Prove the description-copy gate can fail
+        # shell: bash is REQUIRED, and for a reason beyond the sibling step above.
+        # This is a MULTI-LINE run block in the only matrix job. The Windows leg
+        # defaults to pwsh, whose wrapper ends by exiting with LASTEXITCODE, so only
+        # the LAST command status reaches Actions. Measured locally: a node one-liner
+        # exiting 1, followed by one exiting 0, leaves LASTEXITCODE at 0. A --self-test
+        # failure here would have been swallowed and the step reported green, which is
+        # the self-certifying gate this repo exists to refuse.
+        shell: bash
         run: |
           node tools/description-copy-check.mjs --self-test
           node tools/description-copy-check.mjs --prove-fail
