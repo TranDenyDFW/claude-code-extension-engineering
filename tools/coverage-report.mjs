@@ -146,13 +146,17 @@ if (process.argv.includes('--prove-can-fail')) {
          all eleven gates still green, meaning nothing stopped the fix being silently undone. The
          first mutant here mutates a value ALREADY wrapped in the source; the second introduces a
          wrap around one that is not. A per-line scan catches neither. */
+      /* Anchored by SHAPE, not by the value. These two previously pinned 380 and 395; commit
+         b98689f moved the prose to 381 and 396 and both mutants silently became no-ops, so
+         prove-can-fail reported GATE CANNOT FAIL and cli-contract failed with it. A mutant does
+         not need to know the right number, only to corrupt whatever number is present. */
       { n: 'MUST FAIL: a FACTS value that is wrong and already hard-wrapped', f: 'docs/RESULTS.md',
-        from: 'confirms all\n380 positive assertions',
-        to: 'confirms all\n999 positive assertions',
+        rx: /confirms all\n(\d+) positive assertions/,
+        sub: 'confirms all\n999 positive assertions',
         want: /positive assertions: doc says 999/ },
       { n: 'MUST FAIL: a FACTS value made wrong AND newly wrapped', f: 'docs/RESULTS.md',
-        from: '**395 questions (set v2)',
-        to: '**999\nquestions (set v2)',
+        rx: /\*\*(\d+) questions \(set v2\)/,
+        sub: '**999\nquestions (set v2)',
         want: /doc says 999/ },
       { n: 'MUST FAIL: the retired total split across a hard wrap', f: 'docs/RESULTS.md',
         from: '**10 of 10 defects caught versus 2 of 10**',
@@ -192,8 +196,21 @@ if (process.argv.includes('--prove-can-fail')) {
          that spans a hard wrap has to match \r\n, which would then break on any file that is LF.
          Normalising lets a mutant carry the wrap in its anchor and stay agnostic to the ending. */
       const orig = origRaw.replace(/\r\n/g, '\n');
-      if (!orig.includes(m.from)) { check(m.n, false, 'anchor not found, the mutant would be a no-op'); continue; }
-      wf(fp, orig.replace(m.from, m.to));
+      let mutated = null;
+      if (m.rx) {
+        const hit = orig.match(m.rx);
+        /* A regex mutant must still refuse to be a no-op: the captured value has to differ from
+           the one being substituted in, or the file would come back unchanged and the check would
+           pass for the wrong reason. */
+        if (!hit) { check(m.n, false, 'anchor pattern matched nothing, the mutant would be a no-op'); continue; }
+        if (hit[1] === '999') { check(m.n, false, 'live value is already 999, the mutant would be a no-op'); continue; }
+        mutated = orig.replace(m.rx, m.sub);
+      } else {
+        if (!orig.includes(m.from)) { check(m.n, false, 'anchor not found, the mutant would be a no-op'); continue; }
+        mutated = orig.replace(m.from, m.to);
+      }
+      if (mutated === orig) { check(m.n, false, 'mutation left the file unchanged'); continue; }
+      wf(fp, mutated);
       const r = run({ COVERAGE_DOC_ROOT: DOCS });
       check(m.n, r.status !== 0 && m.want.test(String(r.stdout)), 'exit ' + r.status);
       wf(fp, orig);
