@@ -1,8 +1,9 @@
 # Sessions, transcripts and rewind
 
-> Claude Code 2.1.233. What that means here: this file carries NO verbatim quotes, so the quote gate
-> says nothing about it. Per-claim provenance lives in `evidence/claims.jsonl`, where the gates read
-> it; nothing else is asserted here.
+> Claude Code 2.1.229, verified 2026-08-13. What that means here: every claim below was checked
+> against live fetches of the Manage sessions and Checkpointing pages on that date, not against the
+> docs mirror, because this file is new and had no prior verification to inherit. It carries NO
+> verbatim quotes, so the quote gate says nothing about it.
 
 
 What survives when a session ends, what a resumed session carries back, and what `/rewind` can and
@@ -43,7 +44,8 @@ silently. This is the first thing to check when a settings key "does nothing".
 - `claude project purge [path]` deletes the state Claude Code holds for ONE project: transcripts and auto memory under `projects/`, the per-session `tasks/`, `debug/` and `file-history/` entries, the matching prompt lines in `history.jsonl`, and that project's entry in `~/.claude.json`. It prints the full deletion plan and asks for confirmation before removing anything [OFFICIAL]
 - It takes `--dry-run` to preview the plan and `-y`/`--yes` to skip confirmation. OMITTING THE PATH opens an interactive picker of projects, `-i` steps through the deletion plan one item at a time, and `--all` purges every project, which deletes `history.jsonl` outright rather than filtering it. A path matching no state prints an error and exits 1, rather than reporting a successful deletion of nothing [OFFICIAL]
 - **It is PROJECT scoped, and no command deletes ONE session.** Read the granularity of the ask first. For a whole project prefer `purge`, because the state is spread across five locations and a manual sweep reliably leaves the `~/.claude.json` entry and the `history.jsonl` prompt lines behind, so the transcripts are gone while the prompts that produced them are not. For a single session the only route is deleting its own `~/.claude/projects/<project>/<session-id>.jsonl`, which the docs list among the application-data paths you may remove by hand, and the same residue is then yours to sweep  [ENGINEERING]
-- **`Ctrl+X` twice, or `claude rm`, removes a session's ROW from the list it is shown in, not the session.** Removing that ROW leaves everything behind; the conversation transcript always stays on the machine and is still reachable through `claude --resume`, and deleted sessions still appear in the `/resume` picker. Anyone who wanted the record GONE has not got what they think they have  [OFFICIAL]
+- **A session deleted in agent view is not deleted.** `Ctrl+X` twice, or `claude rm`, removes the ROW; the conversation transcript always stays on the machine and is still reachable through `claude --resume`, and deleted sessions still appear in the `/resume` picker. Anyone who wanted the record GONE has not got what they think they have  [OFFICIAL]
+- What that sentence guarantees is PRESENCE, not COMPLETENESS. A transcript can be rewritten in place while staying exactly where it was: `performCompactTranscript` writes a sibling `<file>.compact.tmp.<hex>`, renames it over the original, and on failure unlinks the TEMP rather than the transcript, so the file survives with fewer entries in it. The backstop that triggers this is gated on a `localGcEnabled` flag whose declared default is false, so it is off unless something turns it on. Read as durability the sentence holds; read as a guarantee that every entry you saw is still in there, it does not  [ENGINEERING] [v2.1.237]
 
 ## What a resumed session restores
 

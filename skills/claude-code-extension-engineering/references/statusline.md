@@ -27,6 +27,10 @@ of question no other mechanism does: the user can see the state but cannot get a
 ## When the script runs
 
 - It runs once when a session starts, INCLUDING when the session is resumed, then again on session events, and on the `refreshInterval` timer if one is set. [OFFICIAL]
+- Read that as scoped to the INTERACTIVE TUI entrypoint. Claude Code decides interactivity from argv plus the terminal: `-p`/`--print`, `--init-only`, any `--sdk-url`, OR `!process.stdout.isTTY` each make the session non-interactive, and a non-interactive session never mounts the prompt screen. The status line is a component inside that screen, so on a non-TTY entrypoint a configured `statusLine` is not run at all rather than run and discarded  [ENGINEERING] [v2.1.237]
+- The `!process.stdout.isTTY` clause is the one that catches people, because it fires with no flag present. A host that pipes stdio, for example a desktop or IDE shell driving the CLI over `--input-format stream-json --output-format stream-json`, is non-interactive by that clause alone, and its users never see a status line they correctly configured  [ENGINEERING] [v2.1.237]
+- Hooks are the contrast that makes the boundary usable: they are process level, not TUI, so `PreCompact`, `PostCompact` and the rest fire on every entrypoint. If something must observe a lifecycle point on a piped-stdio host, it is a hook; the status line cannot cover for it  [ENGINEERING]
+- Diagnose a silent status line in this order: is the entrypoint interactive, THEN is the workspace trusted, THEN is the command itself failing. The trust gate and the entrypoint gate produce an identical silence, and only one of them is fixed by accepting a dialog  [ENGINEERING]
 - Updates are debounced at 300ms so rapid changes batch and the script runs once after they stop, which means a script assuming one run per event will undercount. [OFFICIAL]
 - The event-driven triggers go quiet while the main session is idle, for example while a coordinator waits on background subagents, so a display that must keep moving needs `refreshInterval` rather than events. [OFFICIAL]
 
