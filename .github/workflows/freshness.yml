@@ -397,7 +397,27 @@ jobs:
         # a paraphrase and an uppercased word, each presented inside quotation
         # marks as if verbatim.
         run: |
-          node tools/quote-check.mjs --self-test
+          # --self-test grew a row that needs the docs mirror, so on a runner it prints
+          # "COULD NOT CHECK ... SELF-TEST INCOMPLETE" and exits 2. This step had no
+          # allowance for that and went red the moment the row landed, on a job that was
+          # green immediately before.
+          #
+          # Same shape as capability-catalog --prove-fail above, and for the same reason:
+          # NOT a bare tolerance. Exit 2 from this tool can also mean a genuinely missing
+          # artifact, and swallowing that would hide it behind a rule written for a missing
+          # mirror. The output has to SAY it was the mirror.
+          set +e
+          out="$(node tools/quote-check.mjs --self-test 2>&1)"; rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ]; then
+            if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'needs the docs mirror, which is not present'; then
+              echo "accepted: the docs mirror is not present on a runner, and the tool said so rather than claiming a complete self-test"
+            else
+              echo "REFUSING to accept exit $rc from --self-test; this is not the mirror case"
+              exit "$rc"
+            fi
+          fi
           node tools/quote-check.mjs || [ $? -eq 2 ]
       - name: Tier 3 key quality
         # Key defects used to be found by graders AFTER a run and filed as

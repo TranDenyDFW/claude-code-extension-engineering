@@ -22,9 +22,7 @@
     "files": [
       "skills/claude-code-extension-engineering/references/hooks.md",
       "tests/questions.jsonl",
-      ".md/20260817-stop-guard_verify.md",
-      "P:/ClaudeExt/QuestionExtension/lib/transcript.mjs",
-      "P:/ClaudeExt/QuestionExtension/.md/ADOPTION-PLAN.md"
+      ".md/20260817-stop-guard_verify.md"
     ]
   }
 ]
