@@ -215,7 +215,7 @@ untested claim.
 Claims are tagged by evidence: `[OFFICIAL]` and untagged both mean official documentation,
 `[ANTHROPIC]` is an Anthropic recommendation, `[ENGINEERING]` is engineering judgment,
 `[COMMUNITY]` is community practice. The two spellings of official are historical rather than
-a distinction: 438 claims carry the explicit tag and 25 rely on the untagged default, and this
+a distinction: 439 claims carry the explicit tag and 25 rely on the untagged default, and this
 sentence described only the default until an audit found the explicit form defined nowhere.
 Prefer `[OFFICIAL]`; untagged stays valid so the older half of the corpus is not a lie. A `[vX.Y.Z]` tag is the build the behaviour BELONGS to: the release it
 was introduced or changed in, or the minimum build it requires. Where the documentation dates

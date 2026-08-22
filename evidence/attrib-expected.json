@@ -1,11 +1,11 @@
 {
-  "baseline": "edc84ecec2aa43b56d9e3c7d01b65236c284f1d6",
-  "why": "One note corrected. CLM-testing-135 claimed the --self-test convention spanned six ccxe files in three languages. Counted from the source it is NINE files, eight JavaScript and one Python. The number came from a summary rather than from the files, and note is read by no gate, so an independent review is what caught it. Ids are BASELINE ids, per the contract in tools/attrib-check.mjs.",
+  "baseline": "c2787a8d7044be228fdc95bebba9c002c307890a",
+  "why": "Two corrections a third independent review found, neither visible to any gate. CLM-testing-136 note gave dashcheck2.py the subject of pty-control-arm.py; both carry three-state exits but about different things. The stderr status line claim was retagged from ENGINEERING/LOCAL_ENV to OFFICIAL/SRC_STATUSLINE because the official page documents it, so claiming direct observation overstated the evidence. Ids are BASELINE ids.",
   "changes": [
     {
-      "id": "CLM-testing-135",
+      "id": "CLM-testing-136",
       "key": "note",
-      "to": "Added 2026-08-22. Uniform convention across NINE ccxe files, eight JavaScript and one Python, counted directly from the source rather than taken from a summary, each carrying a --self-test that runs with Claude Code absent, which is what let them be verified on a machine with neither the harness nor the CLI installed."
+      "to": "Added 2026-08-22 from two ccxe checks with three-state exits, each about a different subject: tools/pty-control-arm.py exits 0 if the status line ran, 1 if it did not, and 2 if the arm could not run; tools/dashcheck2.py exits 0 on no banned characters, 1 on finding some, and 2 on ABORT when its anchors do not resolve or its positive control fails to fire. Corrected after a review found the first version had given dashcheck2 the other file subject."
     }
   ]
 }

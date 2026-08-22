@@ -370,10 +370,17 @@ jobs:
           # which on the commit under test resolves to HEAD, so the gate compared the ledger
           # against itself and could not fail. A reported "0 genuinely new" is the tell.
           # HEAD~1 is a real baseline and needs fetch-depth 2, set on this checkout above.
-          node tools/attrib-check.mjs --baseline HEAD~1
-          # --baseline HEAD, NOT the default main. actions/checkout above sets no
-          # fetch-depth, so it clones depth 1 and `git rev-parse main` does not resolve
-          # on a runner. HEAD always does. This proves the gate BITES; comparing against
+          # PUSH ONLY. On a pull_request this repo checks out the MERGE REF, whose parents are
+          # [base, head], so HEAD~1 is main tip rather than the previous commit and a declaration
+          # pinned to one baseline sha reads as stale and reds. On a push, HEAD~1 is deterministic.
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            node tools/attrib-check.mjs --baseline HEAD~1
+          else
+            echo "skipped on $GITHUB_EVENT_NAME: HEAD~1 is not the previous commit on a merge ref"
+          fi
+          # --baseline HEAD, NOT the default main. This job now sets fetch-depth: 2 for the
+          # declaration check below, so two commits are present and no more; main resolves on a
+          # push run but NOT on every event, and HEAD always does. This proves the gate BITES; comparing against
           # main is a local and PR-review concern, and wiring the default here would
           # produce a red meaning "shallow clone" rather than "defect".
           node tools/attrib-check.mjs --prove-fail --baseline HEAD
