@@ -112,9 +112,21 @@ const REDDENED = new Set();
 
 const before = gate();
 console.log(`  baseline gate exit: ${before.status}  (must be 0, or the experiments prove nothing)`);
+/* Exit 2 from the gate is CANNOT CHECK, not a red gate. quote-check needs the docs mirror, which
+   is not committed (copyright) and so is absent on every runner. Treating that as "already red"
+   failed this job for the one reason that is not a defect. Exit 2 propagates as exit 2 so the
+   caller can tell the two apart; a genuinely red baseline still aborts at 1. */
+if (before.status === 2) {
+  console.error('  CANNOT PROVE: the baseline gate needs the docs mirror, which is not present');
+  process.exit(2);
+}
 if (before.status !== 0) { console.error('  ABORT: gate was already red'); process.exit(1); }
 const baseSelf = selfTest();
 console.log(`  baseline self-test exit: ${baseSelf.status}  (must be 0)`);
+if (baseSelf.status === 2) {
+  console.error('  CANNOT PROVE: the baseline self-test needs the docs mirror, which is not present');
+  process.exit(2);
+}
 if (baseSelf.status !== 0) { console.error('  ABORT: self-test was already red'); process.exit(1); }
 
 let problems = 0;

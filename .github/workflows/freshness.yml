@@ -372,7 +372,22 @@ jobs:
           # runs in the "Verbatim quotes still exist upstream" step; this is the
           # must-fail half, which appends a real offending line, requires exit 1, and
           # restores the file byte for byte.
-          node tools/quote-prove-fail.mjs
+          # Its baseline is quote-check, which needs the docs mirror and exits 2 without one.
+          # quote-prove-fail now propagates that as exit 2 (cannot prove) rather than reading it
+          # as an already-red gate. Same allowance shape as the two above: exit 2 is accepted
+          # ONLY when the tool names the mirror, so any other exit 2 still fails loudly.
+          set +e
+          out="$(node tools/quote-prove-fail.mjs 2>&1)"; rc=$?
+          set -e
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ]; then
+            if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'CANNOT PROVE: the baseline .* needs the docs mirror, which is not present'; then
+              echo "accepted: the docs mirror is not present on a runner, and the tool said so rather than claiming a proof"
+            else
+              echo "REFUSING to accept exit $rc from quote-prove-fail; this is not the mirror case"
+              exit "$rc"
+            fi
+          fi
 
   # ---------------------------------------------------------------- tier3 ----
   tier3:
